@@ -1,5 +1,5 @@
 {
-  "name": "@lawai/ui",
+  "name": "@lawai/design-system",
   "version": "0.0.0",
   "exports": {
     ".": "./index.ts",

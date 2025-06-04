@@ -1,5 +1,5 @@
 {
-  "name": "@lawai/web",
+  "name": "@lawai/admin",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "eslint \"src/**/*.ts\""
   },
   "dependencies": {
-    "@lawai/ui": "workspace:*",
+    "@lawai/design-system": "workspace:*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

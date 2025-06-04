@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import "./style.css";
 import typescriptLogo from "/typescript.svg";
-import { Header, Counter } from "@lawai/ui";
+import { Header, Counter } from "@lawai/design-system";
 
 const App = () => (
   <div>
