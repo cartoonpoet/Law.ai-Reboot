@@ -2,21 +2,19 @@ import { createGlobalTheme } from '@vanilla-extract/css';
 
 export const vars = createGlobalTheme(':root', {
   colors: {
-    primary: '#007AFF',
-    secondary: '#5856D6',
+    primary: '#2151ec',
+    secondary: '#82868b',
+    success: '#28c76f',
+    danger: 'ea5455',
+    warning: '#f0af23',
+    info: '#00cfe8',
+    dark: '#4c5469',
+    light: '#9ea7b8',
+    tableHeader: '#f1f4f9',
+    body: '#f8fafc',
+
     background: '#FFFFFF',
     text: '#000000',
-    gray: {
-      100: '#F5F5F5',
-      200: '#EEEEEE',
-      300: '#E0E0E0',
-      400: '#BDBDBD',
-      500: '#9E9E9E',
-      600: '#757575',
-      700: '#616161',
-      800: '#424242',
-      900: '#212121',
-    }
   },
   space: {
     none: '0',
