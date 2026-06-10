@@ -56,11 +56,11 @@ export function ContractListPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<string | string[]>("");
   const [mine, setMine] = useState(false);
-  const data = CONTRACTS_FULL.filter(
-    (c) =>
-      (!status || (typeof status === "string" && c.status === status)) &&
-      (!mine || c.mine),
-  );
+  const matchesStatus = (c: { status: string }) => {
+    if (!status || status.length === 0) return true;
+    return Array.isArray(status) ? status.includes(c.status) : c.status === status;
+  };
+  const data = CONTRACTS_FULL.filter((c) => matchesStatus(c) && (!mine || c.mine));
 
   return (
     <div>
