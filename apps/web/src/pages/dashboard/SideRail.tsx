@@ -4,12 +4,7 @@ import { Panel } from "../../components/ui/Panel";
 import { Tag } from "../../components/ui/Tag";
 import { SCHEDULE, NOTICES } from "./mock-data";
 import type { ScheduleItem, Notice } from "./mock-data";
-
-function dday(n: number): { t: string; c: string } {
-  if (n === 0) return { t: "D-DAY", c: T.danger };
-  if (n < 0) return { t: `D+${-n}`, c: T.faint };
-  return { t: `D-${n}`, c: n <= 3 ? T.danger : n <= 7 ? T.warning : T.muted };
-}
+import { dday } from "./dday";
 
 function ScheduleRow({ item, last }: { item: ScheduleItem; last: boolean }) {
   const d = dday(item.dleft);
