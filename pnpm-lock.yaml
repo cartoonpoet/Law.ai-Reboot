@@ -26,18 +26,12 @@ importers:
       '@lawkit/ui':
         specifier: ^0.1.41
         version: 0.1.41(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@tanstack/react-query':
-        specifier: ^5.62.0
-        version: 5.101.0(react@19.2.7)
       react:
         specifier: ^19.0.0
         version: 19.2.7
       react-dom:
         specifier: ^19.0.0
         version: 19.2.7(react@19.2.7)
-      react-router-dom:
-        specifier: ^7.1.0
-        version: 7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
     devDependencies:
       '@lawai/eslint-config':
         specifier: workspace:*
@@ -268,7 +262,7 @@ importers:
         version: 7.2.2
       ts-jest:
         specifier: ^29.2.5
-        version: 29.4.11(@babel/core@7.27.4)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.27.4))(jest-util@29.7.0)(jest@29.7.0(@types/node@22.15.30))(typescript@5.5.4)
+        version: 29.4.11(@babel/core@7.29.7)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.7))(jest-util@29.7.0)(jest@29.7.0(@types/node@22.15.30))(typescript@5.5.4)
       ts-loader:
         specifier: ^9.5.1
         version: 9.6.0(typescript@5.5.4)(webpack@5.106.2)
@@ -329,7 +323,7 @@ importers:
         version: 29.7.0(@types/node@22.15.30)
       ts-jest:
         specifier: ^29.2.5
-        version: 29.4.11(@babel/core@7.29.7)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.7))(jest-util@29.7.0)(jest@29.7.0(@types/node@22.15.30))(typescript@5.5.4)
+        version: 29.4.11(@babel/core@7.27.4)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.27.4))(jest-util@29.7.0)(jest@29.7.0(@types/node@22.15.30))(typescript@5.5.4)
       ts-loader:
         specifier: ^9.5.1
         version: 9.6.0(typescript@5.5.4)(webpack@5.106.2)
