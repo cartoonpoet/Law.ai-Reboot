@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { LoginPage } from "./pages/login/LoginPage";
 import { ForgotPasswordPage } from "./pages/login/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/login/ResetPasswordPage";
 import { SignupPage } from "./pages/login/SignupPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { ContractPlaceholderPage } from "./pages/contract/ContractPlaceholderPage";
@@ -21,6 +22,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route
         element={

@@ -51,3 +51,30 @@ export function verifyOtp(req: OtpVerifyPayload): Promise<AuthResponse> {
     body: JSON.stringify(req),
   });
 }
+
+export interface PasswordResetRequestPayload {
+  email: string;
+}
+
+export function requestPasswordReset(
+  req: PasswordResetRequestPayload,
+): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>("/auth/password/reset-request", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export interface PasswordResetConfirmPayload {
+  token: string;
+  newPassword: string;
+}
+
+export function confirmPasswordReset(
+  req: PasswordResetConfirmPayload,
+): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>("/auth/password/reset-confirm", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
