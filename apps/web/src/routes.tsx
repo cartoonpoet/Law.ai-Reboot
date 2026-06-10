@@ -5,6 +5,7 @@ import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { ContractPlaceholderPage } from "./pages/contract/ContractPlaceholderPage";
 import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
+import { ContractRequestPage } from "./pages/contract/ContractRequestPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!localStorage.getItem("accessToken")) {
@@ -26,7 +27,7 @@ export function AppRoutes() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/contract/list" element={<ContractListPage />} />
-        <Route path="/contract/request" element={<ContractPlaceholderPage title="계약서 검토 요청" />} />
+        <Route path="/contract/request" element={<ContractRequestPage />} />
         <Route path="/contract/signed" element={<ContractPlaceholderPage title="체결 계약 조회" />} />
         <Route path="/contract/expire" element={<ContractPlaceholderPage title="체결계약 만료 현황" />} />
         <Route path="/contract/:id" element={<ContractDetailPage />} />
