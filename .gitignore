@@ -9,3 +9,17 @@ dist-ssr
 .cache
 server/dist
 public/dist
+
+# env
+.env.*
+!.env.example
+
+# build
+build
+
+# prisma
+**/generated
+**/*.db
+
+# misc
+Law.ai Reboot/
