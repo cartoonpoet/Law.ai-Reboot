@@ -18,6 +18,7 @@ import { T } from "../../design/tokens";
 import { LIST_FILTERS } from "./mock-data";
 import { contractRequestSchema, contractRequestDefaults } from "./request-schema";
 import type { ContractRequestForm } from "./request-schema";
+import { Eyebrow } from "../../components/ui/Eyebrow";
 
 function pickValue(v: string | string[]): string {
   return Array.isArray(v) ? (v[0] ?? "") : v;
@@ -37,23 +38,6 @@ function ErrText({ msg }: { msg?: string }) {
   return (
     <div role="alert" style={{ marginTop: 5, fontSize: 12, color: T.danger }}>
       {msg}
-    </div>
-  );
-}
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: T.faint,
-        letterSpacing: "0.07em",
-        textTransform: "uppercase",
-        marginBottom: 7,
-      }}
-    >
-      {children}
     </div>
   );
 }
@@ -89,7 +73,7 @@ export function ContractRequestPage() {
         }}
       >
         <div>
-          <Eyebrow>계약</Eyebrow>
+          <Eyebrow style={{ marginBottom: 7 }}>계약</Eyebrow>
           <h1
             style={{
               margin: 0,

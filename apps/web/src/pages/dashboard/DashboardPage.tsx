@@ -1,26 +1,11 @@
 import { Icon, Button } from "@lawkit/ui";
 import { useNavigate } from "react-router-dom";
 import { T } from "../../design/tokens";
+import { Eyebrow } from "../../components/ui/Eyebrow";
 import { PipelineStrip } from "./PipelineStrip";
 import { AiBrief } from "./AiBrief";
 import { TodoPanel } from "./TodoPanel";
 import { SideRail } from "./SideRail";
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: T.faint,
-        letterSpacing: "0.07em",
-        textTransform: "uppercase",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 export function DashboardPage() {
   const navigate = useNavigate();

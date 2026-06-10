@@ -15,23 +15,7 @@ import { T } from "../../design/tokens";
 import { Panel } from "../../components/ui/Panel";
 import { CONTRACTS_FULL, LIST_FILTERS } from "./mock-data";
 import { listColumns } from "./listColumns";
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: T.faint,
-        letterSpacing: "0.07em",
-        textTransform: "uppercase",
-        marginBottom: 7,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+import { Eyebrow } from "../../components/ui/Eyebrow";
 
 function FilterSelect({
   label,
@@ -74,7 +58,7 @@ export function ContractListPage() {
         }}
       >
         <div>
-          <Eyebrow>계약</Eyebrow>
+          <Eyebrow style={{ marginBottom: 7 }}>계약</Eyebrow>
           <h1
             style={{
               margin: 0,
