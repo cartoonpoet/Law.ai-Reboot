@@ -20,7 +20,7 @@ export function RichTextEditor({ value, onChange, ariaLabel }: RichTextEditorPro
   });
 
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) editor.commands.setContent(value, false);
+    if (editor && value !== editor.getHTML()) editor.commands.setContent(value, { emitUpdate: false });
   }, [value, editor]);
 
   if (!editor) return null;
