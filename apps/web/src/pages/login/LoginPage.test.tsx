@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -41,11 +41,13 @@ describe("LoginPage", () => {
     await userEvent.type(screen.getByPlaceholderText("비밀번호 입력"), "password123");
     await userEvent.click(screen.getByRole("button", { name: "로그인" }));
 
-    expect(loginSpy).toHaveBeenCalledWith({
-      email: "a@b.com",
-      password: "password123",
+    await waitFor(() => {
+      expect(loginSpy).toHaveBeenCalledWith({
+        email: "a@b.com",
+        password: "password123",
+      });
+      expect(localStorage.getItem("accessToken")).toBe("at");
+      expect(localStorage.getItem("refreshToken")).toBe("rt");
     });
-    expect(localStorage.getItem("accessToken")).toBe("at");
-    expect(localStorage.getItem("refreshToken")).toBe("rt");
   });
 });

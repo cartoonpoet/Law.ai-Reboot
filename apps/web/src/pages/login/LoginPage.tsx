@@ -1,9 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useState, useActionState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
 import { Icon, Button, Input, InputGroup, Checkbox, Tabs } from "@lawkit/ui";
 import { login } from "../../api/auth";
-import type { LoginRequest } from "@lawai/contracts";
 import { T } from "../../design/tokens";
 import { BrandPanel } from "./BrandPanel";
 
@@ -17,19 +15,21 @@ export function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [keep, setKeep] = useState(true);
 
-  const mutation = useMutation({
-    mutationFn: (req: LoginRequest) => login(req),
-    onSuccess: (data) => {
-      localStorage.setItem("accessToken", data.tokens.accessToken);
-      localStorage.setItem("refreshToken", data.tokens.refreshToken);
-      navigate("/");
+  const [error, submitAction, isPending] = useActionState<string | null, FormData>(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async (_prev: string | null, _formData: FormData) => {
+      try {
+        const data = await login({ email, password });
+        localStorage.setItem("accessToken", data.tokens.accessToken);
+        localStorage.setItem("refreshToken", data.tokens.refreshToken);
+        navigate("/");
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : "로그인에 실패했습니다";
+      }
     },
-  });
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    mutation.mutate({ email, password });
-  }
+    null,
+  );
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", background: T.surface }}>
@@ -130,7 +130,7 @@ export function LoginPage() {
             {method === "email" ? (
               <form
                 key="email"
-                onSubmit={onSubmit}
+                action={submitAction}
                 style={{ display: "flex", flexDirection: "column", gap: 14 }}
               >
                 <InputGroup label="이메일">
@@ -218,7 +218,7 @@ export function LoginPage() {
                   <Button
                     size="large"
                     type="submit"
-                    disabled={mutation.isPending}
+                    disabled={isPending}
                     iconRight={
                       <Icon
                         name="arrowRight"
@@ -230,17 +230,9 @@ export function LoginPage() {
                     로그인
                   </Button>
                 </div>
-                {mutation.isError && (
-                  <p
-                    role="alert"
-                    style={{
-                      margin: 0,
-                      fontSize: 13,
-                      color: T.danger,
-                      textAlign: "center",
-                    }}
-                  >
-                    {mutation.error.message}
+                {error && (
+                  <p role="alert" style={{ margin: 0, fontSize: 13, color: T.danger, textAlign: "center" }}>
+                    {error}
                   </p>
                 )}
               </form>
