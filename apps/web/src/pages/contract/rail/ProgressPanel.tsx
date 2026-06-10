@@ -2,6 +2,7 @@ import { useFormContext, useWatch } from "react-hook-form";
 import { Card, Icon, themeVars } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 import { deriveSectionStatus, requiredTotals } from "../sectionStatus";
+import type { SectionState } from "../sectionStatus";
 import * as css from "../contractRequest.css";
 
 export function ProgressPanel() {
@@ -11,7 +12,7 @@ export function ProgressPanel() {
   const { total, done } = requiredTotals(sections);
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
 
-  const renderDot = (status: string) => {
+  const renderDot = (status: SectionState) => {
     if (status === "done")
       return <span className={css.prgDot} style={{ background: themeVars.color.accentSuccess }}><Icon name="check" size="sm" style={{ width: 12, height: 12, color: themeVars.color.textHeading }} /></span>;
     if (status === "partial")

@@ -23,8 +23,8 @@ export function AiPrecheckPanel() {
         <div style={{ fontSize: 12, color: themeVars.color.textMuted, lineHeight: 1.6 }}>계약서를 첨부하면 AI가 주요 리스크 조항을 사전 점검합니다.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-          {result.risks.map((r, i) => (
-            <div key={i} className={css.drisk}>
+          {result.risks.map((r) => (
+            <div key={r.clause} className={css.drisk}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, padding: "1px 7px", borderRadius: 4, color: r.level === "high" ? themeVars.color.accentDanger : themeVars.color.accentWarning, border: `1px solid ${r.level === "high" ? themeVars.color.accentDanger : themeVars.color.accentWarning}` }}>
                   {r.level === "high" ? "고위험" : "주의"}

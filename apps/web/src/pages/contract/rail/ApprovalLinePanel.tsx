@@ -1,5 +1,5 @@
 import { useFieldArray, useFormContext } from "react-hook-form";
-import { Card, Avatar, themeVars } from "@lawkit/ui";
+import { Card, Avatar, Button, themeVars } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 
 export function ApprovalLinePanel() {
@@ -18,10 +18,9 @@ export function ApprovalLinePanel() {
             </div>
           </div>
         ))}
-        <button type="button" onClick={() => append({ name: "신규", role: "결재 · 미지정" })}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px dashed ${themeVars.color.neutralBorderStrong}`, borderRadius: 8, padding: 9, fontSize: 12.5, fontWeight: 600, color: themeVars.color.textMuted, background: "none", cursor: "pointer", fontFamily: "inherit" }}>
+        <Button type="button" variant="outline" color="secondary" size="small" onClick={() => append({ name: "신규", role: "결재 · 미지정" })}>
           + 결재자 추가
-        </button>
+        </Button>
       </div>
     </Card>
   );
