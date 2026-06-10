@@ -46,5 +46,6 @@ describe("LoginPage", () => {
       password: "password123",
     });
     expect(localStorage.getItem("accessToken")).toBe("at");
+    expect(localStorage.getItem("refreshToken")).toBe("rt");
   });
 });

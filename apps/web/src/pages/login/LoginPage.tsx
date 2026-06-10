@@ -164,16 +164,24 @@ export function LoginPage() {
                       />
                     }
                     rightIcon={
-                      <span
+                      <button
+                        type="button"
                         onClick={() => setShowPw((s) => !s)}
-                        style={{ cursor: "pointer", display: "inline-flex" }}
+                        aria-label={showPw ? "비밀번호 숨기기" : "비밀번호 보기"}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                        }}
                       >
                         <Icon
                           name={showPw ? "eyeOff" : "eye"}
                           size="sm"
                           style={{ width: 15, height: 15, color: T.faint }}
                         />
-                      </span>
+                      </button>
                     }
                   />
                 </InputGroup>
