@@ -2,8 +2,10 @@ import { NestFactory } from "@nestjs/core";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
 import { ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module";
+import { assertAuthEnv } from "./config/env.validation";
 
 async function bootstrap() {
+  assertAuthEnv();
   const port = Number(process.env.AUTH_SERVICE_PORT ?? 4001);
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
     AppModule,
