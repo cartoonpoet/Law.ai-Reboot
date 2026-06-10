@@ -224,7 +224,7 @@ export function BrandPanel() {
             letterSpacing: "0.04em",
           }}
         >
-          BETA
+          REBOOT
         </div>
       </div>
 

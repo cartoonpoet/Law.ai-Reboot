@@ -17,5 +17,22 @@ services:
       timeout: 5s
       retries: 10
 
+  # DB가 준비되면 user-service Prisma 스키마를 한 번에 반영하는 원샷 컨테이너.
+  # 커밋된 마이그레이션 파일이 없어 로컬 편의용으로 `prisma db push`를 사용한다
+  # (URL의 ?schema=users 에 따라 users 스키마와 테이블을 자동 생성).
+  db-migrate:
+    image: node:20-alpine
+    container_name: lawai-db-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://lawai:lawai_local_pw@postgres:5432/lawai?schema=users"
+    volumes:
+      - ./services/user-service/prisma:/prisma:ro
+    command: >
+      sh -c "npx --yes prisma@6 db push --schema=/prisma/schema.prisma --skip-generate"
+    restart: "no"
+
 volumes:
   lawai_pgdata:
