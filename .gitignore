@@ -23,3 +23,6 @@ build
 
 # misc
 Law.ai Reboot/
+
+# MCP 설정 (ERDIFY_API_KEY 등 비밀값 포함 — 커밋 금지)
+.mcp.json
