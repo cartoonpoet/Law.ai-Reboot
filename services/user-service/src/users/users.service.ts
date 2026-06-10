@@ -1,4 +1,6 @@
 import { Injectable } from "@nestjs/common";
+import { RpcException } from "@nestjs/microservices";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import type {
   CreateUserRequest,
@@ -12,14 +14,27 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(req: CreateUserRequest): Promise<UserWithHash> {
-    const user = await this.prisma.user.create({
-      data: {
-        email: req.email,
-        name: req.name,
-        passwordHash: req.passwordHash,
-      },
-    });
-    return this.toWithHash(user);
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: req.email,
+          name: req.name,
+          passwordHash: req.passwordHash,
+        },
+      });
+      return this.toWithHash(user);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new RpcException({
+          status: 409,
+          message: "이미 가입된 이메일입니다",
+        });
+      }
+      throw error;
+    }
   }
 
   async findByEmail(

@@ -1,6 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { UsersService } from "./users.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { RpcException } from "@nestjs/microservices";
+import { Prisma } from "@prisma/client";
 
 describe("UsersService", () => {
   let service: UsersService;
@@ -61,5 +63,17 @@ describe("UsersService", () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     const result = await service.findByEmail({ email: "x@y.com" });
     expect(result).toBeNull();
+  });
+
+  it("create는 중복 이메일(P2002)이면 409 RpcException을 던진다", async () => {
+    prismaMock.user.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "6.0.0",
+      }),
+    );
+    await expect(
+      service.create({ email: "a@b.com", name: "A", passwordHash: "h" }),
+    ).rejects.toBeInstanceOf(RpcException);
   });
 });
