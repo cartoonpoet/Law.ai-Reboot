@@ -2,10 +2,15 @@ export const AUTH_PATTERNS = {
   SIGNUP: "auth.signup",
   LOGIN: "auth.login",
   VALIDATE: "auth.validate",
+  PASSWORD_RESET_REQUEST: "auth.password.resetRequest",
+  PASSWORD_RESET_CONFIRM: "auth.password.resetConfirm",
 } as const;
 
 export const USER_PATTERNS = {
   CREATE: "user.create",
   FIND_BY_EMAIL: "user.findByEmail",
   FIND_BY_ID: "user.findById",
+  CREATE_RESET_TOKEN: "user.resetToken.create",
+  CONSUME_RESET_TOKEN: "user.resetToken.consume",
+  UPDATE_PASSWORD: "user.updatePassword",
 } as const;

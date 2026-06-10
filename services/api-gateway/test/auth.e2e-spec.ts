@@ -19,6 +19,12 @@ describe("api-gateway (e2e)", () => {
       if (pattern === AUTH_PATTERNS.VALIDATE) {
         return of({ sub: "u1", email: "a@b.com" });
       }
+      if (
+        pattern === AUTH_PATTERNS.PASSWORD_RESET_REQUEST ||
+        pattern === AUTH_PATTERNS.PASSWORD_RESET_CONFIRM
+      ) {
+        return of({ ok: true });
+      }
       return of(null);
     }),
   };
@@ -72,6 +78,40 @@ describe("api-gateway (e2e)", () => {
     return request(app.getHttpServer())
       .post("/auth/signup")
       .send({ email: "not-email", name: "A", password: "short" })
+      .expect(400);
+  });
+
+  it("POST /auth/password/reset-request → 200, { ok: true }", () => {
+    return request(app.getHttpServer())
+      .post("/auth/password/reset-request")
+      .send({ email: "a@b.com" })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.ok).toBe(true);
+      });
+  });
+
+  it("POST /auth/password/reset-request → 이메일 형식 아니면 400", () => {
+    return request(app.getHttpServer())
+      .post("/auth/password/reset-request")
+      .send({ email: "nope" })
+      .expect(400);
+  });
+
+  it("POST /auth/password/reset-confirm → 200, { ok: true }", () => {
+    return request(app.getHttpServer())
+      .post("/auth/password/reset-confirm")
+      .send({ token: "raw-token", newPassword: "newpassword123" })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.ok).toBe(true);
+      });
+  });
+
+  it("POST /auth/password/reset-confirm → 짧은 비밀번호는 400", () => {
+    return request(app.getHttpServer())
+      .post("/auth/password/reset-confirm")
+      .send({ token: "raw-token", newPassword: "short" })
       .expect(400);
   });
 

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { ClientProxy, RpcException } from "@nestjs/microservices";
 import { JwtService, type JwtSignOptions } from "@nestjs/jwt";
+import { randomBytes, createHash } from "node:crypto";
 import { firstValueFrom } from "rxjs";
 import {
   USER_PATTERNS,
@@ -11,8 +12,13 @@ import {
   type AuthTokens,
   type UserWithHash,
   type JwtPayload,
+  type PasswordResetRequestRequest,
+  type PasswordResetConfirmRequest,
+  type PasswordResetResult,
+  type ConsumeResetTokenResult,
 } from "@lawai/contracts";
 import { PasswordService } from "./password.service";
+import { MailService } from "./mail.service";
 
 interface AuthResult {
   user: PublicUser;
@@ -25,7 +31,70 @@ export class AuthService {
     @Inject("USER_CLIENT") private readonly userClient: ClientProxy,
     private readonly passwords: PasswordService,
     private readonly jwt: JwtService,
+    private readonly mail: MailService,
   ) {}
+
+  // 조회 가능하도록 재설정 토큰은 SHA-256으로 해시해 저장한다(argon2는 솔트로 조회 불가).
+  private hashResetToken(raw: string): string {
+    return createHash("sha256").update(raw).digest("hex");
+  }
+
+  async requestPasswordReset(
+    req: PasswordResetRequestRequest,
+  ): Promise<PasswordResetResult> {
+    const user = await firstValueFrom(
+      this.userClient.send<UserWithHash | null>(USER_PATTERNS.FIND_BY_EMAIL, {
+        email: req.email,
+      }),
+    );
+
+    // 이메일 존재 여부를 노출하지 않기 위해, 사용자가 있을 때만 토큰을 만들고
+    // 응답은 항상 동일하게 성공으로 반환한다.
+    if (user) {
+      const rawToken = randomBytes(32).toString("hex");
+      const ttlMin = Number(process.env.PASSWORD_RESET_TTL_MIN ?? 30);
+      const expiresAt = new Date(Date.now() + ttlMin * 60_000).toISOString();
+      await firstValueFrom(
+        this.userClient.send(USER_PATTERNS.CREATE_RESET_TOKEN, {
+          userId: user.id,
+          tokenHash: this.hashResetToken(rawToken),
+          expiresAt,
+        }),
+      );
+      const webUrl = process.env.APP_WEB_URL ?? "http://localhost:5173";
+      this.mail.sendPasswordResetLink(
+        user.email,
+        `${webUrl}/reset-password?token=${rawToken}`,
+      );
+    }
+
+    return { ok: true };
+  }
+
+  async confirmPasswordReset(
+    req: PasswordResetConfirmRequest,
+  ): Promise<PasswordResetResult> {
+    const consumed = await firstValueFrom(
+      this.userClient.send<ConsumeResetTokenResult | null>(
+        USER_PATTERNS.CONSUME_RESET_TOKEN,
+        { tokenHash: this.hashResetToken(req.token) },
+      ),
+    );
+    if (!consumed) {
+      throw new RpcException({
+        status: 400,
+        message: "유효하지 않거나 만료된 재설정 링크입니다",
+      });
+    }
+    const passwordHash = await this.passwords.hash(req.newPassword);
+    await firstValueFrom(
+      this.userClient.send(USER_PATTERNS.UPDATE_PASSWORD, {
+        userId: consumed.userId,
+        passwordHash,
+      }),
+    );
+    return { ok: true };
+  }
 
   async signup(req: SignupRequest): Promise<AuthResult> {
     const passwordHash = await this.passwords.hash(req.password);

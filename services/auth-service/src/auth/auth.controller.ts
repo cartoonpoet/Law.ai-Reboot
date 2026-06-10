@@ -5,6 +5,8 @@ import {
   type SignupRequest,
   type LoginRequest,
   type ValidateTokenRequest,
+  type PasswordResetRequestRequest,
+  type PasswordResetConfirmRequest,
 } from "@lawai/contracts";
 import { AuthService } from "./auth.service";
 
@@ -25,5 +27,15 @@ export class AuthController {
   @MessagePattern(AUTH_PATTERNS.VALIDATE)
   validate(@Payload() req: ValidateTokenRequest) {
     return this.auth.validate(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.PASSWORD_RESET_REQUEST)
+  requestPasswordReset(@Payload() req: PasswordResetRequestRequest) {
+    return this.auth.requestPasswordReset(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.PASSWORD_RESET_CONFIRM)
+  confirmPasswordReset(@Payload() req: PasswordResetConfirmRequest) {
+    return this.auth.confirmPasswordReset(req);
   }
 }
