@@ -13,40 +13,40 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [method, setMethod] = useState<LoginMethod>("email");
 
-  return (
-    <AuthLayout
-      belowCard={
-        <div
-          style={{
-            marginTop: 16,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            fontSize: 12.5,
-            color: T.muted,
-          }}
-        >
-          계정이 없으신가요?{" "}
-          <button
-            type="button"
-            onClick={() => navigate("/signup")}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 12.5,
-              fontWeight: 700,
-              color: T.primary,
-              fontFamily: "Pretendard",
-              padding: 0,
-            }}
-          >
-            회원가입
-          </button>
-        </div>
-      }
+  const signupLink = (
+    <div
+      style={{
+        marginTop: 16,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        fontSize: 12.5,
+        color: T.muted,
+      }}
     >
+      계정이 없으신가요?{" "}
+      <button
+        type="button"
+        onClick={() => navigate("/signup")}
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontSize: 12.5,
+          fontWeight: 700,
+          color: T.primary,
+          fontFamily: "Pretendard",
+          padding: 0,
+        }}
+      >
+        회원가입
+      </button>
+    </div>
+  );
+
+  return (
+    <AuthLayout belowCard={signupLink}>
       <h1
         style={{
           margin: "0 0 6px",
