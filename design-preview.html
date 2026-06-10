@@ -53,10 +53,11 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import {
   lightThemeClass,
-  Icon, Button,
+  Icon, Button, ButtonGroup,
   Card,
-  Tabs, ChipsNavigation,
-  Input, InputGroup, Checkbox,
+  Tabs, ChipsNavigation, IconButtonGroup,
+  Input, InputGroup, Checkbox, Switch, Slider, Dropdown,
+  FileUploadArea, Alert,
   DataTable, Pagination, PaginationCount,
   Avatar,
 } from "@lawkit/ui";
@@ -591,12 +592,12 @@ function LinkMore({ children = "전체보기", onClick }) {
   );
 }
 
-function TodoRow({ t }) {
+function TodoRow({ t, onOpen }) {
   const [hover, setHover] = useState(false);
   const d = dday(t.urgency);
   const typeTone = { 계약: "primary", 자문: "secondary", 송무: "neutral" }[t.type] || "neutral";
   return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onClick={() => onOpen && onOpen(t.id)}
       style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 6, cursor: "pointer", background: hover ? T.surfaceAlt : "transparent", transition: "background .1s" }}>
       <div style={{ width: 38, textAlign: "center", flexShrink: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: d.c, fontVariantNumeric: "tabular-nums" }}>{d.t}</div>
@@ -677,7 +678,7 @@ function NoticeList() {
   );
 }
 
-function Dashboard({ onNavigate }) {
+function Dashboard({ onNavigate, onOpen }) {
   const [tab, setTab] = useState("todo");
   const [filter, setFilter] = useState("");
   return (
@@ -703,7 +704,7 @@ function Dashboard({ onNavigate }) {
             <div style={{ fontSize: 12.5, fontWeight: 600, color: T.body }}>2026.06.09 (화)</div>
             <div style={{ fontSize: 11, color: T.faint, marginTop: 2 }}>마지막 동기화 09:42</div>
           </div>
-          <Button size="small" iconLeft={<Icon name="contractEdit" size="sm" style={{ width: 13, height: 13 }} />}>검토 요청</Button>
+          <Button size="small" iconLeft={<Icon name="contractEdit" size="sm" style={{ width: 13, height: 13 }} />} onClick={() => onNavigate("contract", "c-request")}>검토 요청</Button>
         </div>
       </div>
 
@@ -730,11 +731,11 @@ function Dashboard({ onNavigate }) {
             </div>
             {tab === "todo" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "5px 4px" }}>
-                {TODOS.map(t => <TodoRow key={t.id} t={t} />)}
+                {TODOS.map(t => <TodoRow key={t.id} t={t} onOpen={onOpen} />)}
               </div>
             ) : (
               <div style={{ padding: 8 }}>
-                <DataTable data={CONTRACTS} columns={contractCols()} getRowId={r => r.id} emptyText="조회된 계약이 없습니다." />
+                <DataTable data={CONTRACTS} columns={contractCols()} getRowId={r => r.id} onRowClick={r => onOpen(r.id)} emptyText="조회된 계약이 없습니다." />
               </div>
             )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px 12px", borderTop: `1px solid ${T.border}` }}>
@@ -757,14 +758,559 @@ function Dashboard({ onNavigate }) {
   );
 }
 
-// ── 프리뷰 전환 바 ──────────────────────────────────────────────
-function PreviewBar({ view, setView }) {
+// ══════════════════════════════════════════════════════════════
+// 계약 데이터
+// ══════════════════════════════════════════════════════════════
+const CONTRACTS_FULL = [
+  { id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", party: "본사계약", sub: "용역", counter: "AAA", requester: "관리자1", owner: "김기찬", updated: "2026-06-09", due: "2026-06-11", dleft: 2, status: "법무 검토 중", secure: true, star: true, mine: true },
+  { id: "A20260531-0011", name: "개인정보 위수탁 처리 자문", party: "본사계약", sub: "개인정보", counter: "정보보안팀", requester: "정보보안팀", owner: "이법무", updated: "2026-06-09", due: "2026-06-10", dleft: 1, status: "법무 검토 중", secure: false, star: true, mine: true },
+  { id: "C20260609-0002", name: "[hkpark2] 통합검색 유지보수 계약", party: "법인계약", sub: "LOI/MOU", counter: "휴맥스 테스트 회사", requester: "박현경", owner: "미배정", updated: "2026-06-09", due: "2026-07-06", dleft: 27, status: "미배정", secure: true, star: false, mine: false },
+  { id: "C20250902-0001", name: "한라산용역계약서", party: "법인계약", sub: "LOI/MOU", counter: "AAA", requester: "관리자1", owner: "김다함", updated: "2026-06-09", due: "2026-06-14", dleft: 5, status: "법무 검토 중", secure: false, star: false, mine: false },
+  { id: "C20260601-0007", name: "사후계약관리 표준 NDA", party: "본사계약", sub: "LOI/MOU", counter: "(주)온테스트", requester: "이희규", owner: "이법무", updated: "2026-06-08", due: "2026-06-18", dleft: 9, status: "요청자 검토 중", secure: false, star: false, mine: false },
+  { id: "C20250710-0010", name: "체크리스트 검수 위탁계약", party: "본사계약", sub: "위탁", counter: "(주)온테스트", requester: "김기찬", owner: "미배정", updated: "2026-06-09", due: "2026-06-20", dleft: 11, status: "배정 중", secure: true, star: false, mine: false },
+  { id: "C20260605-0003", name: "옥외광고 매체 이용계약", party: "법인계약", sub: "용역", counter: "한빛미디어", requester: "한지민", owner: "박법무", updated: "2026-06-07", due: "2026-06-16", dleft: 7, status: "법무 검토 중", secure: false, star: false, mine: false },
+  { id: "C20260602-0018", name: "통합검색 다운로드 로직 계약서", party: "법인계약", sub: "LOI/MOU", counter: "휴맥스 테스트 회사", requester: "박현경", owner: "박현경", updated: "2026-06-02", due: "2026-05-12", dleft: -28, status: "검토 완료", secure: false, star: false, mine: false },
+  { id: "C20260519-0002", name: "솔루션 OEM 공급계약", party: "본사계약", sub: "공급", counter: "그린모빌리티", requester: "영업1팀", owner: "김기찬", updated: "2026-06-01", due: "2026-06-13", dleft: 4, status: "체결 진행", secure: false, star: true, mine: true },
+  { id: "C20260528-0009", name: "공동연구 협약서 (산학)", party: "법인계약", sub: "협약", counter: "한국대학교 산학협력단", requester: "R&D센터", owner: "박법무", updated: "2026-05-29", due: "2026-06-17", dleft: 8, status: "요청자 검토 중", secure: true, star: false, mine: false },
+];
+
+const LIST_FILTERS = {
+  party: ["전체", "본사계약", "법인계약"],
+  cat: ["전체", "개발/공급", "구매", "자문", "기타"],
+  sub: ["전체", "용역", "도급", "공급", "위탁", "협약", "LOI/MOU", "개인정보"],
+  status: ["전체", "임시 저장", "미배정", "배정 중", "법무 검토 중", "요청자 검토 중", "검토 완료", "체결 진행"],
+  period: ["지난 1년", "지난 6개월", "지난 3개월", "지난 1개월", "직접 지정"],
+};
+
+const LIFECYCLE = [
+  { label: "임시 저장", status: "completed" }, { label: "검토 의뢰", status: "completed" },
+  { label: "배정", status: "completed" }, { label: "법무 검토", status: "active" },
+  { label: "요청자 검토", status: "scheduled" }, { label: "검토 완료", status: "scheduled" },
+  { label: "체결 진행", status: "scheduled" }, { label: "체결 완료", status: "scheduled" },
+  { label: "계약 이행", status: "scheduled" }, { label: "계약 종료", status: "scheduled" },
+];
+
+const DETAIL = {
+  id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", status: "법무 검토 중", secure: true, stage: "신규계약",
+  requester: "관리자1", owner: "김기찬", catPath: ["본사계약", "개발/공급", "용역"],
+  checklist: "표준 공급계약 체크리스트 v2", period: "2026-06-12 ~ 2027-06-11", type: "일반 검토요청",
+  files: [
+    { name: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx", meta: "1.8 MB", kind: "계약서" },
+    { name: "별첨1_물품명세_단가표.xlsx", meta: "248 KB", kind: "첨부" },
+    { name: "사업제안_검토참고.pdf", meta: "3.1 MB", kind: "참고" },
+  ],
+  ccDept: ["개발팀", "운영팀", "인프라팀"], counter: "AAA (사업자 110-81-xxxxx)", lang: "국문", legalCat: "국내 법무",
+  negotiation: 60,
+  amount: { contract: "1,240,000,000 KRW", vat: "124,000,000 KRW", total: "1,364,000,000 KRW" },
+  payTerms: "선급금 30% / 중도금 40% / 잔금 30%, 검수 완료 후 30일 이내 지급",
+  purpose: "EV 충전 인프라 확충을 위한 충전기 하드웨어 공급 및 설치 용역 계약. 공급사 AAA로부터 급속/완속 충전기 일괄 공급받아 전국 12개 거점에 설치.",
+  notes: "지체상금·하자보수 조항 및 손해배상 한도 협의 필요. 표준 공급계약 대비 검수 기준 강화 요청.",
+};
+
+const RISKS = [
+  { level: "high", clause: "손해배상 한도", finding: "손해배상 상한 조항이 없습니다. 우리 측 무한책임 노출 가능성.", suggest: "계약금액의 100% 한도 조항 삽입 권장" },
+  { level: "mid", clause: "지체상금", finding: "지체상금율 1일 0.3%로 표준(0.1%) 대비 3배 높습니다.", suggest: "0.1%로 조정 협의" },
+  { level: "mid", clause: "자동 갱신", finding: "이의 없을 시 1년 자동 갱신. 갱신 거절 통지 기간이 짧습니다(30일).", suggest: "갱신 거절 통지 60일로 연장" },
+  { level: "low", clause: "준거법·관할", finding: "관할 법원이 상대방 소재지 기준입니다.", suggest: "당사 소재지(서울중앙) 변경 검토" },
+];
+
+const COMMENTS = [
+  { who: "관리자1", role: "요청자", time: "2026-06-09 16:08", text: "계약 검토를 요청 드립니다. 첨부한 계약서 기준으로 검토 부탁드립니다.", attach: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx", system: false },
+  { who: "관리자1", role: "시스템", time: "2026-06-09 16:08", text: "[배정 중] 상태로 변경되었습니다.", system: true },
+  { who: "손준호", role: "법무팀", time: "2026-06-09 16:32", text: "배정받았습니다. 손해배상 한도와 지체상금 조항 위주로 검토 진행하겠습니다. AI 리스크 분석 결과 함께 확인 부탁드립니다.", attach: null, system: false },
+];
+
+// ── 공통 헬퍼 ──
+function InitialTile({ name, tone }) {
+  const color = tone === "danger" ? "danger" : tone === "primary" ? "primary" : tone === "info" ? "info" : tone === "success" ? "success" : "secondary";
+  return <Avatar initials={name[0]} size="sm" color={color} />;
+}
+
+function PageHeader({ title, breadcrumb, actions }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
+      <div>
+        {breadcrumb && <Eyebrow style={{ marginBottom: 7 }}>{breadcrumb}</Eyebrow>}
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em" }}>{title}</h1>
+      </div>
+      {actions && <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>{actions}</div>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// 계약서 검토 조회 (리스트)
+// ══════════════════════════════════════════════════════════════
+function FilterSelect({ label, options }) {
+  return (
+    <div style={{ width: 150 }}>
+      <Dropdown options={options.map(o => ({ value: o, label: o }))} value={options[0]} placeholder={label} onChange={() => {}} />
+    </div>
+  );
+}
+
+function StarCell({ on }) {
+  return <Icon name={on ? "starFill" : "star"} size="sm" style={{ width: 15, height: 15, color: on ? T.warning : T.borderStrong, cursor: "pointer" }} />;
+}
+
+function listColumns() {
+  return [
+    { id: "star", header: "", size: 36, cell: i => <StarCell on={i.row.original.star} /> },
+    { accessorKey: "id", header: "관리번호", size: 122, cell: i => <span style={{ fontSize: 12, color: T.muted, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{i.getValue()}</span> },
+    { accessorKey: "name", header: "계약명", size: 240, cell: i => (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {i.row.original.secure && <Icon name="lock" size="sm" style={{ width: 12, height: 12, color: T.warning, flexShrink: 0 }} />}
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.primary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.getValue()}</span>
+      </div>
+    ) },
+    { accessorKey: "party", header: "당사자", size: 84, cell: i => <span style={{ fontSize: 12.5, color: T.body }}>{i.getValue()}</span> },
+    { accessorKey: "sub", header: "분류", size: 90, cell: i => <Tag color="neutral">{i.getValue()}</Tag> },
+    { accessorKey: "counter", header: "상대계약자", size: 150, cell: i => <span style={{ fontSize: 13, color: T.body, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{i.getValue()}</span> },
+    { accessorKey: "requester", header: "요청자", size: 84, cell: i => <span style={{ fontSize: 12.5, color: T.body }}>{i.getValue()}</span> },
+    { accessorKey: "owner", header: "법무팀 담당자", size: 118, cell: i => {
+      const v = i.getValue();
+      return v === "미배정"
+        ? <span style={{ fontSize: 12, color: T.danger, fontWeight: 700 }}>미배정</span>
+        : <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><InitialTile name={v} /><span style={{ fontSize: 13, color: T.body }}>{v}</span></span>;
+    } },
+    { accessorKey: "updated", header: "수정일", size: 100, cell: i => <span style={{ fontSize: 12, color: T.muted, fontVariantNumeric: "tabular-nums" }}>{i.getValue()}</span> },
+    { accessorKey: "due", header: "검토기한", size: 116, cell: i => {
+      const d = dday(i.row.original.dleft);
+      return <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 12, color: T.muted, fontVariantNumeric: "tabular-nums" }}>{i.getValue()}</span>
+        <span style={{ fontSize: 11, fontWeight: 800, color: d.c, fontVariantNumeric: "tabular-nums" }}>{d.t}</span>
+      </span>;
+    } },
+    { accessorKey: "status", header: "진행상태", size: 122, cell: i => <StatusBadge status={i.getValue()} size="sm" /> },
+  ];
+}
+
+function ContractList({ onOpen, onNavigate }) {
+  const [status, setStatus] = useState("");
+  const [mine, setMine] = useState(false);
+  const data = CONTRACTS_FULL.filter(c => (!status || c.status === status) && (!mine || c.mine));
+  return (
+    <div>
+      <PageHeader title="계약서 검토 조회" breadcrumb="계약"
+        actions={<>
+          <Button variant="outline" color="secondary" size="medium" iconLeft={<Icon name="externalLink" size="sm" style={{ width: 14, height: 14 }} />}>내보내기</Button>
+          <Button size="medium" iconLeft={<Icon name="contractEdit" size="sm" style={{ width: 14, height: 14 }} />} onClick={() => onNavigate("contract", "c-request")}>검토 요청</Button>
+        </>} />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <FilterSelect label="계약 당사자" options={LIST_FILTERS.party} />
+        <FilterSelect label="계약 대분류" options={LIST_FILTERS.cat} />
+        <FilterSelect label="계약 분류" options={LIST_FILTERS.sub} />
+        <FilterSelect label="진행상태" options={LIST_FILTERS.status} />
+        <div style={{ flex: 1, minWidth: 220, maxWidth: 360 }}>
+          <Input inputSize="medium" placeholder="계약명·관리번호·상대계약자·요청자 검색" leftIcon={<Icon name="search" size="sm" style={{ width: 15, height: 15, color: T.faint }} />} />
+        </div>
+        <Switch label="내 업무만" checked={mine} onCheckedChange={setMine} />
+      </div>
+      <Panel flush>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderBottom: `1px solid ${T.border}`, flexWrap: "wrap" }}>
+          <ChipsNavigation allLabel="전체" value={status} onChange={setStatus} items={[
+            { value: "미배정", label: "미배정" }, { value: "법무 검토 중", label: "법무 검토 중" },
+            { value: "요청자 검토 중", label: "요청자 검토 중" }, { value: "검토 완료", label: "검토 완료" },
+          ]} />
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: 12.5, color: T.muted }}>총 <b style={{ color: T.heading, fontVariantNumeric: "tabular-nums" }}>{data.length}</b>건</span>
+        </div>
+        <div style={{ padding: 6 }}>
+          <DataTable data={data} columns={listColumns()} getRowId={r => r.id} onRowClick={r => onOpen(r.id)} emptyText="조회된 계약이 없습니다." />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px 14px" }}>
+          <PaginationCount totalCount={data.length} />
+          <Pagination page={1} totalPages={1} onPageChange={() => {}} />
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// 계약서 상세 조회
+// ══════════════════════════════════════════════════════════════
+function LifecycleRail({ steps }) {
+  const last = steps.length - 1;
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", padding: "4px 2px 2px" }}>
+      {steps.map((s, i) => {
+        const done = s.status === "completed", act = s.status === "active";
+        const dotBg = done ? T.primary : "#fff";
+        const dotBd = done || act ? T.primary : T.borderStrong;
+        return (
+          <div key={i} style={{ flex: 1, minWidth: 72, position: "relative", textAlign: "center", paddingTop: 3 }}>
+            {i > 0 && <div style={{ position: "absolute", left: 0, right: "50%", top: 12, height: 2, background: done || act ? T.primary : T.border }} />}
+            {i < last && <div style={{ position: "absolute", left: "50%", right: 0, top: 12, height: 2, background: done ? T.primary : T.border }} />}
+            <div style={{ position: "relative", width: 22, height: 22, margin: "0 auto", borderRadius: 999, background: dotBg, border: `2px solid ${dotBd}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: act ? `0 0 0 4px ${T.primarySoft}` : "none" }}>
+              {done && <Icon name="check" size="sm" style={{ width: 12, height: 12, color: "#fff" }} />}
+              {act && <span style={{ width: 8, height: 8, borderRadius: 999, background: T.primary }} />}
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11, fontWeight: act ? 700 : 500, color: act ? T.heading : done ? T.body : T.faint, whiteSpace: "nowrap" }}>{s.label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Fact({ label, children }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: T.faint, fontWeight: 600, marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 13.5, color: T.heading, fontWeight: 600 }}>{children}</div>
+    </div>
+  );
+}
+
+const RISK_LEVEL = {
+  high: { c: T.danger, bg: "#fbeaea", label: "고위험" },
+  mid: { c: "#8a5a00", bg: "#f8ead0", label: "주의" },
+  low: { c: T.muted, bg: "#eef0f4", label: "참고" },
+};
+function RiskCard({ r }) {
+  const L = RISK_LEVEL[r.level];
+  const [h, setH] = useState(false);
+  return (
+    <div onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+      style={{ border: `1px solid ${T.border}`, borderLeft: `3px solid ${L.c}`, borderRadius: 7, padding: "12px 14px", background: h ? T.surfaceAlt : T.surface, transition: "background .1s" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 800, color: L.c, background: L.bg, padding: "1px 7px", borderRadius: 4 }}>{L.label}</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: T.heading }}>{r.clause}</span>
+      </div>
+      <div style={{ fontSize: 12.5, color: T.body, lineHeight: 1.55, marginBottom: 7 }}>{r.finding}</div>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "7px 10px", background: T.primaryTint, borderRadius: 5 }}>
+        <Icon name="autoAwesome" size="sm" style={{ width: 13, height: 13, color: T.primary, marginTop: 1, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: T.primaryDark, fontWeight: 600, lineHeight: 1.5 }}>{r.suggest}</span>
+      </div>
+    </div>
+  );
+}
+
+function KVRow({ label, children, last }) {
+  return (
+    <div style={{ display: "flex", borderBottom: last ? "none" : `1px solid ${T.border}` }}>
+      <div style={{ width: 130, flexShrink: 0, padding: "11px 14px", background: T.surfaceAlt, fontSize: 12.5, color: T.muted, fontWeight: 600 }}>{label}</div>
+      <div style={{ flex: 1, padding: "11px 14px", fontSize: 13, color: T.heading }}>{children}</div>
+    </div>
+  );
+}
+
+function ContractDetail({ onNavigate }) {
+  const d = DETAIL;
+  const riskHigh = RISKS.filter(r => r.level === "high").length;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
+        <div>
+          <button onClick={() => onNavigate("contract", "c-list")} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: T.muted, fontSize: 12, fontWeight: 600, fontFamily: "Pretendard", marginBottom: 8, padding: 0 }}>
+            <Icon name="chevronLeft" size="sm" style={{ width: 13, height: 13 }} />계약서 검토 조회
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {d.secure && <Icon name="lock" size="sm" style={{ width: 16, height: 16, color: "#8a5a00" }} />}
+            <h1 style={{ margin: 0, fontSize: 23, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em" }}>{d.name}</h1>
+            <StatusBadge status={d.status} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, fontSize: 12.5, color: T.muted }}>
+            <span style={{ fontVariantNumeric: "tabular-nums" }}>{d.id}</span>
+            <span style={{ color: T.border }}>|</span><span>{d.stage}</span>
+            <span style={{ color: T.border }}>|</span><span>요청자 {d.requester}</span>
+            <span style={{ color: T.border }}>|</span><span>검토기한 <b style={{ color: T.danger }}>D-2</b></span>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <Button variant="outline" color="secondary" iconLeft={<Icon name="bookmark" size="sm" style={{ width: 14, height: 14 }} />}>저장</Button>
+          <Button variant="outline" color="secondary" iconLeft={<Icon name="edit" size="sm" style={{ width: 14, height: 14 }} />} onClick={() => onNavigate("contract", "c-request", { edit: true })}>수정</Button>
+          <Button iconLeft={<Icon name="messageSquare" size="sm" style={{ width: 14, height: 14 }} />}>코멘트 추가</Button>
+        </div>
+      </div>
+
+      <Panel pad={16} style={{ marginBottom: 16 }}>
+        <LifecycleRail steps={LIFECYCLE} />
+      </Panel>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 332px", gap: 18, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <Panel title="검토 요약" icon="factCheck" pad={18}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "18px 20px" }}>
+              <Fact label="계약 당사자">{d.catPath[0]}</Fact>
+              <Fact label="계약 분류">{d.catPath.join(" › ")}</Fact>
+              <Fact label="계약 언어">{d.lang} · {d.legalCat}</Fact>
+              <Fact label="계약 기간">{d.period}</Fact>
+              <Fact label="상대 계약자">{d.counter}</Fact>
+              <Fact label="검토 요청자">{d.requester}</Fact>
+              <Fact label="계약 규모">{d.amount.contract}</Fact>
+              <Fact label="협상력">{d.negotiation}%</Fact>
+              <Fact label="계약서 유형">{d.type}</Fact>
+            </div>
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+              <div style={{ fontSize: 11, color: T.faint, fontWeight: 600, marginBottom: 6 }}>계약의 배경 및 목적</div>
+              <p style={{ margin: 0, fontSize: 13, color: T.body, lineHeight: 1.65 }}>{d.purpose}</p>
+            </div>
+          </Panel>
+
+          <Panel title="AI 계약 리스크" icon="autoAwesome"
+            actions={<span style={{ fontSize: 11.5, color: T.muted }}><b style={{ color: T.danger }}>고위험 {riskHigh}</b> · 총 {RISKS.length}건 감지</span>}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {RISKS.map((r, i) => <RiskCard key={i} r={r} />)}
+            </div>
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: T.faint }}>
+              <Icon name="info" size="sm" style={{ width: 13, height: 13 }} />AI가 표준계약서·과거 검토 이력과 대조해 분석한 결과입니다. 최종 판단은 검토자에게 있습니다.
+            </div>
+          </Panel>
+
+          <Panel title="검토 의견" icon="messageSquare" badge={COMMENTS.filter(c => !c.system).length} pad={16}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {COMMENTS.map((c, i) => c.system ? (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
+                  <div style={{ height: 1, flex: 1, background: T.border }} />
+                  <span style={{ fontSize: 11.5, color: T.faint, whiteSpace: "nowrap" }}>{c.text} · {c.time.slice(11)}</span>
+                  <div style={{ height: 1, flex: 1, background: T.border }} />
+                </div>
+              ) : (
+                <div key={i} style={{ display: "flex", gap: 11 }}>
+                  <InitialTile name={c.who} tone={c.role === "법무팀" ? "primary" : "neutral"} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: T.heading }}>{c.who}</span>
+                      <Tag color={c.role === "법무팀" ? "primary" : "neutral"}>{c.role}</Tag>
+                      <span style={{ fontSize: 11.5, color: T.faint, fontVariantNumeric: "tabular-nums" }}>{c.time}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: T.body, lineHeight: 1.6, background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 13px" }}>{c.text}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+
+        {/* 액션 레일 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Panel title="검토 액션" icon="factCheck" pad={16}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12.5, color: T.muted }}>현재 단계</span>
+                <StatusBadge status="법무 검토 중" size="sm" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <InitialTile name={d.owner} tone="primary" />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.heading }}>{d.owner} <span style={{ fontSize: 11.5, color: T.faint, fontWeight: 500 }}>법무팀</span></div>
+                  <div style={{ fontSize: 11.5, color: T.muted }}>검토 담당</div>
+                </div>
+              </div>
+              <div style={{ height: 1, background: T.border }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <Button size="medium" color="danger" variant="outline">반려</Button>
+                <Button size="medium">검토 완료</Button>
+              </div>
+              <Button size="medium" variant="outline" color="secondary" iconLeft={<Icon name="messageSquare" size="sm" style={{ width: 14, height: 14 }} />}>요청자에게 의견 전달</Button>
+            </div>
+          </Panel>
+
+          <Panel title="핵심 정보" icon="info" pad={0}>
+            <KVRow label="관리번호">{d.id}</KVRow>
+            <KVRow label="계약 단계">{d.stage}</KVRow>
+            <KVRow label="보안 여부">{d.secure ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#8a5a00", fontWeight: 700 }}><Icon name="lock" size="sm" style={{ width: 12, height: 12 }} />보안</span> : "일반"}</KVRow>
+            <KVRow label="검토 기한">2026-06-11 <span style={{ color: T.danger, fontWeight: 700 }}>D-2</span></KVRow>
+            <KVRow label="참조 부서" last>{d.ccDept.join(", ")}</KVRow>
+          </Panel>
+
+          <Panel title="첨부 파일" icon="paperclip" badge={d.files.length} pad={12}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {d.files.map((f, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", border: `1px solid ${T.border}`, borderRadius: 7, cursor: "pointer" }}>
+                  <Icon name="fileText" size="sm" style={{ width: 18, height: 18, color: T.primary, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: T.heading, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                    <div style={{ fontSize: 11, color: T.faint }}>{f.kind} · {f.meta}</div>
+                  </div>
+                  <Icon name="download" size="sm" style={{ width: 15, height: 15, color: T.muted, flexShrink: 0 }} />
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// 계약서 검토 요청 (작성/수정)
+// ══════════════════════════════════════════════════════════════
+function CardTitle({ icon, children }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <Icon name={icon} size="sm" style={{ width: 16, height: 16, color: T.muted }} />{children}
+    </span>
+  );
+}
+
+function ContractRequest({ onOpen, onNavigate, editMode }) {
+  const [stage, setStage] = useState("new");
+  const [secure, setSecure] = useState("normal");
+  const [ctype, setCtype] = useState("normal");
+  const [lang, setLang] = useState("ko");
+  const [legal, setLegal] = useState("dom");
+  const [nego, setNego] = useState(50);
+  const [name, setName] = useState(editMode ? DETAIL.name : "");
+  const [noEnd, setNoEnd] = useState(false);
+  const titleTxt = editMode ? "계약서 검토 요청 수정" : "계약서 검토 요청";
+  const checklist = [
+    { label: "계약명 입력", done: !!name }, { label: "계약 분류 선택", done: !!editMode },
+    { label: "계약서 파일 첨부", done: !!editMode }, { label: "계약 기간 입력", done: !!editMode },
+    { label: "상대 계약자 정보", done: false },
+  ];
+  const full = { gridColumn: "1 / -1" };
+  const grid2 = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 20px" };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
+        <div>
+          <Eyebrow style={{ marginBottom: 7 }}>계약</Eyebrow>
+          <h1 style={{ margin: 0, fontSize: 23, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em" }}>{titleTxt}</h1>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="outline" color="secondary" onClick={() => onNavigate("contract", "c-list")}>목록</Button>
+          <Button variant="outline" color="secondary" iconLeft={<Icon name="saveTemporarily" size="sm" style={{ width: 14, height: 14 }} />}>임시저장</Button>
+          <Button iconLeft={<Icon name="submit" size="sm" style={{ width: 14, height: 14 }} />} onClick={() => onOpen(DETAIL.id)}>{editMode ? "수정 완료" : "검토 요청"}</Button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 18, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <Card header={<CardTitle icon="fileText">기본정보</CardTitle>} bordered>
+            <div style={grid2}>
+              <InputGroup label="계약 단계" required>
+                <ButtonGroup value={stage} onChange={setStage} items={[{ value: "new", label: "신규계약" }, { value: "change", label: "변경·해지" }]} />
+              </InputGroup>
+              <InputGroup label="보안 여부" required>
+                <ButtonGroup value={secure} onChange={setSecure} items={[{ value: "top", label: "극비" }, { value: "secure", label: "보안" }, { value: "normal", label: "일반" }]} />
+              </InputGroup>
+              <InputGroup label="계약명" required style={full}>
+                <Input placeholder="계약명을 입력하세요" value={name} onChange={e => setName(e.target.value)} />
+              </InputGroup>
+              <InputGroup label="검토 요청자" required>
+                <Input value="손준호 (법무팀)" readOnly leftIcon={<Icon name="user" size="sm" style={{ width: 15, height: 15, color: T.faint }} />} />
+              </InputGroup>
+              <InputGroup label="계약서 유형" required>
+                <ButtonGroup value={ctype} onChange={setCtype} items={[{ value: "normal", label: "일반 검토요청" }, { value: "std", label: "표준계약서 기반" }]} />
+              </InputGroup>
+              <InputGroup label="계약 당사자" required>
+                <Dropdown options={LIST_FILTERS.party.slice(1).map(o => ({ value: o, label: o }))} placeholder="선택" onChange={() => {}} />
+              </InputGroup>
+              <InputGroup label="계약 대분류" required>
+                <Dropdown options={LIST_FILTERS.cat.slice(1).map(o => ({ value: o, label: o }))} placeholder="선택" onChange={() => {}} />
+              </InputGroup>
+              <InputGroup label="계약 기간" required style={full}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 240 }}>
+                    <Input placeholder="YYYY-MM-DD ~ YYYY-MM-DD" leftIcon={<Icon name="calendar" size="sm" style={{ width: 15, height: 15, color: T.faint }} />} />
+                  </div>
+                  <Checkbox label="계약 종료일 없음" checked={noEnd} onCheckedChange={setNoEnd} />
+                </div>
+              </InputGroup>
+            </div>
+          </Card>
+
+          <Card header={<CardTitle icon="paperclip">계약서 첨부</CardTitle>} bordered>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <Alert type="info" size="small">검토 정확도를 위해 편집 가능한 워드(.docx) 파일 첨부를 권장합니다. 첨부 즉시 AI가 주요 리스크 조항을 사전 점검합니다.</Alert>
+              <InputGroup label="계약서" required>
+                <FileUploadArea description=".docx · .hwp · .pdf · 최대 30MB — 파일을 끌어다 놓거나 클릭해 첨부" onFilesAdded={() => {}} accept=".docx,.hwp,.pdf" />
+              </InputGroup>
+            </div>
+          </Card>
+
+          <Card header={<CardTitle icon="list">상세정보</CardTitle>} bordered>
+            <div style={grid2}>
+              <InputGroup label="계약 언어">
+                <ButtonGroup value={lang} onChange={setLang} items={[{ value: "ko", label: "국문" }, { value: "en", label: "영문" }, { value: "koen", label: "국영문" }]} />
+              </InputGroup>
+              <InputGroup label="법무 분류">
+                <ButtonGroup value={legal} onChange={setLegal} items={[{ value: "dom", label: "국내 법무" }, { value: "intl", label: "해외 법무" }]} />
+              </InputGroup>
+              <InputGroup label="계약 규모 (대가)">
+                <Input placeholder="0" rightIcon={<span style={{ fontSize: 12, color: T.faint }}>원</span>} />
+              </InputGroup>
+              <InputGroup label="계약 예정일">
+                <Input placeholder="YYYY-MM-DD" leftIcon={<Icon name="calendar" size="sm" style={{ width: 15, height: 15, color: T.faint }} />} />
+              </InputGroup>
+              <InputGroup label={`계약 상대방 협상력 — ${nego}%`} style={full}>
+                <Slider value={nego} onChange={setNego} showTicks showLabels />
+              </InputGroup>
+              <InputGroup label="계약의 배경 및 목적" required style={full}>
+                <Input placeholder="계약을 체결하는 배경과 목적을 입력하세요" />
+              </InputGroup>
+            </div>
+          </Card>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, position: "sticky", top: 16 }}>
+          <Card bordered header={<CardTitle icon="approvalCompleted">결재선</CardTitle>}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {[{ n: "손준호", r: "기안 · 법무팀", c: "primary" }, { n: "이법무", r: "검토 · 법무팀장", c: "info" }, { n: "정상무", r: "승인 · 경영지원본부", c: "success" }].map((p, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 16, fontSize: 11, fontWeight: 800, color: T.faint, textAlign: "center", flexShrink: 0 }}>{i + 1}</span>
+                  <Avatar initials={p.n[0]} color={p.c} size="sm" />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: T.heading }}>{p.n}</div>
+                    <div style={{ fontSize: 11, color: T.faint }}>{p.r}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card bordered header={<CardTitle icon="factCheck">작성 진행</CardTitle>}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {checklist.map((it, i) => (
+                <Checkbox key={i} size="small" label={it.label} checked={it.done} readOnly />
+              ))}
+            </div>
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.border}` }}>
+              <div style={{ display: "grid" }}>
+                <Button iconLeft={<Icon name="submit" size="sm" style={{ width: 14, height: 14 }} />} onClick={() => onOpen(DETAIL.id)}>{editMode ? "수정 완료" : "검토 요청 제출"}</Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 미구현 화면 플레이스홀더
+function Placeholder({ title }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 440, textAlign: "center", color: T.faint }}>
+      <div style={{ width: 60, height: 60, borderRadius: 16, background: T.surface, border: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+        <Icon name="layout" size="lg" style={{ width: 28, height: 28, color: T.borderStrong }} />
+      </div>
+      <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: T.body }}>{title}</h2>
+      <p style={{ margin: "8px 0 0", fontSize: 13.5, maxWidth: 360 }}>이 화면은 다음 단계에서 제작합니다.</p>
+    </div>
+  );
+}
+
+// ── 프리뷰 전환 바 (확정 시안 바로가기) ──────────────────────────
+const PREVIEW_SCREENS = [
+  { id: "login",      label: "로그인" },
+  { id: "dashboard",  label: "대시보드" },
+  { id: "c-list",     label: "계약 조회" },
+  { id: "c-detail",   label: "계약 상세" },
+  { id: "c-request",  label: "검토 요청" },
+];
+
+function PreviewBar({ current, onJump }) {
   return (
     <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6, padding: "7px 10px", background: "rgba(20,26,43,.92)", backdropFilter: "blur(12px)", borderRadius: 12, border: "1px solid rgba(255,255,255,.1)", zIndex: 999, boxShadow: "0 8px 32px rgba(0,0,0,.3)" }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.4)", alignSelf: "center", marginRight: 4, paddingRight: 8, borderRight: "1px solid rgba(255,255,255,.1)" }}>개선 시안</span>
-      {[{ id: "login", label: "로그인" }, { id: "dashboard", label: "대시보드" }].map(v => (
-        <button key={v.id} onClick={() => setView(v.id)}
-          style={{ padding: "5px 12px", borderRadius: 7, border: v.id === view ? "none" : "1px solid rgba(255,255,255,.1)", background: v.id === view ? T.primary : "transparent", color: v.id === view ? "#fff" : "rgba(255,255,255,.55)", fontFamily: "Pretendard", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.4)", alignSelf: "center", marginRight: 4, paddingRight: 8, borderRight: "1px solid rgba(255,255,255,.1)" }}>확정 시안</span>
+      {PREVIEW_SCREENS.map(v => (
+        <button key={v.id} onClick={() => onJump(v.id)}
+          style={{ padding: "5px 12px", borderRadius: 7, border: v.id === current ? "none" : "1px solid rgba(255,255,255,.1)", background: v.id === current ? T.primary : "transparent", color: v.id === current ? "#fff" : "rgba(255,255,255,.55)", fontFamily: "Pretendard", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
           {v.label}
         </button>
       ))}
@@ -773,26 +1319,61 @@ function PreviewBar({ view, setView }) {
 }
 
 function App() {
-  const [view, setView] = useState("login");
-  const [activeNav, setActiveNav] = useState("home");
-  const [activeChild, setActiveChild] = useState(null);
-  const handleNavigate = (nav, child) => { setActiveNav(nav); setActiveChild(child || null); };
+  const [authed, setAuthed] = useState(false);
+  // nav: { id, child, contractId, edit }
+  const [nav, setNav] = useState({ id: "home", child: null });
+
+  const onNavigate = (id, child = null, opts = {}) => setNav({ id, child, ...opts });
+  const onOpen = (contractId) => setNav({ id: "contract", child: "c-detail", contractId });
+
+  // 프리뷰 바 바로가기
+  const jump = (screen) => {
+    if (screen === "login") { setAuthed(false); return; }
+    setAuthed(true);
+    if (screen === "dashboard") setNav({ id: "home", child: null });
+    else if (screen === "c-list") setNav({ id: "contract", child: "c-list" });
+    else if (screen === "c-detail") setNav({ id: "contract", child: "c-detail", contractId: DETAIL.id });
+    else if (screen === "c-request") setNav({ id: "contract", child: "c-request" });
+  };
+
+  // 현재 프리뷰 바 하이라이트 계산
+  const current = !authed ? "login"
+    : nav.id === "home" ? "dashboard"
+    : nav.child === "c-list" ? "c-list"
+    : nav.child === "c-detail" ? "c-detail"
+    : nav.child === "c-request" ? "c-request"
+    : "dashboard";
+
+  // 본문 라우팅
+  let content;
+  if (nav.id === "home") {
+    content = <Dashboard onNavigate={onNavigate} onOpen={onOpen} />;
+  } else if (nav.id === "contract") {
+    if (nav.child === "c-list") content = <ContractList onOpen={onOpen} onNavigate={onNavigate} />;
+    else if (nav.child === "c-detail") content = <ContractDetail onNavigate={onNavigate} />;
+    else if (nav.child === "c-request") content = <ContractRequest onOpen={onOpen} onNavigate={onNavigate} editMode={nav.edit} />;
+    else content = <Placeholder title="계약" />;
+  } else {
+    const label = (NAV.find(n => n.id === nav.id) || {}).label || "화면";
+    content = <Placeholder title={label} />;
+  }
+
   return (
     <div className={lightThemeClass} style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-      {view === "login" ? (
-        <LoginPage onLogin={() => setView("dashboard")} />
+      {!authed ? (
+        <LoginPage onLogin={() => { setAuthed(true); setNav({ id: "home", child: null }); }} />
       ) : (
         <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-          <Sidebar activeNav={activeNav} activeChild={activeChild} onNavigate={handleNavigate} />
+          <Sidebar activeNav={nav.id} activeChild={nav.child} onNavigate={onNavigate} />
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <TopBar />
             <main style={{ flex: 1, overflowY: "auto", padding: "22px 24px 80px" }}>
-              <Dashboard onNavigate={handleNavigate} />
+              {content}
             </main>
           </div>
         </div>
       )}
-      <PreviewBar view={view} setView={v => setView(v)} />
+      <PreviewBar current={current} onJump={jump} />
     </div>
   );
 }
