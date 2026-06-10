@@ -38,12 +38,13 @@ DB 스키마를 변경할 때마다 **erdify MCP**를 사용해 **"Law.ai Reboot
 | rename | 파일/폴더명 변경 |
 | init | 초기 세팅 |
 
-## 폴더 · 파일명 컨벤션
+## 프론트엔드 컨벤션 (React · `apps/web` 전용)
 
+> 아래 폴더/파일명·컴포넌트·타입·변수·함수·스타일 규칙은 **프론트엔드 React 코드(`apps/web`)에만** 적용한다. 백엔드(NestJS `services/*`)에는 적용하지 않는다.
+
+### 폴더 · 파일명
 - 폴더명: **camelCase**
 - 파일명: 기본 **camelCase**, 단 컴포넌트 파일만 **PascalCase**
-
-## 코딩 컨벤션
 
 ### Components
 - 리액트 컴포넌트: **PascalCase**
