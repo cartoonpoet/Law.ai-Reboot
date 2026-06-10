@@ -5,7 +5,7 @@ import { FLOW_STAGES } from "./mock-data";
 const TONE = {
   danger:  { bar: T.danger,   text: T.danger,  bg: "#fdf0f0" },
   primary: { bar: T.primary,  text: T.primary, bg: "#f0f3ff" },
-  success: { bar: "#1f8a52",  text: "#1f8a52", bg: "#f0faf5" },
+  success: { bar: T.success,  text: T.success, bg: "#f0faf5" },
   warning: { bar: T.warning,  text: T.warning, bg: "#fdf6ec" },
   neutral: { bar: T.borderStrong, text: T.muted, bg: T.surfaceAlt },
 } as const;
