@@ -18,6 +18,68 @@
 - 옵션 목록(당사자/대분류 등)은 `apps/web/src/pages/contract/mock-data.ts`의 `LIST_FILTERS` 재사용.
 - 커밋 컨벤션: `<type>: <내용>`, 이모지 금지.
 
+## 디자인 토큰 (필수)
+
+스타일은 **lawkit 디자인 토큰(`themeVars`)을 기본으로** 사용한다. 로컬 `design/tokens.ts`의 `T`(하드코딩 hex)나 임의 색상값을 신규 코드에 쓰지 않는다(`lightThemeClass`는 이미 `main.tsx` 루트에 적용됨).
+
+- import: `import { themeVars } from "@lawkit/ui";` — `.css.ts`와 인라인 `style` 모두 var() 문자열이라 그대로 사용.
+- **본 계획의 모든 코드 블록에서 `T.x`는 아래 매핑의 `themeVars` 값으로 치환**해 작성한다. `import { T } from ".../tokens"`는 쓰지 않는다.
+
+| 기존 `T.*` | lawkit `themeVars.*` |
+|---|---|
+| primary | color.accentPrimary |
+| primaryDark | color.accentPrimaryActive |
+| primarySoft / primaryTint | color.accentPrimary (투명도 필요 시 sprinkles/rgba 대신 토큰 우선, 없으면 질문) |
+| success | color.accentSuccess |
+| danger | color.accentDanger |
+| warning / warningDark | color.accentWarning |
+| info | color.accentInfo |
+| heading | color.textHeading |
+| body | color.textPrimary |
+| muted | color.textSecondary |
+| faint | color.textMuted |
+| surface | color.neutralSurface |
+| surfaceAlt | color.neutralSurfaceAlt |
+| border | color.neutralBorder |
+| borderStrong | color.neutralBorderStrong |
+| radius | radius.md |
+| shadowCard | shadow.raised |
+
+**다크 스마트 레일:** lawkit엔 다크 테마 클래스가 없으므로 `createLdsThemeVars`로 다크 변수 객체를 만들어 레일 래퍼 `style`에 적용한다. 그러면 레일 내부의 모든 lawkit 컴포넌트와 `themeVars.*`가 다크로 resolve된다. `contractTheme.ts`(Task 5)에 정의:
+
+```ts
+import { createLdsThemeVars } from "@lawkit/ui";
+
+export const darkRailVars = createLdsThemeVars({
+  color: {
+    neutralBackground: "#0f1422",
+    neutralSurface: "#141a2b",
+    neutralSurfaceAlt: "#1c2438",
+    neutralSurfaceRaised: "#1c2438",
+    neutralBorder: "#252f4a",
+    neutralBorderStrong: "#252f4a",
+    textHeading: "#ffffff",
+    textPrimary: "#c2cad8",
+    textSecondary: "#c2cad8",
+    textMuted: "#7a849a",
+    textDisabled: "#4a5570",
+  },
+});
+```
+
+> 위 navy 오버라이드 값은 디자인 토큰 프리셋에 다크 surface가 없어 불가피하게 지정하는 값이며, lawkit 자체 테마 API(`createLdsThemeVars`)를 통해 주입한다. 레일 내부 컴포넌트는 `themeVars.color.textHeading`(→#fff), `themeVars.color.neutralSurface`(→navy) 등 **토큰만** 참조한다.
+
+## 코드 구조 원칙 (필수)
+
+프론트엔드는 **중앙집중식 관리 · 클린코드 · 단일책임원칙(SRP)** 을 기본으로 한다.
+
+- **중앙집중:** 옵션/상수/타입은 흩어놓지 않고 한 곳에 모은다. 드롭다운·셀렉트 옵션 목록(사용자/부서/프로젝트/통화/VAT 등), enum 라벨 매핑, 섹션 메타는 모두 `pages/contract/contractOptions.ts`에 정의하고 각 섹션/패널이 import한다. **같은 배열을 두 파일에 복붙하지 않는다**(예: `USER_OPTIONS`는 Overview·People이 공유 import).
+- **단일책임:** 한 파일/컴포넌트는 하나의 책임만. 섹션 컴포넌트는 "그 그룹의 필드 렌더"만, 레일 패널은 "그 패널 표시"만, `sectionStatus.ts`는 "상태 파생"만, `aiPrecheck.ts`는 "mock 데이터"만 담당. 페이지(`ContractRequestPage`)는 폼 소유 + 레이아웃 조립만(필드 JSX를 직접 들고 있지 않음).
+- **클린코드:** 의미 있는 이름(`handle~`/`get~`/`create~`/`check~`, boolean은 `is/has`), 매직값 금지(상수화), 화살표 함수, `const`→`let` 순.
+- 폼 값 접근은 `useFormContext`/`useWatch`로 통일(props drilling 금지). 폼 상태가 단일 소스(react-hook-form)로 중앙 관리됨.
+
+> 본 계획 코드 블록에 인라인으로 정의된 `USER_OPTIONS`/`DEPT_CHIPS`/`PROJECTS` 등은 **`contractOptions.ts`로 옮겨 import**하는 형태로 구현한다(코드 블록은 가독성을 위해 인라인 표기).
+
 ## File Structure
 
 ```
@@ -28,7 +90,9 @@ apps/web/
     components/ui/RichTextEditor.tsx      # 신규: TipTap 래퍼(4곳 재사용)
     components/ui/RichTextEditor.css.ts   # 신규: 에디터 스타일
     pages/contract/
-      request-schema.ts                   # 확장: 전체 필드 zod 스키마 + 기본값 + 옵션
+      request-schema.ts                   # 확장: 전체 필드 zod 스키마 + 기본값
+      contractOptions.ts                  # 신규: 옵션/상수/라벨 중앙집중(USER/DEPT/PROJECT/VAT/통화 등)
+      contractTheme.ts                    # 신규: darkRailVars(createLdsThemeVars 다크 오버라이드)
       sectionStatus.ts                    # 신규: deriveSectionStatus(values)
       sectionStatus.test.ts               # 신규: 단위 테스트
       contractRequest.css.ts              # 신규: 레이아웃 + 다크 레일 스타일
@@ -446,15 +510,16 @@ git commit -m "feat(web): AI 사전점검 mock 데이터 추가"
 ## Task 5: contractRequest.css.ts (레이아웃 + 다크 레일)
 
 **Files:**
+- Create: `apps/web/src/pages/contract/contractTheme.ts`
 - Create: `apps/web/src/pages/contract/contractRequest.css.ts`
 
-- [ ] **Step 1: 구현**
+- [ ] **Step 1: `contractTheme.ts` 생성** — 위 "디자인 토큰" 섹션의 `darkRailVars` 코드 블록을 그대로 작성(`import { createLdsThemeVars } from "@lawkit/ui";` + `export const darkRailVars = createLdsThemeVars({...})`).
 
-`contractRequest.css.ts` — `T` 토큰 값을 빌드타임에 사용:
+- [ ] **Step 2: `contractRequest.css.ts` 구현** — lawkit `themeVars` 사용:
 
 ```ts
-import { style, globalStyle } from "@vanilla-extract/css";
-import { T } from "../../design/tokens";
+import { style } from "@vanilla-extract/css";
+import { themeVars } from "@lawkit/ui";
 
 export const layout = style({
   display: "grid",
@@ -475,14 +540,7 @@ export const grid2 = style({
 export const grid3 = style({ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 });
 export const full = style({ gridColumn: "1 / -1" });
 
-/* 다크 패널 (lawkit Card에 className으로 입힘) */
-export const darkCard = style({
-  background: T.navy,
-  borderColor: T.navyLine,
-  color: T.navyText,
-});
-globalStyle(`${darkCard} > *:first-child`, { borderBottomColor: T.navyLine, color: "#fff" });
-
+/* 레일 패널 내부는 darkRailVars 래퍼 안에서 themeVars가 다크로 resolve된다 */
 export const darkBody = style({ padding: "14px 15px" });
 export const dkv = style({
   display: "flex",
@@ -490,11 +548,11 @@ export const dkv = style({
   gap: 10,
   padding: "6px 0",
   fontSize: 12,
-  borderBottom: `1px solid ${T.navyLine}`,
+  borderBottom: `1px solid ${themeVars.color.neutralBorder}`,
   selectors: { "&:last-child": { borderBottom: "none" } },
 });
-export const dkvKey = style({ color: T.navyMuted });
-export const dkvVal = style({ color: "#fff", fontWeight: 600, textAlign: "right" });
+export const dkvKey = style({ color: themeVars.color.textMuted });
+export const dkvVal = style({ color: themeVars.color.textHeading, fontWeight: 600, textAlign: "right" });
 
 /* 작성 현황 행 */
 export const prgRow = style({
@@ -502,30 +560,30 @@ export const prgRow = style({
   alignItems: "center",
   gap: 10,
   padding: "10px 0",
-  borderBottom: `1px solid ${T.navyLine}`,
+  borderBottom: `1px solid ${themeVars.color.neutralBorder}`,
   cursor: "pointer",
   selectors: { "&:last-child": { borderBottom: "none" } },
 });
 export const prgDot = style({ width: 20, height: 20, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" });
-export const prgLabel = style({ flex: 1, fontSize: 12.5, fontWeight: 700, color: "#eef1f8" });
+export const prgLabel = style({ flex: 1, fontSize: 12.5, fontWeight: 700, color: themeVars.color.textHeading });
 
 /* 리스크(다크) */
-export const drisk = style({ background: "#1c2438", border: `1px solid ${T.navyLine}`, borderRadius: 8, padding: "10px 11px" });
+export const drisk = style({ background: themeVars.color.neutralSurfaceAlt, border: `1px solid ${themeVars.color.neutralBorder}`, borderRadius: 8, padding: "10px 11px" });
 
 /* 에러 텍스트 */
-export const errText = style({ marginTop: 5, fontSize: 12, color: T.danger });
+export const errText = style({ marginTop: 5, fontSize: 12, color: themeVars.color.accentDanger });
 ```
 
-- [ ] **Step 2: 타입체크**
+- [ ] **Step 3: 타입체크**
 
 Run: `cd apps/web && pnpm exec tsc --noEmit`
 Expected: 에러 없음.
 
-- [ ] **Step 3: 커밋**
+- [ ] **Step 4: 커밋**
 
 ```bash
-git add apps/web/src/pages/contract/contractRequest.css.ts
-git commit -m "feat(web): 계약요청 화면 레이아웃·다크 레일 vanilla-extract 스타일"
+git add apps/web/src/pages/contract/contractTheme.ts apps/web/src/pages/contract/contractRequest.css.ts
+git commit -m "feat(web): 계약요청 레이아웃·다크 레일 토큰(themeVars) 스타일"
 ```
 
 ---
@@ -1450,11 +1508,13 @@ import { ProgressPanel } from "./ProgressPanel";
 import { AiPrecheckPanel } from "./AiPrecheckPanel";
 import { RequestSummaryPanel } from "./RequestSummaryPanel";
 import { ApprovalLinePanel } from "./ApprovalLinePanel";
+import { darkRailVars } from "../contractTheme";
 import * as css from "../contractRequest.css";
 
 export function SmartRail() {
+  // darkRailVars가 themeVars를 다크로 재바인딩 → 내부 lawkit 컴포넌트/토큰이 모두 다크로 resolve
   return (
-    <div className={css.rail}>
+    <div className={css.rail} style={darkRailVars}>
       <ProgressPanel />
       <AiPrecheckPanel />
       <RequestSummaryPanel />
@@ -1462,6 +1522,8 @@ export function SmartRail() {
     </div>
   );
 }
+
+> **레일 패널 코드 주의:** Task 12 패널들의 색은 전부 `themeVars.color.*`로 작성한다(다크 래퍼 안에서 자동 다크). 본 계획 패널 코드의 `T.*`·리터럴 hex(`#fff`, `#7e9bff`, `#1c2438`, `#fbeaea`)는 디자인 토큰 매핑대로 치환: `#fff`→`textHeading`, `T.navyMuted`→`textMuted`, `T.navyFaint`→`textDisabled`, `T.success/danger/warning/primary`→`accent*`, `drisk` 배경→`neutralSurfaceAlt`. 위험 배지 틴트 배경처럼 토큰에 없는 값은 accent 색 텍스트만으로 표현하거나 질문.
 ```
 
 - [ ] **Step 8: 통과 확인** — `pnpm test -- rail/SmartRail` → PASS (2 tests)
