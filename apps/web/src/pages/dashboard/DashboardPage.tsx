@@ -1,4 +1,5 @@
 import { Icon, Button } from "@lawkit/ui";
+import { useNavigate } from "react-router-dom";
 import { T } from "../../design/tokens";
 import { PipelineStrip } from "./PipelineStrip";
 import { AiBrief } from "./AiBrief";
@@ -22,6 +23,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 }
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div
@@ -130,6 +132,7 @@ export function DashboardPage() {
                 style={{ width: 13, height: 13 }}
               />
             }
+            onClick={() => navigate("/contract/request")}
           >
             검토 요청
           </Button>
@@ -147,7 +150,7 @@ export function DashboardPage() {
           alignItems: "start",
         }}
       >
-        <TodoPanel />
+        <TodoPanel onOpen={(id) => navigate(`/contract/${id}`)} />
         <SideRail />
       </div>
     </div>

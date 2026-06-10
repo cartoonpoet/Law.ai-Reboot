@@ -8,7 +8,7 @@ import { TODOS, CONTRACTS } from "./mock-data";
 import type { Todo, Contract } from "./mock-data";
 import { dday } from "./dday";
 
-function TodoRow({ t }: { t: Todo }) {
+function TodoRow({ t, onOpen }: { t: Todo; onOpen?: (id: string) => void }) {
   const [hover, setHover] = useState(false);
   const d = dday(t.urgency);
   const typeTone = (
@@ -19,6 +19,7 @@ function TodoRow({ t }: { t: Todo }) {
     <div
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onClick={() => onOpen?.(t.id)}
       style={{
         display: "flex",
         alignItems: "center",
@@ -92,7 +93,7 @@ function TodoRow({ t }: { t: Todo }) {
         }}
       >
         <StatusBadge status={t.status} size="sm" />
-        <Button size="small" variant="outline" color="secondary">
+        <Button size="small" variant="outline" color="secondary" onClick={(e) => e.stopPropagation()}>
           {t.action}
         </Button>
       </div>
@@ -205,7 +206,7 @@ function contractColumns(): ColumnDef<Contract>[] {
   ];
 }
 
-export function TodoPanel() {
+export function TodoPanel({ onOpen }: { onOpen?: (id: string) => void }) {
   const [tab, setTab] = useState("todo");
   const [filter, setFilter] = useState<string | string[]>("");
 
@@ -278,7 +279,7 @@ export function TodoPanel() {
           }}
         >
           {TODOS.map((t) => (
-            <TodoRow key={t.id} t={t} />
+            <TodoRow key={t.id} t={t} onOpen={onOpen} />
           ))}
         </div>
       ) : (
@@ -288,6 +289,7 @@ export function TodoPanel() {
             columns={contractColumns()}
             getRowId={(r) => r.id}
             emptyText="조회된 계약이 없습니다."
+            onRowClick={(r) => onOpen?.(r.id)}
           />
         </div>
       )}
