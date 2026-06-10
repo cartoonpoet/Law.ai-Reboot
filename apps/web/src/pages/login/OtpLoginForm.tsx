@@ -1,6 +1,7 @@
 import { useState, useEffect, useActionState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, Button, Input, InputGroup } from "@lawkit/ui";
+import type { CSSProperties } from "react";
 import { requestOtp, verifyOtp } from "../../api/auth";
 import { T } from "../../design/tokens";
 
@@ -12,6 +13,20 @@ function formatRemaining(seconds: number) {
     .padStart(2, "0");
   const ss = (seconds % 60).toString().padStart(2, "0");
   return `${mm}:${ss}`;
+}
+
+function sendButtonStyle(disabled: boolean): CSSProperties {
+  return {
+    background: "none",
+    border: "none",
+    cursor: disabled ? "default" : "pointer",
+    fontSize: 12.5,
+    fontWeight: 700,
+    color: disabled ? T.faint : T.primary,
+    fontFamily: "Pretendard",
+    whiteSpace: "nowrap",
+    padding: 0,
+  };
 }
 
 export function OtpLoginForm() {
@@ -75,34 +90,30 @@ export function OtpLoginForm() {
       style={{ display: "flex", flexDirection: "column", gap: 14 }}
     >
       <InputGroup label="휴대폰 번호">
-        <div style={{ display: "flex", gap: 8 }}>
-          <div style={{ flex: 1 }}>
-            <Input
-              inputSize="large"
-              type="tel"
-              placeholder="010-0000-0000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              leftIcon={
-                <Icon
-                  name="messageSquare"
-                  size="sm"
-                  style={{ width: 15, height: 15, color: T.faint }}
-                />
-              }
+        <Input
+          inputSize="large"
+          type="tel"
+          placeholder="010-0000-0000"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          leftIcon={
+            <Icon
+              name="messageCircle"
+              size="sm"
+              style={{ width: 16, height: 16, color: T.faint }}
             />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            color="secondary"
-            size="large"
-            disabled={sending || phoneTooShort}
-            onClick={handleSend}
-          >
-            {sent ? "재전송" : "인증번호 전송"}
-          </Button>
-        </div>
+          }
+          suffix={
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={sending || phoneTooShort}
+              style={sendButtonStyle(sending || phoneTooShort)}
+            >
+              {sent ? "재전송" : "인증번호 전송"}
+            </button>
+          }
+        />
       </InputGroup>
       {sendError && (
         <p
