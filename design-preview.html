@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Law.ai — 개선 디자인 시안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="https://unpkg.com/@lawkit/ui@0.1.41/dist/index.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { font-family: "Pretendard", -apple-system, "Segoe UI", sans-serif; background: #eef0f4; color: #161a26; -webkit-font-smoothing: antialiased; word-break: keep-all; }
+  #root { height: 100vh; }
+  #root button { white-space: nowrap; }
+  #root ._1txdxk73 { white-space: nowrap; }
+  #root h1, #root h2, #root h3, #root h4 { white-space: nowrap; }
+  @media (max-width: 860px) { .brand-col { display: none !important; } }
+
+  @keyframes lp-flow { 0%{left:-8%;opacity:0} 12%{opacity:1} 88%{opacity:1} 100%{left:100%;opacity:0} }
+  @keyframes lp-pulse { 0%,100%{transform:scale(1);opacity:.55} 50%{transform:scale(1.35);opacity:1} }
+  @keyframes lp-ring { 0%{transform:scale(.7);opacity:.6} 100%{transform:scale(2.1);opacity:0} }
+  @keyframes lp-rise { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .lp-rise { animation: lp-rise .5s cubic-bezier(.2,.7,.2,1) both; }
+  .lp-packet { position:absolute; animation: lp-flow 7s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .lp-packet,.lp-rise,.lp-pulse,.lp-ring { animation: none !important; } .lp-packet{ display:none; } }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #d0d4de; border-radius: 999px; border: 2px solid #eef0f4; }
+  ._loading { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: #82868b; font-size: 14px; }
+  ._spin { width: 28px; height: 28px; border: 3px solid #e3e7ef; border-top-color: #2151ec; border-radius: 50%; animation: sp 0.7s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "@tanstack/react-table": "https://esm.sh/@tanstack/react-table@8.21.3?external=react",
+    "@lawkit/ui": "https://unpkg.com/@lawkit/ui@0.1.41/dist/index.js"
+  }
+}
+</script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"><div class="_loading"><div class="_spin"></div>Law.ai 개선 시안 로딩 중…</div></div>
+
+<!-- JSX 소스 — 브라우저가 실행하지 않음 (type=lawai-src) -->
+<script type="lawai-src" id="app-src">
+import React from "react";
+import { createRoot } from "react-dom/client";
+import {
+  lightThemeClass,
+  Icon, Button,
+  Card,
+  Tabs, ChipsNavigation,
+  Input, InputGroup, Checkbox,
+  DataTable, Pagination, PaginationCount,
+  Avatar,
+} from "@lawkit/ui";
+
+const { useState, useEffect, Fragment } = React;
+
+// ── 토큰 ──────────────────────────────────────────────────────────
+const T = {
+  primary: "#2151ec", primaryDark: "#1739a5", primarySoft: "#eaefff", primaryTint: "#2151ec0d",
+  success: "#1f8a52", successTint: "#1f8a5214",
+  danger: "#d23b3b", dangerTint: "#d23b3b12",
+  warning: "#b8801a", warningTint: "#b8801a14",
+  info: "#0e7c8c", infoTint: "#0e7c8c12",
+  heading: "#161a26", body: "#3d4658", muted: "#6b7488", faint: "#9aa1b2",
+  pageBg: "#eef0f4", surface: "#ffffff", surfaceAlt: "#f4f5f8",
+  border: "#e4e6ec", borderStrong: "#d3d7e0",
+  navy: "#141a2b", navy2: "#1b2236", navyLine: "#252f4a",
+  navyText: "#c2cad8", navyMuted: "#7a849a", navyFaint: "#4a5570",
+  radius: 8, shadowCard: "0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04)",
+};
+
+// ── 데이터 ────────────────────────────────────────────────────────
+const NAV = [
+  { id: "home", label: "홈", icon: "home" },
+  { id: "contract", label: "계약", icon: "fileText", children: [
+    { id: "c-request", label: "계약서 검토 요청" },
+    { id: "c-list", label: "계약서 검토 조회" },
+    { id: "c-signed", label: "체결 계약 조회" },
+    { id: "c-expire", label: "체결계약 만료 현황" },
+  ]},
+  { id: "advice", label: "법률자문", icon: "law" },
+  { id: "litigation", label: "송무", icon: "litigation" },
+  { id: "seal", label: "인감 사용 신청", icon: "seal" },
+  { id: "ip", label: "지식재산권", icon: "iPRs" },
+  { id: "ai", label: "AI 분석", icon: "aI" },
+  { id: "doc", label: "문서관리", icon: "folder" },
+  { id: "system", label: "시스템 관리", icon: "settings" },
+];
+
+const TODOS = [
+  { id: "C20260609-0002", type: "계약", title: "[hkpark2] 유지보수계약서 검토 의뢰", who: "박현경", role: "요청자", action: "배정 필요", urgency: 0, status: "미배정" },
+  { id: "C20250710-0004", type: "계약", title: "한라산 EV 충전기 공급계약 (AAA)", who: "김기찬", role: "법무팀", action: "법무 검토", urgency: 2, status: "법무 검토 중" },
+  { id: "A20260531-0011", type: "자문", title: "개인정보 위수탁 관련 자문 회신", who: "이법무", role: "법무팀", action: "회신 작성", urgency: 1, status: "법무 검토 중" },
+  { id: "C20260601-0007", type: "계약", title: "사후계약관리 표준 NDA 결재", who: "관리자1", role: "결재자", action: "결재 대기", urgency: 3, status: "요청자 검토 중" },
+  { id: "L20260520-0003", type: "송무", title: "물품대금 청구 사건 준비서면 검토", who: "정송무", role: "법무팀", action: "기일 준비", urgency: 1, status: "법무 검토 중" },
+];
+
+const CONTRACTS = [
+  { id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", sub: "용역", counter: "AAA", owner: "김기찬", due: "2025-09-22", status: "법무 검토 중", secure: true },
+  { id: "C20250902-0001", name: "한라산용역계약서", sub: "LOI/MOU", counter: "AAA", owner: "김다함", due: "—", status: "법무 검토 중", secure: false },
+  { id: "C20260609-0002", name: "[hkpark2] 통합검색 유지보수 계약", sub: "LOI/MOU", counter: "휴맥스 테스트 회사", owner: "미배정", due: "2026-07-06", status: "미배정", secure: true },
+  { id: "C20260602-0018", name: "통합검색 다운로드 로직 계약서", sub: "LOI/MOU", counter: "휴맥스 테스트 회사", owner: "박현경", due: "2026-05-12", status: "검토 완료", secure: false },
+  { id: "C20260601-0007", name: "사후계약관리 표준 NDA", sub: "LOI/MOU", counter: "(주)온테스트", owner: "이법무", due: "2026-06-18", status: "요청자 검토 중", secure: false },
+];
+
+const SCHEDULE = [
+  { date: "2026.06.10", dleft: 1, title: "한라산 EV 공급계약 검토 회의", body: "AAA · 회의실 4F · 14:00", tag: "계약" },
+  { date: "2026.06.12", dleft: 3, title: "물품대금 청구 1차 변론기일", body: "서울중앙지법 411호 · 10:00", tag: "송무" },
+  { date: "2026.06.15", dleft: 6, title: "개인정보 위수탁 자문 회신 마감", body: "요청자: 정보보안팀", tag: "자문" },
+];
+
+const NOTICES = [
+  { tag: "공지", title: "전자서명 모듈 v2.3 점검 안내 (6/14 02:00~04:00)", date: "06.08", isNew: true },
+  { tag: "사규", title: "「계약관리 규정」 개정안 사내 의견 수렴", date: "06.05", isNew: true },
+  { tag: "릴리즈", title: "계약 AI 리스크 분석 베타 오픈 — 검토 화면에서 사용", date: "06.03", isNew: false },
+];
+
+const FLOW_STAGES = [
+  { id: "request",   label: "검토 의뢰",   count: 6 },
+  { id: "assign",    label: "배정",        count: 12, bottleneck: true, tone: "danger" },
+  { id: "legal",     label: "법무 검토",   count: 22, bottleneck: true, tone: "primary" },
+  { id: "requester", label: "요청자 검토", count: 9 },
+  { id: "review",    label: "검토 완료",   count: 18, tone: "success" },
+  { id: "sign",      label: "체결 진행",   count: 7 },
+];
+
+const AI_BRIEF = {
+  headline: "오늘 손준호 님이 챙겨야 할 일은 3건입니다.",
+  points: [
+    { tone: "danger",  text: "미배정 계약 12건 중 '유지보수 계약' 검토기한이 D-1로 가장 급합니다." },
+    { tone: "primary", text: "'한라산 EV 공급계약'에서 손해배상 한도·지체상금 조항 리스크가 감지됐어요." },
+    { tone: "warning", text: "물품대금 청구 사건 변론기일이 3일 뒤입니다. 준비서면 검토가 필요합니다." },
+  ],
+};
+
+const USER = { name: "손준호", company: "휴맥스아이티", team: "법무팀" };
+
+const STATUS_COLOR = {
+  "임시 저장": "secondary", "미배정": "danger", "배정 중": "secondary",
+  "법무 검토 중": "primary", "요청자 검토 중": "info", "검토 완료": "success",
+  "체결 진행": "warning", "체결 완료": "success",
+};
+
+const DS = {
+  primary:   { base: "#2151ec", strong: "#1739a5", tint: "#2151ec14" },
+  success:   { base: "#1f8a52", strong: "#006d38", tint: "#1f8a5214" },
+  danger:    { base: "#d23b3b", strong: "#b12a30", tint: "#d23b3b14" },
+  warning:   { base: "#b8801a", strong: "#8a5a00", tint: "#b8801a1c" },
+  info:      { base: "#0e7c8c", strong: "#006876", tint: "#0e7c8c14" },
+  secondary: { base: "#6b7488", strong: "#3d4658", tint: "#6b748814" },
+  neutral:   { base: "#9aa1b2", strong: "#6b7488", tint: "#eef0f4" },
+};
+
+function Badge({ color = "secondary", size = "md", dot = false, children, style }) {
+  const c = DS[color] || DS.secondary;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: size === "sm" ? "2px 8px" : "3px 10px",
+      fontSize: size === "sm" ? 11.5 : 12,
+      borderRadius: 5, fontWeight: 600, whiteSpace: "nowrap",
+      background: c.tint, color: c.strong, fontFamily: "Pretendard", ...style,
+    }}>
+      {dot && <span style={{ width: 5, height: 5, borderRadius: 1.5, background: c.base, flexShrink: 0 }} />}
+      {children}
+    </span>
+  );
+}
+
+function Tag({ color = "neutral", children }) {
+  const c = DS[color] || DS.neutral;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", padding: "1px 7px", borderRadius: 4,
+      fontSize: 11.5, fontWeight: 600, whiteSpace: "nowrap", fontFamily: "Pretendard",
+      background: c.tint, color: c.strong,
+    }}>{children}</span>
+  );
+}
+
+function StatusBadge({ status, size = "md" }) {
+  return <Badge color={STATUS_COLOR[status] || "secondary"} size={size} dot>{status}</Badge>;
+}
+
+function Eyebrow({ children, style }) {
+  return <div style={{ fontSize: 11, fontWeight: 700, color: T.faint, letterSpacing: "0.07em", textTransform: "uppercase", ...style }}>{children}</div>;
+}
+
+function dday(n) {
+  if (n === 0) return { t: "D-DAY", c: T.danger };
+  if (n < 0) return { t: `D+${-n}`, c: T.faint };
+  return { t: `D-${n}`, c: n <= 3 ? T.danger : n <= 7 ? T.warning : T.muted };
+}
+
+function useCountUp(target, base) {
+  const [n, setN] = useState(base);
+  useEffect(() => {
+    let cur = base;
+    const id = setInterval(() => {
+      cur += Math.max(1, Math.ceil((target - cur) / 7));
+      if (cur >= target) { cur = target; clearInterval(id); }
+      setN(cur);
+    }, 55);
+    return () => clearInterval(id);
+  }, []);
+  return n;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 로그인 개선 — 딥네이비 패널 + 구조적 배경 + 역할 헤드라인
+// ══════════════════════════════════════════════════════════════
+
+function LivePipeline() {
+  const stages = ["검토 의뢰", "법무 검토", "체결"];
+  const packets = [
+    { delay: 0, c: "#7aa4ff" }, { delay: 2.3, c: "#fff" },
+    { delay: 4.6, c: "#5585f8" }, { delay: 1.1, c: "#9dbeff" },
+  ];
+  return (
+    <div style={{ position: "relative", height: 80, margin: "0 0 28px" }}>
+      <div style={{ position: "absolute", left: 0, right: 0, top: 22, height: 1, background: "rgba(255,255,255,.12)" }} />
+      {stages.map((l, i) => {
+        const ai = i === 1;
+        return (
+          <div key={i} style={{ position: "absolute", left: `${8 + i * 42}%`, top: 0, transform: "translateX(-50%)", textAlign: "center" }}>
+            <div style={{ position: "relative", width: 14, height: 14, margin: "16px auto 0" }}>
+              {ai && <span style={{ position: "absolute", inset: -6, borderRadius: 999, border: "1.5px solid rgba(255,255,255,.4)", animation: "lp-ring 2.4s ease-out infinite" }} />}
+              <span style={{ position: "absolute", inset: 0, borderRadius: 999, background: ai ? "#fff" : "rgba(255,255,255,.4)", animation: ai ? "lp-pulse 2.4s ease-in-out infinite" : "none" }} />
+            </div>
+            <div style={{ marginTop: 11, fontSize: 11, color: "rgba(255,255,255,.65)", fontWeight: 600, whiteSpace: "nowrap" }}>{l}</div>
+          </div>
+        );
+      })}
+      {packets.map((p, i) => (
+        <div key={i} className="lp-packet" style={{ top: 14, animationDelay: `${p.delay}s` }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 5, background: "rgba(255,255,255,.09)", border: "1px solid rgba(255,255,255,.18)" }}>
+            <span style={{ width: 4, height: 4, borderRadius: 999, background: p.c }} />
+            <span style={{ width: 20, height: 3, borderRadius: 2, background: "rgba(255,255,255,.45)" }} />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BrandPanel() {
+  const count = useCountUp(1284, 1180);
+  const bullets = [
+    "계약 검토부터 체결까지, 전 과정을 한 흐름으로",
+    "AI가 짚어주는 계약 리스크 사전 점검",
+    "송무·자문·지식재산권까지 통합 법무 워크스페이스",
+  ];
+  return (
+    <div style={{
+      flex: 1, minWidth: 0, position: "relative", overflow: "hidden",
+      background: T.navy, color: "#fff", padding: "52px 48px",
+      display: "flex", flexDirection: "column", justifyContent: "space-between",
+    }}>
+      {/* 미세 격자 배경 */}
+      <div style={{ position: "absolute", inset: 0, opacity: .04, backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+      {/* 좌측 primary 액센트 라인 */}
+      <div style={{ position: "absolute", top: 0, left: 0, width: 3, height: "100%", background: T.primary, opacity: .65 }} />
+      {/* 우하단 글로우 */}
+      <div style={{ position: "absolute", bottom: -80, right: -60, width: 280, height: 280, borderRadius: 999, background: `radial-gradient(circle, ${T.primary}28, transparent 65%)`, pointerEvents: "none" }} />
+
+      <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 7, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 17 }}>L</div>
+        <span style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em" }}>Law<span style={{ opacity: .5 }}>.ai</span></span>
+        <div style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: T.primary, background: `${T.primary}22`, border: `1px solid ${T.primary}40`, padding: "2px 6px", borderRadius: 4, letterSpacing: "0.04em" }}>BETA</div>
+      </div>
+
+      <div style={{ position: "relative" }}>
+        <div className="lp-rise" style={{ animationDelay: ".05s" }}><LivePipeline /></div>
+        <h2 className="lp-rise" style={{ margin: 0, fontSize: 30, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.28, animationDelay: ".1s" }}>
+          법무 업무의 모든 흐름을,<br />한 곳에서.
+        </h2>
+        <div className="lp-rise" style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 16, animationDelay: ".18s" }}>
+          <span style={{ fontSize: 12.5, color: T.navyText }}>지금까지 검토된 계약</span>
+          <b style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>{count.toLocaleString("ko-KR")}</b>
+          <span style={{ fontSize: 12.5, color: T.navyText }}>건</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 2, fontSize: 11 }}>
+            <span style={{ width: 5, height: 5, borderRadius: 999, background: "#5adc8c", animation: "lp-pulse 1.8s ease-in-out infinite" }} />실시간
+          </span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 11, marginTop: 24 }}>
+          {bullets.map((b, i) => (
+            <div key={i} className="lp-rise" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: `${0.26 + i * 0.08}s` }}>
+              <span style={{ width: 16, height: 16, borderRadius: 4, background: `${T.primary}55`, border: `1px solid ${T.primary}80`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                <Icon name="check" size="sm" style={{ width: 10, height: 10, color: "#fff" }} />
+              </span>
+              <span style={{ fontSize: 13.5, color: T.navyText, lineHeight: 1.5 }}>{b}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ position: "relative", fontSize: 11.5, color: T.navyFaint }}>© 2026 Humax IT · Law.ai</div>
+    </div>
+  );
+}
+
+function TextLink({ children, onClick }) {
+  return <button onClick={onClick} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: T.primary, fontFamily: "Pretendard", padding: 0 }}>{children}</button>;
+}
+
+function LoginPage({ onLogin }) {
+  const [method, setMethod] = useState("email");
+  const [email, setEmail] = useState("jhson@humaxit.com");
+  const [pw, setPw] = useState("");
+  const [show, setShow] = useState(false);
+  const [keep, setKeep] = useState(true);
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", background: T.surface }}>
+      <div style={{ display: "flex", flex: "0 0 44%", maxWidth: 540 }} className="brand-col">
+        <BrandPanel />
+      </div>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 24px", background: T.pageBg }}>
+        <div className="lp-rise" style={{ width: "100%", maxWidth: 396, animationDelay: ".1s" }}>
+          <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16, boxShadow: "0 20px 60px rgba(16,24,40,.1)", padding: "28px 28px 26px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 22 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 14 }}>L</div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: T.heading }}>Law<span style={{ color: T.primary }}>.ai</span></span>
+            </div>
+            {/* 역할 맥락 헤드라인 — "환영합니다" 제거 */}
+            <h1 style={{ margin: "0 0 6px", fontSize: 21, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em", lineHeight: 1.3 }}>
+              법무 워크스페이스에<br />로그인하세요.
+            </h1>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: T.muted }}>{USER.company} · {USER.team}</p>
+
+            <div style={{ marginBottom: 18 }}>
+              <Tabs value={method} onChange={setMethod} items={[
+                { value: "email", label: "이메일" }, { value: "sso", label: "SSO" },
+              ]} />
+            </div>
+
+            {method === "email" ? (
+              <div key="email" className="lp-rise" style={{ display: "flex", flexDirection: "column", gap: 14, animationDelay: "0s" }}>
+                <InputGroup label="이메일">
+                  <Input inputSize="large" value={email} onChange={e => setEmail(e.target.value)}
+                    leftIcon={<Icon name="mail" size="sm" style={{ width: 15, height: 15, color: T.faint }} />} />
+                </InputGroup>
+                <InputGroup label="비밀번호">
+                  <Input inputSize="large" type={show ? "text" : "password"} placeholder="비밀번호 입력" value={pw} onChange={e => setPw(e.target.value)}
+                    leftIcon={<Icon name="lock" size="sm" style={{ width: 15, height: 15, color: T.faint }} />}
+                    rightIcon={<span onClick={() => setShow(s => !s)} style={{ cursor: "pointer", display: "inline-flex" }}><Icon name={show ? "eyeOff" : "eye"} size="sm" style={{ width: 15, height: 15, color: T.faint }} /></span>} />
+                </InputGroup>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <Checkbox size="small" label="자동 로그인" checked={keep} onCheckedChange={setKeep} />
+                  <TextLink>비밀번호 찾기</TextLink>
+                </div>
+                <div style={{ display: "grid", marginTop: 2 }}>
+                  <Button size="large" iconRight={<Icon name="arrowRight" size="sm" style={{ width: 15, height: 15 }} />} onClick={onLogin}>로그인</Button>
+                </div>
+              </div>
+            ) : (
+              <div key="sso" className="lp-rise" style={{ display: "flex", flexDirection: "column", gap: 14, animationDelay: "0s" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 10, background: T.primaryTint, border: `1px solid ${T.primary}22` }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 9, background: T.navy, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon name="shieldSolid2" size="md" style={{ width: 20, height: 20, color: "#fff" }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: T.heading }}>휴맥스 SSO 계정</div>
+                    <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>사내 통합 계정으로 안전하게 로그인합니다.</div>
+                  </div>
+                </div>
+                <div style={{ display: "grid" }}>
+                  <Button size="large" iconLeft={<Icon name="logIn" size="sm" style={{ width: 15, height: 15 }} />} onClick={onLogin}>휴맥스 SSO로 계속</Button>
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 12, color: T.faint, lineHeight: 1.5 }}>
+                  <Icon name="info" size="sm" style={{ width: 13, height: 13, marginTop: 1, flexShrink: 0 }} />
+                  SSO 연동 계정이 없으면 시스템 관리자(내선 8230)에게 문의하세요.
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ marginTop: 14, textAlign: "center", fontSize: 12, color: T.faint }}>
+            계정 문의 · 법무팀 시스템 관리자 <b style={{ color: T.muted }}>내선 8230</b>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// 셸 — 딥네이비 사이드바 + 유저 프로필 푸터
+// ══════════════════════════════════════════════════════════════
+
+function NavItem({ item, active, expanded, onClick, activeChild }) {
+  const hasKids = !!item.children;
+  const isActive = active && !hasKids;
+  const parentActive = active && hasKids;
+  const [hover, setHover] = useState(false);
+  const bg = isActive ? T.primary : hover || parentActive ? "rgba(255,255,255,.07)" : "transparent";
+  const color = isActive ? "#fff" : parentActive ? T.navyText : T.navyMuted;
+  return (
+    <div>
+      <button onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", cursor: "pointer", borderRadius: 6, background: bg, color, fontFamily: "Pretendard", fontSize: 13, fontWeight: isActive ? 700 : 500, textAlign: "left", transition: "background .12s, color .12s" }}>
+        <Icon name={item.icon} size="sm" style={{ width: 16, height: 16, flexShrink: 0, opacity: .85 }} />
+        <span style={{ flex: 1 }}>{item.label}</span>
+        {hasKids && <Icon name={expanded ? "chevronDown" : "chevronRight"} size="sm" style={{ width: 13, height: 13, opacity: .35 }} />}
+      </button>
+      {hasKids && expanded && (
+        <div style={{ margin: "1px 0 4px", paddingLeft: 10 }}>
+          {item.children.map(c => {
+            const on = activeChild === c.id;
+            return (
+              <button key={c.id} onClick={() => onClick(c.id)}
+                style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "6px 10px 6px 20px", border: "none", cursor: "pointer", borderRadius: 5, background: on ? `${T.primary}20` : "transparent", color: on ? "#7aaaf8" : T.navyMuted, fontFamily: "Pretendard", fontSize: 12.5, fontWeight: on ? 700 : 400, textAlign: "left" }}>
+                <span style={{ width: 3, height: 3, borderRadius: 999, background: on ? "#7aaaf8" : T.navyFaint, flexShrink: 0 }} />
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Sidebar({ activeNav, activeChild, onNavigate }) {
+  const [open, setOpen] = useState({ contract: true });
+  return (
+    <aside style={{ width: 232, flexShrink: 0, background: T.navy, borderRight: `1px solid ${T.navyLine}`, height: "100%", display: "flex", flexDirection: "column", position: "sticky", top: 0 }}>
+      <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${T.navyLine}`, display: "flex", alignItems: "center", gap: 9 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 6, background: T.primary, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 15 }}>L</div>
+        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em", color: "#fff" }}>Law<span style={{ opacity: .45 }}>.ai</span></div>
+      </div>
+      <nav style={{ flex: 1, overflowY: "auto", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 1 }}>
+        {NAV.map(item => {
+          const active = item.id === activeNav;
+          return (
+            <NavItem key={item.id} item={item} active={active} expanded={!!open[item.id]} activeChild={active ? activeChild : null}
+              onClick={childId => {
+                if (item.children) {
+                  if (typeof childId === "string") onNavigate(item.id, childId);
+                  else setOpen(o => ({ ...o, [item.id]: !o[item.id] }));
+                } else onNavigate(item.id);
+              }} />
+          );
+        })}
+      </nav>
+      {/* 유저 프로필 — 도움말 제거 */}
+      <div style={{ padding: "12px 14px", borderTop: `1px solid ${T.navyLine}`, display: "flex", alignItems: "center", gap: 9 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 7, background: T.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>손</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: T.navyText }}>{USER.name}</div>
+          <div style={{ fontSize: 11, color: T.navyMuted, marginTop: 1 }}>{USER.team}</div>
+        </div>
+        <button style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+          <Icon name="logOut" size="sm" style={{ width: 15, height: 15, color: T.navyFaint }} />
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function TopBar() {
+  return (
+    <header style={{ height: 54, flexShrink: 0, background: T.surface, borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", padding: "0 20px", gap: 14, position: "sticky", top: 0, zIndex: 20 }}>
+      <div style={{ flex: 1, maxWidth: 400 }}>
+        <Input placeholder="계약·자문·송무·문서를 통합 검색하세요" inputSize="small"
+          leftIcon={<Icon name="search" size="sm" style={{ width: 15, height: 15, color: T.faint }} />} />
+      </div>
+      <div style={{ flex: 1 }} />
+      <button style={{ position: "relative", width: 34, height: 34, borderRadius: 7, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon name="bell" size="sm" style={{ width: 17, height: 17, color: T.muted }} />
+        <span style={{ position: "absolute", top: 7, right: 7, width: 6, height: 6, borderRadius: 999, background: T.danger, border: "1.5px solid #fff" }} />
+      </button>
+      <button style={{ width: 34, height: 34, borderRadius: 7, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon name="settings" size="sm" style={{ width: 17, height: 17, color: T.muted }} />
+      </button>
+    </header>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// 대시보드 — 파이프라인 KPI + AI 브리프 + V2 밀도
+// ══════════════════════════════════════════════════════════════
+
+const toneMap = {
+  danger:  { bar: T.danger,   text: T.danger,   bg: "#fdf0f0" },
+  primary: { bar: T.primary,  text: T.primary,  bg: "#f0f3ff" },
+  success: { bar: "#1f8a52",  text: "#1f8a52",  bg: "#f0faf5" },
+  warning: { bar: T.warning,  text: T.warning,  bg: "#fdf6ec" },
+  neutral: { bar: T.borderStrong, text: T.muted, bg: T.surfaceAlt },
+};
+
+function PipelineStrip() {
+  const maxCount = Math.max(...FLOW_STAGES.map(s => s.count));
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadowCard, overflow: "hidden" }}>
+      <div style={{ padding: "11px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <Icon name="fileText" size="sm" style={{ width: 14, height: 14, color: T.muted }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: T.heading }}>계약 검토 파이프라인</span>
+        </div>
+        <span style={{ fontSize: 11.5, color: T.faint }}>오늘 09:42 기준 · 160건 진행 중</span>
+      </div>
+      <div style={{ display: "flex" }}>
+        {FLOW_STAGES.map((stage, idx) => {
+          const tone = toneMap[stage.tone || "neutral"];
+          const barH = Math.max(3, Math.round((stage.count / maxCount) * 26));
+          return (
+            <Fragment key={stage.id}>
+              <div style={{ flex: 1, padding: "13px 14px 12px", cursor: "pointer", background: stage.bottleneck ? tone.bg : "transparent", position: "relative" }}>
+                {stage.bottleneck && (
+                  <div style={{ position: "absolute", top: 7, right: 8, fontSize: 9.5, fontWeight: 700, color: tone.text, background: "#fff", border: `1px solid ${tone.bar}44`, padding: "1px 5px", borderRadius: 3 }}>병목</div>
+                )}
+                <div style={{ fontSize: 11, fontWeight: 600, color: T.faint, marginBottom: 8, whiteSpace: "nowrap" }}>{stage.label}</div>
+                <div style={{ display: "flex", alignItems: "flex-end", height: 28, marginBottom: 7 }}>
+                  <div style={{ width: "55%", height: barH, background: tone.bar, borderRadius: 3, opacity: stage.bottleneck ? .9 : .35 }} />
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: stage.bottleneck ? tone.text : T.heading, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>{stage.count}</div>
+                <div style={{ fontSize: 11, color: T.faint, marginTop: 1 }}>건</div>
+              </div>
+              {idx < FLOW_STAGES.length - 1 && (
+                <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                  <Icon name="chevronRight" size="sm" style={{ width: 11, height: 11, color: T.borderStrong }} />
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AiBrief() {
+  const toneColor = { danger: T.danger, primary: T.primary, warning: T.warning };
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadowCard, padding: "14px 16px 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 11 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 700, color: T.primaryDark, background: T.primarySoft, border: `1px solid ${T.primary}33`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.04em" }}>
+          <span style={{ width: 4, height: 4, borderRadius: 999, background: T.primary }} />AI 요약
+        </span>
+        <span style={{ fontSize: 11.5, color: T.faint }}>오늘 09:30 기준</span>
+      </div>
+      <div style={{ fontSize: 14.5, fontWeight: 700, color: T.heading, letterSpacing: "-0.015em", marginBottom: 11 }}>{AI_BRIEF.headline}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {AI_BRIEF.points.map((p, i) => (
+          <div key={i} style={{ display: "flex", gap: 9, padding: "9px 12px", borderRadius: 6, background: T.surfaceAlt, border: `1px solid ${T.border}` }}>
+            <span style={{ width: 2.5, borderRadius: 2, background: toneColor[p.tone], flexShrink: 0 }} />
+            <span style={{ fontSize: 12.5, color: T.body, lineHeight: 1.5 }}>{p.text}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+        <Button size="small">미배정 배정하기</Button>
+        <Button size="small" variant="outline" color="secondary">리스크 검토</Button>
+        <Button size="small" variant="outline" color="secondary">기일 준비</Button>
+      </div>
+    </div>
+  );
+}
+
+function Panel({ title, icon, badge, actions, children, flush, pad, style }) {
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: T.radius, boxShadow: T.shadowCard, overflow: "hidden", ...style }}>
+      {title && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            {icon && <Icon name={icon} size="sm" style={{ width: 14, height: 14, color: T.muted }} />}
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: T.heading }}>{title}</span>
+            {badge != null && <span style={{ fontSize: 11.5, fontWeight: 700, color: T.muted, fontVariantNumeric: "tabular-nums" }}>{badge}</span>}
+          </div>
+          {actions}
+        </div>
+      )}
+      <div style={flush ? {} : { padding: pad != null ? pad : 14 }}>{children}</div>
+    </div>
+  );
+}
+
+function LinkMore({ children = "전체보기", onClick }) {
+  return (
+    <button onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 2, background: "none", border: "none", cursor: "pointer", color: T.muted, fontSize: 12, fontWeight: 600, fontFamily: "Pretendard" }}>
+      {children}<Icon name="chevronRight" size="sm" style={{ width: 12, height: 12 }} />
+    </button>
+  );
+}
+
+function TodoRow({ t }) {
+  const [hover, setHover] = useState(false);
+  const d = dday(t.urgency);
+  const typeTone = { 계약: "primary", 자문: "secondary", 송무: "neutral" }[t.type] || "neutral";
+  return (
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 6, cursor: "pointer", background: hover ? T.surfaceAlt : "transparent", transition: "background .1s" }}>
+      <div style={{ width: 38, textAlign: "center", flexShrink: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: d.c, fontVariantNumeric: "tabular-nums" }}>{d.t}</div>
+      </div>
+      <div style={{ width: 1, height: 24, background: T.border, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+          <Tag color={typeTone}>{t.type}</Tag>
+          <span style={{ fontSize: 11, color: T.faint, fontVariantNumeric: "tabular-nums" }}>{t.id}</span>
+        </div>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: T.heading, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.title}</div>
+      </div>
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+        <StatusBadge status={t.status} size="sm" />
+        <Button size="small" variant="outline" color="secondary">{t.action}</Button>
+      </div>
+    </div>
+  );
+}
+
+function contractCols() {
+  return [
+    { accessorKey: "id", header: "관리번호", size: 130, cell: i => <span style={{ fontSize: 12, color: T.muted, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{i.getValue()}</span> },
+    { accessorKey: "name", header: "계약명", cell: i => (
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        {i.row.original.secure && <Icon name="lock" size="sm" style={{ width: 11, height: 11, color: T.warning, flexShrink: 0 }} />}
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.heading, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{i.getValue()}</span>
+      </div>
+    )},
+    { accessorKey: "counter", header: "상대계약자", size: 150, cell: i => <span style={{ fontSize: 13, color: T.body }}>{i.getValue()}</span> },
+    { accessorKey: "owner", header: "담당자", size: 110, cell: i => {
+      const v = i.getValue();
+      return v === "미배정"
+        ? <span style={{ fontSize: 12.5, color: T.danger, fontWeight: 700 }}>미배정</span>
+        : <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Avatar initials={v[0]} size="sm" /><span style={{ fontSize: 13, color: T.body }}>{v}</span></span>;
+    }},
+    { accessorKey: "due", header: "기한", size: 100, cell: i => <span style={{ fontSize: 12.5, color: T.muted, fontVariantNumeric: "tabular-nums" }}>{i.getValue()}</span> },
+    { accessorKey: "status", header: "상태", size: 130, cell: i => <StatusBadge status={i.getValue()} size="sm" /> },
+  ];
+}
+
+function ScheduleList() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {SCHEDULE.map((s, i) => {
+        const d = dday(s.dleft);
+        return (
+          <div key={i} style={{ display: "flex", gap: 11, padding: "10px 0", borderBottom: i < SCHEDULE.length - 1 ? `1px solid ${T.border}` : "none" }}>
+            <div style={{ width: 42, flexShrink: 0 }}>
+              <div style={{ fontSize: 11, color: T.faint, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{s.date.slice(5)}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: d.c, marginTop: 1, fontVariantNumeric: "tabular-nums" }}>{d.t}</div>
+            </div>
+            <div style={{ width: 2, borderRadius: 1, background: d.c === T.muted ? T.border : d.c, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ marginBottom: 3 }}><Tag color={s.tag === "송무" ? "neutral" : s.tag === "자문" ? "secondary" : "primary"}>{s.tag}</Tag></div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: T.heading }}>{s.title}</div>
+              <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{s.body}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function NoticeList() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {NOTICES.map((n, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: i < NOTICES.length - 1 ? `1px solid ${T.border}` : "none", cursor: "pointer" }}>
+          <Tag color={n.tag === "릴리즈" ? "primary" : "neutral"}>{n.tag}</Tag>
+          <span style={{ flex: 1, fontSize: 13, color: T.body, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.title}</span>
+          {n.isNew && <span style={{ fontSize: 9.5, fontWeight: 800, color: T.danger, flexShrink: 0 }}>N</span>}
+          <span style={{ fontSize: 11.5, color: T.faint, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{n.date}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Dashboard({ onNavigate }) {
+  const [tab, setTab] = useState("todo");
+  const [filter, setFilter] = useState("");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* 헤더 */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", paddingBottom: 12, borderBottom: `1px solid ${T.border}` }}>
+        <div>
+          <Eyebrow style={{ marginBottom: 7 }}>법무 대시보드</Eyebrow>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em" }}>업무 요약</h1>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 2 }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, color: T.faint, fontWeight: 600, marginBottom: 1 }}>처리 대기</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: T.heading, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>5</div>
+          </div>
+          <div style={{ width: 1, height: 26, background: T.border }} />
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, color: T.faint, fontWeight: 600, marginBottom: 1 }}>기한 임박</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: T.danger, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>2</div>
+          </div>
+          <div style={{ width: 1, height: 26, background: T.border }} />
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: T.body }}>2026.06.09 (화)</div>
+            <div style={{ fontSize: 11, color: T.faint, marginTop: 2 }}>마지막 동기화 09:42</div>
+          </div>
+          <Button size="small" iconLeft={<Icon name="contractEdit" size="sm" style={{ width: 13, height: 13 }} />}>검토 요청</Button>
+        </div>
+      </div>
+
+      <AiBrief />
+      <PipelineStrip />
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 312px", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+          <Panel flush>
+            <div style={{ padding: "10px 14px 0" }}>
+              <Tabs size="medium" value={tab} onChange={setTab} items={[
+                { value: "todo", label: "내 할일", badge: TODOS.length },
+                { value: "contract", label: "진행 중 계약", badge: CONTRACTS.length },
+              ]} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: `1px solid ${T.border}`, borderTop: `1px solid ${T.border}`, marginTop: 10 }}>
+              <ChipsNavigation allLabel="전체" value={filter} onChange={setFilter} items={[
+                { value: "계약", label: "계약" }, { value: "송무", label: "송무" }, { value: "자문", label: "자문" },
+              ]} />
+              <div style={{ flex: 1 }} />
+              <div style={{ width: 196 }}>
+                <Input inputSize="small" placeholder="관리번호·계약명 검색" leftIcon={<Icon name="search" size="sm" style={{ width: 14, height: 14, color: T.faint }} />} />
+              </div>
+            </div>
+            {tab === "todo" ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "5px 4px" }}>
+                {TODOS.map(t => <TodoRow key={t.id} t={t} />)}
+              </div>
+            ) : (
+              <div style={{ padding: 8 }}>
+                <DataTable data={CONTRACTS} columns={contractCols()} getRowId={r => r.id} emptyText="조회된 계약이 없습니다." />
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px 12px", borderTop: `1px solid ${T.border}` }}>
+              <PaginationCount totalCount={tab === "todo" ? 5 : CONTRACTS.length} />
+              <Pagination page={1} totalPages={1} onPageChange={() => {}} />
+            </div>
+          </Panel>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Panel title="일정 · 기한 임박" icon="calendar" badge={SCHEDULE.length}>
+            <ScheduleList />
+          </Panel>
+          <Panel title="공지 · 새소식" icon="bell" actions={<LinkMore />}>
+            <NoticeList />
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 프리뷰 전환 바 ──────────────────────────────────────────────
+function PreviewBar({ view, setView }) {
+  return (
+    <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6, padding: "7px 10px", background: "rgba(20,26,43,.92)", backdropFilter: "blur(12px)", borderRadius: 12, border: "1px solid rgba(255,255,255,.1)", zIndex: 999, boxShadow: "0 8px 32px rgba(0,0,0,.3)" }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,.4)", alignSelf: "center", marginRight: 4, paddingRight: 8, borderRight: "1px solid rgba(255,255,255,.1)" }}>개선 시안</span>
+      {[{ id: "login", label: "로그인" }, { id: "dashboard", label: "대시보드" }].map(v => (
+        <button key={v.id} onClick={() => setView(v.id)}
+          style={{ padding: "5px 12px", borderRadius: 7, border: v.id === view ? "none" : "1px solid rgba(255,255,255,.1)", background: v.id === view ? T.primary : "transparent", color: v.id === view ? "#fff" : "rgba(255,255,255,.55)", fontFamily: "Pretendard", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  const [view, setView] = useState("login");
+  const [activeNav, setActiveNav] = useState("home");
+  const [activeChild, setActiveChild] = useState(null);
+  const handleNavigate = (nav, child) => { setActiveNav(nav); setActiveChild(child || null); };
+  return (
+    <div className={lightThemeClass} style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      {view === "login" ? (
+        <LoginPage onLogin={() => setView("dashboard")} />
+      ) : (
+        <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+          <Sidebar activeNav={activeNav} activeChild={activeChild} onNavigate={handleNavigate} />
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <TopBar />
+            <main style={{ flex: 1, overflowY: "auto", padding: "22px 24px 80px" }}>
+              <Dashboard onNavigate={handleNavigate} />
+            </main>
+          </div>
+        </div>
+      )}
+      <PreviewBar view={view} setView={v => setView(v)} />
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<App />);
+</script>
+
+<script>
+// JSX 소스를 읽어 Babel로 변환 → blob URL로 import (importmap 호환)
+(async function () {
+  try {
+    const src = document.getElementById("app-src").textContent;
+    const out = Babel.transform(src, { presets: ["react"], filename: "app.jsx" }).code;
+    const url = URL.createObjectURL(new Blob([out], { type: "text/javascript" }));
+    await import(url);
+  } catch (e) {
+    console.error(e);
+    document.getElementById("root").innerHTML =
+      '<div class="_loading" style="color:#d23b3b"><b>로딩 오류</b><pre style="font-size:12px;white-space:pre-wrap;max-width:600px;margin-top:12px">' +
+      (e && e.message ? e.message : String(e)) + "</pre></div>";
+  }
+})();
+</script>
+</body>
+</html>
