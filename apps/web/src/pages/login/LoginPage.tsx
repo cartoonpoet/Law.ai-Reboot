@@ -12,7 +12,7 @@ type LoginMethod = "email" | "sso";
 export function LoginPage() {
   const navigate = useNavigate();
   const [method, setMethod] = useState<LoginMethod>("email");
-  const [email, setEmail] = useState("jhson@humaxit.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [keep, setKeep] = useState(true);
