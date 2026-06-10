@@ -7,6 +7,7 @@
     "target": "ES2022",
     "lib": ["ES2022"],
     "declaration": false,
+    "declarationMap": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "sourceMap": true,

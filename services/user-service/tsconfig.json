@@ -2,8 +2,7 @@
   "extends": "@lawai/typescript-config/nest.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "baseUrl": "./",
-    "declarationMap": false
+    "baseUrl": "./"
   },
   "include": ["src"]
 }
