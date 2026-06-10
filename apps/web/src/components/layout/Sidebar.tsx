@@ -194,6 +194,7 @@ function NavRow({
           if (hasKids) onExpand();
           else if ("path" in item) onNavigate(item.path);
         }}
+        aria-expanded={hasKids ? expanded : undefined}
         style={{
           display: "flex",
           alignItems: "center",
