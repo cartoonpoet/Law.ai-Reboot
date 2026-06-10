@@ -1,2 +1,71 @@
-:root { font-family: system-ui, sans-serif; }
-body { margin: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: "Pretendard", -apple-system, "Segoe UI", sans-serif;
+  background: #eef0f4;
+  color: #161a26;
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d0d4de;
+  border-radius: 999px;
+  border: 2px solid #eef0f4;
+}
+
+/* 로그인 브랜드 패널 애니메이션 */
+@keyframes lp-flow {
+  0% { left: -8%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+@keyframes lp-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+@keyframes lp-ring {
+  0% { transform: scale(0.7); opacity: 0.6; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes lp-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.lp-rise {
+  animation: lp-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.lp-packet {
+  position: absolute;
+  animation: lp-flow 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-packet,
+  .lp-rise,
+  .lp-pulse,
+  .lp-ring {
+    animation: none !important;
+  }
+  .lp-packet {
+    display: none;
+  }
+}
