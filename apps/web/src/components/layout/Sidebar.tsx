@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Icon } from "@lawkit/ui";
 import type { IconName } from "@lawkit/ui";
 import { T } from "../../design/tokens";
+import { Logo } from "../ui/Logo";
 
 const NAV = [
   { id: "home",         label: "홈",             icon: "home",         path: "/" },
@@ -51,22 +52,7 @@ export function Sidebar() {
           gap: 9,
         }}
       >
-        <div
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 6,
-            background: T.primary,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontWeight: 800,
-            fontSize: 15,
-          }}
-        >
-          L
-        </div>
+        <Logo size={26} />
         <div
           style={{
             fontSize: 16,

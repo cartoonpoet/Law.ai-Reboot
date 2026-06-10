@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icon } from "@lawkit/ui";
 import { T } from "../../design/tokens";
+import { Logo } from "../../components/ui/Logo";
 
 const PIPELINE_STAGES = ["검토 의뢰", "법무 검토", "체결"] as const;
 
@@ -204,22 +205,7 @@ export function BrandPanel() {
           gap: 10,
         }}
       >
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 7,
-            background: T.primary,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontWeight: 800,
-            fontSize: 17,
-          }}
-        >
-          L
-        </div>
+        <Logo size={30} />
         <span
           style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em" }}
         >
