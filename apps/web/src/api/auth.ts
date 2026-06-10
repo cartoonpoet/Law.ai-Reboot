@@ -6,7 +6,7 @@ import type {
 } from "@lawai/contracts";
 import { apiFetch } from "./client";
 
-interface AuthResponse {
+export interface AuthResponse {
   user: PublicUser;
   tokens: AuthTokens;
 }
@@ -27,4 +27,27 @@ export function signup(req: SignupRequest): Promise<AuthResponse> {
 
 export function getMe(): Promise<PublicUser> {
   return apiFetch<PublicUser>("/users/me");
+}
+
+export interface OtpRequestPayload {
+  phone: string;
+}
+
+export function requestOtp(req: OtpRequestPayload): Promise<{ sent: boolean }> {
+  return apiFetch<{ sent: boolean }>("/auth/otp/request", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+export interface OtpVerifyPayload {
+  phone: string;
+  code: string;
+}
+
+export function verifyOtp(req: OtpVerifyPayload): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>("/auth/otp/verify", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
