@@ -99,6 +99,7 @@ export function EmailLoginForm() {
         />
         <button
           type="button"
+          onClick={() => navigate("/forgot-password")}
           style={{
             background: "none",
             border: "none",
