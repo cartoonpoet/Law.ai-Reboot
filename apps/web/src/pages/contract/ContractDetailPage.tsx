@@ -41,7 +41,7 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 const RISK_LEVEL = {
   high: { c: T.danger, bg: "#fbeaea", label: "고위험" },
-  mid: { c: "#8a5a00", bg: "#f8ead0", label: "주의" },
+  mid: { c: T.warningDark, bg: "#f8ead0", label: "주의" },
   low: { c: T.muted, bg: "#eef0f4", label: "참고" },
 } as const;
 
@@ -86,7 +86,7 @@ export function ContractDetailPage() {
             <Icon name="chevronLeft" size="sm" style={{ width: 13, height: 13 }} />계약서 검토 조회
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {d.secure && <Icon name="lock" size="sm" style={{ width: 16, height: 16, color: "#8a5a00" }} />}
+            {d.secure && <Icon name="lock" size="sm" style={{ width: 16, height: 16, color: T.warningDark }} />}
             <h1 style={{ margin: 0, fontSize: 23, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em" }}>{d.name}</h1>
             <StatusBadge status={d.status} />
           </div>
@@ -186,7 +186,7 @@ export function ContractDetailPage() {
           <Panel title="핵심 정보" icon="info" pad={0}>
             <KVRow label="관리번호">{d.id}</KVRow>
             <KVRow label="계약 단계">{d.stage}</KVRow>
-            <KVRow label="보안 여부">{d.secure ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#8a5a00", fontWeight: 700 }}><Icon name="lock" size="sm" style={{ width: 12, height: 12 }} />보안</span> : "일반"}</KVRow>
+            <KVRow label="보안 여부">{d.secure ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: T.warningDark, fontWeight: 700 }}><Icon name="lock" size="sm" style={{ width: 12, height: 12 }} />보안</span> : "일반"}</KVRow>
             <KVRow label="참조 부서" last>{d.ccDept.join(", ")}</KVRow>
           </Panel>
 

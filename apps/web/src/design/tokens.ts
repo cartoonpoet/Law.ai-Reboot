@@ -8,6 +8,7 @@ export const T = {
   danger: "#d23b3b",
   dangerTint: "#d23b3b12",
   warning: "#b8801a",
+  warningDark: "#8a5a00",
   warningTint: "#b8801a14",
   info: "#0e7c8c",
   infoTint: "#0e7c8c12",
