@@ -16,19 +16,6 @@ export const grid2 = style({ display: "grid", gridTemplateColumns: "1fr 1fr", ga
 export const grid3 = style({ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 });
 export const full = style({ gridColumn: "1 / -1" });
 
-export const darkBody = style({ padding: "14px 15px" });
-export const dkv = style({
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 10,
-  padding: "6px 0",
-  fontSize: 12,
-  borderBottom: `1px solid ${themeVars.color.neutralBorder}`,
-  selectors: { "&:last-child": { borderBottom: "none" } },
-});
-export const dkvKey = style({ color: themeVars.color.textMuted });
-export const dkvVal = style({ color: themeVars.color.textHeading, fontWeight: 600, textAlign: "right" });
-
 export const prgRow = style({
   display: "flex",
   alignItems: "center",

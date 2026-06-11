@@ -13,7 +13,7 @@ export function AiPrecheckPanel() {
     <span style={{ display: "inline-flex", alignItems: "center", gap: 8, width: "100%" }}>
       <Icon name="autoAwesome" size="sm" style={{ width: 15, height: 15, color: themeVars.color.accentPrimary }} />
       AI 사전 점검
-      {result.analyzed && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, color: themeVars.color.accentDanger }}>고위험 {result.highCount}</span>}
+      {result.analyzed && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, color: themeVars.color.accentDanger }}>고위험 {result.highCount} · 총 {result.risks.length}건</span>}
     </span>
   );
 
