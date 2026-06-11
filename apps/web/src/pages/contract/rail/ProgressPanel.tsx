@@ -23,7 +23,7 @@ export function ProgressPanel() {
   return (
     <Card bordered header="작성 현황">
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontSize: 26, fontWeight: 800, color: themeVars.color.textHeading }}>{pct}<small style={{ fontSize: 13, color: themeVars.color.textMuted }}>%</small></span>
+        <span style={{ fontSize: 26, fontWeight: 800, color: themeVars.color.accentPrimary }}>{pct}<small style={{ fontSize: 13, color: themeVars.color.textMuted }}>%</small></span>
         <span style={{ fontSize: 11.5, fontWeight: 700, color: themeVars.color.textSecondary }}>필수 {done} / {total}</span>
       </div>
       <div style={{ height: 7, borderRadius: 99, background: themeVars.color.neutralSurfaceAlt, overflow: "hidden" }}>
