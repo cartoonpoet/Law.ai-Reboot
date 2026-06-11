@@ -25,7 +25,14 @@ export function ApprovalLinePanel() {
             </div>
           </div>
         ))}
-        <Button type="button" variant="outline" color="secondary" size="small" onClick={() => append({ name: "신규", role: "결재 · 미지정" })}>
+        <Button
+          type="button"
+          variant="outline"
+          color="secondary"
+          size="small"
+          onClick={() => append({ name: "신규", role: "결재 · 미지정" })}
+          style={{ width: "100%", justifyContent: "center", borderStyle: "dashed", borderColor: themeVars.color.neutralBorderStrong, color: themeVars.color.textMuted }}
+        >
           + 결재자 추가
         </Button>
       </div>
