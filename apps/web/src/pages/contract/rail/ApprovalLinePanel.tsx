@@ -1,12 +1,19 @@
 import { useFieldArray, useFormContext } from "react-hook-form";
-import { Card, Avatar, Button, themeVars } from "@lawkit/ui";
+import { Card, Avatar, Button, Icon, themeVars } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 
 export function ApprovalLinePanel() {
   const { control } = useFormContext<ContractRequestForm>();
   const { fields, append } = useFieldArray({ control, name: "approvers" });
+  const header = (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <Icon name="factCheck" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />
+      결재선
+    </span>
+  );
+
   return (
-    <Card bordered header="결재선">
+    <Card bordered header={header}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {fields.map((f, i) => (
           <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>

@@ -20,8 +20,15 @@ export function ProgressPanel() {
     return <span className={css.prgDot} style={{ border: `2px solid ${themeVars.color.neutralBorderStrong}` }} />;
   };
 
+  const header = (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <Icon name="factCheck" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />
+      작성 현황
+    </span>
+  );
+
   return (
-    <Card bordered header="작성 현황">
+    <Card bordered header={header}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 6 }}>
         <span style={{ fontSize: 26, fontWeight: 800, color: themeVars.color.accentPrimary }}>{pct}<small style={{ fontSize: 13, color: themeVars.color.textMuted }}>%</small></span>
         <span style={{ fontSize: 11.5, fontWeight: 700, color: themeVars.color.textSecondary }}>필수 {done} / {total}</span>
