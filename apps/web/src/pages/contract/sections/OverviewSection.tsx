@@ -26,8 +26,12 @@ export function OverviewSection() {
 
         <InputGroup label="보안여부">
           <Controller name="secure" control={control} render={({ field }) => (
-            <ButtonGroup value={field.value} onChange={field.onChange}
-              items={[{ value: "top", label: "극비" }, { value: "secure", label: "보안" }, { value: "normal", label: "일반" }]} />
+            <ButtonGroup value={field.value} onChange={field.onChange} variant="outline"
+              items={[
+                { value: "top", label: "극비", icon: <Icon name="lock" size="sm" /> },
+                { value: "secure", label: "보안", icon: <Icon name="shield" size="sm" /> },
+                { value: "normal", label: "일반" },
+              ]} />
           )} />
         </InputGroup>
 
