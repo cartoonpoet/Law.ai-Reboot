@@ -1,5 +1,5 @@
 import { Controller, useFormContext } from "react-hook-form";
-import { Card, InputGroup, Input, ButtonGroup, RadioButtonGroup, Dropdown, AutoComplete, DateRangePicker, Checkbox, Button, Icon, themeVars } from "@lawkit/ui";
+import { Card, InputGroup, Input, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, DateRangePicker, Checkbox, Button, Icon, themeVars } from "@lawkit/ui";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
 import { USER_OPTIONS, CAT_MINOR_OPTIONS, toOptions } from "../contractOptions";
@@ -13,12 +13,14 @@ const toISODate = (date: Date | null): string => (date ? date.toISOString().slic
 export function OverviewSection() {
   const { control, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
   return (
-    <Card bordered header={<CardTitle icon="fileText" num={1}>계약 개요</CardTitle>}>
+    <Card bordered header={<CardTitle num={1}>계약 개요</CardTitle>}>
       <div className={css.grid2}>
         <InputGroup label="계약 단계" required>
           <Controller name="stage" control={control} render={({ field }) => (
-            <RadioButtonGroup value={field.value} onChange={field.onChange}
-              items={[{ value: "new", label: "신규계약" }, { value: "change", label: "변경·해지" }]} />
+            <RadioGroup value={field.value} onChange={field.onChange}>
+              <Radio value="new" label="신규계약" />
+              <Radio value="change" label="변경·해지" />
+            </RadioGroup>
           )} />
         </InputGroup>
 
@@ -46,8 +48,10 @@ export function OverviewSection() {
 
         <InputGroup label="계약서 유형" required>
           <Controller name="ctype" control={control} render={({ field }) => (
-            <RadioButtonGroup value={field.value} onChange={field.onChange}
-              items={[{ value: "normal", label: "일반 검토요청" }, { value: "std", label: "표준계약서 계약체결" }]} />
+            <RadioGroup value={field.value} onChange={field.onChange}>
+              <Radio value="normal" label="일반 검토요청" />
+              <Radio value="std" label="표준계약서 계약체결" />
+            </RadioGroup>
           )} />
         </InputGroup>
 

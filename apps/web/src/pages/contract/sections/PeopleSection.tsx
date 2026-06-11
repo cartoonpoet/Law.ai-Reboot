@@ -11,7 +11,7 @@ const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v)
 export function PeopleSection() {
   const { control } = useFormContext<ContractRequestForm>();
   return (
-    <Card bordered header={<CardTitle icon="approvalCompleted" num={3}>관계자 · 참조</CardTitle>}>
+    <Card bordered header={<CardTitle num={3}>관계자 · 참조</CardTitle>}>
       <div className={css.grid2}>
         <InputGroup label="참조수신자">
           <Controller name="ccUsers" control={control} render={({ field }) => (

@@ -2,7 +2,8 @@ import { Controller, useFormContext, useFieldArray } from "react-hook-form";
 import {
   Card,
   InputGroup,
-  RadioButtonGroup,
+  RadioGroup,
+  Radio,
   DatePicker,
   Slider,
   Dropdown,
@@ -29,23 +30,19 @@ export function TermsSection() {
   const { fields, append } = useFieldArray({ control, name: "money" });
 
   return (
-    <Card bordered header={<CardTitle icon="list" num={4}>상세 조건</CardTitle>}>
+    <Card bordered header={<CardTitle num={4}>상세 조건</CardTitle>}>
       <div className={css.grid2}>
         <InputGroup label="계약 언어">
           <Controller
             name="lang"
             control={control}
             render={({ field }) => (
-              <RadioButtonGroup
-                value={field.value}
-                onChange={field.onChange}
-                items={[
-                  { value: "ko", label: "국문" },
-                  { value: "en", label: "영문" },
-                  { value: "koen", label: "국영" },
-                  { value: "etc", label: "기타" },
-                ]}
-              />
+              <RadioGroup value={field.value} onChange={field.onChange}>
+                <Radio value="ko" label="국문" />
+                <Radio value="en" label="영문" />
+                <Radio value="koen" label="국영" />
+                <Radio value="etc" label="기타" />
+              </RadioGroup>
             )}
           />
         </InputGroup>
@@ -55,14 +52,10 @@ export function TermsSection() {
             name="legal"
             control={control}
             render={({ field }) => (
-              <RadioButtonGroup
-                value={field.value}
-                onChange={field.onChange}
-                items={[
-                  { value: "dom", label: "국내 법무" },
-                  { value: "intl", label: "해외 법무" },
-                ]}
-              />
+              <RadioGroup value={field.value} onChange={field.onChange}>
+                <Radio value="dom" label="국내 법무" />
+                <Radio value="intl" label="해외 법무" />
+              </RadioGroup>
             )}
           />
         </InputGroup>

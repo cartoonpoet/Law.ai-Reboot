@@ -7,7 +7,7 @@ import * as css from "../contractRequest.css";
 export function DocsSection() {
   const { control, formState: { errors } } = useFormContext<ContractRequestForm>();
   return (
-    <Card bordered header={<CardTitle icon="paperclip" num={2}>계약서 · 첨부</CardTitle>}>
+    <Card bordered header={<CardTitle num={2}>계약서 · 첨부</CardTitle>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <Alert type="info" size="small">
           검토 정확도를 위해 편집 가능한 워드(.docx) 파일 첨부를 권장합니다. 첨부 즉시 우측에서 AI가 주요 리스크 조항을 사전 점검합니다.

@@ -1,13 +1,26 @@
 import type { ReactNode } from "react";
-import { Icon, themeVars } from "@lawkit/ui";
-import type { IconName } from "@lawkit/ui";
+import { themeVars } from "@lawkit/ui";
 import * as css from "../contractRequest.css";
 
-export function CardTitle({ icon, num, children }: { icon: IconName; num: number; children: ReactNode }) {
+export function CardTitle({ num, children }: { num: number; children: ReactNode }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <span style={{ width: 22, height: 22, borderRadius: 6, background: themeVars.color.accentPrimary, color: themeVars.color.textInverse, fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{num}</span>
-      <Icon name={icon} size="sm" style={{ width: 16, height: 16, color: themeVars.color.textSecondary }} />
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          background: `color-mix(in srgb, ${themeVars.color.accentPrimary} 10%, ${themeVars.color.neutralSurface})`,
+          color: themeVars.color.accentPrimary,
+          fontSize: 12,
+          fontWeight: 800,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {num}
+      </span>
       {children}
     </span>
   );

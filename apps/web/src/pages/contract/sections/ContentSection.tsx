@@ -14,7 +14,7 @@ const EDITORS: { name: "payTerms" | "purpose" | "keyPoints" | "concerns"; label:
 export function ContentSection() {
   const { control, formState: { errors } } = useFormContext<ContractRequestForm>();
   return (
-    <Card bordered header={<CardTitle icon="edit" num={5}>상세 내용</CardTitle>}>
+    <Card bordered header={<CardTitle num={5}>상세 내용</CardTitle>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {EDITORS.map((e) => (
           <InputGroup key={e.name} label={e.label} required={e.required}>
