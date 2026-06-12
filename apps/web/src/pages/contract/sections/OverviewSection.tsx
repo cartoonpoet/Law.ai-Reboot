@@ -1,5 +1,5 @@
-import { Controller, useFormContext } from "react-hook-form";
-import { Card, InputGroup, Input, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, DateRangePicker, Checkbox, Button, Icon, themeVars } from "@lawkit/ui";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
+import { Card, InputGroup, Input, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, DateRangePicker, Popover, Checkbox, Button, Icon, themeVars } from "@lawkit/ui";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
 import { USER_OPTIONS, CAT_MINOR_OPTIONS, toOptions } from "../contractOptions";
@@ -9,9 +9,13 @@ import * as css from "../contractRequest.css";
 const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v);
 
 const toISODate = (date: Date | null): string => (date ? date.toISOString().slice(0, 10) : "");
+const isoToDate = (iso: string): Date | null => (iso ? new Date(iso) : null);
 
 export function OverviewSection() {
   const { control, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
+  const periodStart = useWatch({ control, name: "periodStart" });
+  const periodEnd = useWatch({ control, name: "periodEnd" });
+  const rangeLabel = periodStart || periodEnd ? `${periodStart || "…"} ~ ${periodEnd || "…"}` : "";
   return (
     <Card bordered header={<CardTitle num={1}>계약 개요</CardTitle>}>
       <div className={css.grid2}>
@@ -78,10 +82,26 @@ export function OverviewSection() {
         </InputGroup>
 
         <InputGroup label="계약 기간" className={css.full}>
-          <DateRangePicker onChange={(range) => {
-            setValue("periodStart", toISODate(range.start));
-            setValue("periodEnd", toISODate(range.end));
-          }} />
+          <Popover
+            placement="bottom"
+            popoverBody={
+              <DateRangePicker
+                startDate={isoToDate(periodStart)}
+                endDate={isoToDate(periodEnd)}
+                onChange={(range) => {
+                  setValue("periodStart", toISODate(range.start));
+                  setValue("periodEnd", toISODate(range.end));
+                }}
+              />
+            }
+          >
+            <Input
+              readOnly
+              value={rangeLabel}
+              placeholder="YYYY-MM-DD ~ YYYY-MM-DD"
+              leftIcon={<Icon name="calendar" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />}
+            />
+          </Popover>
           <div style={{ display: "flex", gap: 18, marginTop: 9 }}>
             <Controller name="periodManual" control={control} render={({ field }) => (
               <Checkbox label="직접 입력" checked={field.value} onCheckedChange={field.onChange} />

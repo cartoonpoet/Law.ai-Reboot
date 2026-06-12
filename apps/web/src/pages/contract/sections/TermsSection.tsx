@@ -5,12 +5,15 @@ import {
   RadioGroup,
   Radio,
   DatePicker,
+  Popover,
   Slider,
   Dropdown,
   NumberInput,
   Button,
   Alert,
   Input,
+  Icon,
+  themeVars,
 } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 import { VAT_OPTIONS, CURRENCY_OPTIONS } from "../request-schema";
@@ -65,10 +68,22 @@ export function TermsSection() {
             name="expectedDate"
             control={control}
             render={({ field }) => (
-              <DatePicker
-                value={isoToDate(field.value)}
-                onChange={(d: Date) => field.onChange(dateToIso(d))}
-              />
+              <Popover
+                placement="bottom"
+                popoverBody={
+                  <DatePicker
+                    value={isoToDate(field.value)}
+                    onChange={(d: Date) => field.onChange(dateToIso(d))}
+                  />
+                }
+              >
+                <Input
+                  readOnly
+                  value={field.value}
+                  placeholder="YYYY-MM-DD"
+                  leftIcon={<Icon name="calendar" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />}
+                />
+              </Popover>
             )}
           />
         </InputGroup>
