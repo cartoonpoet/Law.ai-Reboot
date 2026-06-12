@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Controller, useFormContext, useFieldArray } from "react-hook-form";
 import {
   Card,
@@ -5,7 +6,7 @@ import {
   RadioGroup,
   Radio,
   DatePicker,
-  Popover,
+  Modal,
   Slider,
   Dropdown,
   NumberInput,
@@ -31,6 +32,7 @@ export function TermsSection() {
     formState: { errors },
   } = useFormContext<ContractRequestForm>();
   const { fields, append } = useFieldArray({ control, name: "money" });
+  const [expectedOpen, setExpectedOpen] = useState(false);
 
   return (
     <Card bordered header={<CardTitle num={4}>상세 조건</CardTitle>}>
@@ -68,22 +70,28 @@ export function TermsSection() {
             name="expectedDate"
             control={control}
             render={({ field }) => (
-              <Popover
-                placement="bottom"
-                popoverBody={
+              <>
+                <div onClick={() => setExpectedOpen(true)} style={{ cursor: "pointer" }}>
+                  <Input
+                    readOnly
+                    value={field.value}
+                    placeholder="YYYY-MM-DD"
+                    leftIcon={<Icon name="calendar" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />}
+                  />
+                </div>
+                <Modal
+                  open={expectedOpen}
+                  onClose={() => setExpectedOpen(false)}
+                  size="medium"
+                  title="계약예정일 선택"
+                  footer={<Button type="button" onClick={() => setExpectedOpen(false)}>확인</Button>}
+                >
                   <DatePicker
                     value={isoToDate(field.value)}
                     onChange={(d: Date) => field.onChange(dateToIso(d))}
                   />
-                }
-              >
-                <Input
-                  readOnly
-                  value={field.value}
-                  placeholder="YYYY-MM-DD"
-                  leftIcon={<Icon name="calendar" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />}
-                />
-              </Popover>
+                </Modal>
+              </>
             )}
           />
         </InputGroup>

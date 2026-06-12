@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Card, InputGroup, Input, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, DateRangePicker, Popover, Checkbox, Button, Icon, themeVars } from "@lawkit/ui";
+import { Card, InputGroup, Input, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, DateRangePicker, Modal, Checkbox, Button, Icon, themeVars } from "@lawkit/ui";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
 import { USER_OPTIONS, CAT_MINOR_OPTIONS, toOptions } from "../contractOptions";
@@ -16,6 +17,7 @@ export function OverviewSection() {
   const periodStart = useWatch({ control, name: "periodStart" });
   const periodEnd = useWatch({ control, name: "periodEnd" });
   const rangeLabel = periodStart || periodEnd ? `${periodStart || "…"} ~ ${periodEnd || "…"}` : "";
+  const [periodOpen, setPeriodOpen] = useState(false);
   return (
     <Card bordered header={<CardTitle num={1}>계약 개요</CardTitle>}>
       <div className={css.grid2}>
@@ -82,26 +84,30 @@ export function OverviewSection() {
         </InputGroup>
 
         <InputGroup label="계약 기간" className={css.full}>
-          <Popover
-            placement="bottom"
-            popoverBody={
-              <DateRangePicker
-                startDate={isoToDate(periodStart)}
-                endDate={isoToDate(periodEnd)}
-                onChange={(range) => {
-                  setValue("periodStart", toISODate(range.start));
-                  setValue("periodEnd", toISODate(range.end));
-                }}
-              />
-            }
-          >
+          <div onClick={() => setPeriodOpen(true)} style={{ cursor: "pointer" }}>
             <Input
               readOnly
               value={rangeLabel}
               placeholder="YYYY-MM-DD ~ YYYY-MM-DD"
               leftIcon={<Icon name="calendar" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />}
             />
-          </Popover>
+          </div>
+          <Modal
+            open={periodOpen}
+            onClose={() => setPeriodOpen(false)}
+            size="large"
+            title="계약 기간 선택"
+            footer={<Button type="button" onClick={() => setPeriodOpen(false)}>확인</Button>}
+          >
+            <DateRangePicker
+              startDate={isoToDate(periodStart)}
+              endDate={isoToDate(periodEnd)}
+              onChange={(range) => {
+                setValue("periodStart", toISODate(range.start));
+                setValue("periodEnd", toISODate(range.end));
+              }}
+            />
+          </Modal>
           <div style={{ display: "flex", gap: 18, marginTop: 9 }}>
             <Controller name="periodManual" control={control} render={({ field }) => (
               <Checkbox label="직접 입력" checked={field.value} onCheckedChange={field.onChange} />
