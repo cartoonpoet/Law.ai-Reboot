@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURRENT_USER_ID } from "./contractOptions";
 
 export const VAT_OPTIONS = [
   { value: "excluded", label: "부가가치세(10%) 별도" },
@@ -67,9 +68,9 @@ export type ContractRequestForm = z.infer<typeof contractRequestSchema>;
 
 export const contractRequestDefaults: ContractRequestForm = {
   stage: "new",
-  secure: "normal",
+  secure: "secure",
   name: "",
-  requester: "",
+  requester: CURRENT_USER_ID,
   ctype: "normal",
   party: "",
   catMajor: "",

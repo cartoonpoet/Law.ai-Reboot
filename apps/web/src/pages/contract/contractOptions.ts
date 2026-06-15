@@ -9,6 +9,10 @@ export const USER_OPTIONS: SelectOption[] = [
   { value: "kim", label: "김검토 (법무팀)" },
   { value: "park", label: "박담당 (구매팀)" },
 ];
+
+/** 현재 로그인 사용자(목업) — 검토 요청자 기본값 등에 사용 */
+export const CURRENT_USER_ID = "jhson1";
+
 export const CAT_MINOR_OPTIONS: SelectOption[] = toOptions(["소프트웨어", "용역", "물품", "기타"]);
 export const DEPT_CHIPS: SelectOption[] = [
   { value: "dev", label: "개발팀" },

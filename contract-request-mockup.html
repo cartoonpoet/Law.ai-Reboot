@@ -52,20 +52,24 @@
   .search .si{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--faint);}
   .search .input.val{color:var(--primary);font-weight:600;}
 
-  .seg{display:inline-flex;background:var(--surfaceAlt);border:1px solid var(--border);border-radius:8px;padding:3px;gap:3px;}
-  .seg-btn{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--muted);padding:7px 13px;border-radius:6px;cursor:pointer;border:none;background:none;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
-  .seg-btn.on{background:#fff;color:var(--primary);box-shadow:0 1px 2px rgba(16,24,40,.14);font-weight:700;}
-  .seg-btn .ic{width:13px;height:13px;}
+  /* lawkit ButtonGroup variant="outline" — 이어붙은 아웃라인 버튼 */
+  .seg{display:inline-flex;}
+  .seg-btn{font-family:inherit;font-size:14px;font-weight:500;color:var(--primary);height:38px;padding:0 12px;cursor:pointer;background:transparent;border:1px solid var(--primary);border-radius:0;margin-left:-1px;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:4px;line-height:1;transition:background-color .15s ease,color .15s ease;}
+  .seg-btn:first-child{margin-left:0;border-top-left-radius:4px;border-bottom-left-radius:4px;}
+  .seg-btn:last-child{border-top-right-radius:4px;border-bottom-right-radius:4px;}
+  .seg-btn.on{background:#2151ec1f;color:var(--primary);font-weight:500;}
+  .seg-btn .ic{width:14px;height:14px;}
 
+  /* lawkit Radio variant="basic" — 미선택 회색 테두리, 선택 시 primary 단색 채움 */
   .radio-row{display:flex;gap:20px;align-items:center;flex-wrap:wrap;height:42px;}
-  .radio{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--heading);cursor:pointer;}
-  .radio .rd{width:18px;height:18px;border-radius:99px;border:2px solid var(--borderStrong);position:relative;}
-  .radio.on .rd{border-color:var(--primary);}
-  .radio.on .rd::after{content:"";position:absolute;inset:3px;border-radius:99px;background:var(--primary);}
+  .radio{display:flex;align-items:center;gap:8px;font-size:14px;line-height:18px;color:var(--heading);cursor:pointer;}
+  .radio .rd{width:14px;height:14px;border-radius:50%;border:1.5px solid #9ea7b8;background:#fff;box-sizing:border-box;transition:background-color .15s ease,border-color .15s ease;}
+  .radio.on .rd{border:none;background:var(--primary);}
 
+  /* lawkit Checkbox */
   .checks{display:flex;gap:18px;margin-top:9px;}
   .check{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--body);cursor:pointer;}
-  .check .ck{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--borderStrong);}
+  .check .ck{width:16px;height:16px;border-radius:3px;border:1.5px solid #cfd5e1;background:#fff;box-sizing:border-box;}
 
   .chips{display:flex;gap:8px;margin-top:9px;}
   .chip{font-size:12px;font-weight:600;color:var(--primary);border:1px solid #b9c9ff;background:#fff;border-radius:99px;padding:5px 13px;cursor:pointer;}

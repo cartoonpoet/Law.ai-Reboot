@@ -1,14 +1,14 @@
 import { Controller, useFormContext } from "react-hook-form";
-import { Card, InputGroup, Button } from "@lawkit/ui";
+import { Card, Button } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 import { RichTextEditor } from "../../../components/ui/RichTextEditor";
-import { CardTitle, ErrText } from "./_shared";
+import { CardTitle, ErrText, Field } from "./_shared";
 
-const EDITORS: { name: "payTerms" | "purpose" | "keyPoints" | "concerns"; label: string; required?: boolean }[] = [
-  { name: "payTerms", label: "계약 지급 조건" },
-  { name: "purpose", label: "계약의 배경 및 목적", required: true },
-  { name: "keyPoints", label: "주요 협의사항" },
-  { name: "concerns", label: "요청부서의 우려사항 및 기타 고려사항" },
+const EDITORS: { name: "payTerms" | "purpose" | "keyPoints" | "concerns"; label: string; info: string; required?: boolean }[] = [
+  { name: "payTerms", label: "계약 지급 조건", info: "대금 지급 시기·방법 등 지급 관련 조건을 적습니다." },
+  { name: "purpose", label: "계약의 배경 및 목적", info: "이 계약을 체결하려는 배경과 목적을 적습니다.", required: true },
+  { name: "keyPoints", label: "주요 협의사항", info: "상대방과 합의한 핵심 사항을 적습니다." },
+  { name: "concerns", label: "요청부서의 우려사항 및 기타 고려사항", info: "검토 시 유의할 우려·요청 사항을 적습니다." },
 ];
 
 export function ContentSection() {
@@ -17,16 +17,16 @@ export function ContentSection() {
     <Card bordered header={<CardTitle num={5}>상세 내용</CardTitle>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {EDITORS.map((e) => (
-          <InputGroup key={e.name} label={e.label} required={e.required}>
+          <Field key={e.name} label={e.label} info={e.info} required={e.required}>
             <Controller name={e.name} control={control} render={({ field }) => (
               <RichTextEditor ariaLabel={e.label} value={field.value} onChange={field.onChange} />
             )} />
             {e.name === "purpose" && <ErrText msg={errors.purpose?.message} />}
-          </InputGroup>
+          </Field>
         ))}
-        <InputGroup label="기타 URL">
+        <Field label="기타 URL" info="참고할 외부 링크를 추가합니다.">
           <Button type="button" variant="outline" color="secondary" size="small">+ 추가</Button>
-        </InputGroup>
+        </Field>
       </div>
     </Card>
   );

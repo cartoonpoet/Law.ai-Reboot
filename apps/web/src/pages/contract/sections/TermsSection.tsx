@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Controller, useFormContext, useFieldArray } from "react-hook-form";
 import {
   Card,
-  InputGroup,
   RadioGroup,
   Radio,
   DatePicker,
@@ -18,7 +17,7 @@ import {
 } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 import { VAT_OPTIONS, CURRENCY_OPTIONS } from "../request-schema";
-import { CardTitle, ErrText } from "./_shared";
+import { CardTitle, ErrText, Field } from "./_shared";
 import * as css from "../contractRequest.css";
 
 const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v);
@@ -37,7 +36,7 @@ export function TermsSection() {
   return (
     <Card bordered header={<CardTitle num={4}>상세 조건</CardTitle>}>
       <div className={css.grid2}>
-        <InputGroup label="계약 언어">
+        <Field label="계약 언어">
           <Controller
             name="lang"
             control={control}
@@ -50,9 +49,9 @@ export function TermsSection() {
               </RadioGroup>
             )}
           />
-        </InputGroup>
+        </Field>
 
-        <InputGroup label="법무 분류">
+        <Field label="법무 분류">
           <Controller
             name="legal"
             control={control}
@@ -63,9 +62,9 @@ export function TermsSection() {
               </RadioGroup>
             )}
           />
-        </InputGroup>
+        </Field>
 
-        <InputGroup label="계약예정일">
+        <Field label="계약예정일">
           <Controller
             name="expectedDate"
             control={control}
@@ -94,9 +93,9 @@ export function TermsSection() {
               </>
             )}
           />
-        </InputGroup>
+        </Field>
 
-        <InputGroup label="계약상대방 협상력">
+        <Field label="계약상대방 협상력" info="상대방 대비 우리 측의 협상 우위 정도입니다.">
           <Controller
             name="negotiation"
             control={control}
@@ -111,9 +110,9 @@ export function TermsSection() {
               />
             )}
           />
-        </InputGroup>
+        </Field>
 
-        <InputGroup label="계약 규모(대가)" required className={css.full}>
+        <Field label="계약 규모(대가)" info="총액이 정해지지 않은 경우 항목을 추가해 입력하세요." required className={css.full}>
           {fields.map((row, i) => (
             <div
               key={row.id}
@@ -195,7 +194,7 @@ export function TermsSection() {
             />
           </div>
           <ErrText msg={errors.money?.message as string | undefined} />
-        </InputGroup>
+        </Field>
       </div>
     </Card>
   );
