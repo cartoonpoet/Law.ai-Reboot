@@ -1,5 +1,0 @@
-{
-  "extends": "@lawai/typescript-config/vite.json",
-  "include": ["src"],
-  "compilerOptions": { "jsx": "react-jsx" }
-}
