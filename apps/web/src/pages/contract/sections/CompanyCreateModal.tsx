@@ -31,7 +31,7 @@ export function CompanyCreateModal({
     <Modal
       open
       onClose={onClose}
-      size="medium"
+      size="small"
       title="상대 계약자 신규 등록"
       footer={
         <>
@@ -85,7 +85,7 @@ export function CompanyCreateModal({
                 )}
               />
             </div>
-            <Button type="button" variant="outline" color="secondary" onClick={bizNoCheck.run}>
+            <Button type="button" variant="outline" color="secondary" onClick={bizNoCheck.run} size="small">
               중복확인
             </Button>
           </div>
@@ -152,7 +152,7 @@ export function CompanyCreateModal({
                 )}
               />
             </div>
-            <Button type="button" variant="outline" color="secondary" onClick={findAddress}>
+            <Button type="button" variant="outline" color="secondary" onClick={findAddress} size="small">
               주소검색
             </Button>
           </div>
