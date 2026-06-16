@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Card, Input, Button, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDateRangePicker, Checkbox, Icon } from "@lawkit/ui";
+import { Card, Input, Button, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDateRangePicker, Checkbox, Icon, themeVars } from "@lawkit/ui";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
 import { USER_OPTIONS, CAT_MINOR_OPTIONS, toOptions } from "../contractOptions";
+import type { Company } from "@lawai/contracts";
 import { CardTitle, ErrText, Field } from "./_shared";
 import { useCompanySearch } from "../hooks/useCompanySearch";
 import { useCounterparties } from "../hooks/useCounterparties";
 import { toCompanyOptions } from "../companyLabel";
 import { CompanyCreateModal } from "./CompanyCreateModal";
+import { CompanyOptionRow } from "./CompanyOptionRow";
 import * as css from "../contractRequest.css";
 
 const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v);
@@ -23,6 +25,11 @@ export function OverviewSection() {
   const { query, results, search } = useCompanySearch();
   const { selected, add, selectByIds } = useCounterparties();
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // 옵션 value(id) → Company 조회용. 드롭다운 리치 행 렌더에 사용.
+  const companyById = new Map<string, Company>(
+    [...selected, ...results].map((c) => [c.id, c]),
+  );
 
   return (
     <Card bordered header={<CardTitle num={1}>계약 개요</CardTitle>}>
@@ -114,6 +121,7 @@ export function OverviewSection() {
             <div style={{ flex: 1, maxWidth: 460 }}>
               <AutoComplete
                 multiple
+                showSelectedInList
                 placeholder="회사명·사업자번호·대표자로 검색"
                 options={toCompanyOptions(selected, results)}
                 value={selected.map((c) => c.id)}
@@ -121,7 +129,38 @@ export function OverviewSection() {
                 onChange={(value) =>
                   selectByIds(Array.isArray(value) ? value : [value], results)
                 }
-                noResultText="검색 결과가 없습니다. 신규 등록을 이용하세요."
+                renderOption={(opt, { selected: isSel }) => {
+                  const company = companyById.get(opt.value);
+                  return company ? (
+                    <CompanyOptionRow company={company} selected={isSel} />
+                  ) : (
+                    opt.label
+                  );
+                }}
+                noResultText="검색 결과가 없습니다. 아래에서 신규 등록하세요."
+                footer={
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(true)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      width: "100%",
+                      padding: "11px 12px",
+                      border: "none",
+                      background: "none",
+                      cursor: "pointer",
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      color: themeVars.color.accentPrimary,
+                      textAlign: "left",
+                    }}
+                  >
+                    <Icon name="plus" size="sm" />
+                    {query ? `‘${query}’ 검색 결과에 없나요? 신규 등록` : "상대 계약자 신규 등록"}
+                  </button>
+                }
               />
             </div>
             <Button type="button" variant="outline" color="secondary" iconLeft={<Icon name="plus" size="sm" />} onClick={() => setIsModalOpen(true)}>

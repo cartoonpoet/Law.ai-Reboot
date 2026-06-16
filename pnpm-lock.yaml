@@ -67,8 +67,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/contracts
       '@lawkit/ui':
-        specifier: ^0.1.47
-        version: 0.1.47(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^0.1.48
+        version: 0.1.48(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.101.0(react@19.2.7)
@@ -1343,8 +1343,8 @@ packages:
       react: ^18.2.0 || ^19.0.0
       react-dom: ^18.2.0 || ^19.0.0
 
-  '@lawkit/ui@0.1.47':
-    resolution: {integrity: sha512-oHcFXq77mc/50TR2HAuO5MXsIcFyWWvarpa7bzumC/tr169Kp3g8m1GquZTojy/zEY1FbVi2uhH2isM2pehE9Q==}
+  '@lawkit/ui@0.1.48':
+    resolution: {integrity: sha512-VSoTcfVmh75ItLZonakVUAsBlmTEZhPP2LMDSXIHzwW1ToGY+tRAvq9l637dcZujrBoAFGgyWmiKmTd+vf6iGg==}
     peerDependencies:
       react: ^18.2.0 || ^19.0.0
       react-dom: ^18.2.0 || ^19.0.0
@@ -6272,7 +6272,7 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
       react-toastify: 11.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
 
-  '@lawkit/ui@0.1.47(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@lawkit/ui@0.1.48(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@tanstack/react-table': 8.21.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react: 19.2.7
