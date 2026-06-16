@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Modal, Input, RadioGroup, Radio, Button } from "@lawkit/ui";
 import type { Company, CompanyType, CreateCompanyRequest } from "@lawai/contracts";
 import { createCompany } from "../../../api/companies";
@@ -43,14 +43,14 @@ const loadDaumPostcode = (): Promise<void> => {
 };
 
 interface CompanyCreateModalProps {
-  open: boolean;
   initialName?: string;
   onClose: () => void;
   onCreated: (company: Company) => void;
 }
 
+// 표시 여부는 부모가 "마운트 여부"로 선언적으로 제어한다(열렸을 때만 렌더).
+// 그래서 매번 새 인스턴스로 마운트되어 입력 상태가 자동 초기화된다(수동 reset 불필요).
 export function CompanyCreateModal({
-  open,
   initialName = "",
   onClose,
   onCreated,
@@ -68,24 +68,6 @@ export function CompanyCreateModal({
   const [nameError, setNameError] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  // 모달이 열릴 때마다 이전 입력값을 초기화한다(컴포넌트가 언마운트되지 않으므로 필수).
-  useEffect(() => {
-    if (!open) return;
-    setType("company");
-    setName(initialName);
-    setBizNo("");
-    setCeo("");
-    setPhone("");
-    setAddress("");
-    setAddressDetail("");
-    setManagerName("");
-    setManagerPhone("");
-    setManagerEmail("");
-    setNameError("");
-    setError("");
-    setSubmitting(false);
-  }, [open, initialName]);
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -133,7 +115,7 @@ export function CompanyCreateModal({
 
   return (
     <Modal
-      open={open}
+      open
       onClose={onClose}
       size="medium"
       title="상대 계약자 신규 등록"

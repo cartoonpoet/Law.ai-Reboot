@@ -167,12 +167,13 @@ export function OverviewSection() {
             </Button>
           </div>
           <ErrText msg={errors.counterparties?.message} />
-          <CompanyCreateModal
-            open={modalOpen}
-            initialName={query}
-            onClose={() => setModalOpen(false)}
-            onCreated={addCompany}
-          />
+          {modalOpen && (
+            <CompanyCreateModal
+              initialName={query}
+              onClose={() => setModalOpen(false)}
+              onCreated={addCompany}
+            />
+          )}
         </Field>
       </div>
     </Card>
