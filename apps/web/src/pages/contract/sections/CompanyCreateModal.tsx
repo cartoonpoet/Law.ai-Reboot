@@ -27,6 +27,7 @@ export function CompanyCreateModal({
   const [managerName, setManagerName] = useState("");
   const [managerPhone, setManagerPhone] = useState("");
   const [managerEmail, setManagerEmail] = useState("");
+  const [nameError, setNameError] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -43,15 +44,17 @@ export function CompanyCreateModal({
     setManagerName("");
     setManagerPhone("");
     setManagerEmail("");
+    setNameError("");
     setError("");
     setSubmitting(false);
   }, [open, initialName]);
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      setError("회사명을 입력하세요");
+      setNameError("회사명을 입력하세요");
       return;
     }
+    setNameError("");
     setSubmitting(true);
     setError("");
     const req: CreateCompanyRequest = {
@@ -106,8 +109,12 @@ export function CompanyCreateModal({
           <Input
             placeholder="예) 삼성전자(주)"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (nameError) setNameError("");
+            }}
           />
+          <ErrText msg={nameError} />
         </Field>
         <Field label="사업자등록번호">
           <Input
