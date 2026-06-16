@@ -1,4 +1,4 @@
-import { Controller } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 import { Modal, Input, RadioGroup, Radio, Button, Icon, themeVars } from "@lawkit/ui";
 import type { Company } from "@lawai/contracts";
 import { Field, ErrText } from "./_shared";
@@ -26,6 +26,7 @@ export function CompanyCreateModal({
 }: CompanyCreateModalProps) {
   const { control, errors, isSubmitting, submit, findAddress, bizNoCheck } =
     useCompanyCreateForm({ initialName, onCreated, onClose });
+  const isIndividual = useWatch({ control, name: "type" }) === "individual";
 
   return (
     <Modal
@@ -67,7 +68,7 @@ export function CompanyCreateModal({
           />
           <ErrText msg={errors.name?.message} />
         </Field>
-        <Field label="사업자등록번호">
+        <Field label="사업자등록번호" required={!isIndividual}>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
               <Controller
@@ -89,20 +90,23 @@ export function CompanyCreateModal({
               중복확인
             </Button>
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 5,
-              marginTop: 6,
-              fontSize: 11,
-              lineHeight: 1.5,
-              color: themeVars.color.textMuted,
-            }}
-          >
-            <Icon name="info" size="sm" style={{ width: 12, height: 12, marginTop: 1, flexShrink: 0 }} />
-            <span>미부여 상태면 비워두세요. 등록 시 임시번호가 자동 생성됩니다.</span>
-          </div>
+          <ErrText msg={errors.bizNo?.message} />
+          {isIndividual ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 5,
+                marginTop: 6,
+                fontSize: 11,
+                lineHeight: 1.5,
+                color: themeVars.color.textMuted,
+              }}
+            >
+              <Icon name="info" size="sm" style={{ width: 12, height: 12, marginTop: 1, flexShrink: 0 }} />
+              <span>개인은 미부여 시 비워두세요. 등록 시 임시번호가 자동 생성됩니다.</span>
+            </div>
+          ) : null}
           {bizNoCheck.result.message ? (
             <div
               style={{
@@ -117,7 +121,7 @@ export function CompanyCreateModal({
           ) : null}
         </Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Field label="대표자명">
+          <Field label="대표자명" required>
             <Controller
               name="ceo"
               control={control}
@@ -125,6 +129,7 @@ export function CompanyCreateModal({
                 <Input placeholder="대표자 이름" value={field.value} onChange={field.onChange} />
               )}
             />
+            <ErrText msg={errors.ceo?.message} />
           </Field>
           <Field label="대표 전화">
             <Controller

@@ -59,7 +59,7 @@ describe("CompaniesService", () => {
     );
   });
 
-  it("create는 bizNo 미지정 시 TEMP- 임시번호를 생성한다", async () => {
+  it("create는 개인(individual)이고 bizNo 미지정 시 TEMP- 임시번호를 생성한다", async () => {
     prismaMock.company.create.mockImplementation(({ data }: any) =>
       Promise.resolve({ ...row, ...data }),
     );
@@ -68,6 +68,13 @@ describe("CompaniesService", () => {
     expect(arg.bizNo).toMatch(/^TEMP-[0-9A-F]{8}$/);
     expect(result.name).toBe("삼성기획");
     expect(result.type).toBe("individual");
+  });
+
+  it("create는 회사(company)이고 bizNo 미지정 시 400 RpcException을 던진다", async () => {
+    await expect(
+      service.create({ type: "company", name: "삼성전자(주)" }),
+    ).rejects.toBeInstanceOf(RpcException);
+    expect(prismaMock.company.create).not.toHaveBeenCalled();
   });
 
   it("create는 bizNo 중복 시 409 RpcException을 던진다", async () => {

@@ -46,9 +46,19 @@ export class CompaniesService {
   }
 
   async create(req: CreateCompanyRequest): Promise<Company> {
-    const bizNo = req.bizNo?.trim()
-      ? req.bizNo.trim()
-      : `TEMP-${randomUUID().slice(0, 8).toUpperCase()}`;
+    // 사업자번호: 입력 시 그대로, 미입력 시 개인(individual)만 임시번호 자동생성. 회사는 필수.
+    const trimmed = req.bizNo?.trim();
+    let bizNo: string;
+    if (trimmed) {
+      bizNo = trimmed;
+    } else if (req.type === "individual") {
+      bizNo = `TEMP-${randomUUID().slice(0, 8).toUpperCase()}`;
+    } else {
+      throw new RpcException({
+        status: 400,
+        message: "사업자등록번호를 입력하세요",
+      });
+    }
     try {
       const row = (await this.prisma.company.create({
         data: {

@@ -16,22 +16,28 @@ const IDLE_CHECK: BizNoCheckResult = { status: "idle", message: "" };
 // 신규 회사 등록 폼 — 다필드 + 검증이므로 react-hook-form + zod(폼 처리 3단계 규칙).
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-export const companyCreateSchema = z.object({
-  type: z.enum(["company", "individual"]),
-  name: z.string().trim().min(1, "회사명을 입력하세요"),
-  bizNo: z.string().trim().optional(),
-  ceo: z.string().trim().optional(),
-  phone: z.string().trim().optional(),
-  address: z.string().trim().optional(),
-  addressDetail: z.string().trim().optional(),
-  managerName: z.string().trim().optional(),
-  managerPhone: z.string().trim().optional(),
-  managerEmail: z
-    .string()
-    .trim()
-    .optional()
-    .refine((v) => !v || EMAIL_RE.test(v), "올바른 이메일 형식이 아닙니다"),
-});
+export const companyCreateSchema = z
+  .object({
+    type: z.enum(["company", "individual"]),
+    name: z.string().trim().min(1, "회사명을 입력하세요"),
+    bizNo: z.string().trim().optional(),
+    ceo: z.string().trim().min(1, "대표자명을 입력하세요"),
+    phone: z.string().trim().optional(),
+    address: z.string().trim().optional(),
+    addressDetail: z.string().trim().optional(),
+    managerName: z.string().trim().optional(),
+    managerPhone: z.string().trim().optional(),
+    managerEmail: z
+      .string()
+      .trim()
+      .optional()
+      .refine((v) => !v || EMAIL_RE.test(v), "올바른 이메일 형식이 아닙니다"),
+  })
+  // 회사(법인)는 사업자등록번호 필수, 개인은 비워두면 임시번호 자동생성(서버)
+  .refine((v) => v.type === "individual" || !!v.bizNo?.trim(), {
+    path: ["bizNo"],
+    message: "사업자등록번호를 입력하세요",
+  });
 
 export type CompanyCreateFormValues = z.infer<typeof companyCreateSchema>;
 
