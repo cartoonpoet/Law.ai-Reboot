@@ -1,12 +1,13 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Card, Input, Button, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDateRangePicker, Checkbox, Icon } from "@lawkit/ui";
-import type { Company } from "@lawai/contracts";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
 import { USER_OPTIONS, CAT_MINOR_OPTIONS, toOptions } from "../contractOptions";
 import { CardTitle, ErrText, Field } from "./_shared";
-import { searchCompanies } from "../../../api/companies";
+import { useCompanySearch } from "../hooks/useCompanySearch";
+import { useCounterparties } from "../hooks/useCounterparties";
+import { toCompanyOptions } from "../companyLabel";
 import { CompanyCreateModal } from "./CompanyCreateModal";
 import * as css from "../contractRequest.css";
 
@@ -19,41 +20,9 @@ export function OverviewSection() {
   const { control, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
   const periodStart = useWatch({ control, name: "periodStart" });
   const periodEnd = useWatch({ control, name: "periodEnd" });
-  const counterpartiesValue = (useWatch({ control, name: "counterparties" }) ?? []) as Company[];
-  const [results, setResults] = useState<Company[]>([]);
-  const [query, setQuery] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // 입력 멈춤 후 300ms 디바운스 → 키 입력마다 호출/응답 경쟁(out-of-order) 방지
-  const handleSearch = (text: string) => {
-    setQuery(text);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (!text.trim()) { setResults([]); return; }
-    searchTimer.current = setTimeout(async () => {
-      try {
-        setResults(await searchCompanies(text));
-      } catch {
-        setResults([]);
-      }
-    }, 300);
-  };
-
-  const addCompany = (company: Company) => {
-    if (counterpartiesValue.some((c) => c.id === company.id)) return;
-    setValue("counterparties", [...counterpartiesValue, company], { shouldValidate: true });
-  };
-
-  const getCompanyLabel = (c: Company) =>
-    c.bizNo.startsWith("TEMP-")
-      ? `${c.name} · 임시번호 · ${c.ceo ?? "-"}`
-      : `${c.name} · ${c.bizNo} · ${c.ceo ?? "-"}`;
-
-  // 선택된 회사 ∪ 검색결과 — 선택값(신규등록/이전선택 포함)이 항상 옵션에 있어야 badge 라벨이 그려진다
-  const companyOptions = [
-    ...counterpartiesValue,
-    ...results.filter((r) => !counterpartiesValue.some((c) => c.id === r.id)),
-  ].map((c) => ({ value: c.id, label: getCompanyLabel(c) }));
+  const { query, results, search } = useCompanySearch();
+  const { selected, add, selectByIds } = useCounterparties();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <Card bordered header={<CardTitle num={1}>계약 개요</CardTitle>}>
@@ -146,32 +115,25 @@ export function OverviewSection() {
               <AutoComplete
                 multiple
                 placeholder="회사명·사업자번호·대표자로 검색"
-                options={companyOptions}
-                value={counterpartiesValue.map((c) => c.id)}
-                onInputChange={handleSearch}
-                onChange={(value) => {
-                  const ids = Array.isArray(value) ? value : [value];
-                  const next = ids
-                    .map((id) =>
-                      counterpartiesValue.find((c) => c.id === id) ??
-                      results.find((c) => c.id === id),
-                    )
-                    .filter((c): c is Company => Boolean(c));
-                  setValue("counterparties", next, { shouldValidate: true });
-                }}
+                options={toCompanyOptions(selected, results)}
+                value={selected.map((c) => c.id)}
+                onInputChange={search}
+                onChange={(value) =>
+                  selectByIds(Array.isArray(value) ? value : [value], results)
+                }
                 noResultText="검색 결과가 없습니다. 신규 등록을 이용하세요."
               />
             </div>
-            <Button type="button" variant="outline" color="secondary" iconLeft={<Icon name="plus" size="sm" />} onClick={() => setModalOpen(true)}>
+            <Button type="button" variant="outline" color="secondary" iconLeft={<Icon name="plus" size="sm" />} onClick={() => setIsModalOpen(true)}>
               신규 추가
             </Button>
           </div>
           <ErrText msg={errors.counterparties?.message} />
-          {modalOpen && (
+          {isModalOpen && (
             <CompanyCreateModal
               initialName={query}
-              onClose={() => setModalOpen(false)}
-              onCreated={addCompany}
+              onClose={() => setIsModalOpen(false)}
+              onCreated={add}
             />
           )}
         </Field>
