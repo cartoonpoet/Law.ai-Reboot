@@ -143,6 +143,47 @@
   .layout{display:grid;gap:18px;align-items:start;grid-template-columns:1fr 340px;}
   .sticky{position:sticky;top:24px;}
   @media(max-width:980px){.layout{grid-template-columns:1fr;}.sticky{position:static;}}
+
+  /* 상대 계약자 AutoComplete (다중) + 검색 드롭다운 */
+  .ac-pop{display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:20;background:#fff;border:1px solid var(--borderStrong);border-radius:10px;box-shadow:0 10px 30px rgba(16,24,40,.14);overflow:hidden;}
+  .ac-head{padding:8px 12px;font-size:11px;font-weight:700;color:var(--faint);background:var(--surfaceAlt);border-bottom:1px solid var(--border);}
+  .ac-opt{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);}
+  .ac-opt:hover{background:var(--surfaceAlt);}
+  .ac-opt.on{background:var(--primaryTint);}
+  .ac-ic{width:32px;height:32px;border-radius:8px;background:var(--primarySoft);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ac-ic.ind{background:#e9f4f6;color:var(--info);}
+  .ac-main{flex:1;min-width:0;}
+  .ac-name{font-size:13px;font-weight:700;color:var(--heading);display:flex;align-items:center;gap:6px;}
+  .ac-sub{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.55;}
+  .ac-sub b{color:var(--body);font-weight:600;}
+  .ac-check{margin-left:auto;width:18px;height:18px;color:var(--primary);flex-shrink:0;}
+  .ac-new{display:flex;align-items:center;gap:7px;padding:11px 12px;font-size:12.5px;font-weight:700;color:var(--primary);cursor:pointer;}
+  .ac-new:hover{background:var(--surfaceAlt);}
+  .ttag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;line-height:1.5;}
+  .ttag.co{color:var(--primary);background:var(--primarySoft);}
+  .ttag.ind{color:var(--info);background:#e9f4f6;}
+  .ttag.tmp{color:var(--warningDark);background:#f8ead0;}
+
+  /* AutoComplete multiple 네이티브 badge (선택된 상대방) */
+  .ac-badges{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;}
+  .ac-badge{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--primary);background:var(--primarySoft);border-radius:6px;padding:5px 10px;}
+  .ac-badge .x{width:13px;height:13px;cursor:pointer;opacity:.75;}
+
+  /* 신규 회사 추가 모달 */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(16,24,40,.45);display:none;align-items:flex-start;justify-content:center;padding:56px 16px;z-index:50;}
+  .modal{background:#fff;border-radius:12px;width:100%;max-width:540px;box-shadow:0 20px 60px rgba(16,24,40,.3);overflow:hidden;}
+  .mhead{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);}
+  .mtitle{font-size:15px;font-weight:800;color:var(--heading);}
+  .mclose{width:18px;height:18px;color:var(--muted);cursor:pointer;}
+  .mbody{padding:18px;max-height:64vh;overflow:auto;}
+  .mfoot{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid var(--border);background:var(--surfaceAlt);}
+  .fld{margin-bottom:15px;}
+  .fld:last-child{margin-bottom:0;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .inline{display:flex;gap:8px;align-items:stretch;}
+  .inline .input{flex:1;}
+  .hint{font-size:11px;color:var(--faint);margin-top:6px;display:flex;align-items:flex-start;gap:5px;line-height:1.5;}
+  .hint .ic{width:12px;height:12px;margin-top:1px;}
 </style>
 </head>
 <body>
@@ -160,6 +201,41 @@
   <div class="layout">
     <div class="stack" id="form-col"></div>
     <div class="sticky stack" id="rail" style="gap:16px"></div>
+  </div>
+</div>
+
+<!-- ===================== 신규 회사 추가 모달 ===================== -->
+<div class="modal-backdrop" id="newco">
+  <div class="modal">
+    <div class="mhead">
+      <span class="mtitle">상대 계약자 신규 등록</span>
+      <svg class="ic mclose" id="newco-close" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </div>
+    <div class="mbody">
+      <div class="fld"><span class="lbl">구분</span><div class="radio-row" style="height:auto"><span class="radio on"><span class="rd"></span>회사(법인)</span><span class="radio"><span class="rd"></span>개인(개인사업자)</span></div></div>
+      <div class="fld"><span class="lbl req">회사명 / 상호</span><div class="input"><span class="ph">예) 삼성전자(주)</span></div></div>
+      <div class="fld"><span class="lbl req">사업자등록번호</span>
+        <div class="inline"><div class="input"><span class="ph">000-00-00000</span></div><button class="btn btn-outline btn-sm">중복확인</button></div>
+        <div class="hint"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>미부여 상태면 비워두세요. 등록 시 임시번호가 자동 생성됩니다.</div>
+      </div>
+      <div class="fld row2">
+        <div><span class="lbl">대표자명</span><div class="input"><span class="ph">대표자 이름</span></div></div>
+        <div><span class="lbl">대표 전화</span><div class="input"><span class="ph">02-0000-0000</span></div></div>
+      </div>
+      <div class="fld"><span class="lbl">주소</span>
+        <div class="inline"><div class="input"><span class="ph">도로명 주소를 검색하세요</span></div><button class="btn btn-outline btn-sm">주소검색</button></div>
+        <div class="input" style="margin-top:8px"><span class="ph">상세주소 (동·호수 등)</span></div>
+      </div>
+      <div class="fld row2">
+        <div><span class="lbl">담당자명</span><div class="input"><span class="ph">담당자 이름</span></div></div>
+        <div><span class="lbl">담당자 연락처</span><div class="input"><span class="ph">010-0000-0000</span></div></div>
+      </div>
+      <div class="fld"><span class="lbl">담당자 이메일</span><div class="input"><span class="ph">name@company.com</span></div></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-outline" id="newco-cancel">취소</button>
+      <button class="btn btn-primary">등록하고 선택</button>
+    </div>
   </div>
 </div>
 
@@ -181,7 +257,47 @@
         <div class="input sel"><span class="ph">계약 중분류</span><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div></div></div>
       <div class="full"><span class="lbl">계약 기간</span><div class="input" style="max-width:360px"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span class="ph">YYYY-MM-DD ~ YYYY-MM-DD</span></div>
         <div class="checks"><span class="check"><span class="ck"></span>직접 입력</span><span class="check"><span class="ck"></span>계약 종료일 없음</span></div></div>
-      <div class="full"><span class="lbl req">상대 계약자 정보</span><div style="display:flex;gap:10px"><div class="search" style="flex:1;max-width:420px"><div class="input"><span class="ph">회사명</span></div><svg class="ic si" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></div><button class="btn btn-outline btn-sm">+ 신규 추가</button></div></div>
+      <div class="full"><span class="lbl req">상대 계약자 정보 <svg class="ic infoi" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div class="search" style="flex:1;max-width:460px">
+            <div class="input val" id="cpt-input">삼성</div>
+            <svg class="ic si" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <!-- 검색 드롭다운 (API 결과) -->
+            <div class="ac-pop" id="cpt-pop">
+              <div class="ac-head">검색 결과 3건</div>
+              <div class="ac-opt on">
+                <div class="ac-ic"><svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg></div>
+                <div class="ac-main">
+                  <div class="ac-name">삼성전자(주) <span class="ttag co">회사</span></div>
+                  <div class="ac-sub"><b>사업자</b> 124-81-00998 · <b>대표</b> 한종희 · <b>전화</b> 02-2255-0114<br><b>주소</b> 경기 수원시 영통구 삼성로 129</div>
+                </div>
+                <svg class="ic ac-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <div class="ac-opt">
+                <div class="ac-ic"><svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg></div>
+                <div class="ac-main">
+                  <div class="ac-name">삼성물산(주) <span class="ttag co">회사</span></div>
+                  <div class="ac-sub"><b>사업자</b> 101-81-25070 · <b>대표</b> 오세철 · <b>전화</b> 02-2145-5114<br><b>주소</b> 서울 강동구 상일로6길 26</div>
+                </div>
+              </div>
+              <div class="ac-opt">
+                <div class="ac-ic ind"><svg class="ic" viewBox="0 0 24 24" style="width:17px;height:17px"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+                <div class="ac-main">
+                  <div class="ac-name">삼성기획 (김민수) <span class="ttag ind">개인</span></div>
+                  <div class="ac-sub"><b>사업자</b> <span class="ttag tmp">임시번호 자동생성</span> · <b>대표</b> 김민수 · <b>전화</b> 010-3344-7788<br><b>주소</b> 서울 서초구 서초대로 77길 17</div>
+                </div>
+              </div>
+              <div class="ac-new" id="cpt-pop-new"><svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M12 5v14M5 12h14"/></svg>‘삼성’ 검색 결과에 없나요? 신규 등록</div>
+            </div>
+          </div>
+          <button class="btn btn-outline btn-sm" id="cpt-new"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>신규 추가</button>
+        </div>
+        <!-- AutoComplete multiple 이 자동 생성하는 badge chip (라벨=회사명) -->
+        <div class="ac-badges">
+          <span class="ac-badge">삼성전자(주)<svg class="ic x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+          <span class="ac-badge">엘지화학(주)<svg class="ic x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></span>
+        </div>
+      </div>
     </div></div>
   </div>
 </template>
@@ -314,6 +430,26 @@
 
   var rail=document.getElementById('rail');
   ['tpl-progress','tpl-ai','tpl-approval'].forEach(function(g){rail.appendChild(clone(g));});
+
+  /* 상대 계약자: 검색 드롭다운 토글 + 신규 등록 모달 */
+  (function(){
+    var input=document.getElementById('cpt-input');
+    var pop=document.getElementById('cpt-pop');
+    var modal=document.getElementById('newco');
+    function openModal(){modal.style.display='flex';}
+    function closeModal(){modal.style.display='none';}
+    if(input&&pop){
+      input.addEventListener('click',function(e){e.stopPropagation();pop.style.display=(pop.style.display==='block'?'none':'block');});
+      pop.querySelectorAll('.ac-opt').forEach(function(o){o.addEventListener('click',function(){pop.style.display='none';});});
+      document.addEventListener('click',function(e){if(!pop.contains(e.target)&&e.target!==input)pop.style.display='none';});
+    }
+    var popNew=document.getElementById('cpt-pop-new');
+    if(popNew)popNew.addEventListener('click',function(){if(pop)pop.style.display='none';openModal();});
+    var newBtn=document.getElementById('cpt-new');
+    if(newBtn)newBtn.addEventListener('click',openModal);
+    ['newco-close','newco-cancel'].forEach(function(id){var el=document.getElementById(id);if(el)el.addEventListener('click',closeModal);});
+    if(modal)modal.addEventListener('click',function(e){if(e.target===modal)closeModal();});
+  })();
 </script>
 </body>
 </html>
