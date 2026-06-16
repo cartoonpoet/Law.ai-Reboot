@@ -14,13 +14,14 @@ describe("contractRequestSchema", () => {
       party: "(주)테크파트너스",
       catMajor: "IT·라이선스",
       catMinor: "소프트웨어",
+      catSub: "SaaS 이용",
       counterparties: [
         { id: "c1", type: "company", name: "(주)테크파트너스", bizNo: "111-11-11111",
           ceo: null, phone: null, address: null, addressDetail: null,
           managerName: null, managerPhone: null, managerEmail: null,
           createdAt: "2026-01-01T00:00:00.000Z" },
       ],
-      contractFiles: ["계약서.docx"],
+      contractFiles: [{ name: "계약서.docx", meta: "DOCX · 1.2MB" }],
       money: [{ vat: "excluded", amount: 1000, currency: "KRW" }],
       purpose: "<p>배경</p>",
     };

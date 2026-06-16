@@ -22,7 +22,7 @@ function statusOf(done: number, total: number, touched: boolean): SectionState {
 }
 
 export function deriveSectionStatus(v: ContractRequestForm): SectionStatus[] {
-  const ov = [v.name, v.requester, v.party, v.catMajor, v.catMinor, v.counterparties];
+  const ov = [v.name, v.requester, v.party, v.catMajor, v.catMinor, v.catSub, v.counterparties];
   const ovDone = ov.filter(has).length;
   const docsDone = has(v.contractFiles) ? 1 : 0;
   const peopleTouched = [v.ccUsers, v.ccDepts, v.ccSecret, v.owner, v.project].some(has);

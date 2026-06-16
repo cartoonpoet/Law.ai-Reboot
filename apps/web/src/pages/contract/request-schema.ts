@@ -37,6 +37,12 @@ export const moneyRowSchema = z.object({
   currency: z.string(),
 });
 
+// 첨부 파일 — 파일명 + 메타("DOCX · 1.2MB") 표기용
+export const uploadedFileSchema = z.object({
+  name: z.string(),
+  meta: z.string(),
+});
+
 export const contractRequestSchema = z.object({
   // ① 계약 개요
   stage: z.enum(["new", "change"]),
@@ -47,15 +53,17 @@ export const contractRequestSchema = z.object({
   party: z.string().min(1, "계약 당사자를 선택하세요"),
   catMajor: z.string().min(1, "계약 대분류를 선택하세요"),
   catMinor: z.string().min(1, "계약 중분류를 선택하세요"),
+  catSub: z.string().min(1, "계약 소분류를 선택하세요"),
   periodStart: z.string(),
   periodEnd: z.string(),
+  periodText: z.string(),
   periodManual: z.boolean(),
   noEndDate: z.boolean(),
   counterparties: z.array(companyRefSchema).min(1, "상대 계약자를 선택하세요"),
-  // ② 계약서·첨부 (mock: 파일명 배열)
-  contractFiles: z.array(z.string()).min(1, "계약서를 첨부하세요"),
-  attachFiles: z.array(z.string()),
-  refFiles: z.array(z.string()),
+  // ② 계약서·첨부 (mock: 파일명 + 메타 배열)
+  contractFiles: z.array(uploadedFileSchema).min(1, "계약서를 첨부하세요"),
+  attachFiles: z.array(uploadedFileSchema),
+  refFiles: z.array(uploadedFileSchema),
   // ③ 관계자·참조
   ccUsers: z.array(z.string()),
   ccDepts: z.array(z.string()),
@@ -92,8 +100,10 @@ export const contractRequestDefaults: ContractRequestForm = {
   party: "",
   catMajor: "",
   catMinor: "",
+  catSub: "",
   periodStart: "",
   periodEnd: "",
+  periodText: "",
   periodManual: false,
   noEndDate: false,
   counterparties: [],

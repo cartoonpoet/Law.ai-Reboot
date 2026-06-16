@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Card, Input, Button, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDateRangePicker, Checkbox, Icon, themeVars } from "@lawkit/ui";
+import { Card, Input, Button, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDatePicker, InputDateRangePicker, Checkbox, Icon, themeVars } from "@lawkit/ui";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
-import { USER_OPTIONS, CAT_MINOR_OPTIONS, toOptions } from "../contractOptions";
+import { USER_OPTIONS, toOptions, getMajorOptions, getMinorOptions, getSubOptions } from "../contractOptions";
 import type { Company } from "@lawai/contracts";
 import { CardTitle, ErrText, Field } from "./_shared";
 import { useCompanySearch } from "../hooks/useCompanySearch";
@@ -22,6 +22,10 @@ export function OverviewSection() {
   const { control, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
   const periodStart = useWatch({ control, name: "periodStart" });
   const periodEnd = useWatch({ control, name: "periodEnd" });
+  const periodManual = useWatch({ control, name: "periodManual" });
+  const noEndDate = useWatch({ control, name: "noEndDate" });
+  const catMajor = useWatch({ control, name: "catMajor" });
+  const catMinor = useWatch({ control, name: "catMinor" });
   const { query, results, search } = useCompanySearch();
   const { selected, add, selectByIds } = useCounterparties();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,39 +83,71 @@ export function OverviewSection() {
         </Field>
 
         <Field label="계약 분류" required className={css.full}>
-          <div className={css.grid3}>
+          <div className={css.grid4}>
             <Controller name="party" control={control} render={({ field }) => (
               <Dropdown options={toOptions(LIST_FILTERS.party.slice(1))} value={field.value} placeholder="계약 당사자"
                 onChange={(v) => field.onChange(pickSingle(v))} />
             )} />
             <Controller name="catMajor" control={control} render={({ field }) => (
-              <Dropdown options={toOptions(LIST_FILTERS.cat.slice(1))} value={field.value} placeholder="계약 대분류"
-                onChange={(v) => field.onChange(pickSingle(v))} />
+              <Dropdown options={getMajorOptions()} value={field.value} placeholder="계약 대분류"
+                onChange={(v) => {
+                  field.onChange(pickSingle(v));
+                  setValue("catMinor", "");
+                  setValue("catSub", "");
+                }} />
             )} />
             <Controller name="catMinor" control={control} render={({ field }) => (
-              <Dropdown options={CAT_MINOR_OPTIONS} value={field.value} placeholder="계약 중분류"
+              <Dropdown options={getMinorOptions(catMajor)} value={field.value} placeholder="계약 중분류"
+                onChange={(v) => {
+                  field.onChange(pickSingle(v));
+                  setValue("catSub", "");
+                }} />
+            )} />
+            <Controller name="catSub" control={control} render={({ field }) => (
+              <Dropdown options={getSubOptions(catMajor, catMinor)} value={field.value} placeholder="계약 소분류"
                 onChange={(v) => field.onChange(pickSingle(v))} />
             )} />
           </div>
-          <ErrText msg={errors.party?.message ?? errors.catMajor?.message ?? errors.catMinor?.message} />
+          <ErrText msg={errors.party?.message ?? errors.catMajor?.message ?? errors.catMinor?.message ?? errors.catSub?.message} />
         </Field>
 
         <Field label="계약 기간" className={css.full}>
-          <InputDateRangePicker
-            startDate={isoToDate(periodStart)}
-            endDate={isoToDate(periodEnd)}
-            placeholder="YYYY-MM-DD ~ YYYY-MM-DD"
-            onChange={(range) => {
-              setValue("periodStart", toISODate(range.start));
-              setValue("periodEnd", toISODate(range.end));
-            }}
-          />
+          {periodManual ? (
+            <Controller name="periodText" control={control} render={({ field }) => (
+              <Input placeholder="예: 계약 체결일로부터 1년" value={field.value} onChange={field.onChange} />
+            )} />
+          ) : noEndDate ? (
+            <InputDatePicker
+              value={isoToDate(periodStart)}
+              placeholder="YYYY-MM-DD"
+              onChange={(date) => setValue("periodStart", toISODate(date))}
+            />
+          ) : (
+            <InputDateRangePicker
+              startDate={isoToDate(periodStart)}
+              endDate={isoToDate(periodEnd)}
+              placeholder="YYYY-MM-DD ~ YYYY-MM-DD"
+              onChange={(range) => {
+                setValue("periodStart", toISODate(range.start));
+                setValue("periodEnd", toISODate(range.end));
+              }}
+            />
+          )}
           <div style={{ display: "flex", gap: 18, marginTop: 9 }}>
             <Controller name="periodManual" control={control} render={({ field }) => (
-              <Checkbox label="직접 입력" checked={field.value} onCheckedChange={field.onChange} />
+              <Checkbox label="직접 입력" checked={field.value} onCheckedChange={(checked) => {
+                field.onChange(checked);
+                if (checked) setValue("noEndDate", false);
+              }} />
             )} />
             <Controller name="noEndDate" control={control} render={({ field }) => (
-              <Checkbox label="계약 종료일 없음" checked={field.value} onCheckedChange={field.onChange} />
+              <Checkbox label="계약 종료일 없음" checked={field.value} onCheckedChange={(checked) => {
+                field.onChange(checked);
+                if (checked) {
+                  setValue("periodManual", false);
+                  setValue("periodEnd", "");
+                }
+              }} />
             )} />
           </div>
         </Field>

@@ -14,7 +14,12 @@ export const rail = style({ position: "sticky", top: 16, display: "flex", flexDi
 
 export const grid2 = style({ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 20px" });
 export const grid3 = style({ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 });
+export const grid4 = style({ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 });
 export const full = style({ gridColumn: "1 / -1" });
+
+export const docsBody = style({ display: "flex", flexDirection: "column", gap: 16 });
+export const fileList = style({ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 });
+export const btnRow = style({ display: "flex", gap: 10, flexWrap: "wrap" });
 
 export const prgRow = style({
   display: "flex",
