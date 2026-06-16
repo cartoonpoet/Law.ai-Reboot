@@ -42,6 +42,13 @@ DB 스키마를 변경할 때마다 **erdify MCP**를 사용해 **"Law.ai Reboot
 
 > 아래 폴더/파일명·컴포넌트·타입·변수·함수·스타일 규칙은 **프론트엔드 React 코드(`apps/web`)에만** 적용한다. 백엔드(NestJS `services/*`)에는 적용하지 않는다.
 
+### 선언식(Declarative) 개발 (필수)
+- **명령식(imperative)이 아니라 선언식(declarative)으로 작성한다.** "어떻게(HOW) 단계별로 조작할지"가 아니라 "무엇(WHAT)을 보여줄지"를 상태로 선언하고, UI는 상태/props에서 **파생(derive)** 시킨다.
+- **직접 DOM 조작 금지**: `document.querySelector`, `el.classList`/`style` 토글, `innerHTML`, 수동 show/hide 대신 **상태 기반 조건부 렌더링**과 **배열 `.map()`**을 쓴다. (예: `open &&` 렌더, `items.map(...)`)
+- `useRef`는 포커스 이동·스크롤·외부 라이브러리 연동 등 **선언적으로 표현 불가한 경우에만** 사용한다.
+- 외부 명령형 API(예: 카카오 우편번호 팝업, 서드파티 SDK)는 이벤트 핸들러(`handle~`) 안에 감싸고, **결과를 상태로 반영**해 화면은 선언적으로 유지한다.
+- 파생 값은 렌더 중 계산(또는 `useMemo`)하고, 불필요하게 `useEffect`+`setState`로 동기화하지 않는다.
+
 ### 폴더 · 파일명
 - 폴더명: **camelCase**
 - 파일명: 기본 **camelCase**, 단 컴포넌트 파일만 **PascalCase**
