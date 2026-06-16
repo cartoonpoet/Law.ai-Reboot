@@ -14,3 +14,8 @@ export const USER_PATTERNS = {
   CONSUME_RESET_TOKEN: "user.resetToken.consume",
   UPDATE_PASSWORD: "user.updatePassword",
 } as const;
+
+export const COMPANY_PATTERNS = {
+  SEARCH: "company.search",
+  CREATE: "company.create",
+} as const;
