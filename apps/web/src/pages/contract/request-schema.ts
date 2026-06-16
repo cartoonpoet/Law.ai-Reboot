@@ -1,5 +1,22 @@
 import { z } from "zod";
+import type { Company } from "@lawai/contracts";
 import { CURRENT_USER_ID } from "./contractOptions";
+
+// 선택된 상대 계약자(회사) — 검색/등록 응답을 그대로 보관
+export const companyRefSchema = z.object({
+  id: z.string(),
+  type: z.enum(["company", "individual"]),
+  name: z.string(),
+  bizNo: z.string(),
+  ceo: z.string().nullable(),
+  phone: z.string().nullable(),
+  address: z.string().nullable(),
+  addressDetail: z.string().nullable(),
+  managerName: z.string().nullable(),
+  managerPhone: z.string().nullable(),
+  managerEmail: z.string().nullable(),
+  createdAt: z.string(),
+}) satisfies z.ZodType<Company>;
 
 export const VAT_OPTIONS = [
   { value: "excluded", label: "부가가치세(10%) 별도" },
@@ -34,7 +51,7 @@ export const contractRequestSchema = z.object({
   periodEnd: z.string(),
   periodManual: z.boolean(),
   noEndDate: z.boolean(),
-  counterparty: z.string().min(1, "상대 계약자를 입력하세요"),
+  counterparties: z.array(companyRefSchema).min(1, "상대 계약자를 선택하세요"),
   // ② 계약서·첨부 (mock: 파일명 배열)
   contractFiles: z.array(z.string()).min(1, "계약서를 첨부하세요"),
   attachFiles: z.array(z.string()),
@@ -79,7 +96,7 @@ export const contractRequestDefaults: ContractRequestForm = {
   periodEnd: "",
   periodManual: false,
   noEndDate: false,
-  counterparty: "",
+  counterparties: [],
   contractFiles: [],
   attachFiles: [],
   refFiles: [],

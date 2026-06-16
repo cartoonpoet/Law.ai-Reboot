@@ -14,7 +14,8 @@ describe("deriveSectionStatus", () => {
   it("개요 필수를 채우면 done", () => {
     const s = deriveSectionStatus({
       ...contractRequestDefaults,
-      name: "n", requester: "r", party: "p", catMajor: "a", catMinor: "b", counterparty: "c",
+      name: "n", requester: "r", party: "p", catMajor: "a", catMinor: "b",
+      counterparties: [{ id: "c", type: "company", name: "c", bizNo: "x", ceo: null, phone: null, address: null, addressDetail: null, managerName: null, managerPhone: null, managerEmail: null, createdAt: "" }],
     });
     expect(s.find((x) => x.id === "overview")!.status).toBe("done");
   });

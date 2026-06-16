@@ -1,5 +1,5 @@
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Card, Input, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDateRangePicker, Checkbox, Button, Icon, themeVars } from "@lawkit/ui";
+import { Card, Input, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDateRangePicker, Checkbox, Icon } from "@lawkit/ui";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
 import { USER_OPTIONS, CAT_MINOR_OPTIONS, toOptions } from "../contractOptions";
@@ -101,16 +101,8 @@ export function OverviewSection() {
         </Field>
 
         <Field label="상대 계약자 정보" required className={css.full}>
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1, maxWidth: 420 }}>
-              <Controller name="counterparty" control={control} render={({ field }) => (
-                <Input placeholder="회사명" value={field.value} onChange={field.onChange}
-                  leftIcon={<Icon name="user" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />} />
-              )} />
-            </div>
-            <Button type="button" variant="outline" color="secondary">신규 추가</Button>
-          </div>
-          <ErrText msg={errors.counterparty?.message} />
+          {/* 상대 계약자 UI는 Task 9에서 구현 */}
+          <></>
         </Field>
       </div>
     </Card>
