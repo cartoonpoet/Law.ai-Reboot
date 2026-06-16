@@ -1,9 +1,17 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { Company, CreateCompanyRequest } from "@lawai/contracts";
-import { createCompany } from "../../../api/companies";
+import { createCompany, searchCompanies } from "../../../api/companies";
 import { openAddressSearch } from "../daumPostcode";
+
+export type BizNoCheckStatus = "idle" | "checking" | "available" | "duplicate";
+export interface BizNoCheckResult {
+  status: BizNoCheckStatus;
+  message: string;
+}
+const IDLE_CHECK: BizNoCheckResult = { status: "idle", message: "" };
 
 // 신규 회사 등록 폼 — 다필드 + 검증이므로 react-hook-form + zod(폼 처리 3단계 규칙).
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -56,6 +64,7 @@ export const useCompanyCreateForm = ({
     handleSubmit,
     setValue,
     setError,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<CompanyCreateFormValues>({
     resolver: zodResolver(companyCreateSchema),
@@ -93,5 +102,35 @@ export const useCompanyCreateForm = ({
     );
   };
 
-  return { control, errors, isSubmitting, submit, findAddress };
+  // 사업자등록번호 중복확인 — 입력한 번호가 이미 등록돼 있는지 검색으로 확인한다.
+  const [bizNoCheck, setBizNoCheck] = useState<BizNoCheckResult>(IDLE_CHECK);
+  const runBizNoCheck = async () => {
+    const bizNo = getValues("bizNo")?.trim();
+    if (!bizNo) {
+      setBizNoCheck({ status: "idle", message: "사업자번호를 입력한 뒤 확인하세요" });
+      return;
+    }
+    setBizNoCheck({ status: "checking", message: "확인 중…" });
+    try {
+      const found = await searchCompanies(bizNo);
+      const isDuplicate = found.some((c) => c.bizNo === bizNo);
+      setBizNoCheck(
+        isDuplicate
+          ? { status: "duplicate", message: "이미 등록된 사업자등록번호입니다" }
+          : { status: "available", message: "사용 가능한 번호입니다" },
+      );
+    } catch {
+      setBizNoCheck({ status: "idle", message: "중복확인에 실패했습니다" });
+    }
+  };
+  const clearBizNoCheck = () => setBizNoCheck(IDLE_CHECK);
+
+  return {
+    control,
+    errors,
+    isSubmitting,
+    submit,
+    findAddress,
+    bizNoCheck: { result: bizNoCheck, run: runBizNoCheck, clear: clearBizNoCheck },
+  };
 };

@@ -1,8 +1,15 @@
 import { Controller } from "react-hook-form";
-import { Modal, Input, RadioGroup, Radio, Button } from "@lawkit/ui";
+import { Modal, Input, RadioGroup, Radio, Button, Icon, themeVars } from "@lawkit/ui";
 import type { Company } from "@lawai/contracts";
 import { Field, ErrText } from "./_shared";
 import { useCompanyCreateForm } from "../hooks/useCompanyCreateForm";
+
+const BIZNO_CHECK_COLOR = {
+  duplicate: themeVars.color.accentDanger,
+  available: themeVars.color.accentSuccess,
+  idle: themeVars.color.textMuted,
+  checking: themeVars.color.textMuted,
+} as const;
 
 interface CompanyCreateModalProps {
   initialName?: string;
@@ -17,11 +24,8 @@ export function CompanyCreateModal({
   onClose,
   onCreated,
 }: CompanyCreateModalProps) {
-  const { control, errors, isSubmitting, submit, findAddress } = useCompanyCreateForm({
-    initialName,
-    onCreated,
-    onClose,
-  });
+  const { control, errors, isSubmitting, submit, findAddress, bizNoCheck } =
+    useCompanyCreateForm({ initialName, onCreated, onClose });
 
   return (
     <Modal
@@ -64,24 +68,62 @@ export function CompanyCreateModal({
           <ErrText msg={errors.name?.message} />
         </Field>
         <Field label="사업자등록번호">
-          <Controller
-            name="bizNo"
-            control={control}
-            render={({ field }) => (
-              <Input
-                placeholder="000-00-00000 (미부여 시 비워두면 임시번호 자동 생성)"
-                value={field.value}
-                onChange={field.onChange}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Controller
+                name="bizNo"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    placeholder="000-00-00000"
+                    value={field.value}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      bizNoCheck.clear();
+                    }}
+                  />
+                )}
               />
-            )}
-          />
+            </div>
+            <Button type="button" variant="outline" color="secondary" onClick={bizNoCheck.run}>
+              중복확인
+            </Button>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 5,
+              marginTop: 6,
+              fontSize: 11,
+              lineHeight: 1.5,
+              color: themeVars.color.textMuted,
+            }}
+          >
+            <Icon name="info" size="sm" style={{ width: 12, height: 12, marginTop: 1, flexShrink: 0 }} />
+            <span>미부여 상태면 비워두세요. 등록 시 임시번호가 자동 생성됩니다.</span>
+          </div>
+          {bizNoCheck.result.message ? (
+            <div
+              style={{
+                marginTop: 5,
+                fontSize: 11.5,
+                fontWeight: 600,
+                color: BIZNO_CHECK_COLOR[bizNoCheck.result.status],
+              }}
+            >
+              {bizNoCheck.result.message}
+            </div>
+          ) : null}
         </Field>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="대표자명">
             <Controller
               name="ceo"
               control={control}
-              render={({ field }) => <Input value={field.value} onChange={field.onChange} />}
+              render={({ field }) => (
+                <Input placeholder="대표자 이름" value={field.value} onChange={field.onChange} />
+              )}
             />
           </Field>
           <Field label="대표 전화">
@@ -102,7 +144,7 @@ export function CompanyCreateModal({
                 control={control}
                 render={({ field }) => (
                   <Input
-                    placeholder="주소 찾기로 검색하세요"
+                    placeholder="도로명 주소를 검색하세요"
                     value={field.value}
                     readOnly
                     onClick={findAddress}
@@ -111,7 +153,7 @@ export function CompanyCreateModal({
               />
             </div>
             <Button type="button" variant="outline" color="secondary" onClick={findAddress}>
-              주소 찾기
+              주소검색
             </Button>
           </div>
         </Field>
@@ -120,7 +162,7 @@ export function CompanyCreateModal({
             name="addressDetail"
             control={control}
             render={({ field }) => (
-              <Input placeholder="동·호수 등" value={field.value} onChange={field.onChange} />
+              <Input placeholder="상세주소 (동·호수 등)" value={field.value} onChange={field.onChange} />
             )}
           />
         </Field>
@@ -129,7 +171,9 @@ export function CompanyCreateModal({
             <Controller
               name="managerName"
               control={control}
-              render={({ field }) => <Input value={field.value} onChange={field.onChange} />}
+              render={({ field }) => (
+                <Input placeholder="담당자 이름" value={field.value} onChange={field.onChange} />
+              )}
             />
           </Field>
           <Field label="담당자 연락처">
