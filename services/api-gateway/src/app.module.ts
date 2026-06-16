@@ -5,6 +5,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { GatewayClientsModule } from "./clients/clients.module";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
+import { CompaniesModule } from "./companies/companies.module";
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { UsersModule } from "./users/users.module";
     GatewayClientsModule,
     AuthModule,
     UsersModule,
+    CompaniesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
