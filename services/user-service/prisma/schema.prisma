@@ -29,3 +29,25 @@ model PasswordResetToken {
 
   @@index([userId])
 }
+
+enum CompanyType {
+  company
+  individual
+}
+
+model Company {
+  id            String      @id @default(uuid())
+  type          CompanyType @default(company)
+  name          String
+  bizNo         String      @unique
+  ceo           String?
+  phone         String?
+  address       String?
+  addressDetail String?
+  managerName   String?
+  managerPhone  String?
+  managerEmail  String?
+  createdAt     DateTime    @default(now())
+
+  @@index([name])
+}
