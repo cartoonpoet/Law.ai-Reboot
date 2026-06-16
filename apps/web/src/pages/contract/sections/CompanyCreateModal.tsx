@@ -4,6 +4,44 @@ import type { Company, CompanyType, CreateCompanyRequest } from "@lawai/contract
 import { createCompany } from "../../../api/companies";
 import { Field, ErrText } from "./_shared";
 
+// Daum(카카오) 우편번호 서비스 — 무료, API 키 불필요. 클릭 시 스크립트를 1회 로드해 팝업을 띄운다.
+interface DaumPostcodeData {
+  roadAddress: string;
+  jibunAddress: string;
+  zonecode: string;
+}
+interface DaumPostcodeInstance {
+  open: () => void;
+}
+declare global {
+  interface Window {
+    daum?: {
+      Postcode: new (options: {
+        oncomplete: (data: DaumPostcodeData) => void;
+      }) => DaumPostcodeInstance;
+    };
+  }
+}
+
+const DAUM_POSTCODE_SRC =
+  "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+let daumPostcodePromise: Promise<void> | null = null;
+const loadDaumPostcode = (): Promise<void> => {
+  if (window.daum?.Postcode) return Promise.resolve();
+  if (daumPostcodePromise) return daumPostcodePromise;
+  daumPostcodePromise = new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = DAUM_POSTCODE_SRC;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      daumPostcodePromise = null;
+      reject(new Error("주소 검색 서비스를 불러오지 못했습니다"));
+    };
+    document.head.appendChild(script);
+  });
+  return daumPostcodePromise;
+};
+
 interface CompanyCreateModalProps {
   open: boolean;
   initialName?: string;
@@ -80,6 +118,19 @@ export function CompanyCreateModal({
     }
   };
 
+  const handleFindAddress = async () => {
+    try {
+      await loadDaumPostcode();
+      new window.daum!.Postcode({
+        oncomplete: (data) => {
+          setAddress(data.roadAddress || data.jibunAddress);
+        },
+      }).open();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "주소 검색을 열 수 없습니다");
+    }
+  };
+
   return (
     <Modal
       open={open}
@@ -136,11 +187,19 @@ export function CompanyCreateModal({
           </Field>
         </div>
         <Field label="주소">
-          <Input
-            placeholder="도로명 주소"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                placeholder="주소 찾기로 검색하세요"
+                value={address}
+                readOnly
+                onClick={handleFindAddress}
+              />
+            </div>
+            <Button type="button" variant="outline" color="secondary" onClick={handleFindAddress}>
+              주소 찾기
+            </Button>
+          </div>
         </Field>
         <Field label="상세주소">
           <Input
