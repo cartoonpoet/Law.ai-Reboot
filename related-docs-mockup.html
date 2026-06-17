@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>관련문서 찾아보기 — 시안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    --primary:#2151ec;--primaryDark:#1739a5;--primarySoft:#eaefff;--primaryTint:#2151ec0d;
+    --success:#1f8a52;--danger:#d23b3b;--warning:#b8801a;--warningDark:#8a5a00;--info:#0e7c8c;
+    --heading:#161a26;--body:#3d4658;--muted:#6b7488;--faint:#9aa1b2;
+    --pageBg:#eef0f4;--surface:#fff;--surfaceAlt:#f4f5f8;--border:#e4e6ec;--borderStrong:#d3d7e0;
+    --shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Pretendard,system-ui,-apple-system,sans-serif;background:var(--pageBg);color:var(--body);}
+  .ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+
+  .btn{font-family:inherit;font-size:13px;font-weight:700;border-radius:8px;padding:9px 15px;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;}
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-outline{background:#fff;color:var(--body);border-color:var(--borderStrong);}
+  .btn-sm{padding:7px 12px;font-size:12.5px;}
+  .btn:disabled{opacity:.45;cursor:default;}
+
+  /* trigger 데모용 (실제로는 관계자·참조 섹션의 '찾아보기' 버튼) */
+  .demo{max-width:1120px;margin:0 auto;padding:40px 24px;}
+  .demo .lbl{font-size:12.5px;font-weight:600;color:var(--body);margin-bottom:8px;display:block;}
+
+  /* ── 모달 ── */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(16,24,40,.45);display:flex;align-items:flex-start;justify-content:center;padding:48px 16px;z-index:50;}
+  .modal{background:#fff;border-radius:12px;width:100%;max-width:720px;box-shadow:0 20px 60px rgba(16,24,40,.3);overflow:hidden;display:flex;flex-direction:column;max-height:86vh;}
+  .mhead{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);}
+  .mtitle{font-size:15px;font-weight:800;color:var(--heading);display:flex;align-items:center;gap:8px;}
+  .mtitle .ic{color:var(--muted);}
+  .mclose{width:18px;height:18px;color:var(--muted);cursor:pointer;}
+
+  .msearch{padding:14px 18px;border-bottom:1px solid var(--border);}
+  .search{position:relative;}
+  .search .input{width:100%;font-family:inherit;font-size:13.5px;color:var(--heading);background:#fff;border:1px solid var(--borderStrong);border-radius:8px;padding:10px 38px 10px 12px;}
+  .search .input::placeholder{color:var(--faint);}
+  .search .si{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--faint);}
+
+  .mbody{display:grid;grid-template-columns:188px 1fr;min-height:0;flex:1;}
+
+  /* 좌측 카테고리 필터 */
+  .cats{border-right:1px solid var(--border);background:var(--surfaceAlt);padding:14px 12px;overflow:auto;}
+  .cats-h{font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.05em;text-transform:uppercase;margin:0 4px 8px;}
+  .cat{display:flex;align-items:center;gap:9px;padding:9px 8px;border-radius:7px;cursor:pointer;}
+  .cat:hover{background:#fff;}
+  .cat.on{background:#fff;}
+  .ck{width:16px;height:16px;border-radius:4px;border:1.5px solid #cfd5e1;background:#fff;box-sizing:border-box;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .cat.on .ck{border:none;background:var(--primary);}
+  .cat.on .ck .ic{width:11px;height:11px;color:#fff;}
+  .cat .nm{flex:1;font-size:13px;font-weight:600;color:var(--heading);}
+  .cat .cnt{font-size:11px;font-weight:700;color:var(--faint);}
+  .cat-dot{width:8px;height:8px;border-radius:99px;flex-shrink:0;}
+  .d-contract{background:var(--primary);}.d-advice{background:var(--info);}.d-litig{background:var(--danger);}.d-legalproj{background:var(--success);}
+
+  /* 우측 문서 목록 */
+  .docs{overflow:auto;padding:8px 8px 8px 0;}
+  .doc{display:flex;align-items:center;gap:11px;padding:11px 14px;border-radius:8px;cursor:pointer;}
+  .doc:hover{background:var(--surfaceAlt);}
+  .doc.on{background:var(--primaryTint);}
+  .doc .docic{width:34px;height:34px;border-radius:8px;background:var(--primarySoft);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .doc .main{flex:1;min-width:0;}
+  .doc .nm{font-size:13px;font-weight:700;color:var(--heading);display:flex;align-items:center;gap:7px;}
+  .doc .sub{font-size:11.5px;color:var(--muted);margin-top:3px;}
+  .doc .when{font-size:11.5px;color:var(--faint);flex-shrink:0;}
+
+  .ttag{font-size:10px;font-weight:800;padding:1px 7px;border-radius:4px;line-height:1.6;}
+  .t-contract{color:var(--primary);background:var(--primarySoft);}
+  .t-advice{color:var(--info);background:#e9f4f6;}
+  .t-litig{color:var(--danger);background:#fbeaea;}
+  .t-legalproj{color:var(--success);background:#e7f4ec;}
+
+  .mfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 18px;border-top:1px solid var(--border);background:var(--surfaceAlt);}
+  .selcount{font-size:12.5px;font-weight:700;color:var(--body);}
+  .selcount b{color:var(--primary);}
+  .foot-btns{display:flex;gap:8px;}
+
+  .empty{padding:40px 16px;text-align:center;font-size:12.5px;color:var(--faint);}
+</style>
+</head>
+<body>
+
+<div class="demo">
+  <span class="lbl">관련문서</span>
+  <button class="btn btn-outline btn-sm" id="open">찾아보기</button>
+</div>
+
+<!-- ===================== 관련문서 찾아보기 모달 ===================== -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <div class="mhead">
+      <span class="mtitle">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        관련문서 찾아보기
+      </span>
+      <svg class="ic mclose" id="close" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </div>
+
+    <div class="msearch">
+      <div class="search">
+        <input class="input" placeholder="문서명 · 계약명 · 사건번호로 검색" />
+        <svg class="ic si" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      </div>
+    </div>
+
+    <div class="mbody">
+      <!-- 좌측: 카테고리 체크박스 필터 -->
+      <aside class="cats">
+        <p class="cats-h">분류</p>
+        <label class="cat on"><span class="ck"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="cat-dot d-contract"></span><span class="nm">계약</span><span class="cnt">12</span></label>
+        <label class="cat on"><span class="ck"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="cat-dot d-advice"></span><span class="nm">자문</span><span class="cnt">7</span></label>
+        <label class="cat"><span class="ck"></span><span class="cat-dot d-litig"></span><span class="nm">송무</span><span class="cnt">4</span></label>
+        <label class="cat"><span class="ck"></span><span class="cat-dot d-legalproj"></span><span class="nm">법무프로젝트</span><span class="cnt">3</span></label>
+      </aside>
+
+      <!-- 우측: 문서 목록 (체크 선택) -->
+      <div class="docs">
+        <div class="doc on">
+          <div class="docic"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="main">
+            <div class="nm">SW공급계약서_v2 <span class="ttag t-contract">계약</span></div>
+            <div class="sub">차세대 플랫폼 구축 · 삼성전자(주)</div>
+          </div>
+          <span class="when">2026-05-12</span>
+        </div>
+
+        <div class="doc">
+          <div class="docic"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="main">
+            <div class="nm">개인정보 위탁처리 계약서 <span class="ttag t-contract">계약</span></div>
+            <div class="sub">데이터센터 이전 · 엘지화학(주)</div>
+          </div>
+          <span class="when">2026-04-28</span>
+        </div>
+
+        <div class="doc on">
+          <div class="docic"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="main">
+            <div class="nm">하도급 적정성 자문 회신 <span class="ttag t-advice">자문</span></div>
+            <div class="sub">자문 2026-031 · 구매팀</div>
+          </div>
+          <span class="when">2026-04-10</span>
+        </div>
+
+        <div class="doc">
+          <div class="docic"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="main">
+            <div class="nm">표준 비밀유지계약 자문 의견서 <span class="ttag t-advice">자문</span></div>
+            <div class="sub">자문 2026-027 · 법무팀</div>
+          </div>
+          <span class="when">2026-03-22</span>
+        </div>
+
+        <div class="doc">
+          <div class="docic"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="main">
+            <div class="nm">물품대금 청구 소장 <span class="ttag t-litig">송무</span></div>
+            <div class="sub">2026가합1287 · 서울중앙지법</div>
+          </div>
+          <span class="when">2026-02-15</span>
+        </div>
+
+        <div class="doc">
+          <div class="docic"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="main">
+            <div class="nm">계약서 표준화 TF 산출물 <span class="ttag t-legalproj">법무프로젝트</span></div>
+            <div class="sub">AI 계약검토 고도화 · 전략기획팀</div>
+          </div>
+          <span class="when">2026-01-30</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mfoot">
+      <span class="selcount">선택 <b>2</b>건</span>
+      <div class="foot-btns">
+        <button class="btn btn-outline" id="cancel">취소</button>
+        <button class="btn btn-primary">선택 완료</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* 시안 인터랙션: 카테고리/문서 토글, 열고 닫기 (디자인 확인용) */
+  var modal=document.getElementById('modal');
+  document.getElementById('open').addEventListener('click',function(){modal.style.display='flex';});
+  ['close','cancel'].forEach(function(id){document.getElementById(id).addEventListener('click',function(){modal.style.display='none';});});
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.style.display='none';});
+
+  function syncCount(){
+    var n=document.querySelectorAll('.doc.on').length;
+    document.querySelector('.selcount b').textContent=n;
+  }
+  document.querySelectorAll('.cat').forEach(function(c){c.addEventListener('click',function(e){e.preventDefault();c.classList.toggle('on');});});
+  document.querySelectorAll('.doc').forEach(function(d){d.addEventListener('click',function(){d.classList.toggle('on');syncCount();});});
+</script>
+</body>
+</html>

@@ -17,6 +17,8 @@ export const grid3 = style({ display: "grid", gridTemplateColumns: "1fr 1fr 1fr"
 export const grid4 = style({ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 });
 export const full = style({ gridColumn: "1 / -1" });
 
+export const browseRow = style({ height: 42, display: "flex", alignItems: "center", gap: 10 });
+export const browseCount = style({ fontSize: 12, fontWeight: 600, color: themeVars.color.textMuted });
 export const docsBody = style({ display: "flex", flexDirection: "column", gap: 16 });
 export const fileList = style({ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 });
 export const btnRow = style({ display: "flex", gap: 10, flexWrap: "wrap" });

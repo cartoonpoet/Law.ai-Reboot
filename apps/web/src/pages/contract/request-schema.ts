@@ -1,6 +1,23 @@
 import { z } from "zod";
 import type { Company } from "@lawai/contracts";
+import type { DirectoryEntry } from "../../api/directory";
+import type { RelatedDoc } from "../../api/relatedDocs";
 import { CURRENT_USER_ID } from "./contractOptions";
+
+// 관계자·참조 선택값(사용자/부서/프로젝트) — 라벨 유지를 위해 id+name 보관
+export const entityRefSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+}) satisfies z.ZodType<DirectoryEntry>;
+
+// 관련문서 선택값 — 모달에서 고른 문서를 그대로 보관
+export const relatedDocSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: z.enum(["contract", "advice", "litigation", "legalProject"]),
+  sub: z.string(),
+  date: z.string(),
+}) satisfies z.ZodType<RelatedDoc>;
 
 // 선택된 상대 계약자(회사) — 검색/등록 응답을 그대로 보관
 export const companyRefSchema = z.object({
@@ -64,12 +81,13 @@ export const contractRequestSchema = z.object({
   contractFiles: z.array(uploadedFileSchema).min(1, "계약서를 첨부하세요"),
   attachFiles: z.array(uploadedFileSchema),
   refFiles: z.array(uploadedFileSchema),
-  // ③ 관계자·참조
-  ccUsers: z.array(z.string()),
-  ccDepts: z.array(z.string()),
-  ccSecret: z.array(z.string()),
-  owner: z.string(),
-  project: z.string(),
+  // ③ 관계자·참조 (검색형 AutoComplete — id+name ref 보관)
+  ccUsers: z.array(entityRefSchema),
+  ccDepts: z.array(entityRefSchema),
+  ccSecret: z.array(entityRefSchema),
+  owner: entityRefSchema.nullable(),
+  project: entityRefSchema.nullable(),
+  relatedDocs: z.array(relatedDocSchema),
   // ④ 상세 조건
   lang: z.enum(["ko", "en", "koen", "etc"]),
   legal: z.enum(["dom", "intl", ""]),
@@ -113,8 +131,9 @@ export const contractRequestDefaults: ContractRequestForm = {
   ccUsers: [],
   ccDepts: [],
   ccSecret: [],
-  owner: "",
-  project: "",
+  owner: null,
+  project: null,
+  relatedDocs: [],
   lang: "ko",
   legal: "",
   expectedDate: "",
