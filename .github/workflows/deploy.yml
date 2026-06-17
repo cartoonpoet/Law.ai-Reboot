@@ -36,6 +36,11 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
+      - name: 서버 rsync 보장
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            'command -v rsync >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y rsync)'
+
       - name: 코드 동기화 (rsync)
         run: |
           rsync -az --delete \
