@@ -1,12 +1,26 @@
+import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Card, Alert, Button } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
+import type { StandardForm } from "../../../api/standardForms";
 import { CardTitle, ErrText, Field } from "./_shared";
 import { FileUploadField } from "./FileUploadField";
+import { StandardFormsModal } from "./StandardFormsModal";
 import * as css from "../contractRequest.css";
 
 export function DocsSection() {
-  const { formState: { errors } } = useFormContext<ContractRequestForm>();
+  const { getValues, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
+  const [isFormsOpen, setIsFormsOpen] = useState(false);
+
+  const handleAttachForm = (form: StandardForm) => {
+    setValue(
+      "contractFiles",
+      [...getValues("contractFiles"), { name: `${form.name} ${form.version}.docx`, meta: "표준양식 · DOCX" }],
+      { shouldValidate: true },
+    );
+    setIsFormsOpen(false);
+  };
+
   return (
     <Card bordered header={<CardTitle num={2}>계약서 · 첨부</CardTitle>}>
       <div className={css.docsBody}>
@@ -33,9 +47,10 @@ export function DocsSection() {
         </div>
 
         <div className={css.btnRow}>
-          <Button type="button" variant="outline" color="secondary" size="small">표준계약서 양식 보기</Button>
-          <Button type="button" variant="outline" color="secondary" size="small">관련문서 찾아보기</Button>
+          <Button type="button" variant="outline" color="secondary" size="small" onClick={() => setIsFormsOpen(true)}>표준계약서 양식 보기</Button>
         </div>
+
+        {isFormsOpen && <StandardFormsModal onClose={() => setIsFormsOpen(false)} onAttach={handleAttachForm} />}
       </div>
     </Card>
   );
