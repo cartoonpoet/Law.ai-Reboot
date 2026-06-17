@@ -18,10 +18,7 @@ services:
       retries: 12
 
   user-service:
-    build:
-      context: .
-      dockerfile: services/user-service/Dockerfile
-    image: lawai/user-service
+    image: ghcr.io/cartoonpoet/lawai-user-service:latest
     container_name: lawai-user-service
     restart: unless-stopped
     depends_on:
@@ -32,10 +29,7 @@ services:
       USER_SERVICE_PORT: "4002"
 
   auth-service:
-    build:
-      context: .
-      dockerfile: services/auth-service/Dockerfile
-    image: lawai/auth-service
+    image: ghcr.io/cartoonpoet/lawai-auth-service:latest
     container_name: lawai-auth-service
     restart: unless-stopped
     depends_on:
@@ -52,10 +46,7 @@ services:
       APP_WEB_URL: ${APP_WEB_URL}
 
   api-gateway:
-    build:
-      context: .
-      dockerfile: services/api-gateway/Dockerfile
-    image: lawai/api-gateway
+    image: ghcr.io/cartoonpoet/lawai-api-gateway:latest
     container_name: lawai-api-gateway
     restart: unless-stopped
     depends_on:
@@ -70,10 +61,7 @@ services:
       CORS_ORIGINS: ${APP_WEB_URL}
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    image: lawai/web
+    image: ghcr.io/cartoonpoet/lawai-web:latest
     container_name: lawai-web
     restart: unless-stopped
     depends_on:

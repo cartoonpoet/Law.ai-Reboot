@@ -1,13 +1,21 @@
 name: Deploy (dev)
 
-# dev 브랜치 푸시 시: 테스트 통과 → 개발 서버(134.185.111.89)로 배포.
+# dev 브랜치 푸시 시: 테스트 → (러너에서) 이미지 빌드 후 GHCR 푸시 → 서버는 pull만 해서 기동.
 on:
   push:
     branches: [dev]
 
 concurrency:
   group: deploy-dev
-  cancel-in-progress: false
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: cartoonpoet
 
 jobs:
   test:
@@ -23,8 +31,35 @@ jobs:
       - run: pnpm --filter @lawai/user-service exec prisma generate
       - run: pnpm turbo run lint test build
 
-  deploy:
+  build:
     needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { name: api-gateway, dockerfile: services/api-gateway/Dockerfile }
+          - { name: auth-service, dockerfile: services/auth-service/Dockerfile }
+          - { name: user-service, dockerfile: services/user-service/Dockerfile }
+          - { name: web, dockerfile: apps/web/Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/lawai-${{ matrix.name }}:latest
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,22 +71,22 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: 서버 rsync 보장
+      - name: compose/스크립트 동기화
         run: |
-          ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            'command -v rsync >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y rsync)'
-
-      - name: 코드 동기화 (rsync)
-        run: |
-          rsync -az --delete \
-            --exclude '.git' \
-            --exclude 'node_modules' \
-            --exclude '.env' \
-            --exclude 'deploy/certbot' \
+          rsync -az \
             -e "ssh -i ~/.ssh/deploy_key" \
-            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/lawai/"
+            docker-compose.prod.yml \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/lawai/"
+          rsync -az --exclude 'certbot' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            deploy/ \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/lawai/deploy/"
 
-      - name: 빌드 & 기동 (DB 마이그레이션은 user-service 기동 시 자동)
+      - name: pull & 기동 (DB 마이그레이션은 user-service 기동 시 자동)
         run: |
           ssh -i ~/.ssh/deploy_key "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "cd /opt/lawai && docker compose -f docker-compose.prod.yml up -d --build && docker image prune -f"
+            "set -e; cd /opt/lawai; \
+             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ${{ env.REGISTRY }} -u '${{ github.actor }}' --password-stdin; \
+             docker compose -f docker-compose.prod.yml pull; \
+             docker compose -f docker-compose.prod.yml up -d; \
+             docker image prune -f"
