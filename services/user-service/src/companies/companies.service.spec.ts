@@ -60,7 +60,7 @@ describe("CompaniesService", () => {
   });
 
   it("create는 개인(individual)이고 bizNo 미지정 시 TEMP- 임시번호를 생성한다", async () => {
-    prismaMock.company.create.mockImplementation(({ data }: any) =>
+    prismaMock.company.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({ ...row, ...data }),
     );
     const result = await service.create({ type: "individual", name: "삼성기획" });
