@@ -3,6 +3,7 @@ import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { isAllowedOrigin } from "./cors";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,9 +14,13 @@ async function bootstrap() {
     }),
   );
   app.enableCors({
-    origin: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
-      .split(",")
-      .map((o) => o.trim()),
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin ?? "<none>"}`), false);
+    },
     credentials: true,
   });
   app.useGlobalPipes(
