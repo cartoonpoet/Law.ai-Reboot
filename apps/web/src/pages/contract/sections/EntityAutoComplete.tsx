@@ -36,7 +36,6 @@ export function EntityAutoComplete({ queryKey, fetcher, placeholder, multiple, v
   return (
     <AutoComplete
       multiple={multiple}
-      showSelectedInList={multiple}
       placeholder={placeholder}
       options={options}
       value={multiple ? value.map((entry) => entry.id) : value[0]?.id ?? ""}

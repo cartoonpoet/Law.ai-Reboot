@@ -1,12 +1,17 @@
-const BASE_URL =
-  import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export function getApiBaseUrl() {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined" && window.location.hostname) {
+    return `http://${window.location.hostname}:3000`;
+  }
+  return "http://localhost:3000";
+}
 
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
   const token = localStorage.getItem("accessToken");
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${getApiBaseUrl()}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
