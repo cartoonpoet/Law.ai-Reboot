@@ -22,7 +22,7 @@ export function FileUploadField({ name, description, accept }: FileUploadFieldPr
       const handleDelete = (target: number) =>
         field.onChange(files.filter((_, index) => index !== target));
       return (
-        <FileUploadArea accept={accept} description={description} onFilesAdded={handleFilesAdded}>
+        <FileUploadArea variant="basic" accept={accept} description={description} onFilesAdded={handleFilesAdded}>
           {files.length > 0 && (
             <div className={css.fileList}>
               {files.map((file, index) => (
