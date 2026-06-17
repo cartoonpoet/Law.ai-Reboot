@@ -1,0 +1,101 @@
+# 개발서버(단일 호스트) 전체 스택. 환경값은 같은 디렉터리의 .env 에서 주입.
+#   배포: docker compose -f docker-compose.prod.yml up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lawai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - lawai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    image: lawai/user-service
+    container_name: lawai-user-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=users"
+      USER_SERVICE_PORT: "4002"
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    image: lawai/auth-service
+    container_name: lawai-auth-service
+    restart: unless-stopped
+    depends_on:
+      - user-service
+    environment:
+      AUTH_SERVICE_PORT: "4001"
+      USER_SERVICE_HOST: user-service
+      USER_SERVICE_PORT: "4002"
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-900s}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      PASSWORD_RESET_TTL_MIN: ${PASSWORD_RESET_TTL_MIN:-30}
+      APP_WEB_URL: ${APP_WEB_URL}
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    image: lawai/api-gateway
+    container_name: lawai-api-gateway
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - user-service
+    environment:
+      GATEWAY_PORT: "3000"
+      AUTH_SERVICE_HOST: auth-service
+      AUTH_SERVICE_PORT: "4001"
+      USER_SERVICE_HOST: user-service
+      USER_SERVICE_PORT: "4002"
+      CORS_ORIGINS: ${APP_WEB_URL}
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: lawai/web
+    container_name: lawai-web
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/certbot/conf:/etc/letsencrypt:ro
+      - ./deploy/certbot/www:/var/www/certbot:ro
+    # 6시간마다 nginx reload — certbot가 갱신한 인증서를 무중단 반영
+    command: sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: lawai-certbot
+    restart: unless-stopped
+    volumes:
+      - ./deploy/certbot/conf:/etc/letsencrypt
+      - ./deploy/certbot/www:/var/www/certbot
+    # 12시간마다 갱신 시도(만료 임박 시에만 실제 갱신)
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done;'
+
+volumes:
+  lawai_pgdata:

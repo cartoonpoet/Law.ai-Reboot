@@ -13,6 +13,10 @@ public/dist
 # env
 .env.*
 !.env.example
+!deploy/.env.prod.example
+
+# 배포 런타임 데이터(서버에서 생성: TLS 인증서/ACME 챌린지)
+deploy/certbot/
 
 # build
 build
