@@ -102,7 +102,7 @@ export const contractRequestSchema = z.object({
   purpose: z.string().min(1, "계약의 배경 및 목적을 입력하세요"),
   keyPoints: z.string(),
   concerns: z.string(),
-  urls: z.array(z.string()),
+  urls: z.array(z.object({ value: z.string() })),
   // 결재선
   approvers: z.array(z.object({ name: z.string(), role: z.string() })),
 });

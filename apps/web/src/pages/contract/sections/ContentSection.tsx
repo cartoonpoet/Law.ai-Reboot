@@ -14,7 +14,7 @@ const EDITORS: { name: "payTerms" | "purpose" | "keyPoints" | "concerns"; label:
 
 export function ContentSection() {
   const { control, formState: { errors } } = useFormContext<ContractRequestForm>();
-  const { fields, append, remove } = useFieldArray({ control, name: "urls" as never });
+  const { fields, append, remove } = useFieldArray({ control, name: "urls" });
   return (
     <Card bordered header={<CardTitle num={5}>상세 내용</CardTitle>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -32,7 +32,7 @@ export function ContentSection() {
               {fields.map((row, i) => (
                 <div key={row.id} className={css.urlRow}>
                   <div className={css.urlInput}>
-                    <Controller name={`urls.${i}`} control={control} render={({ field }) => (
+                    <Controller name={`urls.${i}.value`} control={control} render={({ field }) => (
                       <Input value={field.value} placeholder="https://example.com" onChange={field.onChange} />
                     )} />
                   </div>
@@ -50,7 +50,7 @@ export function ContentSection() {
             </div>
           )}
           <div className={css.btnRow}>
-            <Button type="button" variant="outline" color="secondary" size="small" onClick={() => append("" as never)}>
+            <Button type="button" variant="outline" color="secondary" size="small" onClick={() => append({ value: "" })}>
               + 추가
             </Button>
           </div>
