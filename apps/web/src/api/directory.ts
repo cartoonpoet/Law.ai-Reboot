@@ -56,3 +56,29 @@ export const searchDepartments = (query: string, limit = 10): Promise<DirectoryE
 
 export const searchProjects = (query: string, limit = 10): Promise<DirectoryEntry[]> =>
   filterEntries(PROJECTS, query, limit);
+
+/** 결재선 설정용 — 이름·부서가 분리된 인물 정보 */
+export interface PersonRef {
+  id: string;
+  name: string;
+  dept: string;
+}
+
+const PEOPLE: PersonRef[] = [
+  { id: "jhson1", name: "손준호", dept: "법무팀" },
+  { id: "lee", name: "이법무", dept: "법무팀" },
+  { id: "kim", name: "김검토", dept: "법무팀" },
+  { id: "park", name: "박부장", dept: "법무팀" },
+  { id: "choi", name: "최영업", dept: "영업팀" },
+  { id: "seo", name: "김상무", dept: "경영지원본부" },
+  { id: "jung", name: "정이사", dept: "감사팀" },
+  { id: "yoon", name: "윤재무", dept: "재무팀" },
+  { id: "han", name: "한기획", dept: "전략기획팀" },
+];
+
+/** 결재자 검색(이름·부서). 빈 키워드면 전체를 limit까지 반환(브라우즈용). */
+export const searchPeople = (query: string, limit = 20): Promise<PersonRef[]> => {
+  const q = query.trim().toLowerCase();
+  const matched = (q ? PEOPLE.filter((p) => p.name.toLowerCase().includes(q) || p.dept.toLowerCase().includes(q)) : PEOPLE).slice(0, limit);
+  return new Promise((resolve) => setTimeout(() => resolve(matched), SEARCH_DELAY_MS));
+};

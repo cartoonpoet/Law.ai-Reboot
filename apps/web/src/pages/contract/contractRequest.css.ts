@@ -31,6 +31,15 @@ export const moneyCurrency = style({ flex: "0 0 160px", maxWidth: 160 });
 export const moneyDelete = style({ flexShrink: 0 });
 export const fieldBlock = style({ marginTop: 10 });
 
+/* 레일 결재선 패널 */
+export const railHead = style({ display: "inline-flex", alignItems: "center", gap: 8 });
+export const railHeadIcon = style({ width: 15, height: 15, color: themeVars.color.textMuted });
+export const apprList = style({ display: "flex", flexDirection: "column", gap: 10 });
+export const apprRow = style({ display: "flex", alignItems: "center", gap: 10 });
+export const apprMain = style({ flex: 1, minWidth: 0 });
+export const apprName = style({ fontSize: 13, fontWeight: 600, color: themeVars.color.textHeading });
+export const apprDept = style({ fontSize: 11, color: themeVars.color.textMuted });
+
 /* 기타 URL 목록 */
 export const urlList = style({ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 });
 export const urlRow = style({ display: "flex", gap: 10, alignItems: "center" });

@@ -19,6 +19,15 @@ export const relatedDocSchema = z.object({
   date: z.string(),
 }) satisfies z.ZodType<RelatedDoc>;
 
+// 결재선 항목 — 기안/결재/합의/참조 + 순서(배열 순서)
+export const APPROVER_TYPES = ["draft", "approve", "agree", "refer"] as const;
+export const approverSchema = z.object({
+  name: z.string(),
+  dept: z.string(),
+  type: z.enum(APPROVER_TYPES),
+});
+export type Approver = z.infer<typeof approverSchema>;
+
 // 선택된 상대 계약자(회사) — 검색/등록 응답을 그대로 보관
 export const companyRefSchema = z.object({
   id: z.string(),
@@ -104,7 +113,7 @@ export const contractRequestSchema = z.object({
   concerns: z.string(),
   urls: z.array(z.object({ value: z.string() })),
   // 결재선
-  approvers: z.array(z.object({ name: z.string(), role: z.string() })),
+  approvers: z.array(approverSchema),
 });
 
 export type ContractRequestForm = z.infer<typeof contractRequestSchema>;
@@ -145,5 +154,5 @@ export const contractRequestDefaults: ContractRequestForm = {
   keyPoints: "",
   concerns: "",
   urls: [],
-  approvers: [{ name: "손준호", role: "기안 · 법무팀" }],
+  approvers: [{ name: "손준호", dept: "법무팀", type: "draft" }],
 };
