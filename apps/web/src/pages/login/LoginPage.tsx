@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs } from "@lawkit/ui";
-import { T } from "../../design/tokens";
-import { AuthLayout } from "./AuthLayout";
+import { AuthCard } from "./AuthCard";
 import { EmailLoginForm } from "./EmailLoginForm";
 import { SsoLoginForm } from "./SsoLoginForm";
 import { OtpLoginForm } from "./OtpLoginForm";
+import * as css from "./auth.css";
 
 type LoginMethod = "email" | "sso" | "otp";
 
@@ -14,58 +14,24 @@ export function LoginPage() {
   const [method, setMethod] = useState<LoginMethod>("email");
 
   const signupLink = (
-    <div
-      style={{
-        marginTop: 16,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        fontSize: 12.5,
-        color: T.muted,
-      }}
-    >
+    <div className={css.belowRow}>
       계정이 없으신가요?{" "}
-      <button
-        type="button"
-        onClick={() => navigate("/signup")}
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          fontSize: 12.5,
-          fontWeight: 700,
-          color: T.primary,
-          fontFamily: "Pretendard",
-          padding: 0,
-        }}
-      >
+      <button type="button" onClick={() => navigate("/signup")} className={css.linkBtn}>
         회원가입
       </button>
     </div>
   );
 
   return (
-    <AuthLayout belowCard={signupLink}>
-      <h1
-        style={{
-          margin: "0 0 6px",
-          fontSize: 21,
-          fontWeight: 800,
-          color: T.heading,
-          letterSpacing: "-0.025em",
-          lineHeight: 1.3,
-        }}
-      >
+    <AuthCard belowCard={signupLink}>
+      <h1 className={css.title}>
         법무 워크스페이스에
         <br />
         로그인하세요.
       </h1>
-      <p style={{ margin: "0 0 20px", fontSize: 13, color: T.muted }}>
-        휴맥스아이티 · 법무팀
-      </p>
+      <p className={css.subtitle}>휴맥스아이티 · 법무팀</p>
 
-      <div style={{ marginBottom: 18 }}>
+      <div className={css.tabsWrap}>
         <Tabs
           value={method}
           onChange={(v) => setMethod(v as LoginMethod)}
@@ -86,6 +52,6 @@ export function LoginPage() {
           <OtpLoginForm />
         )}
       </div>
-    </AuthLayout>
+    </AuthCard>
   );
 }
