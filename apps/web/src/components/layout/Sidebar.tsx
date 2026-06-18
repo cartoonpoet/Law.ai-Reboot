@@ -4,6 +4,7 @@ import { Icon } from "@lawkit/ui";
 import type { IconName } from "@lawkit/ui";
 import { T } from "../../design/tokens";
 import { Logo } from "../ui/Logo";
+import * as css from "./sidebar.css";
 
 const NAV = [
   { id: "home",         label: "홈",             icon: "home",         path: "/" },
@@ -27,7 +28,7 @@ type NavItem = (typeof NAV)[number];
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [open, setOpen] = useState<Record<string, boolean>>({ contract: true });
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
   return (
     <aside
@@ -162,16 +163,17 @@ function NavRow({
 }) {
   const hasKids = "children" in item && !!item.children;
   const isActive = !hasKids && "path" in item && location === item.path;
-  const parentActive =
-    hasKids &&
-    item.children.some((c) => location === c.path);
+  // 현재 위치(located): 자식 라우트가 현재 경로면 그 그룹이 "여기"
+  const parentHere = hasKids && item.children.some((c) => location === c.path);
 
-  const bg = isActive
-    ? T.primary
-    : parentActive
-      ? "rgba(255,255,255,.06)"
-      : "transparent";
-  const color = isActive ? "#fff" : parentActive ? T.navyText : T.navyMuted;
+  // 상태 우선순위: 위치(located/here) > 펼쳐서 보는 중(viewing) > 기본
+  const stateClass = isActive
+    ? css.rowLocated
+    : parentHere
+      ? css.rowHere
+      : hasKids && expanded
+        ? css.rowViewing
+        : css.rowDefault;
 
   return (
     <div>
@@ -181,77 +183,34 @@ function NavRow({
           else if ("path" in item) onNavigate(item.path);
         }}
         aria-expanded={hasKids ? expanded : undefined}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          width: "100%",
-          padding: "8px 10px",
-          border: "none",
-          cursor: "pointer",
-          borderRadius: 6,
-          background: bg,
-          color,
-          fontFamily: "Pretendard",
-          fontSize: 13,
-          fontWeight: isActive ? 700 : 500,
-          textAlign: "left",
-          transition: "background .12s, color .12s",
-        }}
+        className={`${css.row} ${stateClass}`}
       >
-        <Icon
-          name={item.icon as IconName}
-          size="sm"
-          style={{ width: 16, height: 16, flexShrink: 0, opacity: 0.85 }}
-        />
-        <span style={{ flex: 1 }}>{item.label}</span>
+        <Icon name={item.icon as IconName} size="sm" className={css.icon} />
+        <span className={css.label}>{item.label}</span>
         {hasKids && (
-          <Icon
-            name={expanded ? "chevronDown" : "chevronRight"}
-            size="sm"
-            style={{ width: 13, height: 13, opacity: 0.35 }}
-          />
+          <Icon name="chevronRight" size="sm" className={expanded ? `${css.chevron} ${css.chevronOpen}` : css.chevron} />
         )}
       </button>
 
-      {hasKids && expanded && (
-        <div style={{ margin: "1px 0 4px", paddingLeft: 10 }}>
-          {item.children.map((c) => {
-            const on = location === c.path;
-            return (
-              <button
-                key={c.id}
-                onClick={() => onNavigate(c.path)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  width: "100%",
-                  padding: "6px 10px 6px 20px",
-                  border: "none",
-                  cursor: "pointer",
-                  borderRadius: 5,
-                  background: on ? `${T.primary}20` : "transparent",
-                  color: on ? "#7aaaf8" : T.navyMuted,
-                  fontFamily: "Pretendard",
-                  fontSize: 12.5,
-                  fontWeight: on ? 700 : 400,
-                  textAlign: "left",
-                }}
-              >
-                <span
-                  style={{
-                    width: 3,
-                    height: 3,
-                    borderRadius: 999,
-                    background: on ? "#7aaaf8" : T.navyFaint,
-                    flexShrink: 0,
-                  }}
-                />
-                {c.label}
-              </button>
-            );
-          })}
+      {hasKids && (
+        <div className={expanded ? `${css.subWrap} ${css.subWrapOpen}` : css.subWrap}>
+          <div className={css.subInner}>
+            <div className={css.subList}>
+              {item.children.map((c) => {
+                const on = location === c.path;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => onNavigate(c.path)}
+                    className={on ? `${css.sub} ${css.subOn}` : css.sub}
+                  >
+                    <span className={on ? `${css.dot} ${css.dotOn}` : css.dot} />
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
