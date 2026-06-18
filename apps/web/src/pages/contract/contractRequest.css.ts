@@ -23,6 +23,14 @@ export const docsBody = style({ display: "flex", flexDirection: "column", gap: 1
 export const fileList = style({ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 });
 export const btnRow = style({ display: "flex", gap: 10, flexWrap: "wrap" });
 
+/* 계약 규모(대가) 행 */
+export const moneyRow = style({ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 8 });
+export const moneyVat = style({ flex: "0 0 200px", maxWidth: 200 });
+export const moneyAmount = style({ flex: 1, minWidth: 160 });
+export const moneyCurrency = style({ flex: "0 0 160px", maxWidth: 160 });
+export const moneyDelete = style({ flexShrink: 0 });
+export const fieldBlock = style({ marginTop: 10 });
+
 export const prgRow = style({
   display: "flex",
   alignItems: "center",
