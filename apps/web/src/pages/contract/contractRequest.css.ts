@@ -31,6 +31,11 @@ export const moneyCurrency = style({ flex: "0 0 160px", maxWidth: 160 });
 export const moneyDelete = style({ flexShrink: 0 });
 export const fieldBlock = style({ marginTop: 10 });
 
+/* 기타 URL 목록 */
+export const urlList = style({ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 });
+export const urlRow = style({ display: "flex", gap: 10, alignItems: "center" });
+export const urlInput = style({ flex: 1, minWidth: 0 });
+
 export const prgRow = style({
   display: "flex",
   alignItems: "center",

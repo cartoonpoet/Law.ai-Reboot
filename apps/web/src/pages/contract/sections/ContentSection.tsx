@@ -1,8 +1,9 @@
-import { Controller, useFormContext } from "react-hook-form";
-import { Card, Button } from "@lawkit/ui";
+import { Controller, useFormContext, useFieldArray } from "react-hook-form";
+import { Card, Button, Input, Icon } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 import { RichTextEditor } from "../../../components/ui/RichTextEditor";
 import { CardTitle, ErrText, Field } from "./_shared";
+import * as css from "../contractRequest.css";
 
 const EDITORS: { name: "payTerms" | "purpose" | "keyPoints" | "concerns"; label: string; info: string; required?: boolean }[] = [
   { name: "payTerms", label: "계약 지급 조건", info: "대금 지급 시기·방법 등 지급 관련 조건을 적습니다." },
@@ -13,6 +14,7 @@ const EDITORS: { name: "payTerms" | "purpose" | "keyPoints" | "concerns"; label:
 
 export function ContentSection() {
   const { control, formState: { errors } } = useFormContext<ContractRequestForm>();
+  const { fields, append, remove } = useFieldArray({ control, name: "urls" as never });
   return (
     <Card bordered header={<CardTitle num={5}>상세 내용</CardTitle>}>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -25,7 +27,33 @@ export function ContentSection() {
           </Field>
         ))}
         <Field label="기타 URL" info="참고할 외부 링크를 추가합니다.">
-          <Button type="button" variant="outline" color="secondary" size="small">+ 추가</Button>
+          {fields.length > 0 && (
+            <div className={css.urlList}>
+              {fields.map((row, i) => (
+                <div key={row.id} className={css.urlRow}>
+                  <div className={css.urlInput}>
+                    <Controller name={`urls.${i}`} control={control} render={({ field }) => (
+                      <Input value={field.value} placeholder="https://example.com" onChange={field.onChange} />
+                    )} />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    color="secondary"
+                    size="small"
+                    iconLeft={<Icon name="trash" size="sm" />}
+                    onClick={() => remove(i)}
+                    aria-label="URL 삭제"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={css.btnRow}>
+            <Button type="button" variant="outline" color="secondary" size="small" onClick={() => append("" as never)}>
+              + 추가
+            </Button>
+          </div>
         </Field>
       </div>
     </Card>
