@@ -40,7 +40,7 @@ describe("SignupForm", () => {
 
   it("유효 입력 시 signup을 email/name/password로 호출한다", async () => {
     const signupSpy = vi.spyOn(authApi, "signup").mockResolvedValue({
-      user: { id: "u1", email: "hong@humaxit.com", name: "홍길동", createdAt: "x" },
+      user: { id: "u1", email: "hong@humaxit.com", name: "홍길동", role: "general", departmentId: null, departmentName: null, createdAt: "x" },
       tokens: { accessToken: "at", refreshToken: "rt" },
     });
     renderForm();

@@ -24,7 +24,8 @@ model Department {
   name      String   @unique
   createdAt DateTime @default(now())
 
-  users User[]
+  users     User[]
+  contracts Contract[]
 
   @@schema("users")
 }
@@ -40,7 +41,9 @@ model User {
 
   department          Department?          @relation(fields: [departmentId], references: [id])
   passwordResetTokens PasswordResetToken[]
-  contracts           Contract[]
+  createdContracts    Contract[]           @relation("ContractCreatedBy")
+  requestedContracts  Contract[]           @relation("ContractRequester")
+  ownedContracts      Contract[]           @relation("ContractOwner")
 
   @@index([departmentId])
   @@schema("users")
@@ -131,10 +134,11 @@ model Contract {
   catMinor String?
   catSub   String?
 
-  // requester/owner는 현재 mock 사용자 id라 FK 미연결. createdById만 실제 User FK.
-  requesterId String?
-  ownerId     String?
-  createdById String
+  // requester/owner/createdBy 모두 실제 User FK. department는 작성 부서.
+  requesterId  String?
+  ownerId      String?
+  createdById  String
+  departmentId String?
 
   periodStart DateTime?
   periodEnd   DateTime?
@@ -147,13 +151,19 @@ model Contract {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  createdBy      User           @relation(fields: [createdById], references: [id])
+  createdBy      User                @relation("ContractCreatedBy", fields: [createdById], references: [id])
+  requester      User?               @relation("ContractRequester", fields: [requesterId], references: [id])
+  owner          User?               @relation("ContractOwner", fields: [ownerId], references: [id])
+  department     Department?         @relation(fields: [departmentId], references: [id])
   counterparties Counterparty[]
   approvalLines  ApprovalLine[]
   files          File[]
   references     ContractReference[]
 
   @@index([createdById])
+  @@index([requesterId])
+  @@index([ownerId])
+  @@index([departmentId])
   @@index([deletedAt])
   @@schema("contracts")
 }

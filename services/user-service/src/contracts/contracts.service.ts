@@ -84,11 +84,17 @@ export class ContractsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(req: CreateContractRequest): Promise<ContractResponse> {
+    // 작성 부서: 생성자(createdById)의 소속 부서를 계약 부서로 스냅
+    const creator = await this.prisma.user.findUnique({
+      where: { id: req.createdById },
+      select: { departmentId: true },
+    });
     try {
       const row = await this.prisma.contract.create({
         data: {
           code: generateCode(),
           title: req.title,
+          departmentId: creator?.departmentId ?? null,
           securityLevel: req.securityLevel,
           reviewType: req.reviewType,
           party: req.party ?? null,
@@ -254,7 +260,7 @@ export class ContractsService {
 
   async update(req: UpdateContractRequest): Promise<ContractResponse> {
     await this.ensureExists(req.id);
-    const data: Prisma.ContractUpdateInput = {};
+    const data: Prisma.ContractUncheckedUpdateInput = {};
     if (req.title !== undefined) data.title = req.title;
     if (req.securityLevel !== undefined) data.securityLevel = req.securityLevel;
     if (req.reviewType !== undefined) data.reviewType = req.reviewType;

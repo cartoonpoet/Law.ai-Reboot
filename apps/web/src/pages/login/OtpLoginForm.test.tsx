@@ -53,7 +53,7 @@ describe("OtpLoginForm", () => {
   it("인증번호 입력 후 제출하면 verifyOtp를 호출하고 토큰을 저장한다", async () => {
     vi.spyOn(authApi, "requestOtp").mockResolvedValue({ sent: true });
     const verifySpy = vi.spyOn(authApi, "verifyOtp").mockResolvedValue({
-      user: { id: "u1", email: "a@b.com", name: "A", createdAt: "x" },
+      user: { id: "u1", email: "a@b.com", name: "A", role: "general", departmentId: null, departmentName: null, createdAt: "x" },
       tokens: { accessToken: "at", refreshToken: "rt" },
     });
     renderForm();

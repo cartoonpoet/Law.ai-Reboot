@@ -5,6 +5,13 @@ import { describe, it, expect, vi } from "vitest";
 import { ApprovalLineModal } from "./ApprovalLineModal";
 import type { Approver } from "../request-schema";
 
+vi.mock("../../../api/directory", () => ({
+  searchPeople: vi.fn().mockResolvedValue([
+    { id: "lee", name: "이법무", dept: "법무팀" },
+    { id: "kim", name: "김검토", dept: "법무팀" },
+  ]),
+}));
+
 const INITIAL: Approver[] = [{ name: "손준호", dept: "법무팀", type: "draft" }];
 
 function renderModal(onApply = vi.fn()) {

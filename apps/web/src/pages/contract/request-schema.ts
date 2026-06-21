@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { Company } from "@lawai/contracts";
 import type { DirectoryEntry } from "../../api/directory";
 import type { RelatedDoc } from "../../api/relatedDocs";
-import { CURRENT_USER_ID } from "./contractOptions";
 
 // 관계자·참조 선택값(사용자/부서/프로젝트) — 라벨 유지를 위해 id+name 보관
 export const entityRefSchema = z.object({
@@ -122,7 +121,7 @@ export const contractRequestDefaults: ContractRequestForm = {
   stage: "new",
   secure: "secure",
   name: "",
-  requester: CURRENT_USER_ID,
+  requester: "",
   ctype: "normal",
   party: "",
   catMajor: "",

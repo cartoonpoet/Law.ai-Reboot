@@ -9,7 +9,7 @@ import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { ContractPlaceholderPage } from "./pages/contract/ContractPlaceholderPage";
 import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
-import { ContractRequestPage } from "./pages/contract/ContractRequestPage";
+import { ContractCreatePage } from "./pages/contract/ContractCreatePage";
 import { ContractEditPage } from "./pages/contract/ContractEditPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -37,7 +37,7 @@ export function AppRoutes() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/contract/list" element={<ContractListPage />} />
-        <Route path="/contract/request" element={<ContractRequestPage />} />
+        <Route path="/contract/request" element={<ContractCreatePage />} />
         <Route path="/contract/signed" element={<ContractPlaceholderPage title="체결 계약 조회" />} />
         <Route path="/contract/expire" element={<ContractPlaceholderPage title="체결계약 만료 현황" />} />
         <Route path="/contract/:id/edit" element={<ContractEditPage />} />

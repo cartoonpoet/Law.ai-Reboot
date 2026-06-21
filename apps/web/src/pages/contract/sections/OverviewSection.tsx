@@ -3,8 +3,9 @@ import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Card, Input, Button, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDatePicker, InputDateRangePicker, Checkbox, Icon } from "@lawkit/ui";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
-import { USER_OPTIONS, toOptions, getMajorOptions, getMinorOptions, getSubOptions } from "../contractOptions";
+import { toOptions, getMajorOptions, getMinorOptions, getSubOptions } from "../contractOptions";
 import { CardTitle, ErrText, Field } from "./_shared";
+import { useDirectoryUsers } from "../hooks/useDirectoryUsers";
 import { useCompanySearch } from "../hooks/useCompanySearch";
 import { useCounterparties } from "../hooks/useCounterparties";
 import { toCompanyOptions } from "../companyLabel";
@@ -18,6 +19,7 @@ const isoToDate = (iso: string): Date | null => (iso ? new Date(iso) : null);
 
 export function OverviewSection() {
   const { control, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
+  const userOptions = useDirectoryUsers();
   const periodStart = useWatch({ control, name: "periodStart" });
   const periodEnd = useWatch({ control, name: "periodEnd" });
   const periodManual = useWatch({ control, name: "periodManual" });
@@ -60,7 +62,7 @@ export function OverviewSection() {
 
         <Field label="검토 요청자" info="검토를 요청하는 담당자입니다. 기본값은 로그인 사용자입니다." required>
           <Controller name="requester" control={control} render={({ field }) => (
-            <AutoComplete options={USER_OPTIONS} value={field.value} placeholder="검토 요청자 선택"
+            <AutoComplete options={userOptions} value={field.value} placeholder="검토 요청자 선택"
               onChange={(v) => field.onChange(pickSingle(v))} />
           )} />
           <ErrText msg={errors.requester?.message} />

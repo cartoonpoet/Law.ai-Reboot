@@ -32,7 +32,7 @@ describe("LoginPage", () => {
 
   it("제출하면 login API를 호출하고 토큰을 저장한다", async () => {
     const loginSpy = vi.spyOn(authApi, "login").mockResolvedValue({
-      user: { id: "u1", email: "a@b.com", name: "A", createdAt: "x" },
+      user: { id: "u1", email: "a@b.com", name: "A", role: "general", departmentId: null, departmentName: null, createdAt: "x" },
       tokens: { accessToken: "at", refreshToken: "rt" },
     });
     renderPage();

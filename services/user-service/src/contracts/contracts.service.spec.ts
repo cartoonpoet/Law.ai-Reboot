@@ -84,6 +84,7 @@ describe("ContractsService", () => {
       count: jest.fn(),
       update: jest.fn(),
     },
+    user: { findUnique: jest.fn().mockResolvedValue({ departmentId: "dept-1" }) },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
 

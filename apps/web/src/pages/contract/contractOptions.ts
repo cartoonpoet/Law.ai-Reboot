@@ -3,16 +3,6 @@ export interface SelectOption { value: string; label: string; }
 
 export const toOptions = (items: string[]): SelectOption[] => items.map((o) => ({ value: o, label: o }));
 
-export const USER_OPTIONS: SelectOption[] = [
-  { value: "jhson1", label: "손준호 (팀(개발) | jhson1)" },
-  { value: "lee", label: "이법무 (법무팀)" },
-  { value: "kim", label: "김검토 (법무팀)" },
-  { value: "park", label: "박담당 (구매팀)" },
-];
-
-/** 현재 로그인 사용자(목업) — 검토 요청자 기본값 등에 사용 */
-export const CURRENT_USER_ID = "jhson1";
-
 /**
  * 계약 분류 더미 트리: 대분류 → 중분류 → 소분류[].
  * 폼의 cascading 드롭다운 옵션 소스(실데이터는 추후 교체).
