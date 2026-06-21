@@ -40,7 +40,6 @@ const detailsV1 = {
   owner: null,
   project: null,
   relatedDocs: [],
-  approvers: [{ name: "손준호", dept: "법무팀", type: "draft" as const }],
   contractFiles: [{ name: "계약서.docx", meta: "DOCX · 1.2MB" }],
   attachFiles: [],
   refFiles: [],
@@ -63,6 +62,10 @@ const createReq: CreateContractRequest = {
   schemaVersion: 1,
   details: detailsV1,
   counterparties: [{ companyId: "comp-1", snapshot: companySnapshot }],
+  approvers: [
+    { name: "손준호", dept: "법무팀", type: "draft" },
+    { name: "이법무", dept: "법무팀", type: "approve" },
+  ],
 };
 
 describe("ContractsService", () => {
@@ -113,6 +116,18 @@ describe("ContractsService", () => {
           createdAt: new Date("2026-06-21T00:00:00.000Z"),
         },
       ],
+      approvalLines: [
+        {
+          id: "line-1",
+          contractId: "ct-1",
+          status: "pending",
+          createdAt: new Date("2026-06-21T00:00:00.000Z"),
+          steps: [
+            { id: "st-1", lineId: "line-1", stepOrder: 0, name: "손준호", dept: "법무팀", type: "draft", status: "pending" },
+            { id: "st-2", lineId: "line-1", stepOrder: 1, name: "이법무", dept: "법무팀", type: "approve", status: "pending" },
+          ],
+        },
+      ],
     });
 
     const result = await service.create(createReq);
@@ -121,9 +136,16 @@ describe("ContractsService", () => {
     expect(arg.data.periodStart).toEqual(new Date("2026-07-01"));
     expect(arg.data.periodEnd).toBeNull(); // "" → null
     expect(arg.data.counterparties.create).toHaveLength(1);
+    // 결재선: approvers 를 배열 순서대로 단계화
+    expect(arg.data.approvalLines.create.steps.create).toEqual([
+      { stepOrder: 0, name: "손준호", dept: "법무팀", type: "draft" },
+      { stepOrder: 1, name: "이법무", dept: "법무팀", type: "approve" },
+    ]);
     expect(result.id).toBe("ct-1");
     expect(result.periodStart).toBe("2026-07-01T00:00:00.000Z");
     expect(result.counterparties[0].snapshot.name).toBe("삼성전자(주)");
+    expect(result.approvalLine?.steps).toHaveLength(2);
+    expect(result.approvalLine?.steps[1].type).toBe("approve");
   });
 
   it("get은 deletedAt null 조건으로 조회하고 없으면 404 RpcException", async () => {
@@ -133,7 +155,10 @@ describe("ContractsService", () => {
     );
     expect(prismaMock.contract.findFirst).toHaveBeenCalledWith({
       where: { id: "missing", deletedAt: null },
-      include: { counterparties: true },
+      include: {
+        counterparties: true,
+        approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
+      },
     });
   });
 });

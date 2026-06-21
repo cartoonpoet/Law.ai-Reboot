@@ -9,6 +9,7 @@ import {
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import type {
+  ApproverSnapshot,
   ContractDetailsV1,
   CounterpartyInput,
   SecurityLevel,
@@ -78,4 +79,8 @@ export class CreateContractDto {
   @ApiProperty({ description: "상대계약자 + 체결 스냅샷", isArray: true })
   @IsArray()
   counterparties!: CounterpartyInput[];
+
+  @ApiProperty({ description: "결재선 단계(배열 순서 = 결재 순서)", isArray: true })
+  @IsArray()
+  approvers!: ApproverSnapshot[];
 }

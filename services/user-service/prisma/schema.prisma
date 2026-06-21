@@ -107,6 +107,7 @@ model Contract {
 
   createdBy      User           @relation(fields: [createdById], references: [id])
   counterparties Counterparty[]
+  approvalLines  ApprovalLine[]
 
   @@index([createdById])
   @@index([deletedAt])
@@ -126,5 +127,60 @@ model Counterparty {
 
   @@index([contractId])
   @@index([companyId])
+  @@schema("shared")
+}
+
+enum ApproverType {
+  draft
+  approve
+  agree
+  refer
+
+  @@schema("shared")
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+
+  @@schema("shared")
+}
+
+enum StepStatus {
+  pending
+  approved
+  rejected
+
+  @@schema("shared")
+}
+
+// 결재선: 계약 1건당 1개(현재). 폼 approvers 스냅샷을 단계로 정규화.
+// ERD 는 폴리모픽(ownerType/ownerId)이나, MVP 는 Counterparty 와 동일하게 contractId 직접 FK 로 둔다(§9 수렴 항목).
+model ApprovalLine {
+  id         String         @id @default(uuid())
+  contractId String
+  status     ApprovalStatus @default(pending)
+  createdAt  DateTime       @default(now())
+
+  contract Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  steps    ApprovalStep[]
+
+  @@index([contractId])
+  @@schema("shared")
+}
+
+model ApprovalStep {
+  id        String       @id @default(uuid())
+  lineId    String
+  stepOrder Int
+  name      String
+  dept      String
+  type      ApproverType
+  status    StepStatus   @default(pending)
+
+  line ApprovalLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+
+  @@index([lineId])
   @@schema("shared")
 }

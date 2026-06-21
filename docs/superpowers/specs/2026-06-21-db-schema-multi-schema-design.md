@@ -216,9 +216,20 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 |---|---|---|---|
 | 버전 컬럼 | `Contract.formVersion` | `Contract.schemaVersion` | **개명 확정** — 목표 수렴 시 ERD를 `schemaVersion`으로 |
 | Counterparty | 폴리모픽(`ownerType/ownerId/role`) | `contractId`(FK) + `companyId` + `partyType` + **`snapshot(JSONB)`** | snapshot 체결 동결 확정 → ERD에 `snapshot` 추가 + 모델 재검토 |
+| **ApprovalLine/Step** | 폴리모픽(`ownerType/ownerId`) | **`contractId`(FK) 직접** + steps(`stepOrder/name/dept/type/status`) | **2026-06-21 정규화 완료**(JSONB→테이블). ERD는 폴리모픽이나 MVP는 Counterparty 와 동일하게 contractId 직접 FK |
 | 분류 | `categoryId`(FK→ContractCategory) + `partyType` | `party/catMajor/catMinor/catSub`(String) | 후속에서 `ContractCategory` 트리로 정규화 |
 | Contract 부가 | `code·status·stage·updatedById` 등 | 없음(`stage`는 details) | 후속에서 코어 승격 검토 |
-| File/ApprovalLine·Step/AuditLog/AccessGrant | 정규 테이블 | 미구현(이번엔 `details` JSONB) | 후속 Phase에서 정규 테이블 승격 |
+| File/AuditLog/AccessGrant | 정규 테이블 | 미구현(이번엔 `details` JSONB) | 후속 Phase에서 정규 테이블 승격 |
+
+### 결재선 정규화 (2026-06-21 완료)
+
+폼 `approvers:[{name,dept,type}]` 를 `details` JSONB 에서 빼내 정규 테이블로 승격:
+
+- `shared.ApprovalLine`(contractId FK, status) `1:N` `shared.ApprovalStep`(stepOrder, name, dept, type, status). 둘 다 Contract 에 cascade.
+- enum: `ApproverType(draft/approve/agree/refer)`, `ApprovalStatus`, `StepStatus`(pending/approved/rejected).
+- 생성 시 `CreateContractRequest.approvers`(최상위, details 아님)를 배열 순서대로 단계화. 빈 배열이면 결재선 미생성(`approvalLine: null`).
+- `ContractResponse.approvalLine`(steps `stepOrder` 오름차순)로 반환. `ContractDetailsV1`에서 `approvers` 제거.
+- 마이그레이션: `20260621010000_add_approval_line`(순수 추가).
 
 > MVP 구현 위치: `services/user-service/prisma/schema.prisma`(멀티스키마+Contract/Counterparty), `@lawai/contracts`(contract.dto/패턴), user-service `contracts` 모듈, api-gateway `contracts` 컨트롤러, web `api/contracts.ts`·`toCreateRequest.ts`·`useContractSubmit.ts`.
 

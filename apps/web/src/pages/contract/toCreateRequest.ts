@@ -40,7 +40,6 @@ export const toCreateRequest = (
     owner: form.owner,
     project: form.project,
     relatedDocs: form.relatedDocs,
-    approvers: form.approvers,
     contractFiles: form.contractFiles,
     attachFiles: form.attachFiles,
     refFiles: form.refFiles,
@@ -49,4 +48,5 @@ export const toCreateRequest = (
     companyId: company.id,
     snapshot: company,
   })),
+  approvers: form.approvers,
 });

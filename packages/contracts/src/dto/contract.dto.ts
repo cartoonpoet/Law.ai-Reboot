@@ -17,6 +17,9 @@ export interface RelatedDocRef {
   date: string;
 }
 
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+export type StepStatus = "pending" | "approved" | "rejected";
+
 export interface ApproverSnapshot {
   name: string;
   dept: string;
@@ -60,7 +63,6 @@ export interface ContractDetailsV1 {
   owner: EntityRef | null;
   project: EntityRef | null;
   relatedDocs: RelatedDocRef[];
-  approvers: ApproverSnapshot[];
   contractFiles: UploadedFileMeta[];
   attachFiles: UploadedFileMeta[];
   refFiles: UploadedFileMeta[];
@@ -90,6 +92,8 @@ export interface CreateContractRequest {
   schemaVersion: number;
   details: ContractDetailsV1;
   counterparties: CounterpartyInput[];
+  // 결재선: 폼 approvers 스냅샷을 배열 순서대로 단계로 정규화한다(빈 배열이면 결재선 미생성).
+  approvers: ApproverSnapshot[];
 }
 
 export interface GetContractRequest {
@@ -101,6 +105,21 @@ export interface CounterpartyResponse {
   companyId: string;
   partyType: string | null;
   snapshot: Company;
+}
+
+export interface ApprovalStepResponse {
+  id: string;
+  stepOrder: number;
+  name: string;
+  dept: string;
+  type: ApproverType;
+  status: StepStatus;
+}
+
+export interface ApprovalLineResponse {
+  id: string;
+  status: ApprovalStatus;
+  steps: ApprovalStepResponse[];
 }
 
 export interface ContractResponse {
@@ -121,6 +140,7 @@ export interface ContractResponse {
   schemaVersion: number;
   details: ContractDetailsV1;
   counterparties: CounterpartyResponse[];
+  approvalLine: ApprovalLineResponse | null;
   createdAt: string;
   updatedAt: string;
 }

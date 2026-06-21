@@ -56,7 +56,12 @@ describe("toCreateRequest", () => {
     const req = toCreateRequest(form);
     expect(req.details.urls).toEqual(["https://example.com"]);
     expect(req.details.purpose).toBe(form.purpose);
-    expect(req.details.approvers).toEqual(form.approvers);
+  });
+
+  it("approvers는 details가 아닌 최상위로 보낸다(결재선 정규화)", () => {
+    const req = toCreateRequest(form);
+    expect(req.approvers).toEqual(form.approvers);
+    expect("approvers" in req.details).toBe(false);
   });
 
   it("counterparties를 companyId + snapshot으로 동결한다", () => {

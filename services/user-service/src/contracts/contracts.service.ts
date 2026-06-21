@@ -10,9 +10,14 @@ import type {
   Company,
 } from "@lawai/contracts";
 
-// Prisma 가 counterparties 를 include 한 Contract 행
-type ContractWithParties = Prisma.ContractGetPayload<{
-  include: { counterparties: true };
+// Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
+const contractInclude = {
+  counterparties: true,
+  approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
+} satisfies Prisma.ContractInclude;
+
+type ContractWithRelations = Prisma.ContractGetPayload<{
+  include: typeof contractInclude;
 }>;
 
 const parseDate = (value?: string | null): Date | null => {
@@ -51,8 +56,24 @@ export class ContractsService {
               snapshot: cp.snapshot as unknown as Prisma.InputJsonValue,
             })),
           },
+          // 결재선: approvers 가 있을 때만 1개 생성하고 배열 순서대로 단계화.
+          approvalLines:
+            req.approvers.length > 0
+              ? {
+                  create: {
+                    steps: {
+                      create: req.approvers.map((a, index) => ({
+                        stepOrder: index,
+                        name: a.name,
+                        dept: a.dept,
+                        type: a.type,
+                      })),
+                    },
+                  },
+                }
+              : undefined,
         },
-        include: { counterparties: true },
+        include: contractInclude,
       });
       return this.toResponse(row);
     } catch (error) {
@@ -72,7 +93,7 @@ export class ContractsService {
   async get(req: GetContractRequest): Promise<ContractResponse> {
     const row = await this.prisma.contract.findFirst({
       where: { id: req.id, deletedAt: null },
-      include: { counterparties: true },
+      include: contractInclude,
     });
     if (!row) {
       throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
@@ -80,7 +101,8 @@ export class ContractsService {
     return this.toResponse(row);
   }
 
-  private toResponse(row: ContractWithParties): ContractResponse {
+  private toResponse(row: ContractWithRelations): ContractResponse {
+    const line = row.approvalLines[0] ?? null;
     return {
       id: row.id,
       title: row.title,
@@ -104,6 +126,20 @@ export class ContractsService {
         partyType: cp.partyType,
         snapshot: cp.snapshot as unknown as Company,
       })),
+      approvalLine: line
+        ? {
+            id: line.id,
+            status: line.status,
+            steps: line.steps.map((s) => ({
+              id: s.id,
+              stepOrder: s.stepOrder,
+              name: s.name,
+              dept: s.dept,
+              type: s.type,
+              status: s.status,
+            })),
+          }
+        : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };
