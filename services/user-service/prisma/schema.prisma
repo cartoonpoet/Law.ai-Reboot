@@ -77,11 +77,28 @@ enum ReviewType {
   @@schema("contracts")
 }
 
+enum ContractStatus {
+  draft // 임시 저장
+  unassigned // 미배정
+  assigning // 배정 중
+  legalReview // 법무 검토 중
+  requesterReview // 요청자 검토 중
+  reviewDone // 검토 완료
+  signing // 체결 진행
+  signed // 체결 완료
+  fulfilling // 계약 이행
+  closed // 계약 종료
+
+  @@schema("contracts")
+}
+
 model Contract {
-  id            String        @id @default(uuid())
+  id            String         @id @default(uuid())
+  code          String         @unique
   title         String
-  securityLevel SecurityLevel @default(secure)
-  reviewType    ReviewType    @default(normal)
+  status        ContractStatus @default(unassigned)
+  securityLevel SecurityLevel  @default(secure)
+  reviewType    ReviewType     @default(normal)
 
   // 4단 분류 (MVP 컬럼, 후속 ContractCategory 트리로 정규화)
   party    String?

@@ -219,7 +219,8 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 | **ApprovalLine/Step** | 폴리모픽(`ownerType/ownerId`) | **`contractId`(FK) 직접** + steps(`stepOrder/name/dept/type/status`) | **2026-06-21 정규화 완료**(JSONB→테이블). ERD는 폴리모픽이나 MVP는 Counterparty 와 동일하게 contractId 직접 FK |
 | **File** | 폴리모픽(`ownerType/ownerId`) + `size/mimeType/storageKey` | **`contractId`(FK) 직접** + `role/name/meta/sortOrder` (`size/mimeType/storageKey` nullable) | **2026-06-21 정규화 완료**(메타 행만, 실제 업로드는 후속). ERD 폴리모픽 → MVP contractId 직접 FK |
 | 분류 | `categoryId`(FK→ContractCategory) + `partyType` | `party/catMajor/catMinor/catSub`(String) | 후속에서 `ContractCategory` 트리로 정규화 |
-| Contract 부가 | `code·status·stage·updatedById` 등 | 없음(`stage`는 details) | 후속에서 코어 승격 검토 |
+| **status/code** | `ContractStatus` enum + `code`(unique) | **2026-06-21 추가**: `status`(ContractStatus, 기본 unassigned) + `code`(unique, C{YYYYMMDD}-{4자리}) | ERD 수렴 — 추가됨 |
+| Contract 부가 | `stage·updatedById` 등 | 없음(`stage`는 details) | 후속에서 코어 승격 검토 |
 | AuditLog/AccessGrant | 정규 테이블 | 미구현(이번엔 `details` JSONB) | 후속 Phase에서 정규 테이블 승격 |
 
 ### 결재선 정규화 (2026-06-21 완료)
@@ -252,6 +253,14 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 - 생성: `CreateContractRequest.references`(최상위) 한 배열로. get/response: `references`(ccType asc, isSecret asc) 반환. `ContractDetailsV1`에서 cc 3개 배열 제거.
 - 마이그레이션: `20260621030000_add_contract_reference`(순수 추가).
 - **보안 미구현(후속)**: `isSecret=true` 행의 **읽기 마스킹·ACL**(AccessGrant)은 아직 없음 — 현재는 데이터만 정규화. 응답에서 권한 없는 사용자에게 비밀 참조자 숨김 처리는 AccessGrant 도입 시 적용. §6 참조.
+
+### 계약 조회(목록/상세) API + status/code (2026-06-21 완료)
+
+- **status/code 코어 컬럼 추가**: `Contract.status`(ContractStatus enum: draft/unassigned/assigning/legalReview/requesterReview/reviewDone/signing/signed/fulfilling/closed, 기본 `unassigned`), `Contract.code`(unique, `C{YYYYMMDD}-{4자리}` 생성, 충돌 시 재시도). 마이그레이션 `20260621040000_add_contract_status_code` — 기존 행은 `createdAt` 순 백필(`C{날짜}-{0001..}`).
+- **목록 API** `GET /contracts`: 필터(`q`·`status`·`party`·`mine`) + 페이지네이션(`page`/`pageSize`, 기본 20, 최대 100). `q`는 title·code·상대회사명 부분일치. 응답 `ListContractsResponse{items: ContractSummary[], total, page, pageSize}`. `mine=true`면 gateway가 JWT sub를 `mineOf`로 주입.
+- **상세 API** `GET /contracts/:id`: 기존(전체 관계 포함).
+- **웹 연동**: `ContractListPage`(useContractsList 훅 — useQuery, status enum→한글 라벨, 칩/검색/내업무/페이지네이션), `ContractDetailPage`(useQuery + `toDetailView` 매퍼). AI 리스크·코멘트·라이프사이클은 별도 기능이라 mock 유지.
+- 표시: `code`=관리번호, status enum→`contractStatus.ts`의 한글 라벨(StatusBadge 색상 매핑).
 
 > MVP 구현 위치: `services/user-service/prisma/schema.prisma`(멀티스키마+Contract/Counterparty), `@lawai/contracts`(contract.dto/패턴), user-service `contracts` 모듈, api-gateway `contracts` 컨트롤러, web `api/contracts.ts`·`toCreateRequest.ts`·`useContractSubmit.ts`.
 

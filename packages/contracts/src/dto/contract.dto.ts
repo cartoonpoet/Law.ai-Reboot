@@ -2,6 +2,17 @@ import type { Company } from "./company.dto";
 
 export type SecurityLevel = "top" | "secure" | "normal";
 export type ReviewType = "normal" | "std";
+export type ContractStatus =
+  | "draft"
+  | "unassigned"
+  | "assigning"
+  | "legalReview"
+  | "requesterReview"
+  | "reviewDone"
+  | "signing"
+  | "signed"
+  | "fulfilling"
+  | "closed";
 export type ApproverType = "draft" | "approve" | "agree" | "refer";
 
 export interface EntityRef {
@@ -161,7 +172,9 @@ export interface CcRecipientResponse {
 
 export interface ContractResponse {
   id: string;
+  code: string;
   title: string;
+  status: ContractStatus;
   securityLevel: SecurityLevel;
   reviewType: ReviewType;
   party: string | null;
@@ -182,4 +195,38 @@ export interface ContractResponse {
   references: CcRecipientResponse[];
   createdAt: string;
   updatedAt: string;
+}
+
+// 목록 행(요약). 상세(details/관계 전체)는 제외하고 목록 표시에 필요한 필드만.
+export interface ContractSummary {
+  id: string;
+  code: string;
+  title: string;
+  status: ContractStatus;
+  securityLevel: SecurityLevel;
+  party: string | null;
+  catSub: string | null;
+  counterpartyName: string | null; // 첫 상대계약자 스냅샷 이름
+  requesterId: string | null;
+  ownerId: string | null;
+  dueDate: string | null;
+  createdById: string;
+  updatedAt: string;
+}
+
+export interface ListContractsRequest {
+  q?: string;
+  status?: ContractStatus;
+  party?: string;
+  // createdById 지정 시 "내 업무만"(gateway 가 JWT sub 주입).
+  mineOf?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ListContractsResponse {
+  items: ContractSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

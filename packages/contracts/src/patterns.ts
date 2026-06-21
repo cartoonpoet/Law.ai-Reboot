@@ -23,4 +23,5 @@ export const COMPANY_PATTERNS = {
 export const CONTRACT_PATTERNS = {
   CREATE: "contract.create",
   GET: "contract.get",
+  LIST: "contract.list",
 } as const;

@@ -1,5 +1,6 @@
 export interface ContractRow {
   id: string;
+  code?: string;
   name: string;
   party: string;
   sub: string;

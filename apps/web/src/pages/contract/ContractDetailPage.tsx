@@ -1,11 +1,14 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Icon, Button, Avatar } from "@lawkit/ui";
 import { T } from "../../design/tokens";
 import { Panel } from "../../components/ui/Panel";
 import { Tag } from "../../components/ui/Tag";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { getContractDetail, LIFECYCLE, RISKS, COMMENTS } from "./mock-data";
+import { LIFECYCLE, RISKS, COMMENTS } from "./mock-data";
 import type { LifecycleStep, Risk } from "./mock-data";
+import { getContract } from "../../api/contracts";
+import { toDetailView } from "./toDetailView";
 
 function LifecycleRail({ steps }: { steps: LifecycleStep[] }) {
   const last = steps.length - 1;
@@ -74,7 +77,21 @@ function KVRow({ label, children, last }: { label: string; children: React.React
 export function ContractDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const d = getContractDetail(id);
+  const { data, isLoading } = useQuery({
+    queryKey: ["contract", id],
+    queryFn: () => getContract(id),
+    enabled: Boolean(id),
+  });
+
+  if (!data) {
+    return (
+      <Panel pad={18}>
+        {isLoading ? "불러오는 중…" : "계약을 찾을 수 없습니다."}
+      </Panel>
+    );
+  }
+
+  const d = toDetailView(data);
   const riskHigh = RISKS.filter((r) => r.level === "high").length;
   const visibleComments = COMMENTS.filter((c) => !c.system).length;
 

@@ -5,6 +5,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -15,8 +16,11 @@ import type { Request } from "express";
 import {
   CONTRACT_PATTERNS,
   type ContractResponse,
+  type ContractStatus,
   type CreateContractRequest,
   type JwtPayload,
+  type ListContractsRequest,
+  type ListContractsResponse,
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
@@ -42,6 +46,33 @@ export class ContractsController {
     return firstValueFrom(
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.CREATE, payload)
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "계약 목록 조회", description: "필터(q·status·party·mine)·페이지네이션" })
+  @Get()
+  list(
+    @Req() req: Request,
+    @Query("q") q?: string,
+    @Query("status") status?: ContractStatus,
+    @Query("party") party?: string,
+    @Query("mine") mine?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ): Promise<ListContractsResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: ListContractsRequest = {
+      q: q || undefined,
+      status: status || undefined,
+      party: party || undefined,
+      mineOf: mine === "true" ? sub : undefined,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<ListContractsResponse>(CONTRACT_PATTERNS.LIST, payload)
         .pipe(rpcToHttp()),
     );
   }

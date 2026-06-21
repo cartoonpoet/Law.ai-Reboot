@@ -77,7 +77,13 @@ const createReq: CreateContractRequest = {
 describe("ContractsService", () => {
   let service: ContractsService;
   const prismaMock = {
-    contract: { create: jest.fn(), findFirst: jest.fn() },
+    contract: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
+    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
 
   beforeEach(async () => {
@@ -94,7 +100,9 @@ describe("ContractsService", () => {
   it("create는 코어 컬럼·details·counterparties를 저장하고 날짜를 파싱한다", async () => {
     prismaMock.contract.create.mockResolvedValue({
       id: "ct-1",
+      code: "C20260621-1234",
       title: createReq.title,
+      status: "unassigned",
       securityLevel: "secure",
       reviewType: "normal",
       party: createReq.party,
@@ -148,6 +156,9 @@ describe("ContractsService", () => {
     const result = await service.create(createReq);
 
     const arg = prismaMock.contract.create.mock.calls[0][0];
+    expect(arg.data.code).toMatch(/^C\d{8}-\d{4}$/); // 관리번호 생성
+    expect(result.code).toBe("C20260621-1234");
+    expect(result.status).toBe("unassigned");
     expect(arg.data.periodStart).toEqual(new Date("2026-07-01"));
     expect(arg.data.periodEnd).toBeNull(); // "" → null
     expect(arg.data.counterparties.create).toHaveLength(1);
@@ -193,5 +204,39 @@ describe("ContractsService", () => {
         references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
       },
     });
+  });
+
+  it("list는 deletedAt null + 필터/페이지네이션으로 요약 행을 반환한다", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([
+      {
+        id: "ct-1",
+        code: "C20260621-0001",
+        title: "계약 A",
+        status: "legalReview",
+        securityLevel: "secure",
+        party: "본사계약",
+        catSub: "용역",
+        requesterId: "jhson1",
+        ownerId: null,
+        dueDate: new Date("2026-07-01T00:00:00.000Z"),
+        createdById: "user-uuid-1",
+        updatedAt: new Date("2026-06-21T00:00:00.000Z"),
+        counterparties: [{ snapshot: companySnapshot }],
+      },
+    ]);
+    prismaMock.contract.count.mockResolvedValue(1);
+
+    const res = await service.list({ q: "계약", status: "legalReview", page: 1, pageSize: 20 });
+
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    expect(findArg.where.deletedAt).toBeNull();
+    expect(findArg.where.status).toBe("legalReview");
+    expect(findArg.where.OR).toBeDefined(); // q 검색
+    expect(findArg.skip).toBe(0);
+    expect(findArg.take).toBe(20);
+    expect(res.total).toBe(1);
+    expect(res.items[0].code).toBe("C20260621-0001");
+    expect(res.items[0].counterpartyName).toBe("삼성전자(주)");
+    expect(res.items[0].dueDate).toBe("2026-07-01T00:00:00.000Z");
   });
 });
