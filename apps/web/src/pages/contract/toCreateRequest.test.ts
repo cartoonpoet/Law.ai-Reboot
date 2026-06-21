@@ -35,6 +35,9 @@ const form: ContractRequestForm = {
   contractFiles: [{ name: "계약서.docx", meta: "DOCX · 1.2MB" }],
   attachFiles: [{ name: "별첨1.pdf", meta: "PDF" }, { name: "별첨2.pdf", meta: "PDF" }],
   refFiles: [],
+  ccUsers: [{ id: "u1", name: "김참조" }],
+  ccDepts: [{ id: "d1", name: "법무팀" }],
+  ccSecret: [{ id: "u9", name: "비밀임원" }],
 };
 
 describe("toCreateRequest", () => {
@@ -77,6 +80,18 @@ describe("toCreateRequest", () => {
     expect("contractFiles" in req.details).toBe(false);
     expect("attachFiles" in req.details).toBe(false);
     expect("refFiles" in req.details).toBe(false);
+  });
+
+  it("cc 3개 배열을 ccType+isSecret 참조수신자로 통합하고 details에서 뺀다", () => {
+    const req = toCreateRequest(form);
+    expect(req.references).toEqual([
+      { ccType: "user", isSecret: false, refId: "u1", name: "김참조" },
+      { ccType: "dept", isSecret: false, refId: "d1", name: "법무팀" },
+      { ccType: "user", isSecret: true, refId: "u9", name: "비밀임원" },
+    ]);
+    expect("ccUsers" in req.details).toBe(false);
+    expect("ccDepts" in req.details).toBe(false);
+    expect("ccSecret" in req.details).toBe(false);
   });
 
   it("counterparties를 companyId + snapshot으로 동결한다", () => {

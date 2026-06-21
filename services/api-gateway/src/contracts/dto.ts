@@ -10,6 +10,7 @@ import {
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import type {
   ApproverSnapshot,
+  CcRecipientInput,
   ContractDetailsV1,
   CounterpartyInput,
   FileInput,
@@ -88,4 +89,8 @@ export class CreateContractDto {
   @ApiProperty({ description: "첨부 파일 메타데이터(계약서/첨부/참고)", isArray: true })
   @IsArray()
   files!: FileInput[];
+
+  @ApiProperty({ description: "참조수신자(cc): ccType+isSecret", isArray: true })
+  @IsArray()
+  references!: CcRecipientInput[];
 }

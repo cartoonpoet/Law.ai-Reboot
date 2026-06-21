@@ -34,9 +34,6 @@ export const toCreateRequest = (
     keyPoints: form.keyPoints,
     concerns: form.concerns,
     urls: form.urls.map((u) => u.value),
-    ccUsers: form.ccUsers,
-    ccDepts: form.ccDepts,
-    ccSecret: form.ccSecret,
     owner: form.owner,
     project: form.project,
     relatedDocs: form.relatedDocs,
@@ -50,5 +47,10 @@ export const toCreateRequest = (
     ...form.contractFiles.map((f, i) => ({ role: "contract" as const, name: f.name, meta: f.meta, sortOrder: i })),
     ...form.attachFiles.map((f, i) => ({ role: "attach" as const, name: f.name, meta: f.meta, sortOrder: i })),
     ...form.refFiles.map((f, i) => ({ role: "ref" as const, name: f.name, meta: f.meta, sortOrder: i })),
+  ],
+  references: [
+    ...form.ccUsers.map((u) => ({ ccType: "user" as const, isSecret: false, refId: u.id, name: u.name })),
+    ...form.ccDepts.map((d) => ({ ccType: "dept" as const, isSecret: false, refId: d.id, name: d.name })),
+    ...form.ccSecret.map((u) => ({ ccType: "user" as const, isSecret: true, refId: u.id, name: u.name })),
   ],
 });

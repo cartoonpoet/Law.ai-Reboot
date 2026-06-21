@@ -15,6 +15,7 @@ const contractInclude = {
   counterparties: true,
   approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
   files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
+  references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
 } satisfies Prisma.ContractInclude;
 
 type ContractWithRelations = Prisma.ContractGetPayload<{
@@ -80,6 +81,15 @@ export class ContractsService {
               name: f.name,
               meta: f.meta,
               sortOrder: f.sortOrder,
+            })),
+          },
+          // 참조수신자(cc).
+          references: {
+            create: req.references.map((r) => ({
+              ccType: r.ccType,
+              isSecret: r.isSecret,
+              refId: r.refId,
+              name: r.name,
             })),
           },
         },
@@ -159,6 +169,13 @@ export class ContractsService {
         mimeType: f.mimeType,
         storageKey: f.storageKey,
         sortOrder: f.sortOrder,
+      })),
+      references: row.references.map((r) => ({
+        id: r.id,
+        ccType: r.ccType,
+        isSecret: r.isSecret,
+        refId: r.refId,
+        name: r.name,
       })),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),

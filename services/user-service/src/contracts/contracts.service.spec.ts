@@ -67,6 +67,11 @@ const createReq: CreateContractRequest = {
     { role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", sortOrder: 0 },
     { role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", sortOrder: 0 },
   ],
+  references: [
+    { ccType: "user", isSecret: false, refId: "u1", name: "김참조" },
+    { ccType: "dept", isSecret: false, refId: "d1", name: "법무팀" },
+    { ccType: "user", isSecret: true, refId: "u9", name: "비밀임원" },
+  ],
 };
 
 describe("ContractsService", () => {
@@ -133,6 +138,11 @@ describe("ContractsService", () => {
         { id: "f-1", contractId: "ct-1", role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", size: null, mimeType: null, storageKey: null, sortOrder: 0, createdAt: new Date("2026-06-21T00:00:00.000Z") },
         { id: "f-2", contractId: "ct-1", role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", size: null, mimeType: null, storageKey: null, sortOrder: 0, createdAt: new Date("2026-06-21T00:00:00.000Z") },
       ],
+      references: [
+        { id: "r-1", contractId: "ct-1", ccType: "user", isSecret: false, refId: "u1", name: "김참조", createdAt: new Date("2026-06-21T00:00:00.000Z") },
+        { id: "r-2", contractId: "ct-1", ccType: "user", isSecret: true, refId: "u9", name: "비밀임원", createdAt: new Date("2026-06-21T00:00:00.000Z") },
+        { id: "r-3", contractId: "ct-1", ccType: "dept", isSecret: false, refId: "d1", name: "법무팀", createdAt: new Date("2026-06-21T00:00:00.000Z") },
+      ],
     });
 
     const result = await service.create(createReq);
@@ -159,6 +169,14 @@ describe("ContractsService", () => {
     expect(result.files).toHaveLength(2);
     expect(result.files[0].role).toBe("contract");
     expect(result.files[0].storageKey).toBeNull();
+    // 참조수신자: ccType+isSecret 으로 생성
+    expect(arg.data.references.create).toEqual([
+      { ccType: "user", isSecret: false, refId: "u1", name: "김참조" },
+      { ccType: "dept", isSecret: false, refId: "d1", name: "법무팀" },
+      { ccType: "user", isSecret: true, refId: "u9", name: "비밀임원" },
+    ]);
+    expect(result.references).toHaveLength(3);
+    expect(result.references.find((r) => r.isSecret)?.name).toBe("비밀임원");
   });
 
   it("get은 deletedAt null 조건으로 조회하고 없으면 404 RpcException", async () => {
@@ -172,6 +190,7 @@ describe("ContractsService", () => {
         counterparties: true,
         approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
         files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
+        references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
       },
     });
   });

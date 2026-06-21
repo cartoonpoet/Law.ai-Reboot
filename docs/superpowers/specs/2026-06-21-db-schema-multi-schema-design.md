@@ -242,6 +242,17 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 - 마이그레이션: `20260621020000_add_file`(순수 추가).
 - 미구현(후속): 실제 바이너리 업로드(비공개 버킷 + 서명 URL), checksum(sha256). `[[deploy-cicd-setup]]` 스토리지 선택 필요.
 
+### 참조수신자(cc) 정규화 (2026-06-21 완료) — 신규 설계
+
+폼 `ccUsers/ccDepts/ccSecret`(각 `EntityRef{id,name}[]`)는 **ERD에 없던 항목**. 새 테이블 `shared.ContractReference` 로 설계·정규화:
+
+- 폼 의미: `ccUsers`=사용자 cc, `ccDepts`=부서 cc, `ccSecret`=사용자 cc(비밀). → `ccType(user/dept)` + `isSecret(bool)` 두 축으로 통합.
+- `shared.ContractReference`(contractId FK cascade): `ccType(CcType: user/dept)`, `isSecret(Boolean @default(false))`, `refId`(디렉토리 id — 현재 mock), `name`(표시 스냅샷), `createdAt`. `@@index([contractId])`.
+  - ccUsers → (user, false), ccDepts → (dept, false), ccSecret → (user, true).
+- 생성: `CreateContractRequest.references`(최상위) 한 배열로. get/response: `references`(ccType asc, isSecret asc) 반환. `ContractDetailsV1`에서 cc 3개 배열 제거.
+- 마이그레이션: `20260621030000_add_contract_reference`(순수 추가).
+- **보안 미구현(후속)**: `isSecret=true` 행의 **읽기 마스킹·ACL**(AccessGrant)은 아직 없음 — 현재는 데이터만 정규화. 응답에서 권한 없는 사용자에게 비밀 참조자 숨김 처리는 AccessGrant 도입 시 적용. §6 참조.
+
 > MVP 구현 위치: `services/user-service/prisma/schema.prisma`(멀티스키마+Contract/Counterparty), `@lawai/contracts`(contract.dto/패턴), user-service `contracts` 모듈, api-gateway `contracts` 컨트롤러, web `api/contracts.ts`·`toCreateRequest.ts`·`useContractSubmit.ts`.
 
 ## 8. 후속 · 미해결

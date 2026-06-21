@@ -109,6 +109,7 @@ model Contract {
   counterparties Counterparty[]
   approvalLines  ApprovalLine[]
   files          File[]
+  references     ContractReference[]
 
   @@index([createdById])
   @@index([deletedAt])
@@ -206,6 +207,30 @@ model File {
   mimeType   String?
   storageKey String?
   sortOrder  Int
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@schema("shared")
+}
+
+enum CcType {
+  user
+  dept
+
+  @@schema("shared")
+}
+
+// 참조수신자(cc). ccType(user/dept) + isSecret 두 축으로 폼 3개 배열을 통합.
+// refId 는 현재 디렉토리 mock id, name 은 표시 스냅샷. 비밀 참조자 읽기 마스킹/ACL 은 후속(§6).
+model ContractReference {
+  id         String   @id @default(uuid())
+  contractId String
+  ccType     CcType
+  isSecret   Boolean  @default(false)
+  refId      String
+  name       String
   createdAt  DateTime @default(now())
 
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)

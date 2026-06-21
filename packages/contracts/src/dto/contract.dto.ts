@@ -47,6 +47,16 @@ export interface FileInput {
   sortOrder: number;
 }
 
+export type CcType = "user" | "dept";
+
+// 참조수신자(cc) 입력. ccType(user/dept) + isSecret 두 축. refId 는 디렉토리 id, name 은 표시 스냅샷.
+export interface CcRecipientInput {
+  ccType: CcType;
+  isSecret: boolean;
+  refId: string;
+  name: string;
+}
+
 /**
  * schemaVersion = 1 의 details(JSONB) 모양.
  * 코어 컬럼(목록/필터/정렬/워크플로/보안)에 들어가지 않는 폼 필드 전부를 보관한다.
@@ -67,9 +77,6 @@ export interface ContractDetailsV1 {
   keyPoints: string;
   concerns: string;
   urls: string[];
-  ccUsers: EntityRef[];
-  ccDepts: EntityRef[];
-  ccSecret: EntityRef[];
   owner: EntityRef | null;
   project: EntityRef | null;
   relatedDocs: RelatedDocRef[];
@@ -103,6 +110,8 @@ export interface CreateContractRequest {
   approvers: ApproverSnapshot[];
   // 첨부 파일 메타데이터(계약서/첨부/참고). role+sortOrder 로 정규화.
   files: FileInput[];
+  // 참조수신자(cc). 폼 ccUsers/ccDepts/ccSecret 을 ccType+isSecret 으로 통합.
+  references: CcRecipientInput[];
 }
 
 export interface GetContractRequest {
@@ -142,6 +151,14 @@ export interface FileResponse {
   sortOrder: number;
 }
 
+export interface CcRecipientResponse {
+  id: string;
+  ccType: CcType;
+  isSecret: boolean;
+  refId: string;
+  name: string;
+}
+
 export interface ContractResponse {
   id: string;
   title: string;
@@ -162,6 +179,7 @@ export interface ContractResponse {
   counterparties: CounterpartyResponse[];
   approvalLine: ApprovalLineResponse | null;
   files: FileResponse[];
+  references: CcRecipientResponse[];
   createdAt: string;
   updatedAt: string;
 }
