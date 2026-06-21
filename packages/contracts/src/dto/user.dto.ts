@@ -1,3 +1,5 @@
+import type { Role } from "../types";
+
 export interface CreateUserRequest {
   email: string;
   name: string;
@@ -12,12 +14,26 @@ export interface FindUserByIdRequest {
   id: string;
 }
 
+// 디렉터리 검색(관계자·참조·결재자 선택용). 빈 q 면 전체(상한 limit).
+export interface SearchUsersRequest {
+  q?: string;
+  limit?: number;
+}
+
+export interface DepartmentDto {
+  id: string;
+  name: string;
+}
+
 // user-service 내부 전용: 해시를 포함한 사용자 (gateway로는 절대 노출 금지)
 export interface UserWithHash {
   id: string;
   email: string;
   name: string;
   passwordHash: string;
+  role: Role;
+  departmentId: string | null;
+  departmentName: string | null;
   createdAt: string;
 }
 

@@ -3,6 +3,7 @@ import {
   Get,
   Inject,
   NotFoundException,
+  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -21,13 +22,13 @@ import { rpcToHttp } from "../common/rpc-to-http";
 
 @ApiTags("users")
 @Controller("users")
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class UsersController {
   constructor(
     @Inject("USER_CLIENT") private readonly userClient: ClientProxy,
   ) {}
 
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: "내 정보 조회", description: "JWT 토큰의 사용자 정보를 반환한다." })
   @Get("me")
   async me(@Req() req: Request): Promise<PublicUser> {
@@ -44,7 +45,26 @@ export class UsersController {
       id: user.id,
       email: user.email,
       name: user.name,
+      role: user.role,
+      departmentId: user.departmentId,
+      departmentName: user.departmentName,
       createdAt: user.createdAt,
     };
+  }
+
+  @ApiOperation({ summary: "사용자 검색(디렉터리)", description: "관계자·참조·결재자 선택용" })
+  @Get()
+  search(
+    @Query("q") q = "",
+    @Query("limit") limit?: string,
+  ): Promise<PublicUser[]> {
+    return firstValueFrom(
+      this.userClient
+        .send<PublicUser[]>(USER_PATTERNS.SEARCH, {
+          q,
+          limit: limit ? Math.min(Number(limit), 100) : undefined,
+        })
+        .pipe(rpcToHttp()),
+    );
   }
 }

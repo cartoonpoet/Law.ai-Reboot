@@ -8,16 +8,41 @@ datasource db {
   schemas  = ["users", "companies", "contracts", "shared"]
 }
 
+enum Role {
+  general // 일반(요청자)
+  contractManager // 계약담당자
+  inHouseCounsel // 사내변호사
+  outsideCounsel // 사외변호사
+  sealManager // 인감관리자
+  admin // 관리자
+
+  @@schema("users")
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users User[]
+
+  @@schema("users")
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
   name         String
   passwordHash String
+  role         Role     @default(general)
+  departmentId String?
   createdAt    DateTime @default(now())
 
+  department          Department?          @relation(fields: [departmentId], references: [id])
   passwordResetTokens PasswordResetToken[]
   contracts           Contract[]
 
+  @@index([departmentId])
   @@schema("users")
 }
 

@@ -11,7 +11,22 @@ import type {
   ConsumeResetTokenRequest,
   ConsumeResetTokenResult,
   UpdatePasswordRequest,
+  SearchUsersRequest,
+  PublicUser,
+  Role,
 } from "@lawai/contracts";
+
+// department 관계를 include 한 User 행
+type UserRow = {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+  role: Role;
+  departmentId: string | null;
+  createdAt: Date;
+  department?: { name: string } | null;
+};
 
 @Injectable()
 export class UsersService {
@@ -46,6 +61,7 @@ export class UsersService {
   ): Promise<UserWithHash | null> {
     const user = await this.prisma.user.findUnique({
       where: { email: req.email },
+      include: { department: true },
     });
     return user ? this.toWithHash(user) : null;
   }
@@ -53,8 +69,39 @@ export class UsersService {
   async findById(req: FindUserByIdRequest): Promise<UserWithHash | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: req.id },
+      include: { department: true },
     });
     return user ? this.toWithHash(user) : null;
+  }
+
+  async search(req: SearchUsersRequest): Promise<PublicUser[]> {
+    const q = req.q?.trim();
+    const rows = (await this.prisma.user.findMany({
+      where: q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { email: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {},
+      include: { department: true },
+      take: req.limit ?? 20,
+      orderBy: { name: "asc" },
+    })) as UserRow[];
+    return rows.map((r) => this.toPublic(r));
+  }
+
+  private toPublic(u: UserRow): PublicUser {
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      departmentId: u.departmentId,
+      departmentName: u.department?.name ?? null,
+      createdAt: u.createdAt.toISOString(),
+    };
   }
 
   async createResetToken(req: CreateResetTokenRequest): Promise<void> {
@@ -94,18 +141,15 @@ export class UsersService {
     });
   }
 
-  private toWithHash(u: {
-    id: string;
-    email: string;
-    name: string;
-    passwordHash: string;
-    createdAt: Date;
-  }): UserWithHash {
+  private toWithHash(u: UserRow): UserWithHash {
     return {
       id: u.id,
       email: u.email,
       name: u.name,
       passwordHash: u.passwordHash,
+      role: u.role,
+      departmentId: u.departmentId,
+      departmentName: u.department?.name ?? null,
       createdAt: u.createdAt.toISOString(),
     };
   }

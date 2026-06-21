@@ -10,9 +10,14 @@ export const USER_PATTERNS = {
   CREATE: "user.create",
   FIND_BY_EMAIL: "user.findByEmail",
   FIND_BY_ID: "user.findById",
+  SEARCH: "user.search",
   CREATE_RESET_TOKEN: "user.resetToken.create",
   CONSUME_RESET_TOKEN: "user.resetToken.consume",
   UPDATE_PASSWORD: "user.updatePassword",
+} as const;
+
+export const DEPARTMENT_PATTERNS = {
+  LIST: "department.list",
 } as const;
 
 export const COMPANY_PATTERNS = {
