@@ -304,4 +304,41 @@ describe("ContractsService", () => {
       service.update({ id: "missing", title: "x" }),
     ).rejects.toBeInstanceOf(RpcException);
   });
+
+  // 마스킹 검증용: 비밀 참조자 + PII 있는 상대회사
+  const rowWithSecrets = () => ({
+    ...fullRow("legalReview"),
+    createdById: "creator-1",
+    ownerId: "owner-1",
+    counterparties: [
+      {
+        id: "cp-1",
+        companyId: "comp-1",
+        partyType: null,
+        snapshot: { ...companySnapshot, bizNo: "124-81-00998", managerPhone: "010-1234-5678", managerEmail: "a@law.ai", phone: "02-111-2222" },
+      },
+    ],
+    references: [
+      { id: "r-1", ccType: "user", isSecret: false, refId: "u1", name: "공개참조" },
+      { id: "r-2", ccType: "user", isSecret: true, refId: "u9", name: "비밀임원" },
+    ],
+  });
+
+  it("get: 생성자는 비밀참조·PII 원문을 본다", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
+    const res = await service.get({ id: "ct-1", viewerId: "creator-1" });
+    expect(res.references).toHaveLength(2);
+    expect(res.counterparties[0].snapshot.bizNo).toBe("124-81-00998");
+    expect(res.counterparties[0].snapshot.managerEmail).toBe("a@law.ai");
+  });
+
+  it("get: 권한 없는 조회자는 비밀참조 숨김 + PII 마스킹", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
+    const res = await service.get({ id: "ct-1", viewerId: "stranger" });
+    expect(res.references).toHaveLength(1);
+    expect(res.references[0].isSecret).toBe(false);
+    expect(res.counterparties[0].snapshot.bizNo).toBe("124-**-*****");
+    expect(res.counterparties[0].snapshot.managerEmail).toBe("a***@law.ai");
+    expect(res.counterparties[0].snapshot.managerPhone).toBe("010-****-****");
+  });
 });

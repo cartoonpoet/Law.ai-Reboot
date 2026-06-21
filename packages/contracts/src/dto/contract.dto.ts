@@ -127,6 +127,8 @@ export interface CreateContractRequest {
 
 export interface GetContractRequest {
   id: string;
+  // 조회자 id(gateway가 JWT sub 주입). 권한 없으면 비밀 참조자 숨김 + 상대회사 PII 마스킹.
+  viewerId?: string;
 }
 
 // 계약 필드 수정(부분). 관계(상대계약자/결재선/파일/참조)는 변경하지 않는다.

@@ -270,6 +270,15 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 - **웹**: 상세 페이지 "검토 액션" — `useContractStatus` 훅(useMutation + 캐시 무효화)으로 **반려**(→requesterReview)·**검토 완료**(→reviewDone) 버튼 라이브 연동, "현재 단계"에 실제 status 표시.
 - 미구현(후속): 관계 편집 UI(수정 폼 prefill), 배정 화면, 코멘트.
 
+### 보안: 비밀참조·PII 마스킹 (2026-06-21 완료)
+
+- **상세 응답(GET /contracts/:id)** 에서 조회자 권한에 따라 민감정보 보호. gateway가 JWT sub를 `viewerId`로 주입.
+- 권한 기준(MVP): `viewerId === createdById || viewerId === ownerId` 면 원문, 아니면:
+  - 비밀 참조자(`references` 중 `isSecret=true`) **응답에서 제외**(need-to-know).
+  - 상대회사 스냅샷 PII **마스킹**: `bizNo`(124-**-*****), `phone`/`managerPhone`(010-****-****), `managerEmail`(h***@domain). 이름·대표자·주소는 유지.
+- 향후 **AccessGrant** 도입 시 권한 기준을 레코드별 ACL로 확장(현재는 생성자/담당자 기준). 열람 감사(AuditLog `view`)도 후속.
+- 목록(ContractSummary)은 bizNo·비밀참조를 애초에 포함하지 않아 누출 없음. companies.search는 생성 플로우상 원문 유지.
+
 > MVP 구현 위치: `services/user-service/prisma/schema.prisma`(멀티스키마+Contract/Counterparty), `@lawai/contracts`(contract.dto/패턴), user-service `contracts` 모듈, api-gateway `contracts` 컨트롤러, web `api/contracts.ts`·`toCreateRequest.ts`·`useContractSubmit.ts`.
 
 ## 8. 후속 · 미해결

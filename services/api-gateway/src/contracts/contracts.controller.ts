@@ -84,12 +84,13 @@ export class ContractsController {
     );
   }
 
-  @ApiOperation({ summary: "계약 단건 조회" })
+  @ApiOperation({ summary: "계약 단건 조회", description: "권한 없는 조회자는 비밀참조·상대회사 PII 마스킹" })
   @Get(":id")
-  get(@Param("id") id: string): Promise<ContractResponse> {
+  get(@Param("id") id: string, @Req() req: Request): Promise<ContractResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
     return firstValueFrom(
       this.userClient
-        .send<ContractResponse>(CONTRACT_PATTERNS.GET, { id })
+        .send<ContractResponse>(CONTRACT_PATTERNS.GET, { id, viewerId: sub })
         .pipe(rpcToHttp()),
     );
   }

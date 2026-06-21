@@ -34,6 +34,29 @@ const parseDate = (value?: string | null): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+// PII 마스킹: 앞 일부만 남기고 숫자/문자를 가린다.
+const maskDigits = (v: string | null): string | null => {
+  if (!v) return v;
+  if (v.length <= 3) return "***";
+  return v.slice(0, 3) + v.slice(3).replace(/[0-9A-Za-z]/g, "*");
+};
+
+const maskEmail = (v: string | null): string | null => {
+  if (!v) return v;
+  const [user, domain] = v.split("@");
+  if (!domain) return "***";
+  return `${user.slice(0, 1)}***@${domain}`;
+};
+
+// 상대회사 스냅샷의 PII(사업자번호·연락처) 마스킹. 이름·대표자·주소는 유지.
+const maskCompany = (c: Company): Company => ({
+  ...c,
+  bizNo: maskDigits(c.bizNo) ?? c.bizNo,
+  phone: maskDigits(c.phone),
+  managerPhone: maskDigits(c.managerPhone),
+  managerEmail: maskEmail(c.managerEmail),
+});
+
 // 상태 전이 허용 맵(from → 허용 to[]).
 const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   draft: ["unassigned"],
@@ -150,7 +173,20 @@ export class ContractsService {
     if (!row) {
       throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
     }
-    return this.toResponse(row);
+    const response = this.toResponse(row);
+
+    // 권한: 생성자/담당자만 비밀 참조자·상대회사 PII 원문 열람. 그 외는 마스킹.
+    const privileged =
+      Boolean(req.viewerId) &&
+      (req.viewerId === row.createdById || req.viewerId === row.ownerId);
+    if (!privileged) {
+      response.references = response.references.filter((r) => !r.isSecret);
+      response.counterparties = response.counterparties.map((cp) => ({
+        ...cp,
+        snapshot: maskCompany(cp.snapshot),
+      }));
+    }
+    return response;
   }
 
   async list(req: ListContractsRequest): Promise<ListContractsResponse> {
