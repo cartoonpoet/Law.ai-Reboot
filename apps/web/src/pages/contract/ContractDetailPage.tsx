@@ -11,6 +11,7 @@ import { getContract } from "../../api/contracts";
 import { toDetailView } from "./toDetailView";
 import { getStatusLabel } from "./contractStatus";
 import { useContractStatus } from "./hooks/useContractStatus";
+import * as dcss from "./contractDetail.css";
 
 function LifecycleRail({ steps }: { steps: LifecycleStep[] }) {
   const last = steps.length - 1;
@@ -117,7 +118,7 @@ export function ContractDetailPage() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <Button variant="outline" color="secondary" iconLeft={<Icon name="edit" size="sm" style={{ width: 14, height: 14 }} />} onClick={() => navigate("/contract/request")}>수정</Button>
+          <Button variant="outline" color="secondary" iconLeft={<Icon name="edit" size="sm" className={dcss.btnIcon} />} onClick={() => navigate(`/contract/${id}/edit`)}>수정</Button>
           <Button iconLeft={<Icon name="messageSquare" size="sm" style={{ width: 14, height: 14 }} />}>코멘트 추가</Button>
         </div>
       </div>

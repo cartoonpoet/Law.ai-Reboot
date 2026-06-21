@@ -148,6 +148,11 @@ export interface UpdateContractRequest {
   dueDate?: string | null;
   schemaVersion?: number;
   details?: ContractDetailsV1;
+  // 관계: 제공 시 해당 관계 전체 교체(미제공이면 유지).
+  counterparties?: CounterpartyInput[];
+  approvers?: ApproverSnapshot[];
+  files?: FileInput[];
+  references?: CcRecipientInput[];
 }
 
 // 상태 전이. ownerId 지정 시 함께 배정.

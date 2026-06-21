@@ -13,15 +13,26 @@ import { SmartRail } from "./rail/SmartRail";
 import { useContractSubmit } from "./hooks/useContractSubmit";
 import * as css from "./contractRequest.css";
 
-export function ContractRequestPage() {
+interface ContractRequestPageProps {
+  mode?: "create" | "edit";
+  contractId?: string;
+  initialValues?: ContractRequestForm;
+}
+
+export function ContractRequestPage({
+  mode = "create",
+  contractId,
+  initialValues,
+}: ContractRequestPageProps = {}) {
   const navigate = useNavigate();
-  const { submit, isSubmitting, submitError } = useContractSubmit();
+  const { submit, isSubmitting, submitError } = useContractSubmit(mode, contractId);
   const methods = useForm<ContractRequestForm>({
     resolver: zodResolver(contractRequestSchema),
-    defaultValues: contractRequestDefaults,
+    defaultValues: initialValues ?? contractRequestDefaults,
     mode: "onSubmit",
   });
 
+  const isEdit = mode === "edit";
   const handleValid = (form: ContractRequestForm) => submit(form);
 
   return (
@@ -35,7 +46,7 @@ export function ContractRequestPage() {
           <div style={{ display: "flex", gap: 8 }}>
             <Button type="button" variant="outline" color="secondary" onClick={() => navigate("/contract/list")}>목록</Button>
             <Button type="button" variant="outline" color="secondary">임시저장</Button>
-            <Button type="submit" disabled={isSubmitting} iconLeft={<Icon name="submit" size="sm" className={css.submitIcon} />}>{isSubmitting ? "등록 중…" : "검토요청 등록"}</Button>
+            <Button type="submit" disabled={isSubmitting} iconLeft={<Icon name="submit" size="sm" className={css.submitIcon} />}>{isSubmitting ? (isEdit ? "저장 중…" : "등록 중…") : isEdit ? "수정 저장" : "검토요청 등록"}</Button>
           </div>
         </div>
 

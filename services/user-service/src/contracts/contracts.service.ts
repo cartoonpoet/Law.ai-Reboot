@@ -271,6 +271,58 @@ export class ContractsService {
     if (req.details !== undefined)
       data.details = req.details as unknown as Prisma.InputJsonValue;
 
+    // 관계: 제공된 것만 전체 교체(deleteMany + create, 단일 update로 원자적).
+    if (req.counterparties !== undefined) {
+      data.counterparties = {
+        deleteMany: {},
+        create: req.counterparties.map((cp) => ({
+          companyId: cp.companyId,
+          partyType: cp.partyType ?? null,
+          snapshot: cp.snapshot as unknown as Prisma.InputJsonValue,
+        })),
+      };
+    }
+    if (req.files !== undefined) {
+      data.files = {
+        deleteMany: {},
+        create: req.files.map((f) => ({
+          role: f.role,
+          name: f.name,
+          meta: f.meta,
+          sortOrder: f.sortOrder,
+        })),
+      };
+    }
+    if (req.references !== undefined) {
+      data.references = {
+        deleteMany: {},
+        create: req.references.map((r) => ({
+          ccType: r.ccType,
+          isSecret: r.isSecret,
+          refId: r.refId,
+          name: r.name,
+        })),
+      };
+    }
+    if (req.approvers !== undefined) {
+      data.approvalLines =
+        req.approvers.length > 0
+          ? {
+              deleteMany: {},
+              create: {
+                steps: {
+                  create: req.approvers.map((a, index) => ({
+                    stepOrder: index,
+                    name: a.name,
+                    dept: a.dept,
+                    type: a.type,
+                  })),
+                },
+              },
+            }
+          : { deleteMany: {} };
+    }
+
     const row = await this.prisma.contract.update({
       where: { id: req.id },
       data,

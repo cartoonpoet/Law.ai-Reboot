@@ -10,6 +10,7 @@ import { ContractPlaceholderPage } from "./pages/contract/ContractPlaceholderPag
 import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
 import { ContractRequestPage } from "./pages/contract/ContractRequestPage";
+import { ContractEditPage } from "./pages/contract/ContractEditPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!localStorage.getItem("accessToken")) {
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route path="/contract/request" element={<ContractRequestPage />} />
         <Route path="/contract/signed" element={<ContractPlaceholderPage title="체결 계약 조회" />} />
         <Route path="/contract/expire" element={<ContractPlaceholderPage title="체결계약 만료 현황" />} />
+        <Route path="/contract/:id/edit" element={<ContractEditPage />} />
         <Route path="/contract/:id" element={<ContractDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

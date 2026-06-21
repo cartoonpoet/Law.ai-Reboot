@@ -279,6 +279,13 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 - 향후 **AccessGrant** 도입 시 권한 기준을 레코드별 ACL로 확장(현재는 생성자/담당자 기준). 열람 감사(AuditLog `view`)도 후속.
 - 목록(ContractSummary)은 bizNo·비밀참조를 애초에 포함하지 않아 누출 없음. companies.search는 생성 플로우상 원문 유지.
 
+### 계약 수정 UI (관계까지 전체) (2026-06-21 완료)
+
+- **PATCH /contracts/:id 관계 교체 확장**: `UpdateContractRequest`에 `counterparties?/approvers?/files?/references?` 추가. 제공된 관계는 **deleteMany + create로 전체 교체**(단일 nested update, 원자적), 미제공이면 유지.
+- **웹 수정 모드**: `/contract/:id/edit`(`ContractEditPage`) — `GET`으로 불러와 `toEditDefaults`(toCreateRequest의 역변환)로 폼 prefill → `ContractRequestPage`를 `mode="edit"`로 렌더. 제출 시 `useContractSubmit`이 `toCreateRequest` 결과를 그대로 PATCH(관계 포함 전체 교체).
+- 상세 "수정" 버튼 → `/contract/:id/edit`. 버튼 라벨/제출 라벨은 모드별("수정 저장").
+- **주의(후속)**: 수정 prefill은 GET을 쓰므로 **비권한 사용자가 열면 마스킹된 데이터·비밀참조 누락** 상태로 보임 → 저장 시 데이터 손실 위험. 수정은 생성자/담당자 대상이며, **권한 가드(privileged만 수정 진입)**는 후속(AccessGrant 연계).
+
 > MVP 구현 위치: `services/user-service/prisma/schema.prisma`(멀티스키마+Contract/Counterparty), `@lawai/contracts`(contract.dto/패턴), user-service `contracts` 모듈, api-gateway `contracts` 컨트롤러, web `api/contracts.ts`·`toCreateRequest.ts`·`useContractSubmit.ts`.
 
 ## 8. 후속 · 미해결

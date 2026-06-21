@@ -305,6 +305,25 @@ describe("ContractsService", () => {
     ).rejects.toBeInstanceOf(RpcException);
   });
 
+  it("update는 제공된 관계를 deleteMany+create로 전체 교체한다", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue({ id: "ct-1", status: "unassigned" });
+    prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+    await service.update({
+      id: "ct-1",
+      files: [{ role: "contract", name: "new.docx", meta: "DOCX", sortOrder: 0 }],
+      references: [{ ccType: "dept", isSecret: false, refId: "d2", name: "운영팀" }],
+      approvers: [],
+    });
+    const arg = prismaMock.contract.update.mock.calls[0][0];
+    expect(arg.data.files.deleteMany).toEqual({});
+    expect(arg.data.files.create).toHaveLength(1);
+    expect(arg.data.references.create[0].name).toBe("운영팀");
+    // 빈 approvers → 결재선 전부 삭제만(재생성 없음)
+    expect(arg.data.approvalLines).toEqual({ deleteMany: {} });
+    // 미제공 관계(counterparties)는 건드리지 않음
+    expect(arg.data.counterparties).toBeUndefined();
+  });
+
   // 마스킹 검증용: 비밀 참조자 + PII 있는 상대회사
   const rowWithSecrets = () => ({
     ...fullRow("legalReview"),

@@ -155,6 +155,22 @@ export class UpdateContractDto {
   @ApiPropertyOptional({ description: "schemaVersion 별 폼 상세(JSONB)" })
   @IsOptional() @IsObject()
   details?: ContractDetailsV1;
+
+  @ApiPropertyOptional({ description: "상대계약자(제공 시 전체 교체)", isArray: true })
+  @IsOptional() @IsArray()
+  counterparties?: CounterpartyInput[];
+
+  @ApiPropertyOptional({ description: "결재선 단계(제공 시 전체 교체)", isArray: true })
+  @IsOptional() @IsArray()
+  approvers?: ApproverSnapshot[];
+
+  @ApiPropertyOptional({ description: "첨부 파일(제공 시 전체 교체)", isArray: true })
+  @IsOptional() @IsArray()
+  files?: FileInput[];
+
+  @ApiPropertyOptional({ description: "참조수신자(제공 시 전체 교체)", isArray: true })
+  @IsOptional() @IsArray()
+  references?: CcRecipientInput[];
 }
 
 export class UpdateContractStatusDto {
