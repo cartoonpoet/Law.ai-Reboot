@@ -2,6 +2,7 @@ import { Test } from "@nestjs/testing";
 import { RpcException } from "@nestjs/microservices";
 import { ContractsService } from "./contracts.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditService } from "./contracts.audit";
 import type { CreateContractRequest } from "@lawai/contracts";
 
 const companySnapshot = {
@@ -84,9 +85,20 @@ describe("ContractsService", () => {
       count: jest.fn(),
       update: jest.fn(),
     },
-    user: { findUnique: jest.fn().mockResolvedValue({ departmentId: "dept-1" }) },
+    // create 시엔 { departmentId } 만 사용, loadViewer 시엔 { id, role, departmentId } 사용.
+    // 기본 role=general 로 viewer 를 구성(개별 테스트가 필요 시 mockResolvedValueOnce 로 덮음).
+    user: {
+      findUnique: jest.fn((args: { where: { id: string } }) =>
+        Promise.resolve({
+          id: args.where.id,
+          role: "general",
+          departmentId: "dept-1",
+        }),
+      ),
+    },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
+  const auditMock = { record: jest.fn().mockResolvedValue(undefined) };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -94,6 +106,7 @@ describe("ContractsService", () => {
       providers: [
         ContractsService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: AuditService, useValue: auditMock },
       ],
     }).compile();
     service = moduleRef.get(ContractsService);
@@ -272,9 +285,11 @@ describe("ContractsService", () => {
   });
 
   it("updateStatus는 허용된 전이를 적용한다 (legalReview→reviewDone)", async () => {
-    prismaMock.contract.findFirst.mockResolvedValue({ id: "ct-1", status: "legalReview" });
+    // 권한 통과: viewer 를 admin(전체 transition 가능)으로 구성.
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview" });
     prismaMock.contract.update.mockResolvedValue(fullRow("reviewDone"));
-    const res = await service.updateStatus({ id: "ct-1", status: "reviewDone" });
+    const res = await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1" });
     expect(prismaMock.contract.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "ct-1" }, data: expect.objectContaining({ status: "reviewDone" }) }),
     );
@@ -282,17 +297,21 @@ describe("ContractsService", () => {
   });
 
   it("updateStatus는 허용되지 않은 전이를 400으로 막는다 (unassigned→signed)", async () => {
-    prismaMock.contract.findFirst.mockResolvedValue({ id: "ct-1", status: "unassigned" });
+    // 역할(canTransition)은 통과(admin)하되 ALLOWED_TRANSITIONS 위반으로 400.
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned" });
     await expect(
-      service.updateStatus({ id: "ct-1", status: "signed" }),
+      service.updateStatus({ id: "ct-1", status: "signed", viewerId: "admin-1" }),
     ).rejects.toBeInstanceOf(RpcException);
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
 
   it("update는 제공된 필드만 갱신하고 날짜를 파싱한다", async () => {
-    prismaMock.contract.findFirst.mockResolvedValue({ id: "ct-1", status: "unassigned" });
+    // 권한 통과: viewer 를 admin(전체 edit 가능)으로 구성.
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
     prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
-    await service.update({ id: "ct-1", title: "수정됨", dueDate: "2026-08-01" });
+    await service.update({ id: "ct-1", title: "수정됨", dueDate: "2026-08-01", viewerId: "admin-1" });
     const arg = prismaMock.contract.update.mock.calls[0][0];
     expect(arg.data.title).toBe("수정됨");
     expect(arg.data.dueDate).toEqual(new Date("2026-08-01"));
@@ -302,15 +321,17 @@ describe("ContractsService", () => {
   it("update는 없는 계약이면 404", async () => {
     prismaMock.contract.findFirst.mockResolvedValue(null);
     await expect(
-      service.update({ id: "missing", title: "x" }),
+      service.update({ id: "missing", title: "x", viewerId: "admin-1" }),
     ).rejects.toBeInstanceOf(RpcException);
   });
 
   it("update는 제공된 관계를 deleteMany+create로 전체 교체한다", async () => {
-    prismaMock.contract.findFirst.mockResolvedValue({ id: "ct-1", status: "unassigned" });
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
     prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
     await service.update({
       id: "ct-1",
+      viewerId: "admin-1",
       files: [{ role: "contract", name: "new.docx", meta: "DOCX", sortOrder: 0 }],
       references: [{ ccType: "dept", isSecret: false, refId: "d2", name: "운영팀" }],
       approvers: [],
@@ -352,13 +373,137 @@ describe("ContractsService", () => {
     expect(res.counterparties[0].snapshot.managerEmail).toBe("a@law.ai");
   });
 
-  it("get: 권한 없는 조회자는 비밀참조 숨김 + PII 마스킹", async () => {
+  it("get: 관련은 있으나 비특권 조회자(cc general)는 비밀참조 숨김 + PII 마스킹", async () => {
+    // cc(refId:"u1") 에 든 general → canView=true, 비특권 → maskSecret=true.
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "u1", role: "general", departmentId: "dept-9" });
     prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
-    const res = await service.get({ id: "ct-1", viewerId: "stranger" });
+    const res = await service.get({ id: "ct-1", viewerId: "u1" });
     expect(res.references).toHaveLength(1);
     expect(res.references[0].isSecret).toBe(false);
     expect(res.counterparties[0].snapshot.bizNo).toBe("124-**-*****");
     expect(res.counterparties[0].snapshot.managerEmail).toBe("a***@law.ai");
     expect(res.counterparties[0].snapshot.managerPhone).toBe("010-****-****");
+  });
+
+  it("get: 완전 비관련 general 조회자는 404 (존재 노출 방지)", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "stranger", role: "general", departmentId: "dept-9" });
+    prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
+    await expect(
+      service.get({ id: "ct-1", viewerId: "stranger" }),
+    ).rejects.toBeInstanceOf(RpcException);
+  });
+
+  it("get: 응답에 can 4필드(edit/assign/transition/delete)를 부착한다", async () => {
+    // admin → 전체 권한.
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
+    const res = await service.get({ id: "ct-1", viewerId: "admin-1" });
+    expect(res.can).toEqual({ edit: true, assign: true, transition: true, delete: true });
+  });
+
+  // --- Gen-Phase 8: 가드 / 감사 케이스 ---
+
+  it("update: canEdit=false 면 403 (권한 없는 general)", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "g-1", role: "general", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+    await expect(
+      service.update({ id: "ct-1", title: "x", viewerId: "g-1" }),
+    ).rejects.toMatchObject({ error: { status: 403 } });
+    expect(prismaMock.contract.update).not.toHaveBeenCalled();
+  });
+
+  it("updateStatus: canTransition=false 면 403 (권한 없는 general)", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "g-1", role: "general", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview" });
+    await expect(
+      service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "g-1" }),
+    ).rejects.toMatchObject({ error: { status: 403 } });
+    expect(prismaMock.contract.update).not.toHaveBeenCalled();
+  });
+
+  it("updateStatus: 역할 통과 + 전이맵 위반 → 400", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview" });
+    await expect(
+      service.updateStatus({ id: "ct-1", status: "signed", viewerId: "admin-1" }),
+    ).rejects.toMatchObject({ error: { status: 400 } });
+    expect(prismaMock.contract.update).not.toHaveBeenCalled();
+  });
+
+  it("get: top/secure 등급 조회 시 audit.record(view) 호출", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    // securityLevel: "secure" (fullRow 기본)
+    prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
+    await service.get({ id: "ct-1", viewerId: "admin-1" });
+    expect(auditMock.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "view",
+        targetType: "Contract",
+        targetId: "ct-1",
+        actorId: "admin-1",
+        detail: { securityLevel: "secure" },
+      }),
+    );
+  });
+
+  it("get: normal 등급 조회 시 audit.record(view) 미호출", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue({
+      ...rowWithSecrets(),
+      securityLevel: "normal",
+    });
+    await service.get({ id: "ct-1", viewerId: "admin-1" });
+    const viewCalls = auditMock.record.mock.calls.filter(
+      (c) => c[0]?.action === "view",
+    );
+    expect(viewCalls).toHaveLength(0);
+  });
+
+  it("create: 성공 시 audit.record(create) 호출", async () => {
+    prismaMock.contract.create.mockResolvedValue({
+      ...fullRow("unassigned"),
+      id: "ct-new",
+      createdById: "user-uuid-1",
+    });
+    await service.create(createReq);
+    expect(auditMock.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "create",
+        targetType: "Contract",
+        targetId: "ct-new",
+        actorId: "user-uuid-1",
+      }),
+    );
+  });
+
+  it("update: 성공 시 audit.record(update) 호출", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+    prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+    await service.update({ id: "ct-1", title: "수정됨", viewerId: "admin-1" });
+    expect(auditMock.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "update",
+        targetType: "Contract",
+        targetId: "ct-1",
+        actorId: "admin-1",
+      }),
+    );
+  });
+
+  it("updateStatus: 전이 성공 시 audit.record(transition) 호출", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview" });
+    prismaMock.contract.update.mockResolvedValue(fullRow("reviewDone"));
+    await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1" });
+    expect(auditMock.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "transition",
+        targetType: "Contract",
+        targetId: "ct-1",
+        actorId: "admin-1",
+        detail: { from: "legalReview", to: "reviewDone" },
+      }),
+    );
   });
 });

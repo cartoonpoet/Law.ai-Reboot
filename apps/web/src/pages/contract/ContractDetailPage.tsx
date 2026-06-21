@@ -96,6 +96,10 @@ export function ContractDetailPage() {
   }
 
   const d = toDetailView(data);
+  // 버튼 가시성은 백엔드가 내려준 data.can에서 파생(권한 정보 없으면 보수적으로 숨김).
+  const canEdit = Boolean(data.can?.edit);
+  // transition 권한은 반려(requesterReview)·검토 완료(reviewDone) 양방향 전이를 함께 의미한다(MVP: 단일 플래그).
+  const canTransition = Boolean(data.can?.transition);
   const riskHigh = RISKS.filter((r) => r.level === "high").length;
   const visibleComments = COMMENTS.filter((c) => !c.system).length;
 
@@ -118,7 +122,9 @@ export function ContractDetailPage() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <Button variant="outline" color="secondary" iconLeft={<Icon name="edit" size="sm" className={dcss.btnIcon} />} onClick={() => navigate(`/contract/${id}/edit`)}>수정</Button>
+          {canEdit && (
+            <Button variant="outline" color="secondary" iconLeft={<Icon name="edit" size="sm" className={dcss.btnIcon} />} onClick={() => navigate(`/contract/${id}/edit`)}>수정</Button>
+          )}
           <Button iconLeft={<Icon name="messageSquare" size="sm" style={{ width: 14, height: 14 }} />}>코멘트 추가</Button>
         </div>
       </div>
@@ -198,8 +204,12 @@ export function ContractDetailPage() {
               </div>
               <div style={{ height: 1, background: T.border }} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <Button size="medium" color="danger" variant="outline" disabled={isUpdating} onClick={() => changeStatus("requesterReview")}>반려</Button>
-                <Button size="medium" disabled={isUpdating} onClick={() => changeStatus("reviewDone")}>검토 완료</Button>
+                {canTransition && (
+                  <>
+                    <Button size="medium" color="danger" variant="outline" disabled={isUpdating} onClick={() => changeStatus("requesterReview")}>반려</Button>
+                    <Button size="medium" disabled={isUpdating} onClick={() => changeStatus("reviewDone")}>검토 완료</Button>
+                  </>
+                )}
               </div>
             </div>
           </Panel>

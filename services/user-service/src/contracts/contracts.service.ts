@@ -2,6 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditService } from "./contracts.audit";
+import { evaluate } from "./contracts.authz";
+import type { AuthzViewer, AuthzContract } from "./contracts.authz";
 import type {
   CreateContractRequest,
   GetContractRequest,
@@ -79,9 +82,41 @@ const generateCode = (): string => {
   return `C${ymd}-${seq}`;
 };
 
+// references 중 ccType==="user" 인 행들의 refId(= cc 사용자 id) 배열을 추출.
+const extractCcUserIds = (
+  refs: { ccType: string; refId: string }[],
+): string[] => refs.filter((r) => r.ccType === "user").map((r) => r.refId);
+
 @Injectable()
 export class ContractsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
+  private async loadViewer(viewerId?: string): Promise<AuthzViewer | null> {
+    if (!viewerId) return null;
+    const user = await this.prisma.user.findUnique({
+      where: { id: viewerId },
+      include: { department: true },
+    });
+    if (!user) return null;
+    return { id: user.id, role: user.role, departmentId: user.departmentId };
+  }
+
+  // contractInclude row → 권한 평가용 AuthzContract.
+  private toAuthzContract(row: ContractWithRelations): AuthzContract {
+    return {
+      createdById: row.createdById,
+      ownerId: row.ownerId,
+      requesterId: row.requesterId,
+      ccUserIds: extractCcUserIds(row.references),
+      status: row.status,
+      securityLevel: row.securityLevel,
+      departmentId: row.departmentId,
+    };
+  }
 
   async create(req: CreateContractRequest): Promise<ContractResponse> {
     // 작성 부서: 생성자(createdById)의 소속 부서를 계약 부서로 스냅
@@ -153,6 +188,12 @@ export class ContractsService {
         },
         include: contractInclude,
       });
+      await this.audit.record({
+        action: "create",
+        targetType: "Contract",
+        targetId: row.id,
+        actorId: req.createdById,
+      });
       return this.toResponse(row);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -179,19 +220,46 @@ export class ContractsService {
     if (!row) {
       throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
     }
+    // 권한 평가는 중앙 authz 모듈(evaluate) 단일 출처로 구동(이중 판정 금지).
+    const viewer = await this.loadViewer(req.viewerId);
+    const authz = evaluate(viewer, this.toAuthzContract(row));
+
+    // 비관련 계약 접근은 존재를 노출하지 않도록 404(general 본인무관·outsideCounsel 미배정 등).
+    // admin/법무팀은 canView=true 라 영향 없음.
+    if (!authz.canView) {
+      throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
+    }
+
     const response = this.toResponse(row);
 
-    // 권한: 생성자/담당자만 비밀 참조자·상대회사 PII 원문 열람. 그 외는 마스킹.
-    const privileged =
-      Boolean(req.viewerId) &&
-      (req.viewerId === row.createdById || req.viewerId === row.ownerId);
-    if (!privileged) {
+    // 마스킹: evaluate.maskSecret 결과로만 비밀참조 숨김 + 상대회사 PII 마스킹.
+    if (authz.maskSecret) {
       response.references = response.references.filter((r) => !r.isSecret);
       response.counterparties = response.counterparties.map((cp) => ({
         ...cp,
         snapshot: maskCompany(cp.snapshot),
       }));
     }
+
+    // 조회자별 수행 가능 액션을 응답에 부착(프론트 버튼 파생).
+    response.can = {
+      edit: authz.canEdit,
+      assign: authz.canAssign,
+      transition: authz.canTransition,
+      delete: authz.canDelete,
+    };
+
+    // view 감사: top/secure 보안등급 열람만 기록(normal 은 기록하지 않음).
+    if (row.securityLevel !== "normal" && viewer) {
+      await this.audit.record({
+        action: "view",
+        targetType: "Contract",
+        targetId: row.id,
+        actorId: viewer.id,
+        detail: { securityLevel: row.securityLevel },
+      });
+    }
+
     return response;
   }
 
@@ -259,7 +327,15 @@ export class ContractsService {
   }
 
   async update(req: UpdateContractRequest): Promise<ContractResponse> {
-    await this.ensureExists(req.id);
+    const current = await this.ensureExists(req.id);
+
+    // 수정 권한(canEdit) 가드 — 중앙 authz 결과만 사용.
+    const viewer = await this.loadViewer(req.viewerId);
+    const authz = evaluate(viewer, this.toAuthzContract(current));
+    if (!authz.canEdit) {
+      throw new RpcException({ status: 403, message: "수정 권한이 없습니다" });
+    }
+
     const data: Prisma.ContractUncheckedUpdateInput = {};
     if (req.title !== undefined) data.title = req.title;
     if (req.securityLevel !== undefined) data.securityLevel = req.securityLevel;
@@ -334,6 +410,19 @@ export class ContractsService {
       data,
       include: contractInclude,
     });
+
+    // 변경된 필드 목록(viewerId/id 제외)을 감사 detail 로 기록.
+    const changed = Object.keys(req).filter(
+      (k) => k !== "id" && k !== "viewerId",
+    );
+    await this.audit.record({
+      action: "update",
+      targetType: "Contract",
+      targetId: req.id,
+      actorId: viewer?.id ?? "system",
+      detail: { changed },
+    });
+
     return this.toResponse(row);
   }
 
@@ -341,7 +430,20 @@ export class ContractsService {
     req: UpdateContractStatusRequest,
   ): Promise<ContractResponse> {
     const current = await this.ensureExists(req.id);
-    if (current.status !== req.status) {
+    const viewer = await this.loadViewer(req.viewerId);
+    const authz = evaluate(viewer, this.toAuthzContract(current));
+
+    const isTransition = current.status !== req.status;
+    const isAssign = req.ownerId !== undefined;
+
+    // 역할 전이 권한 가드. 통과 후 from→to 전이맵(ALLOWED_TRANSITIONS) 이중 결합.
+    if (isTransition) {
+      if (!authz.canTransition) {
+        throw new RpcException({
+          status: 403,
+          message: "상태 전이 권한이 없습니다",
+        });
+      }
       const allowed = ALLOWED_TRANSITIONS[current.status];
       if (!allowed.includes(req.status)) {
         throw new RpcException({
@@ -350,6 +452,12 @@ export class ContractsService {
         });
       }
     }
+
+    // 담당자(owner) 배정 권한 가드.
+    if (isAssign && !authz.canAssign) {
+      throw new RpcException({ status: 403, message: "배정 권한이 없습니다" });
+    }
+
     const row = await this.prisma.contract.update({
       where: { id: req.id },
       data: {
@@ -358,13 +466,26 @@ export class ContractsService {
       },
       include: contractInclude,
     });
+
+    if (isTransition) {
+      await this.audit.record({
+        action: "transition",
+        targetType: "Contract",
+        targetId: req.id,
+        actorId: viewer?.id ?? "system",
+        detail: { from: current.status, to: req.status },
+      });
+    }
+
     return this.toResponse(row);
   }
 
-  // 삭제되지 않은 계약 존재 확인 후 현재 행 반환(없으면 404).
-  private async ensureExists(id: string) {
+  // 삭제되지 않은 계약 존재 확인 후 현재 행(관계 포함) 반환(없으면 404).
+  // 권한 평가(evaluate)에 references/createdById/ownerId 가 필요하므로 contractInclude 로 로드.
+  private async ensureExists(id: string): Promise<ContractWithRelations> {
     const row = await this.prisma.contract.findFirst({
       where: { id, deletedAt: null },
+      include: contractInclude,
     });
     if (!row) {
       throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });

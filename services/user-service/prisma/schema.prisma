@@ -290,3 +290,30 @@ model ContractReference {
   @@index([contractId])
   @@schema("shared")
 }
+
+enum AuditAction {
+  create
+  update
+  delete
+  transition
+  view
+
+  @@schema("shared")
+}
+
+// 폴리모픽 공용 감사 로그(§3.4). targetType/targetId 로 대상 엔티티를 지칭(MVP 는 "Contract").
+// DB FK 없음 — 앱 레벨 무결성(cross-schema FK 회피, 향후 Company/File/User 감사 시 재마이그레이션 불필요).
+// detail 에 securityLevel·from→to·변경 필드 등 가변 메타를 흡수(별도 컬럼 없음).
+model AuditLog {
+  id         String      @id @default(uuid())
+  action     AuditAction
+  actorId    String
+  targetType String
+  targetId   String
+  detail     Json?
+  at         DateTime    @default(now())
+
+  @@index([targetType, targetId])
+  @@index([actorId])
+  @@schema("shared")
+}

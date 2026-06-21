@@ -100,8 +100,10 @@ export class ContractsController {
   update(
     @Param("id") id: string,
     @Body() dto: UpdateContractDto,
+    @Req() req: Request,
   ): Promise<ContractResponse> {
-    const payload: UpdateContractRequest = { ...dto, id };
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: UpdateContractRequest = { ...dto, id, viewerId: sub };
     return firstValueFrom(
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.UPDATE, payload)
@@ -114,8 +116,10 @@ export class ContractsController {
   updateStatus(
     @Param("id") id: string,
     @Body() dto: UpdateContractStatusDto,
+    @Req() req: Request,
   ): Promise<ContractResponse> {
-    const payload: UpdateContractStatusRequest = { ...dto, id };
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: UpdateContractStatusRequest = { ...dto, id, viewerId: sub };
     return firstValueFrom(
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.UPDATE_STATUS, payload)

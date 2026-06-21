@@ -15,6 +15,17 @@ export type ContractStatus =
   | "closed";
 export type ApproverType = "draft" | "approve" | "agree" | "refer";
 
+// 감사 로그 액션 종류(서비스/프론트 공유). AuditLog.action 과 일치.
+export type AuditAction = "create" | "update" | "delete" | "transition" | "view";
+
+// 조회자(viewer)가 해당 계약에 대해 수행 가능한 액션. authz evaluate 결과에서 산출.
+export interface ContractCan {
+  edit: boolean;
+  assign: boolean;
+  transition: boolean;
+  delete: boolean;
+}
+
 export interface EntityRef {
   id: string;
   name: string;
@@ -153,6 +164,8 @@ export interface UpdateContractRequest {
   approvers?: ApproverSnapshot[];
   files?: FileInput[];
   references?: CcRecipientInput[];
+  // 조회자 id(gateway가 JWT sub 주입). user-service에서 수정 권한(canEdit) 평가에 사용.
+  viewerId?: string;
 }
 
 // 상태 전이. ownerId 지정 시 함께 배정.
@@ -160,6 +173,8 @@ export interface UpdateContractStatusRequest {
   id: string;
   status: ContractStatus;
   ownerId?: string | null;
+  // 조회자 id(gateway가 JWT sub 주입). user-service에서 전이/배정 권한 평가에 사용.
+  viewerId?: string;
 }
 
 export interface CounterpartyResponse {
@@ -228,6 +243,8 @@ export interface ContractResponse {
   references: CcRecipientResponse[];
   createdAt: string;
   updatedAt: string;
+  // 조회자(viewer)별 수행 가능 액션. get 경로에서만 산출(list 등은 미산출).
+  can?: ContractCan;
 }
 
 // 목록 행(요약). 상세(details/관계 전체)는 제외하고 목록 표시에 필요한 필드만.
