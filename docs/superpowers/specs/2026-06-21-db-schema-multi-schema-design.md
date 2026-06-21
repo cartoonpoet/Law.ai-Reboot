@@ -262,6 +262,14 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 - **웹 연동**: `ContractListPage`(useContractsList 훅 — useQuery, status enum→한글 라벨, 칩/검색/내업무/페이지네이션), `ContractDetailPage`(useQuery + `toDetailView` 매퍼). AI 리스크·코멘트·라이프사이클은 별도 기능이라 mock 유지.
 - 표시: `code`=관리번호, status enum→`contractStatus.ts`의 한글 라벨(StatusBadge 색상 매핑).
 
+### 계약 수정 / 상태 전이 API (2026-06-21 완료)
+
+- **상태 전이** `PATCH /contracts/:id/status` `{ status, ownerId? }`: `ALLOWED_TRANSITIONS` 맵으로 검증(허용 외 전이는 400). `ownerId` 지정 시 함께 배정. 전이 맵: unassigned→{assigning,legalReview}, legalReview→{requesterReview,reviewDone}, requesterReview→{legalReview,reviewDone}, reviewDone→{signing,legalReview}, signing→signed→fulfilling→closed 등.
+- **필드 수정** `PATCH /contracts/:id`: 제공된 core 필드 + `details`만 부분 갱신(undefined는 미변경). **관계(상대계약자/결재선/파일/참조)는 변경하지 않음** — 관계 편집은 후속.
+- 패턴 `CONTRACT_PATTERNS.UPDATE`/`UPDATE_STATUS`, DTO `UpdateContractRequest`/`UpdateContractStatusRequest`.
+- **웹**: 상세 페이지 "검토 액션" — `useContractStatus` 훅(useMutation + 캐시 무효화)으로 **반려**(→requesterReview)·**검토 완료**(→reviewDone) 버튼 라이브 연동, "현재 단계"에 실제 status 표시.
+- 미구현(후속): 관계 편집 UI(수정 폼 prefill), 배정 화면, 코멘트.
+
 > MVP 구현 위치: `services/user-service/prisma/schema.prisma`(멀티스키마+Contract/Counterparty), `@lawai/contracts`(contract.dto/패턴), user-service `contracts` 모듈, api-gateway `contracts` 컨트롤러, web `api/contracts.ts`·`toCreateRequest.ts`·`useContractSubmit.ts`.
 
 ## 8. 후속 · 미해결

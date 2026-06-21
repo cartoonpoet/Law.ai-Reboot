@@ -9,6 +9,8 @@ import { LIFECYCLE, RISKS, COMMENTS } from "./mock-data";
 import type { LifecycleStep, Risk } from "./mock-data";
 import { getContract } from "../../api/contracts";
 import { toDetailView } from "./toDetailView";
+import { getStatusLabel } from "./contractStatus";
+import { useContractStatus } from "./hooks/useContractStatus";
 
 function LifecycleRail({ steps }: { steps: LifecycleStep[] }) {
   const last = steps.length - 1;
@@ -82,6 +84,7 @@ export function ContractDetailPage() {
     queryFn: () => getContract(id),
     enabled: Boolean(id),
   });
+  const { changeStatus, isUpdating } = useContractStatus(id);
 
   if (!data) {
     return (
@@ -183,7 +186,7 @@ export function ContractDetailPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 12.5, color: T.muted }}>현재 단계</span>
-                <StatusBadge status="법무 검토 중" size="sm" />
+                <StatusBadge status={getStatusLabel(data.status)} size="sm" />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                 <Avatar initials={d.owner[0]} size="sm" color="primary" />
@@ -194,8 +197,8 @@ export function ContractDetailPage() {
               </div>
               <div style={{ height: 1, background: T.border }} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <Button size="medium" color="danger" variant="outline">반려</Button>
-                <Button size="medium">검토 완료</Button>
+                <Button size="medium" color="danger" variant="outline" disabled={isUpdating} onClick={() => changeStatus("requesterReview")}>반려</Button>
+                <Button size="medium" disabled={isUpdating} onClick={() => changeStatus("reviewDone")}>검토 완료</Button>
               </div>
             </div>
           </Panel>

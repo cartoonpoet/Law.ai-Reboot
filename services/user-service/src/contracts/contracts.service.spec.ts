@@ -82,6 +82,7 @@ describe("ContractsService", () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
+      update: jest.fn(),
     },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
@@ -238,5 +239,69 @@ describe("ContractsService", () => {
     expect(res.items[0].code).toBe("C20260621-0001");
     expect(res.items[0].counterpartyName).toBe("삼성전자(주)");
     expect(res.items[0].dueDate).toBe("2026-07-01T00:00:00.000Z");
+  });
+
+  // toResponse 가 요구하는 관계 배열을 포함한 최소 행
+  const fullRow = (status: string) => ({
+    id: "ct-1",
+    code: "C20260621-0001",
+    title: "계약",
+    status,
+    securityLevel: "secure",
+    reviewType: "normal",
+    party: null,
+    catMajor: null,
+    catMinor: null,
+    catSub: null,
+    requesterId: null,
+    ownerId: null,
+    createdById: "u1",
+    periodStart: null,
+    periodEnd: null,
+    dueDate: null,
+    schemaVersion: 1,
+    details: detailsV1,
+    deletedAt: null,
+    createdAt: new Date("2026-06-21T00:00:00.000Z"),
+    updatedAt: new Date("2026-06-21T00:00:00.000Z"),
+    counterparties: [],
+    approvalLines: [],
+    files: [],
+    references: [],
+  });
+
+  it("updateStatus는 허용된 전이를 적용한다 (legalReview→reviewDone)", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue({ id: "ct-1", status: "legalReview" });
+    prismaMock.contract.update.mockResolvedValue(fullRow("reviewDone"));
+    const res = await service.updateStatus({ id: "ct-1", status: "reviewDone" });
+    expect(prismaMock.contract.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "ct-1" }, data: expect.objectContaining({ status: "reviewDone" }) }),
+    );
+    expect(res.status).toBe("reviewDone");
+  });
+
+  it("updateStatus는 허용되지 않은 전이를 400으로 막는다 (unassigned→signed)", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue({ id: "ct-1", status: "unassigned" });
+    await expect(
+      service.updateStatus({ id: "ct-1", status: "signed" }),
+    ).rejects.toBeInstanceOf(RpcException);
+    expect(prismaMock.contract.update).not.toHaveBeenCalled();
+  });
+
+  it("update는 제공된 필드만 갱신하고 날짜를 파싱한다", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue({ id: "ct-1", status: "unassigned" });
+    prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+    await service.update({ id: "ct-1", title: "수정됨", dueDate: "2026-08-01" });
+    const arg = prismaMock.contract.update.mock.calls[0][0];
+    expect(arg.data.title).toBe("수정됨");
+    expect(arg.data.dueDate).toEqual(new Date("2026-08-01"));
+    expect(arg.data.securityLevel).toBeUndefined(); // 미제공 필드는 건드리지 않음
+  });
+
+  it("update는 없는 계약이면 404", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue(null);
+    await expect(
+      service.update({ id: "missing", title: "x" }),
+    ).rejects.toBeInstanceOf(RpcException);
   });
 });

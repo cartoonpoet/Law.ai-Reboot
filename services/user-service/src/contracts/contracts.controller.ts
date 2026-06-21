@@ -5,6 +5,8 @@ import type {
   CreateContractRequest,
   GetContractRequest,
   ListContractsRequest,
+  UpdateContractRequest,
+  UpdateContractStatusRequest,
 } from "@lawai/contracts";
 import { ContractsService } from "./contracts.service";
 
@@ -25,5 +27,15 @@ export class ContractsController {
   @MessagePattern(CONTRACT_PATTERNS.LIST)
   list(@Payload() req: ListContractsRequest) {
     return this.contracts.list(req);
+  }
+
+  @MessagePattern(CONTRACT_PATTERNS.UPDATE)
+  update(@Payload() req: UpdateContractRequest) {
+    return this.contracts.update(req);
+  }
+
+  @MessagePattern(CONTRACT_PATTERNS.UPDATE_STATUS)
+  updateStatus(@Payload() req: UpdateContractStatusRequest) {
+    return this.contracts.updateStatus(req);
   }
 }

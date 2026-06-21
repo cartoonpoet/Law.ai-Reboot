@@ -11,6 +11,9 @@ import type {
   ListContractsRequest,
   ListContractsResponse,
   ContractSummary,
+  UpdateContractRequest,
+  UpdateContractStatusRequest,
+  ContractStatus,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -29,6 +32,20 @@ const parseDate = (value?: string | null): Date | null => {
   if (!value) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
+};
+
+// 상태 전이 허용 맵(from → 허용 to[]).
+const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
+  draft: ["unassigned"],
+  unassigned: ["assigning", "legalReview"],
+  assigning: ["legalReview"],
+  legalReview: ["requesterReview", "reviewDone"],
+  requesterReview: ["legalReview", "reviewDone"],
+  reviewDone: ["signing", "legalReview"],
+  signing: ["signed"],
+  signed: ["fulfilling"],
+  fulfilling: ["closed"],
+  closed: [],
 };
 
 // 관리번호: C{YYYYMMDD}-{4자리}. 충돌 시 호출부에서 재시도(unique 제약).
@@ -197,6 +214,68 @@ export class ContractsService {
     });
 
     return { items, total, page, pageSize };
+  }
+
+  async update(req: UpdateContractRequest): Promise<ContractResponse> {
+    await this.ensureExists(req.id);
+    const data: Prisma.ContractUpdateInput = {};
+    if (req.title !== undefined) data.title = req.title;
+    if (req.securityLevel !== undefined) data.securityLevel = req.securityLevel;
+    if (req.reviewType !== undefined) data.reviewType = req.reviewType;
+    if (req.party !== undefined) data.party = req.party;
+    if (req.catMajor !== undefined) data.catMajor = req.catMajor;
+    if (req.catMinor !== undefined) data.catMinor = req.catMinor;
+    if (req.catSub !== undefined) data.catSub = req.catSub;
+    if (req.requesterId !== undefined) data.requesterId = req.requesterId;
+    if (req.ownerId !== undefined) data.ownerId = req.ownerId;
+    if (req.periodStart !== undefined) data.periodStart = parseDate(req.periodStart);
+    if (req.periodEnd !== undefined) data.periodEnd = parseDate(req.periodEnd);
+    if (req.dueDate !== undefined) data.dueDate = parseDate(req.dueDate);
+    if (req.schemaVersion !== undefined) data.schemaVersion = req.schemaVersion;
+    if (req.details !== undefined)
+      data.details = req.details as unknown as Prisma.InputJsonValue;
+
+    const row = await this.prisma.contract.update({
+      where: { id: req.id },
+      data,
+      include: contractInclude,
+    });
+    return this.toResponse(row);
+  }
+
+  async updateStatus(
+    req: UpdateContractStatusRequest,
+  ): Promise<ContractResponse> {
+    const current = await this.ensureExists(req.id);
+    if (current.status !== req.status) {
+      const allowed = ALLOWED_TRANSITIONS[current.status];
+      if (!allowed.includes(req.status)) {
+        throw new RpcException({
+          status: 400,
+          message: `'${current.status}' → '${req.status}' 상태 전이는 허용되지 않습니다`,
+        });
+      }
+    }
+    const row = await this.prisma.contract.update({
+      where: { id: req.id },
+      data: {
+        status: req.status,
+        ...(req.ownerId !== undefined ? { ownerId: req.ownerId } : {}),
+      },
+      include: contractInclude,
+    });
+    return this.toResponse(row);
+  }
+
+  // 삭제되지 않은 계약 존재 확인 후 현재 행 반환(없으면 404).
+  private async ensureExists(id: string) {
+    const row = await this.prisma.contract.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!row) {
+      throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
+    }
+    return row;
   }
 
   private toResponse(row: ContractWithRelations): ContractResponse {

@@ -4,6 +4,7 @@ import {
   Get,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -21,10 +22,16 @@ import {
   type JwtPayload,
   type ListContractsRequest,
   type ListContractsResponse,
+  type UpdateContractRequest,
+  type UpdateContractStatusRequest,
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
-import { CreateContractDto } from "./dto";
+import {
+  CreateContractDto,
+  UpdateContractDto,
+  UpdateContractStatusDto,
+} from "./dto";
 
 @ApiTags("contracts")
 @Controller("contracts")
@@ -83,6 +90,34 @@ export class ContractsController {
     return firstValueFrom(
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.GET, { id })
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "계약 필드 수정", description: "관계(상대계약자/결재선/파일/참조)는 변경하지 않음" })
+  @Patch(":id")
+  update(
+    @Param("id") id: string,
+    @Body() dto: UpdateContractDto,
+  ): Promise<ContractResponse> {
+    const payload: UpdateContractRequest = { ...dto, id };
+    return firstValueFrom(
+      this.userClient
+        .send<ContractResponse>(CONTRACT_PATTERNS.UPDATE, payload)
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "계약 상태 전이", description: "허용된 전이만 가능" })
+  @Patch(":id/status")
+  updateStatus(
+    @Param("id") id: string,
+    @Body() dto: UpdateContractStatusDto,
+  ): Promise<ContractResponse> {
+    const payload: UpdateContractStatusRequest = { ...dto, id };
+    return firstValueFrom(
+      this.userClient
+        .send<ContractResponse>(CONTRACT_PATTERNS.UPDATE_STATUS, payload)
         .pipe(rpcToHttp()),
     );
   }

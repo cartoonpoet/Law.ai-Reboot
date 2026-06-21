@@ -12,11 +12,25 @@ import type {
   ApproverSnapshot,
   CcRecipientInput,
   ContractDetailsV1,
+  ContractStatus,
   CounterpartyInput,
   FileInput,
   SecurityLevel,
   ReviewType,
 } from "@lawai/contracts";
+
+const CONTRACT_STATUSES = [
+  "draft",
+  "unassigned",
+  "assigning",
+  "legalReview",
+  "requesterReview",
+  "reviewDone",
+  "signing",
+  "signed",
+  "fulfilling",
+  "closed",
+] as const;
 
 // @lawai/contracts 의 CreateContractRequest 미러(createdById 제외 — gateway 가 JWT 에서 주입).
 // details/counterparties 는 schemaVersion 이 소유하므로 통과(pass-through)시킨다.
@@ -93,4 +107,62 @@ export class CreateContractDto {
   @ApiProperty({ description: "참조수신자(cc): ccType+isSecret", isArray: true })
   @IsArray()
   references!: CcRecipientInput[];
+}
+
+// 필드 수정(부분). 관계는 변경하지 않는다.
+export class UpdateContractDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200)
+  title?: string;
+
+  @ApiPropertyOptional({ enum: ["top", "secure", "normal"] })
+  @IsOptional() @IsIn(["top", "secure", "normal"])
+  securityLevel?: SecurityLevel;
+
+  @ApiPropertyOptional({ enum: ["normal", "std"] })
+  @IsOptional() @IsIn(["normal", "std"])
+  reviewType?: ReviewType;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
+  party?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
+  catMajor?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
+  catMinor?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
+  catSub?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64)
+  requesterId?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64)
+  ownerId?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40)
+  periodStart?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40)
+  periodEnd?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40)
+  dueDate?: string | null;
+
+  @ApiPropertyOptional() @IsOptional() @IsInt()
+  schemaVersion?: number;
+
+  @ApiPropertyOptional({ description: "schemaVersion 별 폼 상세(JSONB)" })
+  @IsOptional() @IsObject()
+  details?: ContractDetailsV1;
+}
+
+export class UpdateContractStatusDto {
+  @ApiProperty({ enum: CONTRACT_STATUSES })
+  @IsIn(CONTRACT_STATUSES)
+  status!: ContractStatus;
+
+  @ApiPropertyOptional({ description: "배정 시 법무 담당자" })
+  @IsOptional() @IsString() @MaxLength(64)
+  ownerId?: string | null;
 }

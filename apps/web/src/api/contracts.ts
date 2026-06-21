@@ -3,6 +3,7 @@ import type {
   ContractStatus,
   CreateContractRequest,
   ListContractsResponse,
+  UpdateContractRequest,
 } from "@lawai/contracts";
 import { apiFetch } from "./client";
 
@@ -20,6 +21,29 @@ export function createContract(
 
 export function getContract(id: string): Promise<ContractResponse> {
   return apiFetch<ContractResponse>(`/contracts/${id}`);
+}
+
+export type UpdateContractInput = Omit<UpdateContractRequest, "id">;
+
+export function updateContract(
+  id: string,
+  req: UpdateContractInput,
+): Promise<ContractResponse> {
+  return apiFetch<ContractResponse>(`/contracts/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(req),
+  });
+}
+
+export function updateContractStatus(
+  id: string,
+  status: ContractStatus,
+  ownerId?: string | null,
+): Promise<ContractResponse> {
+  return apiFetch<ContractResponse>(`/contracts/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, ...(ownerId !== undefined ? { ownerId } : {}) }),
+  });
 }
 
 export interface ListContractsParams {

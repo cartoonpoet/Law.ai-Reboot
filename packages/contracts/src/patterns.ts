@@ -24,4 +24,6 @@ export const CONTRACT_PATTERNS = {
   CREATE: "contract.create",
   GET: "contract.get",
   LIST: "contract.list",
+  UPDATE: "contract.update",
+  UPDATE_STATUS: "contract.updateStatus",
 } as const;

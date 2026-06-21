@@ -129,6 +129,32 @@ export interface GetContractRequest {
   id: string;
 }
 
+// 계약 필드 수정(부분). 관계(상대계약자/결재선/파일/참조)는 변경하지 않는다.
+export interface UpdateContractRequest {
+  id: string;
+  title?: string;
+  securityLevel?: SecurityLevel;
+  reviewType?: ReviewType;
+  party?: string | null;
+  catMajor?: string | null;
+  catMinor?: string | null;
+  catSub?: string | null;
+  requesterId?: string | null;
+  ownerId?: string | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  dueDate?: string | null;
+  schemaVersion?: number;
+  details?: ContractDetailsV1;
+}
+
+// 상태 전이. ownerId 지정 시 함께 배정.
+export interface UpdateContractStatusRequest {
+  id: string;
+  status: ContractStatus;
+  ownerId?: string | null;
+}
+
 export interface CounterpartyResponse {
   id: string;
   companyId: string;
