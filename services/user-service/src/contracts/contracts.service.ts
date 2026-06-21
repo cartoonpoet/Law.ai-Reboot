@@ -14,6 +14,7 @@ import type {
 const contractInclude = {
   counterparties: true,
   approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
+  files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
 } satisfies Prisma.ContractInclude;
 
 type ContractWithRelations = Prisma.ContractGetPayload<{
@@ -72,6 +73,15 @@ export class ContractsService {
                   },
                 }
               : undefined,
+          // 첨부 파일 메타데이터(계약서/첨부/참고).
+          files: {
+            create: req.files.map((f) => ({
+              role: f.role,
+              name: f.name,
+              meta: f.meta,
+              sortOrder: f.sortOrder,
+            })),
+          },
         },
         include: contractInclude,
       });
@@ -140,6 +150,16 @@ export class ContractsService {
             })),
           }
         : null,
+      files: row.files.map((f) => ({
+        id: f.id,
+        role: f.role,
+        name: f.name,
+        meta: f.meta,
+        size: f.size,
+        mimeType: f.mimeType,
+        storageKey: f.storageKey,
+        sortOrder: f.sortOrder,
+      })),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

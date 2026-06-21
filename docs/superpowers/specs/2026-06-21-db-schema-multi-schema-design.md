@@ -217,9 +217,10 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 | 버전 컬럼 | `Contract.formVersion` | `Contract.schemaVersion` | **개명 확정** — 목표 수렴 시 ERD를 `schemaVersion`으로 |
 | Counterparty | 폴리모픽(`ownerType/ownerId/role`) | `contractId`(FK) + `companyId` + `partyType` + **`snapshot(JSONB)`** | snapshot 체결 동결 확정 → ERD에 `snapshot` 추가 + 모델 재검토 |
 | **ApprovalLine/Step** | 폴리모픽(`ownerType/ownerId`) | **`contractId`(FK) 직접** + steps(`stepOrder/name/dept/type/status`) | **2026-06-21 정규화 완료**(JSONB→테이블). ERD는 폴리모픽이나 MVP는 Counterparty 와 동일하게 contractId 직접 FK |
+| **File** | 폴리모픽(`ownerType/ownerId`) + `size/mimeType/storageKey` | **`contractId`(FK) 직접** + `role/name/meta/sortOrder` (`size/mimeType/storageKey` nullable) | **2026-06-21 정규화 완료**(메타 행만, 실제 업로드는 후속). ERD 폴리모픽 → MVP contractId 직접 FK |
 | 분류 | `categoryId`(FK→ContractCategory) + `partyType` | `party/catMajor/catMinor/catSub`(String) | 후속에서 `ContractCategory` 트리로 정규화 |
 | Contract 부가 | `code·status·stage·updatedById` 등 | 없음(`stage`는 details) | 후속에서 코어 승격 검토 |
-| File/AuditLog/AccessGrant | 정규 테이블 | 미구현(이번엔 `details` JSONB) | 후속 Phase에서 정규 테이블 승격 |
+| AuditLog/AccessGrant | 정규 테이블 | 미구현(이번엔 `details` JSONB) | 후속 Phase에서 정규 테이블 승격 |
 
 ### 결재선 정규화 (2026-06-21 완료)
 
@@ -230,6 +231,16 @@ erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한
 - 생성 시 `CreateContractRequest.approvers`(최상위, details 아님)를 배열 순서대로 단계화. 빈 배열이면 결재선 미생성(`approvalLine: null`).
 - `ContractResponse.approvalLine`(steps `stepOrder` 오름차순)로 반환. `ContractDetailsV1`에서 `approvers` 제거.
 - 마이그레이션: `20260621010000_add_approval_line`(순수 추가).
+
+### 첨부 파일 정규화 (2026-06-21 완료, 메타 행만)
+
+폼 `contractFiles/attachFiles/refFiles`(각 `{name,meta}`)를 `details` JSONB 에서 빼내 단일 `shared.File` 테이블로 승격:
+
+- `shared.File`(contractId FK cascade): `role(FileRole: contract/attach/ref)`, `name`, `meta`(표시문자열 보존), `sortOrder`, `createdAt`. **실제 업로드 전까지** `size/mimeType/storageKey` 는 nullable(미전송 → null).
+- 생성 시 `CreateContractRequest.files`(최상위) 한 배열로 평탄화: 3개 폼 배열을 `role` 부여 + role 내 `sortOrder`(index)로 매핑.
+- `ContractResponse.files`(role asc, sortOrder asc)로 반환. `ContractDetailsV1`에서 3개 파일 배열 제거.
+- 마이그레이션: `20260621020000_add_file`(순수 추가).
+- 미구현(후속): 실제 바이너리 업로드(비공개 버킷 + 서명 URL), checksum(sha256). `[[deploy-cicd-setup]]` 스토리지 선택 필요.
 
 > MVP 구현 위치: `services/user-service/prisma/schema.prisma`(멀티스키마+Contract/Counterparty), `@lawai/contracts`(contract.dto/패턴), user-service `contracts` 모듈, api-gateway `contracts` 컨트롤러, web `api/contracts.ts`·`toCreateRequest.ts`·`useContractSubmit.ts`.
 

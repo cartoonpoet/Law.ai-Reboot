@@ -40,13 +40,15 @@ export const toCreateRequest = (
     owner: form.owner,
     project: form.project,
     relatedDocs: form.relatedDocs,
-    contractFiles: form.contractFiles,
-    attachFiles: form.attachFiles,
-    refFiles: form.refFiles,
   },
   counterparties: form.counterparties.map((company) => ({
     companyId: company.id,
     snapshot: company,
   })),
   approvers: form.approvers,
+  files: [
+    ...form.contractFiles.map((f, i) => ({ role: "contract" as const, name: f.name, meta: f.meta, sortOrder: i })),
+    ...form.attachFiles.map((f, i) => ({ role: "attach" as const, name: f.name, meta: f.meta, sortOrder: i })),
+    ...form.refFiles.map((f, i) => ({ role: "ref" as const, name: f.name, meta: f.meta, sortOrder: i })),
+  ],
 });

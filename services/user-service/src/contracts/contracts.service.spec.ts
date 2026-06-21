@@ -40,9 +40,6 @@ const detailsV1 = {
   owner: null,
   project: null,
   relatedDocs: [],
-  contractFiles: [{ name: "계약서.docx", meta: "DOCX · 1.2MB" }],
-  attachFiles: [],
-  refFiles: [],
 };
 
 const createReq: CreateContractRequest = {
@@ -65,6 +62,10 @@ const createReq: CreateContractRequest = {
   approvers: [
     { name: "손준호", dept: "법무팀", type: "draft" },
     { name: "이법무", dept: "법무팀", type: "approve" },
+  ],
+  files: [
+    { role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", sortOrder: 0 },
+    { role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", sortOrder: 0 },
   ],
 };
 
@@ -128,6 +129,10 @@ describe("ContractsService", () => {
           ],
         },
       ],
+      files: [
+        { id: "f-1", contractId: "ct-1", role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", size: null, mimeType: null, storageKey: null, sortOrder: 0, createdAt: new Date("2026-06-21T00:00:00.000Z") },
+        { id: "f-2", contractId: "ct-1", role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", size: null, mimeType: null, storageKey: null, sortOrder: 0, createdAt: new Date("2026-06-21T00:00:00.000Z") },
+      ],
     });
 
     const result = await service.create(createReq);
@@ -146,6 +151,14 @@ describe("ContractsService", () => {
     expect(result.counterparties[0].snapshot.name).toBe("삼성전자(주)");
     expect(result.approvalLine?.steps).toHaveLength(2);
     expect(result.approvalLine?.steps[1].type).toBe("approve");
+    // 첨부: role+name+sortOrder 로 생성, size/mimeType/storageKey 는 미전송(메타 행)
+    expect(arg.data.files.create).toEqual([
+      { role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", sortOrder: 0 },
+      { role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", sortOrder: 0 },
+    ]);
+    expect(result.files).toHaveLength(2);
+    expect(result.files[0].role).toBe("contract");
+    expect(result.files[0].storageKey).toBeNull();
   });
 
   it("get은 deletedAt null 조건으로 조회하고 없으면 404 RpcException", async () => {
@@ -158,6 +171,7 @@ describe("ContractsService", () => {
       include: {
         counterparties: true,
         approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
+        files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
       },
     });
   });

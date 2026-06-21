@@ -32,6 +32,9 @@ const form: ContractRequestForm = {
   expectedDate: "2026-07-10",
   urls: [{ value: "https://example.com" }],
   counterparties: [company],
+  contractFiles: [{ name: "계약서.docx", meta: "DOCX · 1.2MB" }],
+  attachFiles: [{ name: "별첨1.pdf", meta: "PDF" }, { name: "별첨2.pdf", meta: "PDF" }],
+  refFiles: [],
 };
 
 describe("toCreateRequest", () => {
@@ -62,6 +65,18 @@ describe("toCreateRequest", () => {
     const req = toCreateRequest(form);
     expect(req.approvers).toEqual(form.approvers);
     expect("approvers" in req.details).toBe(false);
+  });
+
+  it("3개 파일 배열을 role+sortOrder로 평탄화하고 details에서 뺀다", () => {
+    const req = toCreateRequest(form);
+    expect(req.files).toEqual([
+      { role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", sortOrder: 0 },
+      { role: "attach", name: "별첨1.pdf", meta: "PDF", sortOrder: 0 },
+      { role: "attach", name: "별첨2.pdf", meta: "PDF", sortOrder: 1 },
+    ]);
+    expect("contractFiles" in req.details).toBe(false);
+    expect("attachFiles" in req.details).toBe(false);
+    expect("refFiles" in req.details).toBe(false);
   });
 
   it("counterparties를 companyId + snapshot으로 동결한다", () => {

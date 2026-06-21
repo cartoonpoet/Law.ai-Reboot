@@ -12,6 +12,7 @@ import type {
   ApproverSnapshot,
   ContractDetailsV1,
   CounterpartyInput,
+  FileInput,
   SecurityLevel,
   ReviewType,
 } from "@lawai/contracts";
@@ -83,4 +84,8 @@ export class CreateContractDto {
   @ApiProperty({ description: "결재선 단계(배열 순서 = 결재 순서)", isArray: true })
   @IsArray()
   approvers!: ApproverSnapshot[];
+
+  @ApiProperty({ description: "첨부 파일 메타데이터(계약서/첨부/참고)", isArray: true })
+  @IsArray()
+  files!: FileInput[];
 }

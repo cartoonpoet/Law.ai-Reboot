@@ -37,6 +37,16 @@ export interface UploadedFileMeta {
   meta: string;
 }
 
+export type FileRole = "contract" | "attach" | "ref";
+
+// 첨부 파일 입력(메타데이터 행). 실제 업로드 전까지 size/mimeType/storageKey 는 미전송.
+export interface FileInput {
+  role: FileRole;
+  name: string;
+  meta: string;
+  sortOrder: number;
+}
+
 /**
  * schemaVersion = 1 의 details(JSONB) 모양.
  * 코어 컬럼(목록/필터/정렬/워크플로/보안)에 들어가지 않는 폼 필드 전부를 보관한다.
@@ -63,9 +73,6 @@ export interface ContractDetailsV1 {
   owner: EntityRef | null;
   project: EntityRef | null;
   relatedDocs: RelatedDocRef[];
-  contractFiles: UploadedFileMeta[];
-  attachFiles: UploadedFileMeta[];
-  refFiles: UploadedFileMeta[];
 }
 
 export interface CounterpartyInput {
@@ -94,6 +101,8 @@ export interface CreateContractRequest {
   counterparties: CounterpartyInput[];
   // 결재선: 폼 approvers 스냅샷을 배열 순서대로 단계로 정규화한다(빈 배열이면 결재선 미생성).
   approvers: ApproverSnapshot[];
+  // 첨부 파일 메타데이터(계약서/첨부/참고). role+sortOrder 로 정규화.
+  files: FileInput[];
 }
 
 export interface GetContractRequest {
@@ -122,6 +131,17 @@ export interface ApprovalLineResponse {
   steps: ApprovalStepResponse[];
 }
 
+export interface FileResponse {
+  id: string;
+  role: FileRole;
+  name: string;
+  meta: string | null;
+  size: number | null;
+  mimeType: string | null;
+  storageKey: string | null;
+  sortOrder: number;
+}
+
 export interface ContractResponse {
   id: string;
   title: string;
@@ -141,6 +161,7 @@ export interface ContractResponse {
   details: ContractDetailsV1;
   counterparties: CounterpartyResponse[];
   approvalLine: ApprovalLineResponse | null;
+  files: FileResponse[];
   createdAt: string;
   updatedAt: string;
 }

@@ -108,6 +108,7 @@ model Contract {
   createdBy      User           @relation(fields: [createdById], references: [id])
   counterparties Counterparty[]
   approvalLines  ApprovalLine[]
+  files          File[]
 
   @@index([createdById])
   @@index([deletedAt])
@@ -182,5 +183,33 @@ model ApprovalStep {
   line ApprovalLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
 
   @@index([lineId])
+  @@schema("shared")
+}
+
+enum FileRole {
+  contract // 계약서
+  attach // 첨부/별첨
+  ref // 참고서류
+
+  @@schema("shared")
+}
+
+// 첨부 파일 메타데이터. MVP 는 메타 행만(실제 업로드 전까지 size/mimeType/storageKey 는 null, meta 표시문자열 보존).
+// ERD 는 폴리모픽(ownerType/ownerId)이나 MVP 는 Counterparty/ApprovalLine 과 동일하게 contractId 직접 FK(§9 수렴 항목).
+model File {
+  id         String   @id @default(uuid())
+  contractId String
+  role       FileRole
+  name       String
+  meta       String?
+  size       Int?
+  mimeType   String?
+  storageKey String?
+  sortOrder  Int
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
   @@schema("shared")
 }
