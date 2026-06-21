@@ -1,0 +1,230 @@
+# DB 스키마 재설계 (멀티 스키마 + 유연 폼 + 보안 골격)
+
+- 날짜: 2026-06-21
+- 대상: `services/*/prisma/schema.prisma` (현재 `services/user-service`, 향후 도메인별 확장)
+- 방향: Postgres **멀티 스키마(네임스페이스)** 경계 분리 + 코어 컬럼 / `details(JSONB)` 분리 + 법무용 보안 골격 내장
+- 시안(관계도): 레포 루트 `lawai_erd_시안.png` (PIL 렌더, erdify 미반영)
+- erdify: **개발 착수 시점에만** "Law.ai Reboot" ERD에 반영한다 (설계 단계에서는 미반영). `[[erdify-erd-sync]]`
+
+## 0. 구현 결정 (2026-06-21, 계약검토 요청 API 연동)
+
+폼(`apps/web/src/pages/contract/request-schema.ts`) 전수 재검토 + 기존 코드 확인 후 확정:
+
+- **1차 범위 = 코어 컬럼 + `details(JSONB)` MVP.** `contracts.Contract` + `shared.Counterparty`만 정규 테이블로 추가하고, 계약서 작성/제출이 실제 DB에 저장·재조회되도록 `create`/`get` API를 연동한다. 결재선(`ApprovalLine/Step`)·참조(cc)·첨부(`File`)·`AccessGrant`·`AuditLog`·`relatedDocs`·`ContractCategory`는 **이번엔 `details` JSONB로 보관**하고 후속에서 정규 테이블로 승격한다.
+- **멀티 스키마 지금 도입.** 기존 모델을 스키마에 배치: `User/PasswordResetToken → users`, `Company → companies`, 신규 `Contract → contracts`, `Counterparty → shared`. (Prisma 6.2 multiSchema GA — preview 불필요.)
+- **기존 `Company` 모델 유지.** 실제 코드의 Company는 임베디드 담당자(`managerName/managerPhone/managerEmail`), `type`(enum), `ceo`, `address/addressDetail` 구조이고 폼·companies API가 이미 동작 중. 본 스펙의 `CompanyContact` 분리/`zipCode` 분할/`repName` 리네임(§3.2)은 **후속 마이그레이션으로 미룬다.** 체결 무결성은 `Counterparty.snapshot`만 추가해 확보.
+
+### 폼 재검토로 추가된 갭
+
+- **보안 등급 누락** → `Contract.securityLevel`(top/secure/normal) **컬럼 추가**. 폼 `secure` 필드. ACL·PII 마스킹·열람 감사(view)를 구동하는 핵심이라 컬럼.
+- **계약 분류가 4단계** (`party`(당사자)/`catMajor`/`catMinor`/`catSub`) — 폼 기준. MVP에서는 `ContractCategory` 테이블 대신 **4개 문자열 컬럼**으로 보관(옵션은 현재 클라이언트 정적值). 후속에서 `ContractCategory` 트리로 정규화.
+- 아키텍처: gateway(REST+JWT) → user-service(NestJS MessagePattern) → Prisma. 신규 contracts 모듈은 **user-service**에 추가, gateway에 REST 엔드포인트 추가, DTO/PATTERN은 `@lawai/contracts`.
+
+## 1. 배경 · 목표
+
+현재 스키마는 `user-service` 한 곳에 `users` 스키마로 뭉쳐 있고(`User`, `PasswordResetToken`), 계약/회사/결재/감사 등 도메인이 아직 없다. 계약서 검토 요청 화면(`2026-06-11-contract-review-request-redesign-design.md`)은 30여 필드의 가변 폼이라, 이를 곧이곧대로 컬럼화하면 폼이 바뀔 때마다 마이그레이션이 발생한다.
+
+목표:
+
+1. **도메인 경계**를 Postgres 멀티 스키마로 분리하되, **DB는 하나로 유지**(분산 FK 문제 회피).
+2. **컬럼은 "목록/필터/정렬/검색/워크플로/보안에 쓰이는 것"만**. 나머지 가변 폼 필드는 `details(JSONB)` + 버전드 zod로 관리 → 폼이 바뀌어도 **마이그레이션 0**.
+3. 법무 시스템 기준의 **보안 골격**(소프트 삭제·레코드 ACL·열람 감사·첨부 무결성·PII 마스킹)을 기본 구조에 박는다.
+4. 회사/상대계약자는 **재사용 마스터 + 체결 시점 스냅샷**으로 모델링(과거 계약서 표기 무결성 보장).
+
+## 2. 스키마(네임스페이스) 분리
+
+| Postgres schema | 테이블 |
+| --- | --- |
+| `users` | `User`, `PasswordResetToken` |
+| `companies` | `Company`, `CompanyContact` |
+| `contracts` | `Contract`, `ContractCategory` |
+| `shared` | `File`, `ApprovalLine`, `ApprovalStep`, `Counterparty`, `AuditLog`, `AccessGrant` |
+
+- `shared`는 폴리모픽 공용(어느 도메인이든 재사용).
+- 별도 `contract-service`로 **DB까지** 쪼개는 것은 현재 과함 — `Counterparty`가 `Company`를 FK로 물어서 DB가 분산되면 무결성 관리가 어려워진다. **경계만 스키마로 나누고 DB는 단일.**
+- Prisma 멀티 스키마: `datasource`에 `schemas = ["users","companies","contracts","shared"]`, 모델마다 `@@schema("...")`. (`previewFeatures` 불필요 — 최신 Prisma 기본 지원 여부 확인 후 적용)
+
+## 3. 테이블 정의
+
+> 타입은 Prisma 표기 기준. `?`는 nullable. 모든 PK는 `id String @id @default(uuid())`.
+
+### 3.1 `users`
+
+**User** (기존 유지)
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | String PK | uuid |
+| email | String `@unique` | |
+| name | String | |
+| passwordHash | String | |
+| createdAt | DateTime `@default(now())` | |
+
+**PasswordResetToken** (기존 유지) — `userId` FK→User `onDelete: Cascade`, `tokenHash @unique`, `expiresAt`, `usedAt?`, `createdAt`, `@@index([userId])`.
+
+### 3.2 `companies`
+
+**Company** — 재사용 마스터(회사 디렉토리). 회사 기본정보는 스키마가 안정적이므로 **JSONB 아닌 정규 컬럼**.
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | String PK | |
+| name | String | 상호/회사명 (검색) |
+| bizNo | String? `@unique` | 사업자등록번호. nullable(개인) + 중복 회사 방지. 응답 시 마스킹 |
+| corpNo | String? | 법인등록번호 |
+| isIndividual | Boolean `@default(false)` | 개인/법인 구분 (개인이면 bizNo 없음) |
+| repName | String? | 대표자명 |
+| repPhone | String? | 대표전화 |
+| email | String? | 대표 이메일 |
+| zipCode | String? | 우편번호 ┐ |
+| address1 | String? | 기본주소 ├ 카카오 우편번호 연동(구조화 저장) |
+| address2 | String? | 상세주소 ┘ |
+| createdAt | DateTime `@default(now())` | |
+| updatedAt | DateTime `@updatedAt` | |
+
+**CompanyContact** — 회사 담당자(1:N). 한 회사에 영업/법무 담당자 여러 명.
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | String PK | |
+| companyId | String FK→Company | `onDelete: Cascade`, `@@index` |
+| name | String | 담당자명 |
+| title | String? | 직책 |
+| phone | String? | 연락처(마스킹) |
+| email | String? | |
+| isPrimary | Boolean `@default(false)` | 대표 담당자 |
+
+### 3.3 `contracts`
+
+**Contract** — 코어 컬럼 + `details(JSONB)`.
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | String PK | |
+| title | String | 계약명 (목록/검색) |
+| securityLevel | enum(top/secure/normal) | **보안 등급** — ACL·마스킹·열람감사 구동 (폼 `secure`) |
+| companyId | String? FK→Company | 자사 측/주체 회사 |
+| party / catMajor / catMinor / catSub | String? | 4단 분류 (MVP 컬럼, 후속 `ContractCategory` 트리로 정규화) |
+| requesterId | String FK→User | **명의상 요청자** |
+| ownerId | String FK→User | 업무담당자 |
+| createdById | String FK→User | **실제 생성 행위자** (requester와 구분 — 감사/보안) |
+| period | (start/end) | 계약기간 (만료조회/정렬) — `periodStart DateTime?`, `periodEnd DateTime?` |
+| dueDate | DateTime? | 검토 마감 (정렬/알림) |
+| reviewType | String | 일반검토 / 표준양식체결 (백엔드 분기) |
+| schemaVersion | Int `@default(1)` | `details` 모양의 버전 |
+| details | Json | 가변 폼 필드 전부 (JSONB) |
+| deletedAt | DateTime? | **소프트 삭제** (하드삭제 금지) |
+| createdAt / updatedAt | DateTime | |
+
+- `stage`(신규/변경)는 목록·필터·검색 어디에도 안 쓰여 **컬럼 미채택 → `details`로**.
+- `reviewType`은 백엔드가 표준양식 로직으로 분기하므로 **컬럼 유지**.
+
+**ContractCategory** — `id`, `name` (+ 필요 시 `parentId`로 대/중분류 트리). `1:N → Contract`.
+
+### 3.4 `shared` (폴리모픽 공용)
+
+**File**
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | String PK | |
+| ownerType / ownerId | String | 폴리모픽 소유자 (예: `Contract`+id) |
+| storageKey | String | **비공개 버킷 키** (공개 URL 금지, 단기 서명 URL 발급) |
+| checksum | String | sha256 — 위변조 검증 |
+| deletedAt | DateTime? | 소프트 삭제 |
+| createdAt | DateTime | |
+
+**ApprovalLine** — `id`, `ownerType/ownerId`(폴리모픽), `createdAt`.
+**ApprovalStep** — `id`, `lineId` FK→ApprovalLine(`onDelete: Cascade`), `approverId` FK→User, `order Int`, `status`(pending/approved/rejected).
+
+**Counterparty** — 계약별 상대계약자 + **체결 시점 스냅샷**.
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | String PK | |
+| contractId | String FK→Contract | `onDelete: Cascade`, `@@index` |
+| companyId | String FK→Company | 어느 회사 |
+| contactId | String? FK→CompanyContact | 그 계약의 담당자 |
+| partyType | String | 갑/을 등 |
+| snapshot | Json | **체결 당시 회사·담당자 정보 동결** |
+
+> 마스터(`Company`)를 나중에 수정해도 `snapshot` 덕분에 **과거 계약서 표기는 불변**(법적 무결성). 동시에 마스터는 재사용·중복체크·"회사 X와의 모든 계약" 집계를 지원.
+
+**AuditLog**
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | String PK | |
+| action | String/enum | create/update/delete/**view** — top/secure 계약 **열람**까지 기록 |
+| actorId | String FK→User | 행위자 |
+| targetType / targetId | String | 감사 대상(폴리모픽) |
+| at | DateTime `@default(now())` | |
+
+**AccessGrant** — 레코드별 접근제어(폴리모픽).
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | String PK | |
+| ownerType / ownerId | String | 대상 레코드 |
+| principalType | String | user / dept / role |
+| principalId | String | |
+| level | String | view / edit |
+
+> 폼의 비밀 참조자(ccSecret)·top 보안계약의 제한 공유를 `AccessGrant`로 구현, **앱 레벨에서 row-level 강제**.
+
+## 4. 관계 요약
+
+| 관계 | 카디널리티 | 비고 |
+|---|---|---|
+| User → PasswordResetToken | 1:N | Cascade |
+| User → Contract (requester/owner/createdBy) | 1:N ×3 | 명의상 요청자 ≠ 실제 생성자 |
+| ContractCategory → Contract | 1:N | |
+| Company → Contract | 1:N | 자사 측 |
+| Company → CompanyContact | 1:N | 담당자 |
+| Company → Counterparty | 1:N | 상대계약자 재사용 |
+| CompanyContact → Counterparty | 1:N | 계약별 담당자 지정 |
+| Contract → Counterparty | 1:N | |
+| ApprovalLine → ApprovalStep | 1:N | |
+| User → ApprovalStep (approver) | 1:N | |
+| User → AuditLog (actor) | 1:N | |
+| Contract →(poly) File/ApprovalLine/AccessGrant | ownerType+ownerId | DB FK 아님, 앱 무결성 |
+
+## 5. 컬럼 vs JSONB 규칙 (유연 폼 보장)
+
+- **컬럼이 되는 것은 오직** 목록/필터/정렬/검색/워크플로/보안에 쓰이는 값. 그 외 폼 필드는 전부 `details(JSONB)`.
+- `details`의 모양은 `@lawai/contracts`의 **버전별 zod 레지스트리**가 소유. 폼이 바뀌면 → zod 수정 + `schemaVersion + 1`, **마이그레이션 0**.
+- 백엔드는 쓰기 시 `details`를 해당 `schemaVersion`의 zod로 **검증**(오염 차단). 과거 레코드는 자기 `schemaVersion` 스키마로 그대로 해석.
+- **폼 빌더(EAV)는 하지 않는다.** 이 구조가 "유연 + 타입안전 + 저복잡도"의 균형점.
+
+## 6. 보안 골격 (법무 기본)
+
+| 항목 | 구현 |
+|---|---|
+| 소프트 삭제·보존 | `Contract.deletedAt`, `File.deletedAt` — 하드 삭제 금지(legal hold) |
+| 레코드별 ACL | `AccessGrant`(폴리모픽) + 앱 레벨 row-level 강제 |
+| 열람 감사 | `AuditLog.action = view` — top/secure 계약 "누가 언제 열람" 기록 |
+| 첨부 무결성 | `File.checksum`(sha256), `storageKey` 비공개 버킷 + 단기 서명 URL(권한 체크 후 발급) |
+| 암호화 | DB at-rest(TDE) + 오브젝트스토리지 암호화 기본. 컬럼 단위 암호화는 top-secret 한정 옵션 |
+| PII 마스킹 | 목록 응답에서 `Company.bizNo`·담당자 연락처 마스킹, 권한 있을 때만 원문 |
+
+## 7. 적용 절차 (구현 시)
+
+1. Prisma `datasource`에 멀티 스키마 활성화, 모델별 `@@schema` 부여.
+2. 도메인별 서비스 분리 여부 결정(현재는 `user-service` 단일 DB 유지 권장).
+3. 마이그레이션 생성 → `companies`/`contracts`/`shared` 스키마 및 테이블 생성.
+4. `@lawai/contracts`에 `schemaVersion`별 zod 레지스트리 + 검증 미들웨어.
+5. 파일 스토리지: 비공개 버킷 + 서명 URL 발급 엔드포인트(권한 체크).
+6. **erdify "Law.ai Reboot" ERD** — 06-20 시점에 이미 **목표 설계 전체**(Contract/ContractCategory/File/ApprovalLine/ApprovalStep/Counterparty/AuditLog, 폴리모픽 포함)가 그려져 있다. 이번 MVP는 그 부분집합이라 **ERD는 목표 상태로 그대로 둔다**(덮어쓰지 않음). MVP 분기는 §9 참조. CLAUDE.md의 DB↔ERD 규칙은 "최종 목표 스키마가 ERD에 반영" 상태로 충족됨. `[[erdify-erd-sync]]`
+
+## 9. ERD(목표) ↔ MVP 구현 차이 (2026-06-21 기준)
+
+erdify ERD는 목표를, 실제 `schema.prisma`는 MVP 부분집합을 표현한다. MVP를 목표로 수렴시킬 때 정리할 항목:
+
+| 항목 | ERD (목표) | MVP 구현 (현재 코드) | 수렴 방향 |
+|---|---|---|---|
+| 버전 컬럼 | `Contract.formVersion` | `Contract.schemaVersion` | **개명 확정** — 목표 수렴 시 ERD를 `schemaVersion`으로 |
+| Counterparty | 폴리모픽(`ownerType/ownerId/role`) | `contractId`(FK) + `companyId` + `partyType` + **`snapshot(JSONB)`** | snapshot 체결 동결 확정 → ERD에 `snapshot` 추가 + 모델 재검토 |
+| 분류 | `categoryId`(FK→ContractCategory) + `partyType` | `party/catMajor/catMinor/catSub`(String) | 후속에서 `ContractCategory` 트리로 정규화 |
+| Contract 부가 | `code·status·stage·updatedById` 등 | 없음(`stage`는 details) | 후속에서 코어 승격 검토 |
+| File/ApprovalLine·Step/AuditLog/AccessGrant | 정규 테이블 | 미구현(이번엔 `details` JSONB) | 후속 Phase에서 정규 테이블 승격 |
+
+> MVP 구현 위치: `services/user-service/prisma/schema.prisma`(멀티스키마+Contract/Counterparty), `@lawai/contracts`(contract.dto/패턴), user-service `contracts` 모듈, api-gateway `contracts` 컨트롤러, web `api/contracts.ts`·`toCreateRequest.ts`·`useContractSubmit.ts`.
+
+## 8. 후속 · 미해결
+
+- `ContractCategory` 대/중분류를 `parentId` 트리로 갈지, 별도 레벨 컬럼으로 갈지 — 폼의 cascade 3단(당사자/대/중)과 맞춰 확정.
+- `AuditAction`을 Prisma enum으로 둘지 String으로 둘지(스키마 분리 시 enum 위치).
+- `snapshot`/`details` JSONB의 zod 스키마 초안은 별도 작업으로 `@lawai/contracts`에 작성.
+- 도메인 서비스 물리 분리(별도 NestJS 서비스) 시점/기준.

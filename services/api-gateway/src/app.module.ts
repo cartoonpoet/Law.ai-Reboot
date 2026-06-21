@@ -6,6 +6,7 @@ import { GatewayClientsModule } from "./clients/clients.module";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { CompaniesModule } from "./companies/companies.module";
+import { ContractsModule } from "./contracts/contracts.module";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CompaniesModule } from "./companies/companies.module";
     AuthModule,
     UsersModule,
     CompaniesModule,
+    ContractsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

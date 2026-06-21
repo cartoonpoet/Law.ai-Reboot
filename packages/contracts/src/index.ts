@@ -3,3 +3,4 @@ export * from "./types";
 export * from "./dto/auth.dto";
 export * from "./dto/user.dto";
 export * from "./dto/company.dto";
+export * from "./dto/contract.dto";

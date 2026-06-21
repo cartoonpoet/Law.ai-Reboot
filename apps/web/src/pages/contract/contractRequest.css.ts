@@ -59,3 +59,16 @@ export const prgLabel = style({ flex: 1, fontSize: 12.5, fontWeight: 700, color:
 
 export const drisk = style({ background: themeVars.color.neutralSurface, border: `1px solid ${themeVars.color.neutralBorder}`, borderRadius: 8, padding: "11px 12px" });
 export const errText = style({ marginTop: 5, fontSize: 12, color: themeVars.color.accentDanger });
+
+export const submitIcon = style({ width: 14, height: 14 });
+
+export const submitError = style({
+  marginTop: 12,
+  padding: "10px 12px",
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 600,
+  color: themeVars.color.accentDanger,
+  background: themeVars.color.neutralSurface,
+  border: `1px solid ${themeVars.color.accentDanger}`,
+});

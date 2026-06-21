@@ -10,17 +10,19 @@ import { PeopleSection } from "./sections/PeopleSection";
 import { TermsSection } from "./sections/TermsSection";
 import { ContentSection } from "./sections/ContentSection";
 import { SmartRail } from "./rail/SmartRail";
+import { useContractSubmit } from "./hooks/useContractSubmit";
 import * as css from "./contractRequest.css";
 
 export function ContractRequestPage() {
   const navigate = useNavigate();
+  const { submit, isSubmitting, submitError } = useContractSubmit();
   const methods = useForm<ContractRequestForm>({
     resolver: zodResolver(contractRequestSchema),
     defaultValues: contractRequestDefaults,
     mode: "onSubmit",
   });
 
-  const handleValid = () => navigate("/contract/C20250710-0004");
+  const handleValid = (form: ContractRequestForm) => submit(form);
 
   return (
     <FormProvider {...methods}>
@@ -33,9 +35,13 @@ export function ContractRequestPage() {
           <div style={{ display: "flex", gap: 8 }}>
             <Button type="button" variant="outline" color="secondary" onClick={() => navigate("/contract/list")}>목록</Button>
             <Button type="button" variant="outline" color="secondary">임시저장</Button>
-            <Button type="submit" iconLeft={<Icon name="submit" size="sm" style={{ width: 14, height: 14 }} />}>검토요청 등록</Button>
+            <Button type="submit" disabled={isSubmitting} iconLeft={<Icon name="submit" size="sm" className={css.submitIcon} />}>{isSubmitting ? "등록 중…" : "검토요청 등록"}</Button>
           </div>
         </div>
+
+        {submitError && (
+          <p role="alert" className={css.submitError}>{submitError}</p>
+        )}
 
         <div className={css.layout}>
           <div className={css.formCol}>

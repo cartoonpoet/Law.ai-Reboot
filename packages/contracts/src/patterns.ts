@@ -19,3 +19,8 @@ export const COMPANY_PATTERNS = {
   SEARCH: "company.search",
   CREATE: "company.create",
 } as const;
+
+export const CONTRACT_PATTERNS = {
+  CREATE: "contract.create",
+  GET: "contract.get",
+} as const;
