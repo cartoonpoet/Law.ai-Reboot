@@ -9,7 +9,7 @@ const base: ContractSummary = {
   status: "legalReview",
   securityLevel: "secure",
   party: "본사계약",
-  catSub: "용역",
+  categoryLabel: "개발/공급 > 용역",
   counterpartyName: "AAA",
   requesterId: "jhson1",
   ownerId: null,

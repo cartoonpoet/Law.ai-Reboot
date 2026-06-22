@@ -17,22 +17,31 @@ import { LIST_FILTERS } from "./mock-data";
 import { listColumns } from "./listColumns";
 import { CONTRACT_STATUS_FILTERS, getStatusLabel } from "./contractStatus";
 import { useContractsList } from "./hooks/useContractsList";
+import { useContractCategories } from "./hooks/useContractCategories";
+import { toOptions, type SelectOption } from "./contractOptions";
 import { Eyebrow } from "../../components/ui/Eyebrow";
+import * as listCss from "./contractList.css";
+
+const ALL_OPTION: SelectOption = { value: "", label: "전체" };
 
 function FilterSelect({
   label,
   options,
+  value,
+  onChange,
 }: {
   label: string;
-  options: string[];
+  options: SelectOption[];
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
-    <div style={{ width: 150 }}>
+    <div className={listCss.filterSelect}>
       <Dropdown
-        options={options.map((o) => ({ value: o, label: o }))}
-        value={options[0]}
+        options={[ALL_OPTION, ...options]}
+        value={value}
         placeholder={label}
-        onChange={() => {}}
+        onChange={(v) => onChange(Array.isArray(v) ? v[0] ?? "" : v)}
       />
     </div>
   );
@@ -50,10 +59,18 @@ export function ContractListPage() {
     changeQ,
     status,
     changeStatus,
+    party,
+    changeParty,
+    categoryId,
+    changeCategoryId,
     mine,
     changeMine,
     isFetching,
   } = useContractsList();
+  const { getFlatOptions } = useContractCategories();
+
+  const categoryOptions = getFlatOptions();
+  const partyOptions = toOptions(LIST_FILTERS.party.slice(1));
 
   const handleStatusChange = (value: string | string[]) => {
     const next = Array.isArray(value) ? value[0] ?? "" : value;
@@ -125,9 +142,8 @@ export function ContractListPage() {
           flexWrap: "wrap",
         }}
       >
-        <FilterSelect label="계약 당사자" options={LIST_FILTERS.party} />
-        <FilterSelect label="계약 대분류" options={LIST_FILTERS.cat} />
-        <FilterSelect label="계약 분류" options={LIST_FILTERS.sub} />
+        <FilterSelect label="계약 당사자" options={partyOptions} value={party} onChange={changeParty} />
+        <FilterSelect label="계약 분류" options={categoryOptions} value={categoryId} onChange={changeCategoryId} />
         <div style={{ flex: 1, minWidth: 220, maxWidth: 360 }}>
           <Input
             inputSize="medium"

@@ -5,6 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
 import { evaluate } from "./contracts.authz";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
+import { CATEGORY_LABEL_SEPARATOR } from "@lawai/contracts";
 import type {
   CreateContractRequest,
   GetContractRequest,
@@ -118,6 +119,28 @@ export class ContractsService {
     };
   }
 
+  // categoryId → 조상 체인을 따라 루트까지 올라가 전체 경로 라벨("대 > 중 > 소") 산출.
+  // 트리가 작으므로(28노드) findMany 한 번으로 전체 로드 후 메모리에서 부모를 추적해 N+1 회피.
+  private async resolveCategoryLabel(
+    categoryId: string | null,
+  ): Promise<string | null> {
+    if (!categoryId) return null;
+    const rows = await this.prisma.contractCategory.findMany({
+      select: { id: true, name: true, parentId: true },
+    });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const names: string[] = [];
+    const seen = new Set<string>();
+    let current = byId.get(categoryId);
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      names.unshift(current.name);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+    }
+    if (names.length === 0) return null;
+    return names.join(CATEGORY_LABEL_SEPARATOR);
+  }
+
   async create(req: CreateContractRequest): Promise<ContractResponse> {
     // 작성 부서: 생성자(createdById)의 소속 부서를 계약 부서로 스냅
     const creator = await this.prisma.user.findUnique({
@@ -133,9 +156,8 @@ export class ContractsService {
           securityLevel: req.securityLevel,
           reviewType: req.reviewType,
           party: req.party ?? null,
-          catMajor: req.catMajor ?? null,
-          catMinor: req.catMinor ?? null,
-          catSub: req.catSub ?? null,
+          categoryId: req.categoryId ?? null,
+          categoryLabel: await this.resolveCategoryLabel(req.categoryId ?? null),
           requesterId: req.requesterId ?? null,
           ownerId: req.ownerId ?? null,
           createdById: req.createdById,
@@ -272,6 +294,7 @@ export class ContractsService {
       deletedAt: null,
       ...(req.status ? { status: req.status } : {}),
       ...(req.party ? { party: req.party } : {}),
+      ...(req.categoryId ? { categoryId: req.categoryId } : {}),
       ...(req.mineOf ? { createdById: req.mineOf } : {}),
       ...(q
         ? {
@@ -313,7 +336,7 @@ export class ContractsService {
         status: r.status,
         securityLevel: r.securityLevel,
         party: r.party,
-        catSub: r.catSub,
+        categoryLabel: r.categoryLabel,
         counterpartyName: snapshot?.name ?? null,
         requesterId: r.requesterId,
         ownerId: r.ownerId,
@@ -341,9 +364,10 @@ export class ContractsService {
     if (req.securityLevel !== undefined) data.securityLevel = req.securityLevel;
     if (req.reviewType !== undefined) data.reviewType = req.reviewType;
     if (req.party !== undefined) data.party = req.party;
-    if (req.catMajor !== undefined) data.catMajor = req.catMajor;
-    if (req.catMinor !== undefined) data.catMinor = req.catMinor;
-    if (req.catSub !== undefined) data.catSub = req.catSub;
+    if (req.categoryId !== undefined) {
+      data.categoryId = req.categoryId;
+      data.categoryLabel = await this.resolveCategoryLabel(req.categoryId);
+    }
     if (req.requesterId !== undefined) data.requesterId = req.requesterId;
     if (req.ownerId !== undefined) data.ownerId = req.ownerId;
     if (req.periodStart !== undefined) data.periodStart = parseDate(req.periodStart);
@@ -503,9 +527,8 @@ export class ContractsService {
       securityLevel: row.securityLevel,
       reviewType: row.reviewType,
       party: row.party,
-      catMajor: row.catMajor,
-      catMinor: row.catMinor,
-      catSub: row.catSub,
+      categoryId: row.categoryId,
+      categoryLabel: row.categoryLabel,
       requesterId: row.requesterId,
       ownerId: row.ownerId,
       createdById: row.createdById,

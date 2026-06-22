@@ -48,9 +48,7 @@ const createReq: CreateContractRequest = {
   securityLevel: "secure",
   reviewType: "normal",
   party: "개발/공급",
-  catMajor: "개발/공급",
-  catMinor: "소프트웨어",
-  catSub: "SaaS 이용",
+  categoryId: null,
   requesterId: "jhson1",
   ownerId: null,
   createdById: "user-uuid-1",
@@ -77,6 +75,12 @@ const createReq: CreateContractRequest = {
 
 describe("ContractsService", () => {
   let service: ContractsService;
+  // resolveCategoryLabel 이 메모리에서 부모 체인을 추적하는 데 쓰는 시드 트리(대>중>소).
+  const categoryTree = [
+    { id: "cat-major", name: "개발/공급", parentId: null },
+    { id: "cat-minor", name: "소프트웨어", parentId: "cat-major" },
+    { id: "cat-saas", name: "SaaS 이용", parentId: "cat-minor" },
+  ];
   const prismaMock = {
     contract: {
       create: jest.fn(),
@@ -84,6 +88,9 @@ describe("ContractsService", () => {
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
+    },
+    contractCategory: {
+      findMany: jest.fn(() => Promise.resolve(categoryTree)),
     },
     // create 시엔 { departmentId } 만 사용, loadViewer 시엔 { id, role, departmentId } 사용.
     // 기본 role=general 로 viewer 를 구성(개별 테스트가 필요 시 mockResolvedValueOnce 로 덮음).
@@ -121,9 +128,8 @@ describe("ContractsService", () => {
       securityLevel: "secure",
       reviewType: "normal",
       party: createReq.party,
-      catMajor: createReq.catMajor,
-      catMinor: createReq.catMinor,
-      catSub: createReq.catSub,
+      categoryId: null,
+      categoryLabel: null,
       requesterId: "jhson1",
       ownerId: null,
       createdById: "user-uuid-1",
@@ -230,7 +236,7 @@ describe("ContractsService", () => {
         status: "legalReview",
         securityLevel: "secure",
         party: "본사계약",
-        catSub: "용역",
+        categoryLabel: "개발/공급 > 용역",
         requesterId: "jhson1",
         ownerId: null,
         dueDate: new Date("2026-07-01T00:00:00.000Z"),
@@ -253,6 +259,30 @@ describe("ContractsService", () => {
     expect(res.items[0].code).toBe("C20260621-0001");
     expect(res.items[0].counterpartyName).toBe("삼성전자(주)");
     expect(res.items[0].dueDate).toBe("2026-07-01T00:00:00.000Z");
+    // toSummary 가 categoryLabel(전체 경로)을 노출한다.
+    expect(res.items[0].categoryLabel).toBe("개발/공급 > 용역");
+  });
+
+  it("list ?categoryId= 는 categoryId 정확 일치 where 조건을 적용한다", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+
+    await service.list({ categoryId: "cat-saas", page: 1, pageSize: 20 });
+
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    expect(findArg.where.categoryId).toBe("cat-saas");
+    const countArg = prismaMock.contract.count.mock.calls[0][0];
+    expect(countArg.where.categoryId).toBe("cat-saas");
+  });
+
+  it("list categoryId 미지정 시 where 에 categoryId 조건이 없다", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+
+    await service.list({ page: 1, pageSize: 20 });
+
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    expect(findArg.where.categoryId).toBeUndefined();
   });
 
   // toResponse 가 요구하는 관계 배열을 포함한 최소 행
@@ -264,9 +294,8 @@ describe("ContractsService", () => {
     securityLevel: "secure",
     reviewType: "normal",
     party: null,
-    catMajor: null,
-    catMinor: null,
-    catSub: null,
+    categoryId: null,
+    categoryLabel: null,
     requesterId: null,
     ownerId: null,
     createdById: "u1",
@@ -505,5 +534,135 @@ describe("ContractsService", () => {
         detail: { from: "legalReview", to: "reviewDone" },
       }),
     );
+  });
+
+  // --- Gen-Phase 8: 분류(categoryId/categoryLabel) read/write 행위 검증 ---
+
+  describe("분류 categoryId/categoryLabel", () => {
+    it("create: categoryId 저장 + resolveCategoryLabel 로 전체 경로 categoryLabel 산출 저장", async () => {
+      prismaMock.contract.create.mockResolvedValue({
+        ...fullRow("unassigned"),
+        id: "ct-new",
+        categoryId: "cat-saas",
+        categoryLabel: "개발/공급 > 소프트웨어 > SaaS 이용",
+      });
+
+      const result = await service.create({ ...createReq, categoryId: "cat-saas" });
+
+      const data = prismaMock.contract.create.mock.calls[0][0].data;
+      expect(data.categoryId).toBe("cat-saas");
+      // 소분류 id → 대>중>소 전체 경로 스냅샷.
+      expect(data.categoryLabel).toBe("개발/공급 > 소프트웨어 > SaaS 이용");
+      // 트리는 메모리 1회 로드로 부모 체인 추적.
+      expect(prismaMock.contractCategory.findMany).toHaveBeenCalled();
+      expect(result.categoryId).toBe("cat-saas");
+      expect(result.categoryLabel).toBe("개발/공급 > 소프트웨어 > SaaS 이용");
+    });
+
+    it("create: categoryId 가 루트면 categoryLabel 은 루트명 단독", async () => {
+      prismaMock.contract.create.mockResolvedValue({
+        ...fullRow("unassigned"),
+        id: "ct-root",
+        categoryId: "cat-major",
+        categoryLabel: "개발/공급",
+      });
+      await service.create({ ...createReq, categoryId: "cat-major" });
+      const data = prismaMock.contract.create.mock.calls[0][0].data;
+      expect(data.categoryId).toBe("cat-major");
+      expect(data.categoryLabel).toBe("개발/공급");
+    });
+
+    it("create: categoryId null 이면 categoryLabel null (트리 조회 없음)", async () => {
+      prismaMock.contract.create.mockResolvedValue({
+        ...fullRow("unassigned"),
+        id: "ct-none",
+        categoryId: null,
+        categoryLabel: null,
+      });
+      await service.create({ ...createReq, categoryId: null });
+      const data = prismaMock.contract.create.mock.calls[0][0].data;
+      expect(data.categoryId).toBeNull();
+      expect(data.categoryLabel).toBeNull();
+      expect(prismaMock.contractCategory.findMany).not.toHaveBeenCalled();
+    });
+
+    it("create: 존재하지 않는 categoryId 면 label null (미존재 방어)", async () => {
+      prismaMock.contract.create.mockResolvedValue({
+        ...fullRow("unassigned"),
+        id: "ct-bad",
+        categoryId: "no-such-id",
+        categoryLabel: null,
+      });
+      await service.create({ ...createReq, categoryId: "no-such-id" });
+      const data = prismaMock.contract.create.mock.calls[0][0].data;
+      expect(data.categoryId).toBe("no-such-id");
+      // 트리에 없는 id → 체인 0건 → null.
+      expect(data.categoryLabel).toBeNull();
+    });
+
+    it("create: 순환 참조 트리에서도 무한루프 없이 라벨 산출(seen 가드)", async () => {
+      prismaMock.contractCategory.findMany.mockResolvedValueOnce([
+        { id: "a", name: "A", parentId: "b" },
+        { id: "b", name: "B", parentId: "a" },
+      ]);
+      prismaMock.contract.create.mockResolvedValue({
+        ...fullRow("unassigned"),
+        id: "ct-cycle",
+        categoryId: "a",
+        categoryLabel: "B > A",
+      });
+      await service.create({ ...createReq, categoryId: "a" });
+      const data = prismaMock.contract.create.mock.calls[0][0].data;
+      // 순환이라도 각 노드 1회만 방문 → 유한 경로.
+      expect(data.categoryLabel).toBe("B > A");
+    });
+
+    it("update: categoryId 변경 시 categoryLabel 재산출 동시 갱신", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+      prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+
+      await service.update({ id: "ct-1", categoryId: "cat-minor", viewerId: "admin-1" });
+
+      const data = prismaMock.contract.update.mock.calls[0][0].data;
+      expect(data.categoryId).toBe("cat-minor");
+      expect(data.categoryLabel).toBe("개발/공급 > 소프트웨어");
+    });
+
+    it("update: categoryId 를 null 로 변경하면 categoryLabel 도 null", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+      prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+
+      await service.update({ id: "ct-1", categoryId: null, viewerId: "admin-1" });
+
+      const data = prismaMock.contract.update.mock.calls[0][0].data;
+      expect(data.categoryId).toBeNull();
+      expect(data.categoryLabel).toBeNull();
+    });
+
+    it("update: categoryId 미전송 시 categoryId/categoryLabel 둘 다 건드리지 않음", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+      prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+
+      await service.update({ id: "ct-1", title: "제목만", viewerId: "admin-1" });
+
+      const data = prismaMock.contract.update.mock.calls[0][0].data;
+      expect(data.categoryId).toBeUndefined();
+      expect(data.categoryLabel).toBeUndefined();
+    });
+
+    it("get/toResponse: categoryId/categoryLabel 을 노출한다", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+      prismaMock.contract.findFirst.mockResolvedValue({
+        ...fullRow("unassigned"),
+        categoryId: "cat-saas",
+        categoryLabel: "개발/공급 > 소프트웨어 > SaaS 이용",
+      });
+      const res = await service.get({ id: "ct-1", viewerId: "admin-1" });
+      expect(res.categoryId).toBe("cat-saas");
+      expect(res.categoryLabel).toBe("개발/공급 > 소프트웨어 > SaaS 이용");
+    });
   });
 });

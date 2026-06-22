@@ -20,6 +20,10 @@ export const DEPARTMENT_PATTERNS = {
   LIST: "department.list",
 } as const;
 
+export const CONTRACT_CATEGORY_PATTERNS = {
+  LIST: "contractCategory.list",
+} as const;
+
 export const COMPANY_PATTERNS = {
   SEARCH: "company.search",
   CREATE: "company.create",

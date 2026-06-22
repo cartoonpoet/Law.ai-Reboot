@@ -12,9 +12,7 @@ describe("contractRequestSchema", () => {
       name: "SW 공급계약",
       requester: "jhson1",
       party: "(주)테크파트너스",
-      catMajor: "IT·라이선스",
-      catMinor: "소프트웨어",
-      catSub: "SaaS 이용",
+      categoryId: "cat-saas",
       counterparties: [
         { id: "c1", type: "company", name: "(주)테크파트너스", bizNo: "111-11-11111",
           ceo: null, phone: null, address: null, addressDetail: null,

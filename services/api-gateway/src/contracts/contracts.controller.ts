@@ -57,13 +57,14 @@ export class ContractsController {
     );
   }
 
-  @ApiOperation({ summary: "계약 목록 조회", description: "필터(q·status·party·mine)·페이지네이션" })
+  @ApiOperation({ summary: "계약 목록 조회", description: "필터(q·status·party·categoryId·mine)·페이지네이션" })
   @Get()
   list(
     @Req() req: Request,
     @Query("q") q?: string,
     @Query("status") status?: ContractStatus,
     @Query("party") party?: string,
+    @Query("categoryId") categoryId?: string,
     @Query("mine") mine?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
@@ -73,6 +74,7 @@ export class ContractsController {
       q: q || undefined,
       status: status || undefined,
       party: party || undefined,
+      categoryId: categoryId || undefined,
       mineOf: mine === "true" ? sub : undefined,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,

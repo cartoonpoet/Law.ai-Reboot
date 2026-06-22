@@ -10,15 +10,19 @@ const PAGE_SIZE = 20;
 export const useContractsList = () => {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<ContractStatus | "">("");
+  const [party, setParty] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [mine, setMine] = useState(false);
   const [page, setPage] = useState(1);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["contracts", { q, status, mine, page }],
+    queryKey: ["contracts", { q, status, party, categoryId, mine, page }],
     queryFn: () =>
       listContracts({
         q: q || undefined,
         status: status || undefined,
+        party: party || undefined,
+        categoryId: categoryId || undefined,
         mine,
         page,
         pageSize: PAGE_SIZE,
@@ -32,6 +36,14 @@ export const useContractsList = () => {
   };
   const changeStatus = (next: ContractStatus | "") => {
     setStatus(next);
+    setPage(1);
+  };
+  const changeParty = (next: string) => {
+    setParty(next);
+    setPage(1);
+  };
+  const changeCategoryId = (next: string) => {
+    setCategoryId(next);
     setPage(1);
   };
   const changeMine = (next: boolean) => {
@@ -53,6 +65,10 @@ export const useContractsList = () => {
     changeQ,
     status,
     changeStatus,
+    party,
+    changeParty,
+    categoryId,
+    changeCategoryId,
     mine,
     changeMine,
     isFetching,

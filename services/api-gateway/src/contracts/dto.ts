@@ -52,17 +52,9 @@ export class CreateContractDto {
   @IsOptional() @IsString() @MaxLength(100)
   party?: string | null;
 
-  @ApiPropertyOptional()
-  @IsOptional() @IsString() @MaxLength(100)
-  catMajor?: string | null;
-
-  @ApiPropertyOptional()
-  @IsOptional() @IsString() @MaxLength(100)
-  catMinor?: string | null;
-
-  @ApiPropertyOptional()
-  @IsOptional() @IsString() @MaxLength(100)
-  catSub?: string | null;
+  @ApiPropertyOptional({ description: "ContractCategory id(FK)" })
+  @IsOptional() @IsString() @MaxLength(64)
+  categoryId?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString() @MaxLength(64)
@@ -125,14 +117,9 @@ export class UpdateContractDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
   party?: string | null;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
-  catMajor?: string | null;
-
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
-  catMinor?: string | null;
-
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
-  catSub?: string | null;
+  @ApiPropertyOptional({ description: "ContractCategory id(FK)" })
+  @IsOptional() @IsString() @MaxLength(64)
+  categoryId?: string | null;
 
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64)
   requesterId?: string | null;

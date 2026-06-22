@@ -120,6 +120,24 @@ enum ContractStatus {
   @@schema("contracts")
 }
 
+// 계약 분류 트리(자기참조). 루트=parentId NULL. slug=계층 경로 dot-notation 영문 안정 식별자(전역 unique).
+model ContractCategory {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  parentId  String?
+  sortOrder Int?
+  createdAt DateTime @default(now())
+
+  parent   ContractCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children ContractCategory[] @relation("CategoryTree")
+  contracts Contract[]
+
+  @@unique([parentId, name])
+  @@index([parentId])
+  @@schema("contracts")
+}
+
 model Contract {
   id            String         @id @default(uuid())
   code          String         @unique
@@ -128,11 +146,10 @@ model Contract {
   securityLevel SecurityLevel  @default(secure)
   reviewType    ReviewType     @default(normal)
 
-  // 4단 분류 (MVP 컬럼, 후속 ContractCategory 트리로 정규화)
-  party    String?
-  catMajor String?
-  catMinor String?
-  catSub   String?
+  // 분류: ContractCategory 트리 FK + 라벨 스냅샷(전체 경로 "대 > 중 > 소"). party 는 본사/법인계약 구분(현행 유지).
+  party         String?
+  categoryId    String?
+  categoryLabel String?
 
   // requester/owner/createdBy 모두 실제 User FK. department는 작성 부서.
   requesterId  String?
@@ -155,6 +172,7 @@ model Contract {
   requester      User?               @relation("ContractRequester", fields: [requesterId], references: [id])
   owner          User?               @relation("ContractOwner", fields: [ownerId], references: [id])
   department     Department?         @relation(fields: [departmentId], references: [id])
+  category       ContractCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   counterparties Counterparty[]
   approvalLines  ApprovalLine[]
   files          File[]
@@ -164,6 +182,7 @@ model Contract {
   @@index([requesterId])
   @@index([ownerId])
   @@index([departmentId])
+  @@index([categoryId])
   @@index([deletedAt])
   @@schema("contracts")
 }

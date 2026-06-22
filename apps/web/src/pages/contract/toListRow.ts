@@ -18,7 +18,7 @@ export const toListRow = (s: ContractSummary): ContractRow => ({
   code: s.code,
   name: s.title,
   party: s.party ?? "-",
-  sub: s.catSub ?? "-",
+  sub: s.categoryLabel ?? "-",
   counter: s.counterpartyName ?? "-",
   requester: s.requesterId ?? "-",
   owner: s.ownerId ?? "미배정",

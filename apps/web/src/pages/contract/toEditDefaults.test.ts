@@ -26,9 +26,8 @@ const response: ContractResponse = {
   securityLevel: "top",
   reviewType: "std",
   party: "본사계약",
-  catMajor: "개발/공급",
-  catMinor: "소프트웨어",
-  catSub: "SaaS 이용",
+  categoryId: "cat-saas",
+  categoryLabel: "개발/공급 > 소프트웨어 > SaaS 이용",
   requesterId: "jhson1",
   ownerId: "lee",
   createdById: "u1",
@@ -85,7 +84,7 @@ describe("toEditDefaults", () => {
     expect(f.name).toBe("수정대상");
     expect(f.secure).toBe("top");
     expect(f.ctype).toBe("std");
-    expect(f.catSub).toBe("SaaS 이용");
+    expect(f.categoryId).toBe("cat-saas");
     expect(f.periodStart).toBe("2026-07-01");
     expect(f.expectedDate).toBe("2026-07-10");
     expect(f.lang).toBe("en");

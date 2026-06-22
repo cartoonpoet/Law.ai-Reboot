@@ -1,3 +1,4 @@
+import { CATEGORY_LABEL_SEPARATOR } from "@lawai/contracts";
 import type { ContractResponse, FileRole } from "@lawai/contracts";
 import type { ContractDetail } from "./mock-data";
 import { getStatusLabel } from "./contractStatus";
@@ -34,7 +35,10 @@ const fmtPeriod = (start: string | null, end: string | null, text: string): stri
 export const toDetailView = (c: ContractResponse): ContractDetail => {
   const d = c.details;
   const firstMoney = d.money[0];
-  const catPath = [c.party, c.catMajor, c.catMinor, c.catSub].filter(
+  const labelParts = c.categoryLabel
+    ? c.categoryLabel.split(CATEGORY_LABEL_SEPARATOR)
+    : [];
+  const catPath = [c.party, ...labelParts].filter(
     (x): x is string => Boolean(x),
   );
   return {

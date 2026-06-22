@@ -50,6 +50,7 @@ export interface ListContractsParams {
   q?: string;
   status?: ContractStatus;
   party?: string;
+  categoryId?: string;
   mine?: boolean;
   page?: number;
   pageSize?: number;
@@ -62,6 +63,7 @@ export function listContracts(
   if (params.q) search.set("q", params.q);
   if (params.status) search.set("status", params.status);
   if (params.party) search.set("party", params.party);
+  if (params.categoryId) search.set("categoryId", params.categoryId);
   if (params.mine) search.set("mine", "true");
   if (params.page) search.set("page", String(params.page));
   if (params.pageSize) search.set("pageSize", String(params.pageSize));

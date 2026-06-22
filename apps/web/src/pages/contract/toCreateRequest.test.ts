@@ -24,9 +24,7 @@ const form: ContractRequestForm = {
   secure: "top",
   ctype: "std",
   party: "개발/공급",
-  catMajor: "개발/공급",
-  catMinor: "소프트웨어",
-  catSub: "SaaS 이용",
+  categoryId: "cat-saas",
   requester: "jhson1",
   owner: { id: "lee", name: "이법무" },
   expectedDate: "2026-07-10",
@@ -46,7 +44,7 @@ describe("toCreateRequest", () => {
     expect(req.title).toBe("테스트 계약");
     expect(req.securityLevel).toBe("top");
     expect(req.reviewType).toBe("std");
-    expect(req.catSub).toBe("SaaS 이용");
+    expect(req.categoryId).toBe("cat-saas");
     expect(req.ownerId).toBe("lee");
     expect(req.dueDate).toBe("2026-07-10");
     expect(req.schemaVersion).toBe(1);

@@ -3,9 +3,10 @@ import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Card, Input, Button, ButtonGroup, RadioGroup, Radio, Dropdown, AutoComplete, InputDatePicker, InputDateRangePicker, Checkbox, Icon } from "@lawkit/ui";
 import { LIST_FILTERS } from "../mock-data";
 import type { ContractRequestForm } from "../request-schema";
-import { toOptions, getMajorOptions, getMinorOptions, getSubOptions } from "../contractOptions";
+import { toOptions } from "../contractOptions";
 import { CardTitle, ErrText, Field } from "./_shared";
 import { useDirectoryUsers } from "../hooks/useDirectoryUsers";
+import { useContractCategories } from "../hooks/useContractCategories";
 import { useCompanySearch } from "../hooks/useCompanySearch";
 import { useCounterparties } from "../hooks/useCounterparties";
 import { toCompanyOptions } from "../companyLabel";
@@ -24,11 +25,28 @@ export function OverviewSection() {
   const periodEnd = useWatch({ control, name: "periodEnd" });
   const periodManual = useWatch({ control, name: "periodManual" });
   const noEndDate = useWatch({ control, name: "noEndDate" });
-  const catMajor = useWatch({ control, name: "catMajor" });
-  const catMinor = useWatch({ control, name: "catMinor" });
+  const categoryId = useWatch({ control, name: "categoryId" });
+  const { getChildOptions, getPathIds, isLeaf } = useContractCategories();
   const { query, results, search } = useCompanySearch();
   const { selected, add, selectByIds } = useCounterparties();
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // 대/중 cascade 선택. 사용자가 명시적으로 고른 값(override)을 우선하고,
+  // 아직 안 골랐으면 저장된 categoryId 의 조상 경로에서 파생한다(수정 화면 복원).
+  // 둘 다 렌더 중 파생이라 카테고리가 비동기로 늦게 도착해도 자동 복원된다(useEffect 미사용).
+  const [majorOverride, setMajorOverride] = useState<string | null>(null);
+  const [minorOverride, setMinorOverride] = useState<string | null>(null);
+  const restoredPath = getPathIds(categoryId);
+  const selectedMajor = majorOverride ?? restoredPath[0] ?? "";
+  const selectedMinor = minorOverride ?? restoredPath[1] ?? "";
+
+  const majorOptions = getChildOptions(null);
+  const minorOptions = selectedMajor ? getChildOptions(selectedMajor) : [];
+  const subOptions = selectedMinor ? getChildOptions(selectedMinor) : [];
+
+  // 잎(자식 없음) 노드면 그 노드 자체가 최종 categoryId. 둘 다 비우면 categoryId 도 빈 값.
+  const commitLeaf = (nodeId: string) =>
+    setValue("categoryId", nodeId && isLeaf(nodeId) ? nodeId : "", { shouldValidate: true });
 
   return (
     <Card bordered header={<CardTitle num={1}>계약 개요</CardTitle>}>
@@ -83,27 +101,23 @@ export function OverviewSection() {
               <Dropdown options={toOptions(LIST_FILTERS.party.slice(1))} value={field.value} placeholder="계약 당사자"
                 onChange={(v) => field.onChange(pickSingle(v))} />
             )} />
-            <Controller name="catMajor" control={control} render={({ field }) => (
-              <Dropdown options={getMajorOptions()} value={field.value} placeholder="계약 대분류"
-                onChange={(v) => {
-                  field.onChange(pickSingle(v));
-                  setValue("catMinor", "");
-                  setValue("catSub", "");
-                }} />
-            )} />
-            <Controller name="catMinor" control={control} render={({ field }) => (
-              <Dropdown options={getMinorOptions(catMajor)} value={field.value} placeholder="계약 중분류"
-                onChange={(v) => {
-                  field.onChange(pickSingle(v));
-                  setValue("catSub", "");
-                }} />
-            )} />
-            <Controller name="catSub" control={control} render={({ field }) => (
-              <Dropdown options={getSubOptions(catMajor, catMinor)} value={field.value} placeholder="계약 소분류"
-                onChange={(v) => field.onChange(pickSingle(v))} />
-            )} />
+            <Dropdown options={majorOptions} value={selectedMajor} placeholder="계약 대분류"
+              onChange={(v) => {
+                const next = pickSingle(v);
+                setMajorOverride(next);
+                setMinorOverride("");
+                commitLeaf(next);
+              }} />
+            <Dropdown options={minorOptions} value={selectedMinor} placeholder="계약 중분류"
+              onChange={(v) => {
+                const next = pickSingle(v);
+                setMinorOverride(next);
+                commitLeaf(next);
+              }} />
+            <Dropdown options={subOptions} value={categoryId} placeholder="계약 소분류"
+              onChange={(v) => setValue("categoryId", pickSingle(v), { shouldValidate: true })} />
           </div>
-          <ErrText msg={errors.party?.message ?? errors.catMajor?.message ?? errors.catMinor?.message ?? errors.catSub?.message} />
+          <ErrText msg={errors.party?.message ?? errors.categoryId?.message} />
         </Field>
 
         <Field label="계약 기간" className={css.full}>

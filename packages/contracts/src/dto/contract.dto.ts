@@ -116,9 +116,7 @@ export interface CreateContractRequest {
   securityLevel: SecurityLevel;
   reviewType: ReviewType;
   party?: string | null;
-  catMajor?: string | null;
-  catMinor?: string | null;
-  catSub?: string | null;
+  categoryId?: string | null;
   requesterId?: string | null;
   ownerId?: string | null;
   createdById: string;
@@ -149,9 +147,7 @@ export interface UpdateContractRequest {
   securityLevel?: SecurityLevel;
   reviewType?: ReviewType;
   party?: string | null;
-  catMajor?: string | null;
-  catMinor?: string | null;
-  catSub?: string | null;
+  categoryId?: string | null;
   requesterId?: string | null;
   ownerId?: string | null;
   periodStart?: string | null;
@@ -226,9 +222,8 @@ export interface ContractResponse {
   securityLevel: SecurityLevel;
   reviewType: ReviewType;
   party: string | null;
-  catMajor: string | null;
-  catMinor: string | null;
-  catSub: string | null;
+  categoryId: string | null;
+  categoryLabel: string | null;
   requesterId: string | null;
   ownerId: string | null;
   createdById: string;
@@ -255,7 +250,7 @@ export interface ContractSummary {
   status: ContractStatus;
   securityLevel: SecurityLevel;
   party: string | null;
-  catSub: string | null;
+  categoryLabel: string | null;
   counterpartyName: string | null; // 첫 상대계약자 스냅샷 이름
   requesterId: string | null;
   ownerId: string | null;
@@ -268,6 +263,7 @@ export interface ListContractsRequest {
   q?: string;
   status?: ContractStatus;
   party?: string;
+  categoryId?: string;
   // createdById 지정 시 "내 업무만"(gateway 가 JWT sub 주입).
   mineOf?: string;
   page?: number;
