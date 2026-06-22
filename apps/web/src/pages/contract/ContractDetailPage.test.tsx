@@ -79,6 +79,10 @@ describe("ContractDetailPage", () => {
         role: "inHouseCounsel",
         body: "손해배상 한도 조정 검토 요망",
         createdAt: "2026-06-08T01:00:00.000Z",
+        updatedAt: "2026-06-08T01:00:00.000Z",
+        isDeleted: false,
+        isAuthor: false,
+        mentions: [],
       },
     ]);
   });

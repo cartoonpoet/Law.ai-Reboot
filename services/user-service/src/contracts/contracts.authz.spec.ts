@@ -1,4 +1,4 @@
-import { evaluate } from "./contracts.authz";
+import { evaluate, listRelatedUserIds } from "./contracts.authz";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
 import type { Role } from "@lawai/contracts";
 
@@ -268,6 +268,56 @@ describe("contracts.authz evaluate", () => {
         canDelete: false,
         maskSecret: true,
       });
+    });
+  });
+
+  describe("listRelatedUserIds (멘션 대상 관련자 목록)", () => {
+    it("createdById/ownerId/requesterId/ccUserIds 를 모두 모아 반환한다", () => {
+      const ids = listRelatedUserIds(makeContract());
+      expect(ids).toEqual(
+        expect.arrayContaining([
+          CREATOR_ID,
+          OWNER_ID,
+          REQUESTER_ID,
+          CC_USER_ID,
+        ]),
+      );
+      expect(ids).toHaveLength(4);
+    });
+
+    it("중복(같은 사람이 여러 역할)을 dedupe 한다", () => {
+      const ids = listRelatedUserIds(
+        makeContract({
+          createdById: "same-1",
+          ownerId: "same-1",
+          requesterId: "same-1",
+          ccUserIds: ["same-1", "cc-2"],
+        }),
+      );
+      // same-1 은 1번만, cc-2 1번 → 2개.
+      expect(ids).toHaveLength(2);
+      expect(new Set(ids)).toEqual(new Set(["same-1", "cc-2"]));
+    });
+
+    it("null/undefined(ownerId/requesterId 미배정)는 제외한다", () => {
+      const ids = listRelatedUserIds(
+        makeContract({
+          ownerId: null,
+          requesterId: null,
+          ccUserIds: [],
+        }),
+      );
+      expect(ids).toEqual([CREATOR_ID]);
+    });
+
+    it("ccUserIds 가 undefined 여도 안전하게 처리한다", () => {
+      const ids = listRelatedUserIds(
+        makeContract({ ccUserIds: undefined as unknown as string[] }),
+      );
+      expect(ids).toEqual(
+        expect.arrayContaining([CREATOR_ID, OWNER_ID, REQUESTER_ID]),
+      );
+      expect(ids).toHaveLength(3);
     });
   });
 

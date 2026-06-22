@@ -3,12 +3,14 @@ import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../contracts/contracts.audit";
-import { evaluate } from "../contracts/contracts.authz";
+import { evaluate, listRelatedUserIds } from "../contracts/contracts.authz";
 import type { AuthzViewer, AuthzContract } from "../contracts/contracts.authz";
 import type {
   CommentDto,
   CreateCommentRequest,
   ListCommentsRequest,
+  UpdateCommentRequest,
+  DeleteCommentRequest,
 } from "@lawai/contracts";
 
 // 코멘트 권한 평가에 필요한 계약 행(references 포함 — cc 사용자 추출용).
@@ -20,9 +22,10 @@ type ContractForAuthz = Prisma.ContractGetPayload<{
   include: typeof contractAuthzInclude;
 }>;
 
-// 코멘트 + 작성자 이름(authorName 매핑용).
+// 코멘트 + 작성자 이름(authorName 매핑용) + 멘션(userId+이름).
 const commentInclude = {
   author: { select: { name: true } },
+  mentions: { include: { user: { select: { id: true, name: true } } } },
 } satisfies Prisma.CommentInclude;
 
 type CommentWithAuthor = Prisma.CommentGetPayload<{
@@ -103,16 +106,47 @@ export class CommentsService {
   }
 
   // CommentWithAuthor row → CommentDto.
-  private toDto(row: CommentWithAuthor): CommentDto {
+  // - viewerId: isAuthor 산출(작성자 본인 여부 → 프론트 수정/삭제 버튼 노출).
+  // - 소프트삭제(deletedAt) 행은 body placeholder(빈 문자열)·mentions=[]·isDeleted=true 로
+  //   직렬화해 목록 맥락은 보존하되 내용/멘션은 숨긴다(plan 26/T4-1).
+  private toDto(row: CommentWithAuthor, viewerId?: string): CommentDto {
+    const isDeleted = Boolean(row.deletedAt);
     return {
       id: row.id,
       contractId: row.contractId,
       authorId: row.authorId,
       authorName: row.author.name,
       role: row.role,
-      body: row.body,
+      body: isDeleted ? "" : row.body,
+      mentions: isDeleted
+        ? []
+        : row.mentions.map((m) => ({ userId: m.userId, name: m.user.name })),
       createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      isDeleted,
+      isAuthor: row.authorId === viewerId,
     };
+  }
+
+  // 멘션 대상(userId[])이 전부 계약 관련자 집합에 포함되는지 검증.
+  // - 비관련자가 하나라도 있으면 400. dedupe 한 통과 목록을 반환(unique 충돌 회피).
+  // - 빈/미지정이면 빈 배열(멘션 없음).
+  private validateMentions(
+    contract: ContractForAuthz,
+    mentions?: string[],
+  ): string[] {
+    const requested = Array.from(new Set(mentions ?? []));
+    if (requested.length === 0) return [];
+
+    const related = new Set(listRelatedUserIds(this.toAuthzContract(contract)));
+    const invalid = requested.filter((id) => !related.has(id));
+    if (invalid.length > 0) {
+      throw new RpcException({
+        status: 400,
+        message: "멘션 대상은 계약 관련자여야 합니다",
+      });
+    }
+    return requested;
   }
 
   async create(req: CreateCommentRequest): Promise<CommentDto> {
@@ -126,15 +160,31 @@ export class CommentsService {
 
     const contract = await this.loadContract(req.contractId);
     const viewer = await this.authorizeViewer(contract, req.viewerId);
+    const mentionUserIds = this.validateMentions(contract, req.mentions);
 
-    const comment = await this.prisma.comment.create({
-      data: {
-        contractId: req.contractId,
-        authorId: viewer.id,
-        role: viewer.role,
-        body,
-      },
-      include: commentInclude,
+    // comment 본체 + 멘션 행 동기화를 트랜잭션으로 원자적 처리.
+    const comment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.comment.create({
+        data: {
+          contractId: req.contractId,
+          authorId: viewer.id,
+          role: viewer.role,
+          body,
+        },
+      });
+      if (mentionUserIds.length > 0) {
+        await tx.commentMention.createMany({
+          data: mentionUserIds.map((userId) => ({
+            commentId: created.id,
+            userId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      return tx.comment.findUniqueOrThrow({
+        where: { id: created.id },
+        include: commentInclude,
+      });
     });
 
     await this.audit.record({
@@ -145,19 +195,142 @@ export class CommentsService {
       detail: { contractId: req.contractId, role: viewer.role },
     });
 
-    return this.toDto(comment);
+    return this.toDto(comment, viewer.id);
+  }
+
+  async update(req: UpdateCommentRequest): Promise<CommentDto> {
+    const body = req.body?.trim();
+    if (!body) {
+      throw new RpcException({
+        status: 400,
+        message: "코멘트 내용을 입력하세요",
+      });
+    }
+
+    const contract = await this.loadContract(req.contractId);
+    const viewer = await this.authorizeViewer(contract, req.viewerId);
+
+    // 코멘트 조회(삭제분 포함 — 삭제 상태 판정에 필요).
+    const existing = await this.prisma.comment.findFirst({
+      where: { id: req.commentId, contractId: req.contractId },
+    });
+    if (!existing) {
+      throw new RpcException({
+        status: 404,
+        message: "코멘트를 찾을 수 없습니다",
+      });
+    }
+    // 본인만 수정(admin 예외 없음).
+    if (existing.authorId !== viewer.id) {
+      throw new RpcException({
+        status: 403,
+        message: "본인 코멘트만 수정할 수 있습니다",
+      });
+    }
+    // 삭제된 코멘트는 수정 불가.
+    if (existing.deletedAt) {
+      throw new RpcException({
+        status: 400,
+        message: "삭제된 코멘트는 수정할 수 없습니다",
+      });
+    }
+
+    const mentionUserIds = this.validateMentions(contract, req.mentions);
+
+    // body 갱신 + 멘션 전체 교체(deleteMany→createMany)를 트랜잭션으로. updatedAt 은 @updatedAt 자동.
+    const comment = await this.prisma.$transaction(async (tx) => {
+      await tx.comment.update({
+        where: { id: req.commentId },
+        data: { body },
+      });
+      await tx.commentMention.deleteMany({
+        where: { commentId: req.commentId },
+      });
+      if (mentionUserIds.length > 0) {
+        await tx.commentMention.createMany({
+          data: mentionUserIds.map((userId) => ({
+            commentId: req.commentId,
+            userId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      return tx.comment.findUniqueOrThrow({
+        where: { id: req.commentId },
+        include: commentInclude,
+      });
+    });
+
+    await this.audit.record({
+      action: "update",
+      targetType: "Comment",
+      targetId: comment.id,
+      actorId: viewer.id,
+      detail: { contractId: req.contractId },
+    });
+
+    return this.toDto(comment, viewer.id);
+  }
+
+  async delete(req: DeleteCommentRequest): Promise<CommentDto> {
+    const contract = await this.loadContract(req.contractId);
+    const viewer = await this.authorizeViewer(contract, req.viewerId);
+
+    const existing = await this.prisma.comment.findFirst({
+      where: { id: req.commentId, contractId: req.contractId },
+    });
+    if (!existing) {
+      throw new RpcException({
+        status: 404,
+        message: "코멘트를 찾을 수 없습니다",
+      });
+    }
+    // 본인만 삭제(admin 예외 없음).
+    if (existing.authorId !== viewer.id) {
+      throw new RpcException({
+        status: 403,
+        message: "본인 코멘트만 삭제할 수 있습니다",
+      });
+    }
+
+    // 이미 삭제됐으면 멱등 — 기존 행을 그대로 직렬화해 반환(감사 중복 방지).
+    if (existing.deletedAt) {
+      const current = await this.prisma.comment.findUniqueOrThrow({
+        where: { id: req.commentId },
+        include: commentInclude,
+      });
+      return this.toDto(current, viewer.id);
+    }
+
+    // 소프트 삭제(deletedAt set). 멘션 행은 보존(DTO 에서만 숨김).
+    const comment = await this.prisma.comment.update({
+      where: { id: req.commentId },
+      data: { deletedAt: new Date() },
+      include: commentInclude,
+    });
+
+    await this.audit.record({
+      action: "delete",
+      targetType: "Comment",
+      targetId: comment.id,
+      actorId: viewer.id,
+      detail: { contractId: req.contractId },
+    });
+
+    return this.toDto(comment, viewer.id);
   }
 
   async list(req: ListCommentsRequest): Promise<CommentDto[]> {
     const contract = await this.loadContract(req.contractId);
-    await this.authorizeViewer(contract, req.viewerId);
+    const viewer = await this.authorizeViewer(contract, req.viewerId);
 
+    // 삭제 행 제외 금지 — placeholder 로 직렬화해 맥락 보존(plan T4-5).
     const rows = await this.prisma.comment.findMany({
       where: { contractId: req.contractId },
       orderBy: { createdAt: "asc" },
       include: commentInclude,
     });
 
-    return rows.map((row) => this.toDto(row));
+    return rows.map((row) => this.toDto(row, viewer.id));
   }
 }

@@ -40,4 +40,6 @@ export const CONTRACT_PATTERNS = {
 export const COMMENT_PATTERNS = {
   CREATE: "comment.create",
   LIST: "comment.list",
+  UPDATE: "comment.update",
+  DELETE: "comment.delete",
 } as const;

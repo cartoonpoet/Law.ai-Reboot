@@ -17,6 +17,10 @@ const COMMENTS: CommentDto[] = [
     role: "inHouseCounsel",
     body: "손해배상 한도 확인 필요",
     createdAt: "2026-06-22T01:00:00.000Z",
+    updatedAt: "2026-06-22T01:00:00.000Z",
+    isDeleted: false,
+    isAuthor: false,
+    mentions: [],
   },
   {
     id: "c2",
@@ -26,6 +30,10 @@ const COMMENTS: CommentDto[] = [
     role: "outsideCounsel",
     body: "수정안 첨부드립니다",
     createdAt: "2026-06-22T02:00:00.000Z",
+    updatedAt: "2026-06-22T02:00:00.000Z",
+    isDeleted: false,
+    isAuthor: false,
+    mentions: [],
   },
 ];
 
@@ -70,8 +78,53 @@ describe("CommentPanel", () => {
     await user.type(textarea, "추가 검토 의견");
     await user.click(screen.getByRole("button", { name: /코멘트 등록/ }));
     await waitFor(() =>
-      expect(commentsApi.createComment).toHaveBeenCalledWith("k1", "추가 검토 의견"),
+      expect(commentsApi.createComment).toHaveBeenCalledWith("k1", "추가 검토 의견", []),
     );
+  });
+
+  it("본인(isAuthor) 코멘트에는 수정/삭제 버튼, 멘션 칩, (수정됨)을 렌더한다", async () => {
+    vi.mocked(commentsApi.listComments).mockResolvedValue([
+      {
+        id: "c9",
+        contractId: "k1",
+        authorId: "me",
+        authorName: "나작성",
+        role: "inHouseCounsel",
+        body: "내가 쓴 의견",
+        createdAt: "2026-06-22T01:00:00.000Z",
+        updatedAt: "2026-06-22T05:00:00.000Z",
+        isDeleted: false,
+        isAuthor: true,
+        mentions: [{ userId: "owner-1", name: "오너" }],
+      },
+    ]);
+    renderPanel();
+    await screen.findByText("내가 쓴 의견");
+    expect(screen.getByRole("button", { name: /수정/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /삭제/ })).toBeInTheDocument();
+    expect(screen.getByText("오너")).toBeInTheDocument();
+    expect(screen.getByText("(수정됨)")).toBeInTheDocument();
+  });
+
+  it("삭제된 코멘트는 placeholder 로 렌더하고 본문/버튼을 숨긴다", async () => {
+    vi.mocked(commentsApi.listComments).mockResolvedValue([
+      {
+        id: "c10",
+        contractId: "k1",
+        authorId: "me",
+        authorName: "나작성",
+        role: "inHouseCounsel",
+        body: "",
+        createdAt: "2026-06-22T01:00:00.000Z",
+        updatedAt: "2026-06-22T06:00:00.000Z",
+        isDeleted: true,
+        isAuthor: true,
+        mentions: [],
+      },
+    ]);
+    renderPanel();
+    expect(await screen.findByText("삭제된 코멘트입니다.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /수정/ })).not.toBeInTheDocument();
   });
 
   it("빈 body(공백만)는 제출해도 createComment를 호출하지 않는다(클라 가드)", async () => {

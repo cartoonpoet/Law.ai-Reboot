@@ -1,8 +1,7 @@
-import { Avatar } from "@lawkit/ui";
 import { Panel } from "../../../components/ui/Panel";
-import { Tag } from "../../../components/ui/Tag";
 import { useComments } from "../hooks/useComments";
 import { CommentForm } from "./CommentForm";
+import { CommentItem } from "./CommentItem";
 import * as css from "./commentPanel.css";
 
 interface CommentPanelProps {
@@ -36,7 +35,8 @@ const formatTime = (iso: string): string => {
 
 /** "검토 의견" 패널 — 실 코멘트 목록 + 작성 폼(useComments). */
 export function CommentPanel({ contractId }: CommentPanelProps) {
-  const { comments, isLoading, error, addComment } = useComments(contractId);
+  const { comments, isLoading, error, addComment, editComment, deleteComment } =
+    useComments(contractId);
 
   return (
     <Panel title="검토 의견" icon="messageSquare" badge={comments.length} pad={16}>
@@ -48,26 +48,20 @@ export function CommentPanel({ contractId }: CommentPanelProps) {
         <div className={css.state}>아직 코멘트가 없습니다.</div>
       ) : (
         <div className={css.list}>
-          {comments.map((c) => {
-            const isLegal = LEGAL_ROLES.has(c.role);
-            return (
-              <div key={c.id} className={css.row}>
-                <Avatar
-                  initials={c.authorName[0] ?? "?"}
-                  size="sm"
-                  color={isLegal ? "primary" : "secondary"}
-                />
-                <div className={css.main}>
-                  <div className={css.head}>
-                    <span className={css.author}>{c.authorName}</span>
-                    <Tag color={isLegal ? "primary" : "neutral"}>{getRoleLabel(c.role)}</Tag>
-                    <span className={css.time}>{formatTime(c.createdAt)}</span>
-                  </div>
-                  <div className={css.bubble}>{c.body}</div>
-                </div>
-              </div>
-            );
-          })}
+          {comments.map((c) => (
+            <CommentItem
+              key={c.id}
+              comment={c}
+              isLegal={LEGAL_ROLES.has(c.role)}
+              roleLabel={getRoleLabel(c.role)}
+              formattedTime={formatTime(c.createdAt)}
+              // 멘션은 서버가 전체 교체이므로 기존 멘션 userId 를 그대로 보내 보존한다.
+              onEdit={(commentId, body) =>
+                editComment(commentId, body, c.mentions.map((m) => m.userId))
+              }
+              onDelete={deleteComment}
+            />
+          ))}
         </div>
       )}
 

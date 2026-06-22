@@ -45,6 +45,7 @@ model User {
   requestedContracts  Contract[]           @relation("ContractRequester")
   ownedContracts      Contract[]           @relation("ContractOwner")
   authoredComments    Comment[]            @relation("CommentAuthor")
+  commentMentions     CommentMention[]     @relation("MentionedUser")
 
   @@index([departmentId])
   @@schema("users")
@@ -192,17 +193,38 @@ model Contract {
 // 계약 검토 코멘트(평면 스레드). 계약 1:N 종속(contractId 직접 FK Cascade).
 // authorId → users.User(cross-schema, NO ACTION — 작성자 삭제 정책은 보수적). role 은 작성 시점 작성자 role 스냅(표시용).
 model Comment {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   contractId String
   authorId   String
   role       String
-  body       String   @db.Text
-  createdAt  DateTime @default(now())
+  body       String    @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
-  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  author   User     @relation("CommentAuthor", fields: [authorId], references: [id])
+  contract Contract         @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  author   User             @relation("CommentAuthor", fields: [authorId], references: [id])
+  mentions CommentMention[]
 
   @@index([contractId])
+  @@index([deletedAt])
+  @@schema("contracts")
+}
+
+// 코멘트 멘션(정규 소유). 후보=계약 관련자 한정. commentId FK Cascade(하드삭제 정리),
+// userId → users.User(cross-schema, NO ACTION — Comment.author 선례). (commentId,userId) unique 로 중복 멘션 방지.
+model CommentMention {
+  id        String   @id @default(uuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation("MentionedUser", fields: [userId], references: [id])
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
   @@schema("contracts")
 }
 

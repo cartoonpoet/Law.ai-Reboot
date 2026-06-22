@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -22,10 +23,12 @@ import {
   type ContractStatus,
   type CreateCommentRequest,
   type CreateContractRequest,
+  type DeleteCommentRequest,
   type JwtPayload,
   type ListCommentsRequest,
   type ListContractsRequest,
   type ListContractsResponse,
+  type UpdateCommentRequest,
   type UpdateContractRequest,
   type UpdateContractStatusRequest,
 } from "@lawai/contracts";
@@ -34,6 +37,7 @@ import { rpcToHttp } from "../common/rpc-to-http";
 import {
   CreateCommentDto,
   CreateContractDto,
+  UpdateCommentDto,
   UpdateContractDto,
   UpdateContractStatusDto,
 } from "./dto";
@@ -145,6 +149,7 @@ export class ContractsController {
     const payload: CreateCommentRequest = {
       contractId: id,
       body: dto.body,
+      mentions: dto.mentions,
       viewerId: sub,
     };
     return firstValueFrom(
@@ -165,6 +170,49 @@ export class ContractsController {
     return firstValueFrom(
       this.userClient
         .send<CommentDto[]>(COMMENT_PATTERNS.LIST, payload)
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "계약 코멘트 수정", description: "작성자 본인만 수정 가능(body·멘션 전체 교체)" })
+  @Patch(":id/comments/:commentId")
+  updateComment(
+    @Param("id") id: string,
+    @Param("commentId") commentId: string,
+    @Body() dto: UpdateCommentDto,
+    @Req() req: Request,
+  ): Promise<CommentDto> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: UpdateCommentRequest = {
+      contractId: id,
+      commentId,
+      body: dto.body,
+      mentions: dto.mentions,
+      viewerId: sub,
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<CommentDto>(COMMENT_PATTERNS.UPDATE, payload)
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "계약 코멘트 삭제", description: "작성자 본인만 삭제 가능(소프트 삭제)" })
+  @Delete(":id/comments/:commentId")
+  deleteComment(
+    @Param("id") id: string,
+    @Param("commentId") commentId: string,
+    @Req() req: Request,
+  ): Promise<CommentDto> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: DeleteCommentRequest = {
+      contractId: id,
+      commentId,
+      viewerId: sub,
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<CommentDto>(COMMENT_PATTERNS.DELETE, payload)
         .pipe(rpcToHttp()),
     );
   }

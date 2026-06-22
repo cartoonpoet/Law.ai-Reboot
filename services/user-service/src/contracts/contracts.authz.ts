@@ -145,6 +145,26 @@ const SECRET_PRIVILEGED_ROLES: ReadonlySet<Role> = new Set<Role>([
   "contractManager",
 ]);
 
+/**
+ * 계약 "관련자" userId 집합을 산출하는 순수 함수.
+ *
+ * - createdById / ownerId / requesterId / ccUserIds(user 참조) 중 존재하는 것들을
+ *   중복 제거(dedupe)·falsy(null/undefined) 제거해 배열로 반환한다.
+ * - isRelated 는 단일 viewer 의 boolean 판정인 반면, 이 함수는 멘션 대상 검증·후보
+ *   산출에 쓸 "목록"을 제공한다(코멘트 멘션은 계약 관련자로만 제한).
+ */
+export const listRelatedUserIds = (contract: AuthzContract): string[] => {
+  const candidates = [
+    contract.createdById,
+    contract.ownerId,
+    contract.requesterId,
+    ...(contract.ccUserIds ?? []),
+  ];
+  return Array.from(
+    new Set(candidates.filter((id): id is string => Boolean(id))),
+  );
+};
+
 // viewer 가 계약과 "본인 관련"인지(createdBy/owner/requester/cc 중 하나).
 const isRelated = (viewer: AuthzViewer, contract: AuthzContract): boolean =>
   viewer.id === contract.createdById ||
