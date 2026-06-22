@@ -31,7 +31,8 @@ const fmtPeriod = (start: string | null, end: string | null, text: string): stri
 };
 
 // 계약 단건 응답(ContractResponse) → 상세 화면 뷰모델(ContractDetail).
-// AI 리스크·코멘트·라이프사이클은 별도 기능이라 매핑 대상 아님(상세 페이지가 mock 유지).
+// 코멘트는 별도 조회(useComments)로 분리됨 — detailView 에 포함하지 않는다.
+// AI 리스크·라이프사이클은 아직 별도 기능이라 매핑 대상 아님(상세 페이지가 mock 유지).
 export const toDetailView = (c: ContractResponse): ContractDetail => {
   const d = c.details;
   const firstMoney = d.money[0];

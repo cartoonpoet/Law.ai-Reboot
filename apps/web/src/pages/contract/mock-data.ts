@@ -28,15 +28,6 @@ export interface Risk {
   suggest: string;
 }
 
-export interface Comment {
-  who: string;
-  role: string;
-  time: string;
-  text: string;
-  attach: string | null;
-  system: boolean;
-}
-
 export interface ContractDetail {
   id: string;
   name: string;
@@ -93,12 +84,6 @@ export const RISKS: Risk[] = [
   { level: "mid", clause: "지체상금", finding: "지체상금율 1일 0.3%로 표준(0.1%) 대비 3배 높습니다.", suggest: "0.1%로 조정 협의" },
   { level: "mid", clause: "자동 갱신", finding: "이의 없을 시 1년 자동 갱신. 갱신 거절 통지 기간이 짧습니다(30일).", suggest: "갱신 거절 통지 60일로 연장" },
   { level: "low", clause: "준거법·관할", finding: "관할 법원이 상대방 소재지 기준입니다.", suggest: "당사 소재지(서울중앙) 변경 검토" },
-];
-
-export const COMMENTS: Comment[] = [
-  { who: "관리자1", role: "요청자", time: "2026-06-09 16:08", text: "계약 검토를 요청 드립니다. 첨부한 계약서 기준으로 검토 부탁드립니다.", attach: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx", system: false },
-  { who: "관리자1", role: "시스템", time: "2026-06-09 16:08", text: "[배정 중] 상태로 변경되었습니다.", attach: null, system: true },
-  { who: "손준호", role: "법무팀", time: "2026-06-09 16:32", text: "배정받았습니다. 손해배상 한도와 지체상금 조항 위주로 검토 진행하겠습니다.", attach: null, system: false },
 ];
 
 const SAMPLE_DETAIL: ContractDetail = {

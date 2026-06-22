@@ -15,11 +15,15 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { firstValueFrom } from "rxjs";
 import type { Request } from "express";
 import {
+  COMMENT_PATTERNS,
   CONTRACT_PATTERNS,
+  type CommentDto,
   type ContractResponse,
   type ContractStatus,
+  type CreateCommentRequest,
   type CreateContractRequest,
   type JwtPayload,
+  type ListCommentsRequest,
   type ListContractsRequest,
   type ListContractsResponse,
   type UpdateContractRequest,
@@ -28,6 +32,7 @@ import {
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
 import {
+  CreateCommentDto,
   CreateContractDto,
   UpdateContractDto,
   UpdateContractStatusDto,
@@ -125,6 +130,41 @@ export class ContractsController {
     return firstValueFrom(
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.UPDATE_STATUS, payload)
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "계약 코멘트 작성", description: "관련자(조회 권한 보유자)만 작성 가능" })
+  @Post(":id/comments")
+  createComment(
+    @Param("id") id: string,
+    @Body() dto: CreateCommentDto,
+    @Req() req: Request,
+  ): Promise<CommentDto> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: CreateCommentRequest = {
+      contractId: id,
+      body: dto.body,
+      viewerId: sub,
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<CommentDto>(COMMENT_PATTERNS.CREATE, payload)
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "계약 코멘트 목록 조회", description: "관련자(조회 권한 보유자)만 조회 가능" })
+  @Get(":id/comments")
+  listComments(
+    @Param("id") id: string,
+    @Req() req: Request,
+  ): Promise<CommentDto[]> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: ListCommentsRequest = { contractId: id, viewerId: sub };
+    return firstValueFrom(
+      this.userClient
+        .send<CommentDto[]>(COMMENT_PATTERNS.LIST, payload)
         .pipe(rpcToHttp()),
     );
   }

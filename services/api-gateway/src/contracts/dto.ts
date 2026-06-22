@@ -2,6 +2,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
@@ -168,4 +169,13 @@ export class UpdateContractStatusDto {
   @ApiPropertyOptional({ description: "배정 시 법무 담당자" })
   @IsOptional() @IsString() @MaxLength(64)
   ownerId?: string | null;
+}
+
+// 코멘트 생성. contractId 는 @Param, viewerId(=작성자)는 JWT sub 라 body 만 받는다.
+export class CreateCommentDto {
+  @ApiProperty({ description: "코멘트 본문", example: "검토 의견입니다." })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  body!: string;
 }

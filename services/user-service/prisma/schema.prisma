@@ -44,6 +44,7 @@ model User {
   createdContracts    Contract[]           @relation("ContractCreatedBy")
   requestedContracts  Contract[]           @relation("ContractRequester")
   ownedContracts      Contract[]           @relation("ContractOwner")
+  authoredComments    Comment[]            @relation("CommentAuthor")
 
   @@index([departmentId])
   @@schema("users")
@@ -129,8 +130,8 @@ model ContractCategory {
   sortOrder Int?
   createdAt DateTime @default(now())
 
-  parent   ContractCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children ContractCategory[] @relation("CategoryTree")
+  parent    ContractCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  ContractCategory[] @relation("CategoryTree")
   contracts Contract[]
 
   @@unique([parentId, name])
@@ -177,6 +178,7 @@ model Contract {
   approvalLines  ApprovalLine[]
   files          File[]
   references     ContractReference[]
+  comments       Comment[]
 
   @@index([createdById])
   @@index([requesterId])
@@ -184,6 +186,23 @@ model Contract {
   @@index([departmentId])
   @@index([categoryId])
   @@index([deletedAt])
+  @@schema("contracts")
+}
+
+// 계약 검토 코멘트(평면 스레드). 계약 1:N 종속(contractId 직접 FK Cascade).
+// authorId → users.User(cross-schema, NO ACTION — 작성자 삭제 정책은 보수적). role 은 작성 시점 작성자 role 스냅(표시용).
+model Comment {
+  id         String   @id @default(uuid())
+  contractId String
+  authorId   String
+  role       String
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  author   User     @relation("CommentAuthor", fields: [authorId], references: [id])
+
+  @@index([contractId])
   @@schema("contracts")
 }
 

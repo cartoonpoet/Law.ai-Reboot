@@ -36,3 +36,8 @@ export const CONTRACT_PATTERNS = {
   UPDATE: "contract.update",
   UPDATE_STATUS: "contract.updateStatus",
 } as const;
+
+export const COMMENT_PATTERNS = {
+  CREATE: "comment.create",
+  LIST: "comment.list",
+} as const;

@@ -221,6 +221,11 @@ export const evaluate = (
   // 담당(owner) 한정 역할은 viewer.id === ownerId 일 때만 쓰기/배정/전이 허용.
   const ownerOk = !policy.requiresOwner || viewer.id === contract.ownerId;
 
+  // 미배정(ownerId null) 계약은 assign 권한 역할이 픽업 가능 — requiresOwner 면제.
+  // 이미 배정된 건은 담당자만(ownerOk). canAssign 한정이라 edit/transition 은 영향 없음.
+  const canAssign =
+    policy.assign && (contract.ownerId === null ? true : ownerOk);
+
   // sealManager 특수: 역할상 transition=true 이지만 signing 단계에서만(→signed) 가능.
   const isSealManager = viewer.role === "sealManager";
   const canTransition = isSealManager
@@ -230,7 +235,7 @@ export const evaluate = (
   return {
     canView: true,
     canEdit: policy.edit && ownerOk,
-    canAssign: policy.assign && ownerOk,
+    canAssign,
     canTransition,
     canDelete: policy.delete, // delete 는 admin 전용(requiresOwner 무관)
     maskSecret,

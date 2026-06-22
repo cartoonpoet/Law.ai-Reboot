@@ -194,6 +194,69 @@ describe("contracts.authz evaluate", () => {
     });
   });
 
+  describe("canAssign 데드락 면제 (미배정 ownerId===null 첫 배정)", () => {
+    // 미배정 계약: ownerId=null. requiresOwner 면제는 canAssign 한정.
+    const unassigned = (over: Partial<AuthzContract> = {}) =>
+      makeContract({ ownerId: null, status: "unassigned", ...over });
+
+    it("미배정 건에서 inHouseCounsel(비담당)도 canAssign=true (데드락 해소)", () => {
+      const r = evaluate(makeViewer("inHouseCounsel", "other-1"), unassigned());
+      expect(r.canAssign).toBe(true);
+    });
+
+    it("미배정 건에서 contractManager(비담당)도 canAssign=true", () => {
+      const r = evaluate(makeViewer("contractManager", "other-1"), unassigned());
+      expect(r.canAssign).toBe(true);
+    });
+
+    it("미배정 건에서 admin canAssign=true", () => {
+      const r = evaluate(makeViewer("admin", "other-1"), unassigned());
+      expect(r.canAssign).toBe(true);
+    });
+
+    it("미배정 건에서 canAssign 면제는 edit/transition 으로 번지지 않는다(과확대 없음)", () => {
+      // inHouseCounsel 비담당: canEdit/canTransition 은 ownerOk 기반이라 여전히 false.
+      const r = evaluate(makeViewer("inHouseCounsel", "other-1"), unassigned());
+      expect(r.canEdit).toBe(false);
+      expect(r.canTransition).toBe(false);
+      expect(r.canDelete).toBe(false);
+    });
+
+    it("이미 배정된 건(ownerId!=null)에서 비담당 inHouseCounsel 은 canAssign=false (과확대 없음)", () => {
+      const r = evaluate(
+        makeViewer("inHouseCounsel", "other-1"),
+        makeContract({ ownerId: "someone-else" }),
+      );
+      expect(r.canAssign).toBe(false);
+      // edit/transition 도 불변(미배정 면제와 무관).
+      expect(r.canEdit).toBe(false);
+      expect(r.canTransition).toBe(false);
+    });
+
+    it("미배정이라도 policy.assign=false 역할은 canAssign=false (outsideCounsel)", () => {
+      const r = evaluate(makeViewer("outsideCounsel", "other-1"), unassigned());
+      expect(r.canAssign).toBe(false);
+    });
+
+    it("미배정이라도 policy.assign=false 역할은 canAssign=false (general — canView 통과 케이스)", () => {
+      // creator 라 canView=true 이지만 general 은 policy.assign=false → canAssign=false.
+      const r = evaluate(
+        makeViewer("general", CREATOR_ID),
+        unassigned({ createdById: CREATOR_ID }),
+      );
+      expect(r.canView).toBe(true);
+      expect(r.canAssign).toBe(false);
+    });
+
+    it("미배정이라도 policy.assign=false 역할은 canAssign=false (sealManager, signing 단계)", () => {
+      const r = evaluate(
+        makeViewer("sealManager", "seal-1"),
+        unassigned({ status: "signing" }),
+      );
+      expect(r.canAssign).toBe(false);
+    });
+  });
+
   describe("null viewer (비인증/미상)", () => {
     it("전부 false + maskSecret=true (안전 기본)", () => {
       const r = evaluate(null, makeContract());

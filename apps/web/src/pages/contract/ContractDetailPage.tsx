@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon, Button, Avatar } from "@lawkit/ui";
+import { AssignModal } from "./sections/AssignModal";
+import { CommentPanel } from "./sections/CommentPanel";
 import { T } from "../../design/tokens";
 import { Panel } from "../../components/ui/Panel";
-import { Tag } from "../../components/ui/Tag";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { LIFECYCLE, RISKS, COMMENTS } from "./mock-data";
+import { LIFECYCLE, RISKS } from "./mock-data";
 import type { LifecycleStep, Risk } from "./mock-data";
 import { getContract } from "../../api/contracts";
 import { toDetailView } from "./toDetailView";
@@ -86,6 +88,7 @@ export function ContractDetailPage() {
     enabled: Boolean(id),
   });
   const { changeStatus, isUpdating } = useContractStatus(id);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
 
   if (!data) {
     return (
@@ -100,8 +103,13 @@ export function ContractDetailPage() {
   const canEdit = Boolean(data.can?.edit);
   // transition 권한은 반려(requesterReview)·검토 완료(reviewDone) 양방향 전이를 함께 의미한다(MVP: 단일 플래그).
   const canTransition = Boolean(data.can?.transition);
+  // 배정 권한(미배정 계약 첫 배정 포함)도 백엔드 can.assign에서 파생.
+  const canAssign = Boolean(data.can?.assign);
+  const handleAssign = (ownerId: string) => {
+    changeStatus("assigning", ownerId);
+    setIsAssignOpen(false);
+  };
   const riskHigh = RISKS.filter((r) => r.level === "high").length;
-  const visibleComments = COMMENTS.filter((c) => !c.system).length;
 
   return (
     <div>
@@ -125,7 +133,6 @@ export function ContractDetailPage() {
           {canEdit && (
             <Button variant="outline" color="secondary" iconLeft={<Icon name="edit" size="sm" className={dcss.btnIcon} />} onClick={() => navigate(`/contract/${id}/edit`)}>수정</Button>
           )}
-          <Button iconLeft={<Icon name="messageSquare" size="sm" style={{ width: 14, height: 14 }} />}>코멘트 추가</Button>
         </div>
       </div>
 
@@ -163,29 +170,7 @@ export function ContractDetailPage() {
             </div>
           </Panel>
 
-          <Panel title="검토 의견" icon="messageSquare" badge={visibleComments} pad={16}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {COMMENTS.map((c, i) => c.system ? (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
-                  <div style={{ height: 1, flex: 1, background: T.border }} />
-                  <span style={{ fontSize: 11.5, color: T.faint, whiteSpace: "nowrap" }}>{c.text} · {c.time.slice(11)}</span>
-                  <div style={{ height: 1, flex: 1, background: T.border }} />
-                </div>
-              ) : (
-                <div key={i} style={{ display: "flex", gap: 11 }}>
-                  <Avatar initials={c.who[0]} size="sm" color={c.role === "법무팀" ? "primary" : "secondary"} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: T.heading }}>{c.who}</span>
-                      <Tag color={c.role === "법무팀" ? "primary" : "neutral"}>{c.role}</Tag>
-                      <span style={{ fontSize: 11.5, color: T.faint, fontVariantNumeric: "tabular-nums" }}>{c.time}</span>
-                    </div>
-                    <div style={{ fontSize: 13, color: T.body, lineHeight: 1.6, background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 13px" }}>{c.text}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Panel>
+          <CommentPanel contractId={id} />
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -211,6 +196,9 @@ export function ContractDetailPage() {
                   </>
                 )}
               </div>
+              {canAssign && (
+                <Button size="medium" variant="outline" iconLeft={<Icon name="user" size="sm" />} disabled={isUpdating} onClick={() => setIsAssignOpen(true)}>담당자 배정</Button>
+              )}
             </div>
           </Panel>
 
@@ -237,6 +225,14 @@ export function ContractDetailPage() {
           </Panel>
         </div>
       </div>
+
+      {isAssignOpen && (
+        <AssignModal
+          onClose={() => setIsAssignOpen(false)}
+          onAssign={handleAssign}
+          isAssigning={isUpdating}
+        />
+      )}
     </div>
   );
 }

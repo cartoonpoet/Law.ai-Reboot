@@ -5,8 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ContractResponse } from "@lawai/contracts";
 import { ContractDetailPage } from "./ContractDetailPage";
 import * as api from "../../api/contracts";
+import * as commentsApi from "../../api/comments";
 
 vi.mock("../../api/contracts");
+vi.mock("../../api/comments");
 
 const response: ContractResponse = {
   id: "uuid-1",
@@ -68,6 +70,17 @@ function renderAt(id: string) {
 describe("ContractDetailPage", () => {
   beforeEach(() => {
     vi.mocked(api.getContract).mockResolvedValue(response);
+    vi.mocked(commentsApi.listComments).mockResolvedValue([
+      {
+        id: "c1",
+        contractId: "uuid-1",
+        authorId: "u1",
+        authorName: "이법무",
+        role: "inHouseCounsel",
+        body: "손해배상 한도 조정 검토 요망",
+        createdAt: "2026-06-08T01:00:00.000Z",
+      },
+    ]);
   });
 
   it("계약 단건 API의 계약명을 렌더한다", async () => {
@@ -83,8 +96,14 @@ describe("ContractDetailPage", () => {
     expect(screen.getByText("손해배상 한도")).toBeInTheDocument();
   });
 
-  it("검토 의견 섹션을 렌더한다(mock 유지)", async () => {
+  it("검토 의견 섹션을 실 코멘트 데이터로 렌더한다", async () => {
     renderAt("uuid-1");
     expect(await screen.findByText("검토 의견")).toBeInTheDocument();
+    // listComments 의 실 데이터(작성자·본문)가 패널에 노출된다.
+    expect(
+      await screen.findByText("손해배상 한도 조정 검토 요망"),
+    ).toBeInTheDocument();
+    // 코멘트 작성자 역할(한글 라벨)이 패널에 노출된다.
+    expect(screen.getByText("사내변호사")).toBeInTheDocument();
   });
 });
