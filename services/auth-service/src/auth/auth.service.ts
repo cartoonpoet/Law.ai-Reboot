@@ -154,6 +154,9 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
+      role: user.role,
+      departmentId: user.departmentId,
+      departmentName: user.departmentName,
       createdAt: user.createdAt,
     };
     return { user: publicUser, tokens: { accessToken, refreshToken } };
