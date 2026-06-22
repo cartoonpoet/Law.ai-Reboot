@@ -8,6 +8,10 @@ import { useNotifications } from "./hooks/useNotifications";
 
 // useNotifications 훅을 목으로 대체(refetchInterval 폴링 영향 차단 — 결정적 렌더 테스트).
 vi.mock("./hooks/useNotifications");
+// SSE 구독 훅은 외부 시스템(EventSource/QueryClient) 의존 — 뷰 테스트에서는 no-op 목으로 격리.
+vi.mock("./hooks/useNotificationStream", () => ({
+  useNotificationStream: vi.fn(),
+}));
 
 const noti = (over: Partial<NotificationDto> = {}): NotificationDto => ({
   id: "n-1",

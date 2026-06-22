@@ -8,9 +8,11 @@ import {
 // 알림 쿼리 키. 다른 도메인(useComments 등)에서 invalidate 시 재사용하도록 export.
 export const NOTIFICATIONS_QUERY_KEY = ["notifications"] as const;
 const NOTIFICATIONS_LIMIT = 20;
-const POLL_INTERVAL_MS = 60_000;
+// SSE(useNotificationStream)가 주 경로이므로 폴링은 백업 안전망으로 5분(300초)으로 완화.
+const POLL_INTERVAL_MS = 300_000;
 
-// 본인 알림 목록 + 안읽음 카운트 조회(60초 폴링) + 읽음 처리.
+// 본인 알림 목록 + 안읽음 카운트 조회(5분 폴링 백업) + 읽음 처리.
+// 실시간 갱신은 SSE(useNotificationStream)가 담당, 폴링은 끊김 시 안전망.
 // 폴링은 react-query refetchInterval 옵션(useEffect 아님).
 export const useNotifications = () => {
   const queryClient = useQueryClient();

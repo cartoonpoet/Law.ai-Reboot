@@ -6,7 +6,8 @@ import { PrismaService } from "../prisma/prisma.service";
 /**
  * NotificationService 단위 테스트.
  *
- * - createMany: 빈 배열 no-op, 자기알림(recipientId===actorId) 제외, best-effort(실패 swallow).
+ * - createMany: 빈 배열 no-op, 자기알림(recipientId===actorId) 제외, 생성 후 재조회한
+ *   PushNotification[] 반환(actorName 포함), best-effort(실패 시 [] 반환).
  * - listForViewer: recipientId 필터 + createdAt desc + actorName 매핑(N+1 회피) + isRead 파생 + unreadCount.
  * - markRead / markAllRead: where 에 recipientId===viewerId 강제(타인 알림 미영향), viewerId 없으면 no-op.
  */
@@ -35,15 +36,31 @@ describe("NotificationService", () => {
   });
 
   describe("createMany", () => {
-    it("빈 배열이면 prisma.createMany 를 호출하지 않는다(no-op)", async () => {
-      await service.createMany([]);
+    it("빈 배열이면 prisma.createMany 를 호출하지 않고 [] 를 반환한다(no-op)", async () => {
+      const result = await service.createMany([]);
+      expect(result).toEqual([]);
       expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
     });
 
-    it("자기알림(recipientId===actorId)은 제외하고, 나머지만 createMany 한다", async () => {
+    it("자기알림(recipientId===actorId)은 제외하고, 나머지만 createMany 후 PushNotification[] 반환", async () => {
       prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+      // 생성 후 재조회: 방금 만든 행(id 포함).
+      prismaMock.notification.findMany.mockResolvedValue([
+        {
+          id: "n-1",
+          recipientId: "u-2",
+          type: "comment_mention",
+          actorId: "u-1",
+          targetType: "Comment",
+          targetId: "c-1",
+          detail: { contractId: "k-1", preview: "안녕" },
+          readAt: null,
+          createdAt: new Date("2026-06-22T02:00:00.000Z"),
+        },
+      ]);
+      prismaMock.user.findMany.mockResolvedValue([{ id: "u-1", name: "작성자" }]);
 
-      await service.createMany([
+      const result = await service.createMany([
         // 자기멘션 → 제외되어야 함
         {
           recipientId: "u-1",
@@ -70,10 +87,28 @@ describe("NotificationService", () => {
       expect(arg.data).toHaveLength(1);
       expect(arg.data[0].recipientId).toBe("u-2");
       expect(arg.data[0].detail).toEqual({ contractId: "k-1", preview: "안녕" });
+
+      // 반환: 수신자별 PushNotification(actorName 포함, isRead 파생).
+      expect(result).toEqual([
+        {
+          recipientId: "u-2",
+          notification: {
+            id: "n-1",
+            type: "comment_mention",
+            actorId: "u-1",
+            actorName: "작성자",
+            targetType: "Comment",
+            targetId: "c-1",
+            detail: { contractId: "k-1", preview: "안녕" },
+            isRead: false,
+            createdAt: "2026-06-22T02:00:00.000Z",
+          },
+        },
+      ]);
     });
 
-    it("자기알림만 있으면 (필터 후 빈 배열) createMany 를 호출하지 않는다", async () => {
-      await service.createMany([
+    it("자기알림만 있으면 (필터 후 빈 배열) createMany 미호출 + [] 반환", async () => {
+      const result = await service.createMany([
         {
           recipientId: "u-1",
           type: "comment_mention",
@@ -82,11 +117,14 @@ describe("NotificationService", () => {
           targetId: "c-1",
         },
       ]);
+      expect(result).toEqual([]);
       expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
     });
 
     it("detail 미지정 시 Prisma.JsonNull 로 저장한다", async () => {
       prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+      prismaMock.notification.findMany.mockResolvedValue([]);
+      prismaMock.user.findMany.mockResolvedValue([]);
       await service.createMany([
         {
           recipientId: "u-2",
@@ -102,7 +140,7 @@ describe("NotificationService", () => {
       expect(arg.data[0].detail).toBe(Prisma.JsonNull);
     });
 
-    it("best-effort: prisma 가 reject 해도 예외를 던지지 않는다(swallow)", async () => {
+    it("best-effort: prisma 가 reject 해도 예외를 던지지 않고 [] 를 반환한다(swallow)", async () => {
       prismaMock.notification.createMany.mockRejectedValue(
         new Error("db down"),
       );
@@ -116,7 +154,7 @@ describe("NotificationService", () => {
             targetId: "c-1",
           },
         ]),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual([]);
     });
   });
 

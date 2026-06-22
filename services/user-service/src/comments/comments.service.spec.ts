@@ -35,7 +35,7 @@ describe("CommentsService", () => {
     $transaction: jest.fn(),
   };
   const auditMock = { record: jest.fn() };
-  // 멘션→알림 트리거(best-effort). createMany 호출만 검증/모킹.
+  // 멘션→알림 트리거(best-effort). createMany 는 PushNotification[] 를 반환(없으면 []).
   const notificationMock = { createMany: jest.fn() };
 
   // 권한 평가용 계약 행(references 포함). 케이스별 owner/creator 등 덮어쓰기.
@@ -61,7 +61,7 @@ describe("CommentsService", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     auditMock.record.mockResolvedValue(undefined);
-    notificationMock.createMany.mockResolvedValue(undefined);
+    notificationMock.createMany.mockResolvedValue([]);
     prismaMock.commentMention.findMany.mockResolvedValue([]);
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -99,7 +99,7 @@ describe("CommentsService", () => {
         (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
       );
 
-      const dto = await service.create({
+      const result = await service.create({
         contractId: "contract-1",
         body: "검토 의견입니다",
         viewerId: "counsel-1",
@@ -126,8 +126,8 @@ describe("CommentsService", () => {
           actorId: "counsel-1",
         }),
       );
-      // DTO 매핑(authorName/role/createdAt ISO + 멘션/수정/삭제/본인 필드).
-      expect(dto).toEqual({
+      // 반환은 CreateCommentResult { comment, notifications }. DTO 매핑(authorName/role/createdAt ISO + 멘션/수정/삭제/본인 필드).
+      expect(result.comment).toEqual({
         id: "comment-1",
         contractId: "contract-1",
         authorId: "counsel-1",
@@ -140,6 +140,8 @@ describe("CommentsService", () => {
         isDeleted: false,
         isAuthor: true,
       });
+      // 멘션 없음 → notifications 빈 배열(createMany 빈 입력 → []).
+      expect(result.notifications).toEqual([]);
     });
 
     it("관련 없는 general 은 canView=false → 403, 생성/감사 없음", async () => {
@@ -228,7 +230,7 @@ describe("CommentsService", () => {
         (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
       );
 
-      const dto = await service.create({
+      const result = await service.create({
         contractId: "contract-1",
         body: "멘션 포함 의견",
         viewerId: "counsel-1",
@@ -245,7 +247,7 @@ describe("CommentsService", () => {
         }),
       );
       // toDto 가 mentions(userId+name) 직렬화.
-      expect(dto.mentions).toEqual([
+      expect(result.comment.mentions).toEqual([
         { userId: "owner-1", name: "오너" },
         { userId: "cc-1", name: "참조자" },
       ]);
@@ -374,7 +376,7 @@ describe("CommentsService", () => {
         (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
       );
 
-      const dto = await service.update({
+      const result = await service.update({
         contractId: "contract-1",
         commentId: "comment-1",
         body: "수정된 본문",
@@ -396,10 +398,10 @@ describe("CommentsService", () => {
       expect(auditMock.record).toHaveBeenCalledWith(
         expect.objectContaining({ action: "update", targetType: "Comment" }),
       );
-      expect(dto.body).toBe("수정된 본문");
+      expect(result.comment.body).toBe("수정된 본문");
       // updatedAt > createdAt → 프론트 "(수정됨)" 판정 근거.
-      expect(dto.updatedAt).toBe("2026-06-22T03:00:00.000Z");
-      expect(dto.updatedAt > dto.createdAt).toBe(true);
+      expect(result.comment.updatedAt).toBe("2026-06-22T03:00:00.000Z");
+      expect(result.comment.updatedAt > result.comment.createdAt).toBe(true);
     });
 
     it("update diff: 기존 멘션(prevSet)은 재알림 안 하고 새로 추가된 멘션만 알림한다", async () => {

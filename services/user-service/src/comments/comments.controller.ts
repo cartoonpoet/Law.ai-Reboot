@@ -3,6 +3,7 @@ import { MessagePattern, Payload } from "@nestjs/microservices";
 import { COMMENT_PATTERNS } from "@lawai/contracts";
 import type {
   CreateCommentRequest,
+  CreateCommentResult,
   DeleteCommentRequest,
   ListCommentsRequest,
   UpdateCommentRequest,
@@ -14,7 +15,7 @@ export class CommentsController {
   constructor(private readonly comments: CommentsService) {}
 
   @MessagePattern(COMMENT_PATTERNS.CREATE)
-  create(@Payload() req: CreateCommentRequest) {
+  create(@Payload() req: CreateCommentRequest): Promise<CreateCommentResult> {
     return this.comments.create(req);
   }
 
@@ -24,7 +25,7 @@ export class CommentsController {
   }
 
   @MessagePattern(COMMENT_PATTERNS.UPDATE)
-  update(@Payload() req: UpdateCommentRequest) {
+  update(@Payload() req: UpdateCommentRequest): Promise<CreateCommentResult> {
     return this.comments.update(req);
   }
 

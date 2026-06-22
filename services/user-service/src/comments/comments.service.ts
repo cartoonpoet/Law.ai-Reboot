@@ -9,6 +9,7 @@ import type { AuthzViewer, AuthzContract } from "../contracts/contracts.authz";
 import type {
   CommentDto,
   CreateCommentRequest,
+  CreateCommentResult,
   ListCommentsRequest,
   UpdateCommentRequest,
   DeleteCommentRequest,
@@ -160,7 +161,7 @@ export class CommentsService {
     return requested;
   }
 
-  async create(req: CreateCommentRequest): Promise<CommentDto> {
+  async create(req: CreateCommentRequest): Promise<CreateCommentResult> {
     const body = req.body?.trim();
     if (!body) {
       throw new RpcException({
@@ -207,8 +208,9 @@ export class CommentsService {
     });
 
     // 멘션 알림(best-effort, 트랜잭션 밖 — audit 옆). 자기멘션 제외(NotificationService 가 방어적 필터).
+    // createMany 가 생성된 PushNotification[] 를 반환 → gateway 가 SSE fan-out 에 사용.
     const preview = buildPreview(body);
-    await this.notifications.createMany(
+    const notifications = await this.notifications.createMany(
       mentionUserIds
         .filter((userId) => userId !== viewer.id)
         .map((userId) => ({
@@ -221,10 +223,10 @@ export class CommentsService {
         })),
     );
 
-    return this.toDto(comment, viewer.id);
+    return { comment: this.toDto(comment, viewer.id), notifications };
   }
 
-  async update(req: UpdateCommentRequest): Promise<CommentDto> {
+  async update(req: UpdateCommentRequest): Promise<CreateCommentResult> {
     const body = req.body?.trim();
     if (!body) {
       throw new RpcException({
@@ -312,7 +314,7 @@ export class CommentsService {
       (userId) => !prevSet.has(userId) && userId !== viewer.id,
     );
     const preview = buildPreview(body);
-    await this.notifications.createMany(
+    const notifications = await this.notifications.createMany(
       addedUserIds.map((userId) => ({
         recipientId: userId,
         type: "comment_mention",
@@ -323,7 +325,7 @@ export class CommentsService {
       })),
     );
 
-    return this.toDto(comment, viewer.id);
+    return { comment: this.toDto(comment, viewer.id), notifications };
   }
 
   async delete(req: DeleteCommentRequest): Promise<CommentDto> {

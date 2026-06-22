@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@lawkit/ui";
 import type { NotificationDto } from "@lawai/contracts";
 import { useNotifications } from "./hooks/useNotifications";
+import { useNotificationStream } from "./hooks/useNotificationStream";
 import { NotificationItem } from "./NotificationItem";
 import * as css from "./notificationBell.css";
 
@@ -22,6 +23,8 @@ export function NotificationBell() {
   const navigate = useNavigate();
   const { notifications, unreadCount, markRead, markAllRead } =
     useNotifications();
+  // SSE 실시간 구독 1회 마운트(토큰 있을 때만 내부에서 연결). push 도착 시 알림 쿼리 invalidate.
+  useNotificationStream();
   const [isOpen, setIsOpen] = useState(false);
 
   const badgeLabel =

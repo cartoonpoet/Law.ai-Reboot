@@ -13,7 +13,7 @@ import {
 } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
-import { firstValueFrom } from "rxjs";
+import { firstValueFrom, map } from "rxjs";
 import type { Request } from "express";
 import {
   COMMENT_PATTERNS,
@@ -22,6 +22,7 @@ import {
   type ContractResponse,
   type ContractStatus,
   type CreateCommentRequest,
+  type CreateCommentResult,
   type CreateContractRequest,
   type DeleteCommentRequest,
   type JwtPayload,
@@ -34,6 +35,7 @@ import {
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
+import { NotificationHubService } from "../notifications/notification-hub.service";
 import {
   CreateCommentDto,
   CreateContractDto,
@@ -49,6 +51,7 @@ import {
 export class ContractsController {
   constructor(
     @Inject("USER_CLIENT") private readonly userClient: ClientProxy,
+    private readonly hub: NotificationHubService,
   ) {}
 
   @ApiOperation({ summary: "계약검토 요청 생성" })
@@ -154,8 +157,16 @@ export class ContractsController {
     };
     return firstValueFrom(
       this.userClient
-        .send<CommentDto>(COMMENT_PATTERNS.CREATE, payload)
-        .pipe(rpcToHttp()),
+        .send<CreateCommentResult>(COMMENT_PATTERNS.CREATE, payload)
+        .pipe(
+          rpcToHttp(),
+          map((result: CreateCommentResult) => {
+            result.notifications.forEach((n) =>
+              this.hub.push(n.recipientId, n.notification),
+            );
+            return result.comment;
+          }),
+        ),
     );
   }
 
@@ -192,8 +203,16 @@ export class ContractsController {
     };
     return firstValueFrom(
       this.userClient
-        .send<CommentDto>(COMMENT_PATTERNS.UPDATE, payload)
-        .pipe(rpcToHttp()),
+        .send<CreateCommentResult>(COMMENT_PATTERNS.UPDATE, payload)
+        .pipe(
+          rpcToHttp(),
+          map((result: CreateCommentResult) => {
+            result.notifications.forEach((n) =>
+              this.hub.push(n.recipientId, n.notification),
+            );
+            return result.comment;
+          }),
+        ),
     );
   }
 

@@ -1,3 +1,5 @@
+import type { NotificationDto } from "./notification.dto";
+
 // 코멘트에 멘션된 사용자 스냅(표시용). mentions 배열이 정규 출처.
 export interface MentionDto {
   userId: string;
@@ -54,4 +56,16 @@ export interface DeleteCommentRequest {
   contractId: string;
   commentId: string;
   viewerId?: string;
+}
+
+// gateway 가 SSE 허브로 push 할 단위. recipientId 별 NotificationDto(수신자 1명당 1건).
+export interface PushNotification {
+  recipientId: string;
+  notification: NotificationDto;
+}
+
+// 코멘트 생성/수정 RPC 응답 wrapper. comment 는 HTTP 응답으로, notifications 는 gateway 가 SSE push.
+export interface CreateCommentResult {
+  comment: CommentDto;
+  notifications: PushNotification[];
 }

@@ -6,8 +6,21 @@ import type {
   MarkNotificationReadRequest,
   MarkAllNotificationsReadRequest,
   NotificationDto,
+  PushNotification,
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+
+// notification 행 → DTO 매핑에 필요한 최소 필드(createMany/listForViewer 공유).
+type NotificationRow = {
+  id: string;
+  type: string;
+  actorId: string;
+  targetType: string;
+  targetId: string;
+  detail: Prisma.JsonValue;
+  readAt: Date | null;
+  createdAt: Date;
+};
 
 // 알림 1건 생성 입력(폴리모픽). detail 미지정 시 Prisma.JsonNull 로 저장.
 export interface CreateNotificationInput {
@@ -37,14 +50,55 @@ export class NotificationService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * notification 행 → NotificationDto 매핑(listForViewer/createMany 공유 헬퍼).
+   * - actorName 은 actorId→이름 맵에서 조회(없으면 빈 문자열).
+   * - isRead 는 readAt != null 로 파생(DTO 에는 readAt 미노출).
+   */
+  private toNotificationDto(
+    row: NotificationRow,
+    actorNameById: Map<string, string>,
+  ): NotificationDto {
+    return {
+      id: row.id,
+      type: row.type,
+      actorId: row.actorId,
+      actorName: actorNameById.get(row.actorId) ?? "",
+      targetType: row.targetType,
+      targetId: row.targetId,
+      detail: (row.detail as Record<string, unknown> | null) ?? null,
+      isRead: row.readAt != null,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  // actorId 집합 → 이름 맵(한 번에 조회해 N+1 회피). 빈 집합이면 빈 맵.
+  private async loadActorNames(
+    actorIds: string[],
+  ): Promise<Map<string, string>> {
+    const uniqueIds = Array.from(new Set(actorIds));
+    if (uniqueIds.length === 0) return new Map();
+    const actors = await this.prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, name: true },
+    });
+    return new Map(actors.map((a) => [a.id, a.name]));
+  }
+
+  /**
    * 알림 다건 생성(best-effort). 빈 배열이면 no-op.
    * - 자기알림(recipientId === actorId)은 방어적으로 여기서도 제외한다(호출부도 필터).
-   * - 실패해도 예외를 던지지 않고 로깅만 한다(코멘트 응답 보호).
+   * - 실패해도 예외를 던지지 않고 빈 배열을 반환한다(코멘트 응답 보호).
+   * - Prisma createMany 는 생성 행(id)을 돌려주지 않으므로, 생성 직후 동일 조건으로
+   *   재조회해 NotificationDto 로 매핑하고, 각 수신자별 PushNotification 으로 반환한다
+   *   (gateway 가 SSE fan-out 에 사용).
    */
-  async createMany(items: CreateNotificationInput[]): Promise<void> {
+  async createMany(
+    items: CreateNotificationInput[],
+  ): Promise<PushNotification[]> {
     const targets = items.filter((item) => item.recipientId !== item.actorId);
-    if (targets.length === 0) return;
+    if (targets.length === 0) return [];
     try {
+      const createdAtFrom = new Date();
       await this.prisma.notification.createMany({
         data: targets.map((item) => ({
           recipientId: item.recipientId,
@@ -55,12 +109,35 @@ export class NotificationService {
           detail: item.detail ?? Prisma.JsonNull,
         })),
       });
+
+      // 방금 생성한 행 재조회(id 확보). recipientId/actorId/targetType/targetId/type +
+      // createdAt >= 생성 시작 시각으로 좁혀, 동일 대상 과거 알림과 겹치지 않게 한다.
+      const recipientIds = targets.map((t) => t.recipientId);
+      const targetIds = targets.map((t) => t.targetId);
+      const rows = await this.prisma.notification.findMany({
+        where: {
+          recipientId: { in: recipientIds },
+          targetId: { in: targetIds },
+          createdAt: { gte: createdAtFrom },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      const actorNameById = await this.loadActorNames(
+        rows.map((row) => row.actorId),
+      );
+
+      return rows.map((row) => ({
+        recipientId: row.recipientId,
+        notification: this.toNotificationDto(row, actorNameById),
+      }));
     } catch (error) {
-      // best-effort: 실패해도 비즈니스 응답은 진행. 누락만 로깅.
+      // best-effort: 실패해도 비즈니스 응답은 진행. 누락만 로깅하고 빈 배열 반환.
       this.logger.error(
         `notification createMany 실패 (count=${targets.length})`,
         error instanceof Error ? error.stack : String(error),
       );
+      return [];
     }
   }
 
@@ -88,28 +165,11 @@ export class NotificationService {
       }),
     ]);
 
-    // actorId 모아 한 번에 이름 조회(N+1 회피).
-    const actorIds = Array.from(new Set(rows.map((row) => row.actorId)));
-    const actors =
-      actorIds.length > 0
-        ? await this.prisma.user.findMany({
-            where: { id: { in: actorIds } },
-            select: { id: true, name: true },
-          })
-        : [];
-    const actorNameById = new Map(actors.map((a) => [a.id, a.name]));
-
-    const items: NotificationDto[] = rows.map((row) => ({
-      id: row.id,
-      type: row.type,
-      actorId: row.actorId,
-      actorName: actorNameById.get(row.actorId) ?? "",
-      targetType: row.targetType,
-      targetId: row.targetId,
-      detail: (row.detail as Record<string, unknown> | null) ?? null,
-      isRead: row.readAt != null,
-      createdAt: row.createdAt.toISOString(),
-    }));
+    // actorId 모아 한 번에 이름 조회(N+1 회피) 후 공용 헬퍼로 DTO 매핑.
+    const actorNameById = await this.loadActorNames(
+      rows.map((row) => row.actorId),
+    );
+    const items = rows.map((row) => this.toNotificationDto(row, actorNameById));
 
     return { items, unreadCount };
   }

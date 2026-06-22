@@ -10,12 +10,14 @@ import { ContractsModule } from "./contracts/contracts.module";
 import { DepartmentsModule } from "./departments/departments.module";
 import { ContractCategoriesModule } from "./contractCategories/contractCategories.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { NotificationHubModule } from "./notifications/notification-hub.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     GatewayClientsModule,
+    NotificationHubModule,
     AuthModule,
     UsersModule,
     CompaniesModule,
