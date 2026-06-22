@@ -4,6 +4,7 @@ import { UsersModule } from "./users/users.module";
 import { CompaniesModule } from "./companies/companies.module";
 import { ContractsModule } from "./contracts/contracts.module";
 import { CommentsModule } from "./comments/comments.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { DepartmentsModule } from "./departments/departments.module";
 import { ContractCategoriesModule } from "./contractCategories/contractCategories.module";
 
@@ -14,6 +15,7 @@ import { ContractCategoriesModule } from "./contractCategories/contractCategorie
     CompaniesModule,
     ContractsModule,
     CommentsModule,
+    NotificationsModule,
     DepartmentsModule,
     ContractCategoriesModule,
   ],

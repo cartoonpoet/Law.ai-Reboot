@@ -3,6 +3,7 @@ import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../contracts/contracts.audit";
+import { NotificationService } from "../notifications/notifications.service";
 import { evaluate, listRelatedUserIds } from "../contracts/contracts.authz";
 import type { AuthzViewer, AuthzContract } from "../contracts/contracts.authz";
 import type {
@@ -37,6 +38,15 @@ const extractCcUserIds = (
   refs: { ccType: string; refId: string }[],
 ): string[] => refs.filter((r) => r.ccType === "user").map((r) => r.refId);
 
+// 알림 detail.preview 최대 길이(코멘트 본문 미리보기). 개행은 공백으로 정규화 후 slice.
+const PREVIEW_LEN = 80;
+
+// 코멘트 본문 → 알림 미리보기 텍스트(개행 정규화 + 길이 제한).
+const buildPreview = (body: string): string => {
+  const normalized = body.replace(/\s+/g, " ").trim();
+  return normalized.slice(0, PREVIEW_LEN);
+};
+
 /**
  * 계약 코멘트 도메인 서비스(생성/조회).
  *
@@ -52,6 +62,7 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationService,
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 미존재면 null(evaluate 안전 기본).
@@ -195,6 +206,21 @@ export class CommentsService {
       detail: { contractId: req.contractId, role: viewer.role },
     });
 
+    // 멘션 알림(best-effort, 트랜잭션 밖 — audit 옆). 자기멘션 제외(NotificationService 가 방어적 필터).
+    const preview = buildPreview(body);
+    await this.notifications.createMany(
+      mentionUserIds
+        .filter((userId) => userId !== viewer.id)
+        .map((userId) => ({
+          recipientId: userId,
+          type: "comment_mention",
+          actorId: viewer.id,
+          targetType: "Comment",
+          targetId: comment.id,
+          detail: { contractId: req.contractId, preview },
+        })),
+    );
+
     return this.toDto(comment, viewer.id);
   }
 
@@ -238,28 +264,39 @@ export class CommentsService {
     const mentionUserIds = this.validateMentions(contract, req.mentions);
 
     // body 갱신 + 멘션 전체 교체(deleteMany→createMany)를 트랜잭션으로. updatedAt 은 @updatedAt 자동.
-    const comment = await this.prisma.$transaction(async (tx) => {
-      await tx.comment.update({
-        where: { id: req.commentId },
-        data: { body },
-      });
-      await tx.commentMention.deleteMany({
-        where: { commentId: req.commentId },
-      });
-      if (mentionUserIds.length > 0) {
-        await tx.commentMention.createMany({
-          data: mentionUserIds.map((userId) => ({
-            commentId: req.commentId,
-            userId,
-          })),
-          skipDuplicates: true,
+    // 멘션 알림 diff 를 위해 교체 전 기존 멘션 userId 집합(prevSet)을 deleteMany 직전 같은 tx 에서 확보.
+    const { comment, prevUserIds } = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.comment.update({
+          where: { id: req.commentId },
+          data: { body },
         });
-      }
-      return tx.comment.findUniqueOrThrow({
-        where: { id: req.commentId },
-        include: commentInclude,
-      });
-    });
+        const prevMentions = await tx.commentMention.findMany({
+          where: { commentId: req.commentId },
+          select: { userId: true },
+        });
+        await tx.commentMention.deleteMany({
+          where: { commentId: req.commentId },
+        });
+        if (mentionUserIds.length > 0) {
+          await tx.commentMention.createMany({
+            data: mentionUserIds.map((userId) => ({
+              commentId: req.commentId,
+              userId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+        const reloaded = await tx.comment.findUniqueOrThrow({
+          where: { id: req.commentId },
+          include: commentInclude,
+        });
+        return {
+          comment: reloaded,
+          prevUserIds: prevMentions.map((m) => m.userId),
+        };
+      },
+    );
 
     await this.audit.record({
       action: "update",
@@ -268,6 +305,23 @@ export class CommentsService {
       actorId: viewer.id,
       detail: { contractId: req.contractId },
     });
+
+    // 신규 추가된 멘션만 알림(diff): prevSet 에 없던 userId + 자기멘션 제외. best-effort.
+    const prevSet = new Set(prevUserIds);
+    const addedUserIds = mentionUserIds.filter(
+      (userId) => !prevSet.has(userId) && userId !== viewer.id,
+    );
+    const preview = buildPreview(body);
+    await this.notifications.createMany(
+      addedUserIds.map((userId) => ({
+        recipientId: userId,
+        type: "comment_mention",
+        actorId: viewer.id,
+        targetType: "Comment",
+        targetId: comment.id,
+        detail: { contractId: req.contractId, preview },
+      })),
+    );
 
     return this.toDto(comment, viewer.id);
   }

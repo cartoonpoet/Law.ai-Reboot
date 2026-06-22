@@ -43,3 +43,9 @@ export const COMMENT_PATTERNS = {
   UPDATE: "comment.update",
   DELETE: "comment.delete",
 } as const;
+
+export const NOTIFICATION_PATTERNS = {
+  LIST: "notification.list",
+  MARK_READ: "notification.markRead",
+  MARK_ALL_READ: "notification.markAllRead",
+} as const;

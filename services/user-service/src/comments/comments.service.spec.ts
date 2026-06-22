@@ -3,6 +3,7 @@ import { RpcException } from "@nestjs/microservices";
 import { CommentsService } from "./comments.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../contracts/contracts.audit";
+import { NotificationService } from "../notifications/notifications.service";
 
 /**
  * CommentsService 단위 테스트.
@@ -28,11 +29,14 @@ describe("CommentsService", () => {
     commentMention: {
       createMany: jest.fn(),
       deleteMany: jest.fn(),
+      findMany: jest.fn(),
     },
     // $transaction(cb) 형태(우리 service 가 사용하는 콜백 시그니처)만 모킹.
     $transaction: jest.fn(),
   };
   const auditMock = { record: jest.fn() };
+  // 멘션→알림 트리거(best-effort). createMany 호출만 검증/모킹.
+  const notificationMock = { createMany: jest.fn() };
 
   // 권한 평가용 계약 행(references 포함). 케이스별 owner/creator 등 덮어쓰기.
   const makeContractRow = (over: Record<string, unknown> = {}) => ({
@@ -57,11 +61,14 @@ describe("CommentsService", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     auditMock.record.mockResolvedValue(undefined);
+    notificationMock.createMany.mockResolvedValue(undefined);
+    prismaMock.commentMention.findMany.mockResolvedValue([]);
     const moduleRef = await Test.createTestingModule({
       providers: [
         CommentsService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditService, useValue: auditMock },
+        { provide: NotificationService, useValue: notificationMock },
       ],
     }).compile();
     service = moduleRef.get(CommentsService);
@@ -244,6 +251,70 @@ describe("CommentsService", () => {
       ]);
     });
 
+    it("멘션 대상에게 알림(comment_mention)을 생성하되 자기멘션(actorId===recipient)은 제외한다", async () => {
+      // 작성자(viewer) = requester-1(관련자). 멘션에 본인(requester-1) 포함 → 자기멘션 제외 검증.
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("requester-1", "general"),
+      );
+      const createdRow = {
+        id: "comment-1",
+        contractId: "contract-1",
+        authorId: "requester-1",
+        role: "general",
+        body: "  멘션\n  포함   의견  ",
+        createdAt: new Date("2026-06-22T01:00:00.000Z"),
+        updatedAt: new Date("2026-06-22T01:00:00.000Z"),
+        deletedAt: null,
+        author: { name: "요청자" },
+        mentions: [
+          { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
+          { userId: "cc-1", user: { id: "cc-1", name: "참조자" } },
+        ],
+      };
+      prismaMock.comment.create.mockResolvedValue(createdRow);
+      prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdRow);
+      prismaMock.commentMention.createMany.mockResolvedValue({ count: 3 });
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
+
+      await service.create({
+        contractId: "contract-1",
+        body: "  멘션\n  포함   의견  ",
+        viewerId: "requester-1",
+        // requester-1 은 작성자 본인(자기멘션) → 알림 제외 대상.
+        mentions: ["owner-1", "cc-1", "requester-1"],
+      });
+
+      expect(notificationMock.createMany).toHaveBeenCalledTimes(1);
+      const items = notificationMock.createMany.mock.calls[0][0] as Array<{
+        recipientId: string;
+        actorId: string;
+        type: string;
+        targetType: string;
+        targetId: string;
+        detail: { contractId: string; preview: string };
+      }>;
+      // 자기멘션(requester-1) 제외 → owner-1, cc-1 만.
+      expect(items.map((i) => i.recipientId)).toEqual(["owner-1", "cc-1"]);
+      expect(items.every((i) => i.actorId === "requester-1")).toBe(true);
+      expect(items[0]).toEqual(
+        expect.objectContaining({
+          type: "comment_mention",
+          targetType: "Comment",
+          targetId: "comment-1",
+        }),
+      );
+      // preview 는 개행/연속 공백 정규화 후 trim.
+      expect(items[0].detail).toEqual({
+        contractId: "contract-1",
+        preview: "멘션 포함 의견",
+      });
+    });
+
     it("비관련자 멘션이 섞이면 400, comment 생성·멘션 저장 없음", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
       prismaMock.user.findUnique.mockResolvedValue(
@@ -329,6 +400,47 @@ describe("CommentsService", () => {
       // updatedAt > createdAt → 프론트 "(수정됨)" 판정 근거.
       expect(dto.updatedAt).toBe("2026-06-22T03:00:00.000Z");
       expect(dto.updatedAt > dto.createdAt).toBe(true);
+    });
+
+    it("update diff: 기존 멘션(prevSet)은 재알림 안 하고 새로 추가된 멘션만 알림한다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("counsel-1", "inHouseCounsel"),
+      );
+      prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
+      prismaMock.comment.findUniqueOrThrow.mockResolvedValue(updatedReloaded);
+      prismaMock.commentMention.deleteMany.mockResolvedValue({ count: 1 });
+      prismaMock.commentMention.createMany.mockResolvedValue({ count: 3 });
+      // prevSet: 기존 멘션 = owner-1 (재알림 대상 아님).
+      prismaMock.commentMention.findMany.mockResolvedValue([
+        { userId: "owner-1" },
+      ]);
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
+
+      await service.update({
+        contractId: "contract-1",
+        commentId: "comment-1",
+        body: "수정된 본문",
+        viewerId: "counsel-1",
+        // 기존 owner-1(prevSet, 재알림 안 함) + 신규 cc-1(알림).
+        mentions: ["owner-1", "cc-1"],
+      });
+
+      // prevSet 조회가 같은 tx 에서 일어났는지 확인.
+      expect(prismaMock.commentMention.findMany).toHaveBeenCalledWith({
+        where: { commentId: "comment-1" },
+        select: { userId: true },
+      });
+      // 알림은 신규 추가분(cc-1)만 — owner-1(기존 prevSet)은 재알림 안 함.
+      expect(notificationMock.createMany).toHaveBeenCalledTimes(1);
+      const items = notificationMock.createMany.mock.calls[0][0] as Array<{
+        recipientId: string;
+      }>;
+      expect(items.map((i) => i.recipientId)).toEqual(["cc-1"]);
     });
 
     it("타인 코멘트 수정은 403, update/감사 없음", async () => {

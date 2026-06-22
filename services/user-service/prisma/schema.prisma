@@ -377,3 +377,22 @@ model AuditLog {
   @@index([actorId])
   @@schema("shared")
 }
+
+// 폴리모픽 인앱 알림(멘션 알림 등). AuditLog 선례 동일: targetType/targetId 로 대상 지칭, detail 에 가변 메타(contractId·preview 등).
+// DB FK 없음 — 앱 레벨 무결성(cross-schema FK 회피, recipientId/actorId/targetId 는 String 만).
+// readAt 으로 읽음 상태(null=안읽음). 인덱스: 안읽음 카운트([recipientId, readAt]) + 목록 정렬([recipientId, createdAt]).
+model Notification {
+  id          String    @id @default(uuid())
+  recipientId String
+  type        String
+  actorId     String
+  targetType  String
+  targetId    String
+  detail      Json?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([recipientId, readAt])
+  @@index([recipientId, createdAt])
+  @@schema("shared")
+}

@@ -9,6 +9,7 @@ import { CompaniesModule } from "./companies/companies.module";
 import { ContractsModule } from "./contracts/contracts.module";
 import { DepartmentsModule } from "./departments/departments.module";
 import { ContractCategoriesModule } from "./contractCategories/contractCategories.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ContractCategoriesModule } from "./contractCategories/contractCategorie
     ContractsModule,
     DepartmentsModule,
     ContractCategoriesModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
