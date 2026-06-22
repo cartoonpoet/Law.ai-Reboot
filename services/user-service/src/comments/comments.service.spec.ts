@@ -88,7 +88,9 @@ describe("CommentsService", () => {
       prismaMock.comment.create.mockResolvedValue(createdRow);
       // create 는 $transaction 으로 본체 생성 + 멘션 후 findUniqueOrThrow 로 재로드.
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdRow);
-      prismaMock.$transaction.mockImplementation((cb: any) => cb(prismaMock));
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
 
       const dto = await service.create({
         contractId: "contract-1",
@@ -215,7 +217,9 @@ describe("CommentsService", () => {
       prismaMock.comment.create.mockResolvedValue(createdRow);
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdRow);
       prismaMock.commentMention.createMany.mockResolvedValue({ count: 2 });
-      prismaMock.$transaction.mockImplementation((cb: any) => cb(prismaMock));
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
 
       const dto = await service.create({
         contractId: "contract-1",
@@ -295,7 +299,9 @@ describe("CommentsService", () => {
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(updatedReloaded);
       prismaMock.commentMention.deleteMany.mockResolvedValue({ count: 0 });
       prismaMock.commentMention.createMany.mockResolvedValue({ count: 1 });
-      prismaMock.$transaction.mockImplementation((cb: any) => cb(prismaMock));
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
 
       const dto = await service.update({
         contractId: "contract-1",
