@@ -219,6 +219,8 @@ describe("ContractsService", () => {
     expect(prismaMock.contract.findFirst).toHaveBeenCalledWith({
       where: { id: "missing", deletedAt: null },
       include: {
+        requester: { select: { name: true } },
+        owner: { select: { name: true } },
         counterparties: true,
         approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
         files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
@@ -238,7 +240,9 @@ describe("ContractsService", () => {
         party: "본사계약",
         categoryLabel: "개발/공급 > 용역",
         requesterId: "jhson1",
+        requester: { name: "손준호" },
         ownerId: null,
+        owner: null,
         dueDate: new Date("2026-07-01T00:00:00.000Z"),
         createdById: "user-uuid-1",
         updatedAt: new Date("2026-06-21T00:00:00.000Z"),
@@ -261,6 +265,9 @@ describe("ContractsService", () => {
     expect(res.items[0].dueDate).toBe("2026-07-01T00:00:00.000Z");
     // toSummary 가 categoryLabel(전체 경로)을 노출한다.
     expect(res.items[0].categoryLabel).toBe("개발/공급 > 용역");
+    // toSummary 가 requester/owner 관계의 실명을 노출한다(없으면 null).
+    expect(res.items[0].requesterName).toBe("손준호");
+    expect(res.items[0].ownerName).toBeNull();
   });
 
   it("list ?categoryId= 는 categoryId 정확 일치 where 조건을 적용한다", async () => {

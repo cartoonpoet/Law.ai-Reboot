@@ -225,7 +225,9 @@ export interface ContractResponse {
   categoryId: string | null;
   categoryLabel: string | null;
   requesterId: string | null;
+  requesterName: string | null;
   ownerId: string | null;
+  ownerName: string | null;
   createdById: string;
   periodStart: string | null;
   periodEnd: string | null;
@@ -253,7 +255,9 @@ export interface ContractSummary {
   categoryLabel: string | null;
   counterpartyName: string | null; // 첫 상대계약자 스냅샷 이름
   requesterId: string | null;
+  requesterName: string | null;
   ownerId: string | null;
+  ownerName: string | null;
   dueDate: string | null;
   createdById: string;
   updatedAt: string;

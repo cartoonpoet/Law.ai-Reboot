@@ -22,6 +22,8 @@ import type {
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
 const contractInclude = {
+  requester: { select: { name: true } },
+  owner: { select: { name: true } },
   counterparties: true,
   approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
   files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
@@ -316,7 +318,11 @@ export class ContractsService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.contract.findMany({
         where,
-        include: { counterparties: { take: 1, orderBy: { createdAt: "asc" } } },
+        include: {
+          requester: { select: { name: true } },
+          owner: { select: { name: true } },
+          counterparties: { take: 1, orderBy: { createdAt: "asc" } },
+        },
         orderBy: { updatedAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -339,7 +345,9 @@ export class ContractsService {
         categoryLabel: r.categoryLabel,
         counterpartyName: snapshot?.name ?? null,
         requesterId: r.requesterId,
+        requesterName: r.requester?.name ?? null,
         ownerId: r.ownerId,
+        ownerName: r.owner?.name ?? null,
         dueDate: r.dueDate?.toISOString() ?? null,
         createdById: r.createdById,
         updatedAt: r.updatedAt.toISOString(),
@@ -530,7 +538,9 @@ export class ContractsService {
       categoryId: row.categoryId,
       categoryLabel: row.categoryLabel,
       requesterId: row.requesterId,
+      requesterName: row.requester?.name ?? null,
       ownerId: row.ownerId,
+      ownerName: row.owner?.name ?? null,
       createdById: row.createdById,
       periodStart: row.periodStart?.toISOString() ?? null,
       periodEnd: row.periodEnd?.toISOString() ?? null,
