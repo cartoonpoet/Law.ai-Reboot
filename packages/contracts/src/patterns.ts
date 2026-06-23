@@ -4,6 +4,7 @@ export const AUTH_PATTERNS = {
   VALIDATE: "auth.validate",
   PASSWORD_RESET_REQUEST: "auth.password.resetRequest",
   PASSWORD_RESET_CONFIRM: "auth.password.resetConfirm",
+  REFRESH: "auth.refresh",
 } as const;
 
 export const USER_PATTERNS = {

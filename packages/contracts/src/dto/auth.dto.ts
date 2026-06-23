@@ -13,6 +13,10 @@ export interface ValidateTokenRequest {
   token: string;
 }
 
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
 export interface PasswordResetRequestRequest {
   email: string;
 }

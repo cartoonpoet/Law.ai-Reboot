@@ -2,6 +2,7 @@ import { useState, useActionState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, Button, Input, InputGroup, Checkbox } from "@lawkit/ui";
 import { login } from "../../api/auth";
+import { setTokens } from "../../api/tokens";
 import { T } from "../../design/tokens";
 
 export function EmailLoginForm() {
@@ -16,8 +17,7 @@ export function EmailLoginForm() {
     async (_prev: string | null, _formData: FormData) => {
       try {
         const data = await login({ email, password });
-        localStorage.setItem("accessToken", data.tokens.accessToken);
-        localStorage.setItem("refreshToken", data.tokens.refreshToken);
+        setTokens(data.tokens.accessToken, data.tokens.refreshToken);
         navigate("/");
         return null;
       } catch (e) {

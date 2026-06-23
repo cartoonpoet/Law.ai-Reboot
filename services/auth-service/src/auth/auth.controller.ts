@@ -5,6 +5,7 @@ import {
   type SignupRequest,
   type LoginRequest,
   type ValidateTokenRequest,
+  type RefreshRequest,
   type PasswordResetRequestRequest,
   type PasswordResetConfirmRequest,
 } from "@lawai/contracts";
@@ -27,6 +28,11 @@ export class AuthController {
   @MessagePattern(AUTH_PATTERNS.VALIDATE)
   validate(@Payload() req: ValidateTokenRequest) {
     return this.auth.validate(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.REFRESH)
+  refresh(@Payload() req: RefreshRequest) {
+    return this.auth.refresh(req);
   }
 
   @MessagePattern(AUTH_PATTERNS.PASSWORD_RESET_REQUEST)

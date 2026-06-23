@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Icon, Button, Input, InputGroup, Dropdown, Checkbox } from "@lawkit/ui";
 import { T } from "../../design/tokens";
 import { signup } from "../../api/auth";
+import { setTokens } from "../../api/tokens";
 import {
   signupSchema,
   signupDefaults,
@@ -44,8 +45,7 @@ export function SignupForm() {
         name: values.name,
         password: values.password,
       });
-      localStorage.setItem("accessToken", data.tokens.accessToken);
-      localStorage.setItem("refreshToken", data.tokens.refreshToken);
+      setTokens(data.tokens.accessToken, data.tokens.refreshToken);
       navigate("/");
     } catch (e) {
       setServerError(e instanceof Error ? e.message : "가입 신청에 실패했습니다");

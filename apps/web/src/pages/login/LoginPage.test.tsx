@@ -6,11 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LoginPage } from "./LoginPage";
 import * as authApi from "../../api/auth";
 
-function renderPage() {
+function renderPage(initialEntry = "/login") {
   const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <LoginPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -49,5 +49,19 @@ describe("LoginPage", () => {
       expect(localStorage.getItem("accessToken")).toBe("at");
       expect(localStorage.getItem("refreshToken")).toBe("rt");
     });
+  });
+
+  it("?expired=1 이면 세션 만료 안내 Alert 을 노출한다", () => {
+    renderPage("/login?expired=1");
+    expect(
+      screen.getByText("세션이 만료되었습니다. 다시 로그인해 주세요."),
+    ).toBeInTheDocument();
+  });
+
+  it("expired 파라미터가 없으면 안내 Alert 을 노출하지 않는다", () => {
+    renderPage("/login");
+    expect(
+      screen.queryByText("세션이 만료되었습니다. 다시 로그인해 주세요."),
+    ).not.toBeInTheDocument();
   });
 });

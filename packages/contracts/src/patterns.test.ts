@@ -6,6 +6,7 @@ describe("message patterns", () => {
     expect(AUTH_PATTERNS.SIGNUP).toBe("auth.signup");
     expect(AUTH_PATTERNS.LOGIN).toBe("auth.login");
     expect(AUTH_PATTERNS.VALIDATE).toBe("auth.validate");
+    expect(AUTH_PATTERNS.REFRESH).toBe("auth.refresh");
   });
 
   it("user 패턴은 'user.' 프리픽스를 가진다", () => {

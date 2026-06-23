@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Icon } from "@lawkit/ui";
 import type { IconName } from "@lawkit/ui";
 import { T } from "../../design/tokens";
+import { clearTokens } from "../../api/tokens";
 import { Logo } from "../ui/Logo";
 import * as css from "./sidebar.css";
 
@@ -126,7 +127,7 @@ export function Sidebar() {
         </div>
         <button
           onClick={() => {
-            localStorage.clear();
+            clearTokens();
             navigate("/login");
           }}
           style={{

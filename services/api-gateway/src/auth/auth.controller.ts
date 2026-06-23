@@ -7,6 +7,7 @@ import { rpcToHttp } from "../common/rpc-to-http";
 import {
   SignupDto,
   LoginDto,
+  RefreshDto,
   PasswordResetRequestDto,
   PasswordResetConfirmDto,
 } from "./dto";
@@ -31,6 +32,19 @@ export class AuthController {
   login(@Body() dto: LoginDto) {
     return firstValueFrom(
       this.authClient.send(AUTH_PATTERNS.LOGIN, dto).pipe(rpcToHttp()),
+    );
+  }
+
+  @Post("refresh")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "토큰 리프레시",
+    description:
+      "refresh token으로 새 access+refresh 토큰을 발급한다. access 만료 상태에서 호출되므로 가드 없이 공개한다.",
+  })
+  refresh(@Body() dto: RefreshDto) {
+    return firstValueFrom(
+      this.authClient.send(AUTH_PATTERNS.REFRESH, dto).pipe(rpcToHttp()),
     );
   }
 

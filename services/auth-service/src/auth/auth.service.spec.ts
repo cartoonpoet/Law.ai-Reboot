@@ -173,4 +173,40 @@ describe("AuthService", () => {
       service.confirmPasswordReset({ token: "bad", newPassword: "newpw1234!" }),
     ).rejects.toBeInstanceOf(RpcException);
   });
+
+  it("refresh는 유효한 refreshToken이면 새 access+refresh를 둘 다 발급한다", async () => {
+    jwt.verifyAsync.mockResolvedValue({ sub: "u1", email: "a@b.com" });
+    jwt.signAsync
+      .mockResolvedValueOnce("newAccess")
+      .mockResolvedValueOnce("newRefresh");
+
+    const tokens = await service.refresh({ refreshToken: "validRefresh" });
+
+    expect(jwt.verifyAsync).toHaveBeenCalledWith("validRefresh", {
+      secret: process.env.JWT_REFRESH_SECRET,
+    });
+    // 슬라이딩 회전: access·refresh 둘 다 재발급(payload {sub, email}).
+    expect(jwt.signAsync).toHaveBeenCalledTimes(2);
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      { sub: "u1", email: "a@b.com" },
+      expect.objectContaining({ secret: process.env.JWT_ACCESS_SECRET }),
+    );
+    expect(jwt.signAsync).toHaveBeenCalledWith(
+      { sub: "u1", email: "a@b.com" },
+      expect.objectContaining({ secret: process.env.JWT_REFRESH_SECRET }),
+    );
+    expect(tokens).toEqual({
+      accessToken: "newAccess",
+      refreshToken: "newRefresh",
+    });
+  });
+
+  it("refresh는 위조/만료 refreshToken이면 RpcException(401)", async () => {
+    jwt.verifyAsync.mockRejectedValue(new Error("invalid signature"));
+
+    await expect(
+      service.refresh({ refreshToken: "forged" }),
+    ).rejects.toBeInstanceOf(RpcException);
+    expect(jwt.signAsync).not.toHaveBeenCalled();
+  });
 });

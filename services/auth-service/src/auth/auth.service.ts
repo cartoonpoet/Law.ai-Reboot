@@ -8,6 +8,7 @@ import {
   type SignupRequest,
   type LoginRequest,
   type ValidateTokenRequest,
+  type RefreshRequest,
   type PublicUser,
   type AuthTokens,
   type UserWithHash,
@@ -134,8 +135,20 @@ export class AuthService {
     }
   }
 
-  private async buildResult(user: UserWithHash): Promise<AuthResult> {
-    const payload: JwtPayload = { sub: user.id, email: user.email };
+  // 슬라이딩 회전: refresh token을 검증하고 새 access+refresh를 둘 다 재발급한다.
+  async refresh(req: RefreshRequest): Promise<AuthTokens> {
+    let payload: JwtPayload;
+    try {
+      payload = await this.jwt.verifyAsync<JwtPayload>(req.refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+    } catch {
+      throw new RpcException({ status: 401, message: "세션이 만료되었습니다" });
+    }
+    return this.signTokens({ sub: payload.sub, email: payload.email });
+  }
+
+  private async signTokens(payload: JwtPayload): Promise<AuthTokens> {
     const accessOptions: JwtSignOptions = {
       secret: process.env.JWT_ACCESS_SECRET,
       expiresIn: (process.env.JWT_ACCESS_TTL ??
@@ -150,6 +163,12 @@ export class AuthService {
       this.jwt.signAsync(payload, accessOptions),
       this.jwt.signAsync(payload, refreshOptions),
     ]);
+    return { accessToken, refreshToken };
+  }
+
+  private async buildResult(user: UserWithHash): Promise<AuthResult> {
+    const payload: JwtPayload = { sub: user.id, email: user.email };
+    const tokens = await this.signTokens(payload);
     const publicUser: PublicUser = {
       id: user.id,
       email: user.email,
@@ -159,6 +178,6 @@ export class AuthService {
       departmentName: user.departmentName,
       createdAt: user.createdAt,
     };
-    return { user: publicUser, tokens: { accessToken, refreshToken } };
+    return { user: publicUser, tokens };
   }
 }
