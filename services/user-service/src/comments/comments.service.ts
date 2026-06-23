@@ -42,9 +42,16 @@ const extractCcUserIds = (
 // 알림 detail.preview 최대 길이(코멘트 본문 미리보기). 개행은 공백으로 정규화 후 slice.
 const PREVIEW_LEN = 80;
 
-// 코멘트 본문 → 알림 미리보기 텍스트(개행 정규화 + 길이 제한).
+// `@[표시이름](userId)` 마크업을 `@표시이름`으로 치환한다(preview/요약용).
+// 프론트 apps/web/src/pages/contract/utils/mentionMarkup.ts stripMentionMarkup와
+// 1:1 동일 — 패턴을 바꾸면 양쪽을 함께 수정해야 한다(드리프트 시 미리보기 깨짐).
+const stripMentionMarkup = (body: string): string =>
+  body.replace(/@\[([^\]]+)\]\(([^)]+)\)/g, "@$1");
+
+// 코멘트 본문 → 알림 미리보기 텍스트(멘션 마크업 strip + 개행 정규화 + 길이 제한).
 const buildPreview = (body: string): string => {
-  const normalized = body.replace(/\s+/g, " ").trim();
+  const stripped = stripMentionMarkup(body);
+  const normalized = stripped.replace(/\s+/g, " ").trim();
   return normalized.slice(0, PREVIEW_LEN);
 };
 

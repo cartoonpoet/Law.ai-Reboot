@@ -55,10 +55,8 @@ export function CommentPanel({ contractId }: CommentPanelProps) {
               isLegal={LEGAL_ROLES.has(c.role)}
               roleLabel={getRoleLabel(c.role)}
               formattedTime={formatTime(c.createdAt)}
-              // 멘션은 서버가 전체 교체이므로 기존 멘션 userId 를 그대로 보내 보존한다.
-              onEdit={(commentId, body) =>
-                editComment(commentId, body, c.mentions.map((m) => m.userId))
-              }
+              // 멘션은 에디터에서 산출한 userId[]로 전체 교체한다(인라인 멘션 마크업 기준).
+              onEdit={editComment}
               onDelete={deleteComment}
             />
           ))}

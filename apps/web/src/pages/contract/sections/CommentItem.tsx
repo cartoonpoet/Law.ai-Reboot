@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Avatar, Button, Icon } from "@lawkit/ui";
 import type { CommentDto } from "@lawai/contracts";
 import { Tag } from "../../../components/ui/Tag";
+import { MentionEditor } from "../../../components/ui/MentionEditor";
+import { useMentionSuggestion } from "../hooks/useMentionSuggestion";
+import {
+  extractMentionUserIds,
+  parseMentionMarkup,
+  stripMentionMarkup,
+} from "../utils/mentionMarkup";
 import * as panelCss from "./commentPanel.css";
 import * as css from "./commentItem.css";
 
@@ -10,8 +17,9 @@ interface CommentItemProps {
   isLegal: boolean;
   roleLabel: string;
   formattedTime: string;
-  // 본문 수정 — body 만 받는다. 멘션 보존(전체 교체)은 CommentPanel 이 처리한다.
-  onEdit: (commentId: string, body: string) => Promise<unknown>;
+  // 본문(@[이름](userId) 마크업) + 멘션 userId 배열을 받아 코멘트를 수정한다.
+  // 멘션은 에디터에서 산출한 userId[]로 전체 교체한다.
+  onEdit: (commentId: string, body: string, mentions: string[]) => Promise<unknown>;
   onDelete: (commentId: string) => Promise<unknown>;
 }
 
@@ -22,7 +30,8 @@ const checkEdited = (comment: CommentDto): boolean =>
 /**
  * 코멘트 한 행 렌더 (SRP — CommentPanel 목록에서 분리).
  * 본인(isAuthor)·미삭제일 때만 수정/삭제 버튼, 삭제분은 placeholder,
- * updatedAt>createdAt 이면 "(수정됨)", 멘션은 칩으로 표시. 인라인 편집은 로컬 state 토글.
+ * updatedAt>createdAt 이면 "(수정됨)". 본문은 마크업을 인라인 하이라이트로 렌더하고,
+ * 수정 진입 시 MentionEditor로 마크업을 노드 복원한다. 인라인 편집은 로컬 state 토글.
  */
 export function CommentItem({
   comment,
@@ -32,6 +41,7 @@ export function CommentItem({
   onEdit,
   onDelete,
 }: CommentItemProps) {
+  const suggestion = useMentionSuggestion();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(comment.body);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -39,6 +49,8 @@ export function CommentItem({
 
   const isEdited = checkEdited(comment);
   const canModify = comment.isAuthor && !comment.isDeleted;
+  // 본문 마크업을 세그먼트로 쪼개 인라인 렌더(text는 그대로, mention은 강조 span).
+  const segments = parseMentionMarkup(comment.body);
 
   const handleStartEdit = () => {
     setDraft(comment.body);
@@ -52,14 +64,13 @@ export function CommentItem({
   };
 
   const handleSave = async () => {
-    const body = draft.trim();
-    if (!body) {
+    if (stripMentionMarkup(draft).trim().length === 0) {
       setErrorText("코멘트 내용을 입력하세요.");
       return;
     }
     setIsSaving(true);
     try {
-      await onEdit(comment.id, body);
+      await onEdit(comment.id, draft, extractMentionUserIds(draft));
       setIsEditing(false);
       setErrorText(null);
     } catch (err) {
@@ -71,7 +82,12 @@ export function CommentItem({
 
   const handleDelete = async () => {
     if (!window.confirm("이 코멘트를 삭제할까요?")) return;
-    await onDelete(comment.id);
+    try {
+      await onDelete(comment.id);
+    } catch (err) {
+      // 읽기 모드에는 errorText 표시 슬롯이 없어, confirm과 동일한 명령형 경계로 실패를 알린다.
+      window.alert(err instanceof Error ? err.message : "코멘트 삭제에 실패했습니다.");
+    }
   };
 
   return (
@@ -111,11 +127,12 @@ export function CommentItem({
           <div className={css.deletedBubble}>삭제된 코멘트입니다.</div>
         ) : isEditing ? (
           <div className={css.editForm}>
-            <textarea
-              className={css.editTextarea}
+            <MentionEditor
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="검토 의견을 남겨주세요."
+              onChange={setDraft}
+              suggestion={suggestion}
+              ariaLabel="코멘트 수정"
+              placeholder="검토 의견을 남겨주세요. @로 멘션을 추가할 수 있어요."
             />
             {errorText && <span className={css.editError}>{errorText}</span>}
             <div className={css.editActions}>
@@ -135,19 +152,17 @@ export function CommentItem({
             </div>
           </div>
         ) : (
-          <>
-            <div className={panelCss.bubble}>{comment.body}</div>
-            {comment.mentions.length > 0 && (
-              <div className={css.mentionRow}>
-                {comment.mentions.map((m) => (
-                  <span key={m.userId} className={css.mentionChip}>
-                    <Icon name="atSign" size="sm" />
-                    {m.name}
-                  </span>
-                ))}
-              </div>
+          <div className={panelCss.bubble}>
+            {segments.map((segment, index) =>
+              segment.type === "mention" ? (
+                <span key={`${segment.userId}-${index}`} className={css.mentionInline}>
+                  @{segment.name}
+                </span>
+              ) : (
+                <Fragment key={`text-${index}`}>{segment.value}</Fragment>
+              ),
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

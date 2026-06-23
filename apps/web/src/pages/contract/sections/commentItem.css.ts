@@ -61,25 +61,13 @@ export const deletedBubble = style({
   padding: "10px 13px",
 });
 
-/* 멘션 칩 목록 */
-export const mentionRow = style({
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 5,
-  marginTop: 6,
-});
-
-export const mentionChip = style({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 3,
-  padding: "2px 8px",
-  borderRadius: 999,
-  fontSize: 11.5,
+/* 본문 인라인 멘션 하이라이트(읽기 전용) — @이름 강조 */
+export const mentionInline = style({
   fontWeight: 600,
   color: accent,
   background: `color-mix(in srgb, ${accent} 12%, ${surface})`,
-  border: `1px solid color-mix(in srgb, ${accent} 28%, transparent)`,
+  borderRadius: 4,
+  padding: "0 3px",
 });
 
 /* 인라인 편집 폼 */
@@ -87,28 +75,6 @@ export const editForm = style({
   display: "flex",
   flexDirection: "column",
   gap: 8,
-});
-
-export const editTextarea = style({
-  width: "100%",
-  minHeight: 64,
-  resize: "vertical",
-  padding: "10px 12px",
-  fontSize: 13,
-  lineHeight: 1.6,
-  fontFamily: "Pretendard",
-  color: themeVars.color.textHeading,
-  background: surface,
-  border: `1px solid ${border}`,
-  borderRadius: 8,
-  outline: "none",
-  selectors: {
-    "&:focus": {
-      borderColor: accent,
-      boxShadow: `0 0 0 3px color-mix(in srgb, ${accent} 14%, transparent)`,
-    },
-    "&::placeholder": { color: themeVars.color.textMuted },
-  },
 });
 
 export const editActions = style({

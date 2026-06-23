@@ -1,142 +1,70 @@
-import { useActionState, useState } from "react";
-import { useFormStatus } from "react-dom";
-import { Button, Icon, Input } from "@lawkit/ui";
-import type { DirectoryEntry } from "../../../api/directory";
-import { useCommentMention } from "../hooks/useCommentMention";
+import { useState } from "react";
+import { Button, Icon } from "@lawkit/ui";
+import { MentionEditor } from "../../../components/ui/MentionEditor";
+import { useMentionSuggestion } from "../hooks/useMentionSuggestion";
+import { extractMentionUserIds, stripMentionMarkup } from "../utils/mentionMarkup";
 import * as css from "./commentForm.css";
 
 interface CommentFormProps {
-  // 본문 + 멘션 userId 배열을 받아 코멘트를 생성한다(useComments.addComment).
-  // 성공 시 입력·멘션을 비운다.
+  // 본문(@[이름](userId) 마크업) + 멘션 userId 배열을 받아 코멘트를 생성한다(useComments.addComment).
+  // 성공 시 에디터를 비운다.
   onSubmit: (body: string, mentions: string[]) => Promise<unknown>;
 }
 
-interface ActionState {
-  error: string | null;
-}
-
-const INITIAL: ActionState = { error: null };
-
 /**
- * 코멘트 작성 폼 — React 19 폼 액션(useActionState) + useFormStatus 로 pending.
- * 본문(body) + 멘션 입력(useCommentMention 으로 선택 상태 분리). 제출 시 body+mentions 전송.
+ * 코멘트 작성 폼 — 인라인 @멘션 에디터(MentionEditor) 단일 입력.
+ * 에디터 상태(body 마크업)를 로컬 state로 보유하고, 제출은 폼 액션이 아니라
+ * 핸들러에서 직접 처리한다(tiptap 콘텐츠는 FormData에 안 실리므로). 제출 시
+ * extractMentionUserIds(body)로 userId[]를 산출해 onSubmit(body, mentions)을 호출한다.
  */
 export function CommentForm({ onSubmit }: CommentFormProps) {
-  // 제출 성공 시 form 을 선언적으로 재마운트(key 교체)해 입력을 비운다 — DOM 직접 reset 회피.
-  const [formKey, setFormKey] = useState(0);
-  const [query, setQuery] = useState("");
-  const { mentions, mentionIds, candidates, search, addMention, removeMention, reset } =
-    useCommentMention();
+  const suggestion = useMentionSuggestion();
+  const [body, setBody] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 검색어가 있을 때만 후보 드롭다운 노출(렌더 중 파생).
-  const isSearching = query.trim().length > 0;
+  // 마크업을 표시이름으로 치환·trim 한 뒤 비었으면 제출을 막는다(렌더/제출 시 파생).
+  const isEmpty = stripMentionMarkup(body).trim().length === 0;
 
-  const handleSearchChange = (text: string) => {
-    setQuery(text);
-    search(text);
-  };
-
-  const handlePick = (entry: DirectoryEntry) => {
-    addMention(entry);
-    setQuery("");
-    search("");
-  };
-
-  const submitComment = async (
-    _prev: ActionState,
-    formData: FormData,
-  ): Promise<ActionState> => {
-    const body = String(formData.get("body") ?? "").trim();
-    if (!body) return { error: "코멘트 내용을 입력하세요." };
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isEmpty) {
+      setError("코멘트 내용을 입력하세요.");
+      return;
+    }
+    setIsSubmitting(true);
     try {
-      await onSubmit(body, mentionIds);
-      setFormKey((k) => k + 1);
-      reset();
-      setQuery("");
-      return INITIAL;
+      await onSubmit(body, extractMentionUserIds(body));
+      setBody("");
+      setError(null);
     } catch (err) {
-      return {
-        error: err instanceof Error ? err.message : "코멘트 등록에 실패했습니다.",
-      };
+      setError(err instanceof Error ? err.message : "코멘트 등록에 실패했습니다.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const [state, formAction] = useActionState(submitComment, INITIAL);
-
   return (
-    <form key={formKey} action={formAction} className={css.form}>
-      <textarea
-        name="body"
-        className={css.textarea}
-        placeholder="검토 의견을 남겨주세요."
+    <form onSubmit={handleSubmit} className={css.form}>
+      <MentionEditor
+        value={body}
+        onChange={setBody}
+        suggestion={suggestion}
+        ariaLabel="코멘트 입력"
+        placeholder="검토 의견을 남겨주세요. @로 멘션을 추가할 수 있어요."
       />
 
-      <div className={css.mentionWrap}>
-        <div className={css.mentionSearchRow}>
-          <Input
-            value={query}
-            placeholder="멘션 추가 — 이름·부서로 검색"
-            rightIcon={<Icon name="atSign" size="sm" />}
-            onChange={(e) => handleSearchChange(e.target.value)}
-          />
-          {isSearching && (
-            <div className={css.mentionDropdown}>
-              {candidates.length === 0 ? (
-                <div className={css.mentionEmpty}>검색 결과가 없습니다.</div>
-              ) : (
-                candidates.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    className={css.mentionOption}
-                    onClick={() => handlePick(u)}
-                  >
-                    <Icon name="atSign" size="sm" />
-                    {u.name}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {mentions.length > 0 && (
-          <div className={css.chipRow}>
-            {mentions.map((m) => (
-              <span key={m.userId} className={css.chip}>
-                {m.name}
-                <button
-                  type="button"
-                  className={css.chipRemove}
-                  aria-label={`${m.name} 멘션 제거`}
-                  onClick={() => removeMention(m.userId)}
-                >
-                  <Icon name="x" size="sm" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
       <div className={css.footRow}>
-        {state.error ? <span className={css.error}>{state.error}</span> : <span />}
-        <SubmitButton />
+        {error ? <span className={css.error}>{error}</span> : <span />}
+        <Button
+          type="submit"
+          size="medium"
+          disabled={isSubmitting}
+          iconLeft={<Icon name="messageSquare" size="sm" />}
+        >
+          {isSubmitting ? "등록 중…" : "코멘트 등록"}
+        </Button>
       </div>
     </form>
-  );
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button
-      type="submit"
-      size="medium"
-      disabled={pending}
-      iconLeft={<Icon name="messageSquare" size="sm" />}
-    >
-      {pending ? "등록 중…" : "코멘트 등록"}
-    </Button>
   );
 }

@@ -8,6 +8,33 @@ import * as commentsApi from "../../../api/comments";
 
 vi.mock("../../../api/comments");
 
+// CommentForm/CommentItem이 쓰는 tiptap MentionEditor를 textarea 스텁으로 대체
+// (jsdom contenteditable 한계). value/onChange만 위임해 마크업 in/out·제출 흐름을 검증.
+vi.mock("../../../components/ui/MentionEditor", () => ({
+  MentionEditor: ({
+    value,
+    onChange,
+    ariaLabel,
+    placeholder,
+  }: {
+    value: string;
+    onChange: (body: string) => void;
+    ariaLabel: string;
+    placeholder?: string;
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
+vi.mock("../hooks/useMentionSuggestion", () => ({
+  useMentionSuggestion: () => ({ char: "@", items: () => [], render: () => ({}) }),
+}));
+
 const COMMENTS: CommentDto[] = [
   {
     id: "c1",
@@ -74,15 +101,15 @@ describe("CommentPanel", () => {
     const user = userEvent.setup();
     renderPanel();
     await screen.findByText("손해배상 한도 확인 필요");
-    const textarea = screen.getByPlaceholderText("검토 의견을 남겨주세요.");
-    await user.type(textarea, "추가 검토 의견");
+    const editor = screen.getByLabelText("코멘트 입력");
+    await user.type(editor, "추가 검토 의견");
     await user.click(screen.getByRole("button", { name: /코멘트 등록/ }));
     await waitFor(() =>
       expect(commentsApi.createComment).toHaveBeenCalledWith("k1", "추가 검토 의견", []),
     );
   });
 
-  it("본인(isAuthor) 코멘트에는 수정/삭제 버튼, 멘션 칩, (수정됨)을 렌더한다", async () => {
+  it("본인(isAuthor) 코멘트에는 수정/삭제 버튼, 멘션 인라인 하이라이트, (수정됨)을 렌더한다", async () => {
     vi.mocked(commentsApi.listComments).mockResolvedValue([
       {
         id: "c9",
@@ -90,7 +117,7 @@ describe("CommentPanel", () => {
         authorId: "me",
         authorName: "나작성",
         role: "inHouseCounsel",
-        body: "내가 쓴 의견",
+        body: "@[오너](owner-1) 확인 부탁",
         createdAt: "2026-06-22T01:00:00.000Z",
         updatedAt: "2026-06-22T05:00:00.000Z",
         isDeleted: false,
@@ -99,10 +126,11 @@ describe("CommentPanel", () => {
       },
     ]);
     renderPanel();
-    await screen.findByText("내가 쓴 의견");
+    await screen.findByText(/확인 부탁/);
     expect(screen.getByRole("button", { name: /수정/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /삭제/ })).toBeInTheDocument();
-    expect(screen.getByText("오너")).toBeInTheDocument();
+    // 멘션은 본문 인라인 하이라이트(@이름)로 렌더(별도 칩 row 없음).
+    expect(screen.getByText("@오너")).toBeInTheDocument();
     expect(screen.getByText("(수정됨)")).toBeInTheDocument();
   });
 
@@ -131,8 +159,8 @@ describe("CommentPanel", () => {
     const user = userEvent.setup();
     renderPanel();
     await screen.findByText("손해배상 한도 확인 필요");
-    const textarea = screen.getByPlaceholderText("검토 의견을 남겨주세요.");
-    await user.type(textarea, "   ");
+    const editor = screen.getByLabelText("코멘트 입력");
+    await user.type(editor, "   ");
     await user.click(screen.getByRole("button", { name: /코멘트 등록/ }));
     expect(
       await screen.findByText("코멘트 내용을 입력하세요."),

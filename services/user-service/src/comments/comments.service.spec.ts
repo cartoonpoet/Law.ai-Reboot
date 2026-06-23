@@ -317,6 +317,48 @@ describe("CommentsService", () => {
       });
     });
 
+    it("알림 preview는 본문의 @[이름](userId) 마크업을 @이름으로 strip해 노출한다", async () => {
+      // 본문에 멘션 마크업이 섞여 있어도 preview엔 raw 마크업이 아니라 @표시이름이 들어간다.
+      // 프론트 mentionMarkup.stripMentionMarkup과 1:1 동일 규칙(정규식 복제).
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("counsel-1", "inHouseCounsel"),
+      );
+      const createdRow = {
+        id: "comment-1",
+        contractId: "contract-1",
+        authorId: "counsel-1",
+        role: "inHouseCounsel",
+        body: "@[오너](owner-1) 확인 부탁드립니다",
+        createdAt: new Date("2026-06-22T01:00:00.000Z"),
+        updatedAt: new Date("2026-06-22T01:00:00.000Z"),
+        deletedAt: null,
+        author: { name: "이법무" },
+        mentions: [{ userId: "owner-1", user: { id: "owner-1", name: "오너" } }],
+      };
+      prismaMock.comment.create.mockResolvedValue(createdRow);
+      prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdRow);
+      prismaMock.commentMention.createMany.mockResolvedValue({ count: 1 });
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
+
+      await service.create({
+        contractId: "contract-1",
+        body: "@[오너](owner-1) 확인 부탁드립니다",
+        viewerId: "counsel-1",
+        mentions: ["owner-1"],
+      });
+
+      const items = notificationMock.createMany.mock.calls[0][0] as Array<{
+        detail: { preview: string };
+      }>;
+      // raw 마크업 미노출 → @오너 로 치환.
+      expect(items[0].detail.preview).toBe("@오너 확인 부탁드립니다");
+    });
+
     it("비관련자 멘션이 섞이면 400, comment 생성·멘션 저장 없음", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
       prismaMock.user.findUnique.mockResolvedValue(
