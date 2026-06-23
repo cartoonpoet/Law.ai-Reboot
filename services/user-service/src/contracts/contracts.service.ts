@@ -26,8 +26,6 @@ const contractInclude = {
   approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
   files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
   references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
-  requester: { select: { name: true, department: { select: { name: true } } } },
-  owner: { select: { name: true, department: { select: { name: true } } } },
 } satisfies Prisma.ContractInclude;
 
 type ContractWithRelations = Prisma.ContractGetPayload<{
@@ -318,11 +316,7 @@ export class ContractsService {
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.contract.findMany({
         where,
-        include: {
-          counterparties: { take: 1, orderBy: { createdAt: "asc" } },
-          requester: { select: { name: true } },
-          owner: { select: { name: true } },
-        },
+        include: { counterparties: { take: 1, orderBy: { createdAt: "asc" } } },
         orderBy: { updatedAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -346,8 +340,6 @@ export class ContractsService {
         counterpartyName: snapshot?.name ?? null,
         requesterId: r.requesterId,
         ownerId: r.ownerId,
-        requesterName: r.requester?.name ?? null,
-        ownerName: r.owner?.name ?? null,
         dueDate: r.dueDate?.toISOString() ?? null,
         createdById: r.createdById,
         updatedAt: r.updatedAt.toISOString(),
@@ -539,9 +531,6 @@ export class ContractsService {
       categoryLabel: row.categoryLabel,
       requesterId: row.requesterId,
       ownerId: row.ownerId,
-      requesterName: row.requester?.name ?? null,
-      ownerName: row.owner?.name ?? null,
-      ownerDept: row.owner?.department?.name ?? null,
       createdById: row.createdById,
       periodStart: row.periodStart?.toISOString() ?? null,
       periodEnd: row.periodEnd?.toISOString() ?? null,

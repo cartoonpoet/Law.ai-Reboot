@@ -26,8 +26,6 @@ const summary: ContractSummary = {
   counterpartyName: "AAA",
   requesterId: "jhson1",
   ownerId: null,
-  requesterName: null,
-  ownerName: null,
   dueDate: "2026-06-11T00:00:00.000Z",
   createdById: "u1",
   updatedAt: "2026-06-09T00:00:00.000Z",

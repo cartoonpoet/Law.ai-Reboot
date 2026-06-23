@@ -223,8 +223,6 @@ describe("ContractsService", () => {
         approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
         files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
         references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
-        requester: { select: { name: true, department: { select: { name: true } } } },
-        owner: { select: { name: true, department: { select: { name: true } } } },
       },
     });
   });
@@ -239,15 +237,12 @@ describe("ContractsService", () => {
         securityLevel: "secure",
         party: "본사계약",
         categoryLabel: "개발/공급 > 용역",
-        requesterId: "req-uuid",
-        ownerId: "own-uuid",
+        requesterId: "jhson1",
+        ownerId: null,
         dueDate: new Date("2026-07-01T00:00:00.000Z"),
         createdById: "user-uuid-1",
         updatedAt: new Date("2026-06-21T00:00:00.000Z"),
         counterparties: [{ snapshot: companySnapshot }],
-        // 디렉터리 관계: toSummary 가 실명을 매핑할 소스.
-        requester: { name: "이희규" },
-        owner: { name: "이법무" },
       },
     ]);
     prismaMock.contract.count.mockResolvedValue(1);
@@ -266,38 +261,6 @@ describe("ContractsService", () => {
     expect(res.items[0].dueDate).toBe("2026-07-01T00:00:00.000Z");
     // toSummary 가 categoryLabel(전체 경로)을 노출한다.
     expect(res.items[0].categoryLabel).toBe("개발/공급 > 용역");
-    // toSummary 가 requester/owner 관계에서 실명을 매핑한다(uuid 아님).
-    expect(res.items[0].requesterName).toBe("이희규");
-    expect(res.items[0].ownerName).toBe("이법무");
-    // list include 에 requester/owner select 가 포함된다.
-    expect(findArg.include.requester).toEqual({ select: { name: true } });
-    expect(findArg.include.owner).toEqual({ select: { name: true } });
-  });
-
-  it("list/toSummary: requester/owner 관계 부재 시 requesterName/ownerName 은 null", async () => {
-    prismaMock.contract.findMany.mockResolvedValue([
-      {
-        id: "ct-2",
-        code: "C20260621-0002",
-        title: "계약 B",
-        status: "unassigned",
-        securityLevel: "normal",
-        party: "본사계약",
-        categoryLabel: null,
-        requesterId: "req-uuid",
-        ownerId: null,
-        dueDate: null,
-        createdById: "user-uuid-1",
-        updatedAt: new Date("2026-06-21T00:00:00.000Z"),
-        counterparties: [],
-        // requester/owner 미포함(관계 null) → 매핑 결과 null.
-      },
-    ]);
-    prismaMock.contract.count.mockResolvedValue(1);
-
-    const res = await service.list({ page: 1, pageSize: 20 });
-    expect(res.items[0].requesterName).toBeNull();
-    expect(res.items[0].ownerName).toBeNull();
   });
 
   it("list ?categoryId= 는 categoryId 정확 일치 where 조건을 적용한다", async () => {
@@ -700,43 +663,6 @@ describe("ContractsService", () => {
       const res = await service.get({ id: "ct-1", viewerId: "admin-1" });
       expect(res.categoryId).toBe("cat-saas");
       expect(res.categoryLabel).toBe("개발/공급 > 소프트웨어 > SaaS 이용");
-    });
-  });
-
-  // --- Gen-Phase 5: toResponse 실명(requesterName/ownerName/ownerDept) 매핑 ---
-
-  describe("toResponse 실명(requester/owner/dept)", () => {
-    it("get/toResponse: requester/owner 관계에서 실명·부서를 매핑한다(uuid 아님)", async () => {
-      prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
-      prismaMock.contract.findFirst.mockResolvedValue({
-        ...fullRow("legalReview"),
-        requesterId: "req-uuid",
-        ownerId: "own-uuid",
-        // contractInclude.requester/owner select 결과 형태.
-        requester: { name: "이희규", department: { name: "사업팀" } },
-        owner: { name: "이법무", department: { name: "법무팀" } },
-      });
-      const res = await service.get({ id: "ct-1", viewerId: "admin-1" });
-      // 실명 우선 매핑(uuid 가 아니라 디렉터리 name).
-      expect(res.requesterName).toBe("이희규");
-      expect(res.ownerName).toBe("이법무");
-      expect(res.ownerDept).toBe("법무팀");
-      // 원본 id 는 그대로 노출(프론트 fallback 용).
-      expect(res.requesterId).toBe("req-uuid");
-      expect(res.ownerId).toBe("own-uuid");
-    });
-
-    it("get/toResponse: 관계/부서 부재 시 requesterName/ownerName/ownerDept 는 null", async () => {
-      prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
-      prismaMock.contract.findFirst.mockResolvedValue({
-        ...fullRow("legalReview"),
-        // owner 는 있으나 부서 없음, requester 는 관계 자체 없음.
-        owner: { name: "이법무", department: null },
-      });
-      const res = await service.get({ id: "ct-1", viewerId: "admin-1" });
-      expect(res.requesterName).toBeNull();
-      expect(res.ownerName).toBe("이법무");
-      expect(res.ownerDept).toBeNull();
     });
   });
 });

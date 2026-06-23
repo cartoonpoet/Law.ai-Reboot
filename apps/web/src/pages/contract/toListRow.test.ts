@@ -13,8 +13,6 @@ const base: ContractSummary = {
   counterpartyName: "AAA",
   requesterId: "jhson1",
   ownerId: null,
-  requesterName: null,
-  ownerName: null,
   dueDate: "2026-07-01T00:00:00.000Z",
   createdById: "u1",
   updatedAt: "2026-06-21T00:00:00.000Z",
@@ -36,15 +34,6 @@ describe("toListRow", () => {
     expect(row.owner).toBe("미배정");
     expect(row.due).toBe("-");
     expect(row.dleft).toBe(0);
-  });
-
-  it("실명(requesterName/ownerName) 우선, 없으면 id fallback", () => {
-    const named = toListRow({ ...base, requesterName: "박현경", ownerName: "이법무" });
-    expect(named.requester).toBe("박현경");
-    expect(named.owner).toBe("이법무");
-    // 실명 없으면 requesterId fallback, owner 는 '미배정'
-    expect(toListRow({ ...base, requesterName: null, ownerName: null }).requester).toBe("jhson1");
-    expect(toListRow({ ...base, ownerName: null }).owner).toBe("미배정");
   });
 
   it("normal 보안등급은 secure=false", () => {
