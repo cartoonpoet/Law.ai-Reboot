@@ -1,9 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../contracts/contracts.audit";
 import { NotificationService } from "../notifications/notifications.service";
+import { MailService } from "../mail/mail.service";
 import { evaluate, listRelatedUserIds } from "../contracts/contracts.authz";
 import type { AuthzViewer, AuthzContract } from "../contracts/contracts.authz";
 import type {
@@ -67,10 +68,13 @@ const buildPreview = (body: string): string => {
  */
 @Injectable()
 export class CommentsService {
+  private readonly logger = new Logger(CommentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
+    private readonly mail: MailService,
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 미존재면 null(evaluate 안전 기본).
@@ -81,6 +85,64 @@ export class CommentsService {
     });
     if (!user) return null;
     return { id: user.id, role: user.role, departmentId: user.departmentId };
+  }
+
+  // 멘션 수신자 email/name/emailNotify 일괄 조회(N+1 회피, notifications.loadActorNames 패턴).
+  // userIds 비면 [] 반환(쿼리 skip).
+  private async loadEmailRecipients(
+    userIds: string[],
+  ): Promise<
+    { id: string; email: string; name: string; emailNotify: boolean }[]
+  > {
+    if (userIds.length === 0) return [];
+    return this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, email: true, name: true, emailNotify: true },
+    });
+  }
+
+  // 멘션 이메일 발송(best-effort). 인앱 알림 직후 호출 — 코멘트 응답/인앱 흐름을 막지 않는다.
+  // - 발송 대상은 emailNotify === true 인 수신자만(수신 거부 스킵).
+  // - actorName 은 actor(viewer 본인) 이름 1건 조회로 확보(AuthzViewer 에 name 없음).
+  // - Promise.allSettled 로 병렬 + 개별 실패 격리. 발송 자체가 throw 해도 swallow.
+  private async sendMentionEmails(args: {
+    recipientUserIds: string[];
+    actorId: string;
+    contractTitle: string;
+    contractId: string;
+    preview: string;
+  }): Promise<void> {
+    const { recipientUserIds, actorId, contractTitle, contractId, preview } =
+      args;
+    if (recipientUserIds.length === 0) return;
+
+    try {
+      const [recipients, actor] = await Promise.all([
+        this.loadEmailRecipients(recipientUserIds),
+        this.prisma.user.findUnique({
+          where: { id: actorId },
+          select: { name: true },
+        }),
+      ]);
+      const actorName = actor?.name ?? "알 수 없는 사용자";
+      const targets = recipients.filter((r) => r.emailNotify && r.email);
+
+      await Promise.allSettled(
+        targets.map((r) =>
+          this.mail.sendMentionEmail({
+            to: r.email,
+            recipientName: r.name,
+            actorName,
+            contractTitle,
+            contractId,
+            preview,
+          }),
+        ),
+      );
+    } catch (error) {
+      // best-effort: 수신자/actor 조회 실패 등도 코멘트 흐름을 깨지 않게 swallow.
+      this.logger.error("멘션 이메일 발송 단계 실패(무시)", error as Error);
+    }
   }
 
   // 계약 행 → 권한 평가용 AuthzContract.
@@ -230,6 +292,18 @@ export class CommentsService {
         })),
     );
 
+    // 멘션 이메일(best-effort, 인앱 알림과 독립). emailNotify=true 수신자만, 자기멘션 제외.
+    // contract.title 은 loadContract row 에 스칼라로 이미 포함(추가 쿼리 X).
+    await this.sendMentionEmails({
+      recipientUserIds: mentionUserIds.filter(
+        (userId) => userId !== viewer.id,
+      ),
+      actorId: viewer.id,
+      contractTitle: contract.title,
+      contractId: req.contractId,
+      preview,
+    });
+
     return { comment: this.toDto(comment, viewer.id), notifications };
   }
 
@@ -331,6 +405,15 @@ export class CommentsService {
         detail: { contractId: req.contractId, preview },
       })),
     );
+
+    // 멘션 이메일(best-effort): 신규 추가된 멘션(addedUserIds)만, emailNotify=true 수신자.
+    await this.sendMentionEmails({
+      recipientUserIds: addedUserIds,
+      actorId: viewer.id,
+      contractTitle: contract.title,
+      contractId: req.contractId,
+      preview,
+    });
 
     return { comment: this.toDto(comment, viewer.id), notifications };
   }

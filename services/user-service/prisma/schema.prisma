@@ -37,6 +37,7 @@ model User {
   passwordHash String
   role         Role     @default(general)
   departmentId String?
+  emailNotify  Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   department          Department?          @relation(fields: [departmentId], references: [id])

@@ -1,9 +1,11 @@
 import { Test } from "@nestjs/testing";
+import { Logger } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
 import { CommentsService } from "./comments.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../contracts/contracts.audit";
 import { NotificationService } from "../notifications/notifications.service";
+import { MailService } from "../mail/mail.service";
 
 /**
  * CommentsService 단위 테스트.
@@ -18,7 +20,7 @@ describe("CommentsService", () => {
 
   const prismaMock = {
     contract: { findFirst: jest.fn() },
-    user: { findUnique: jest.fn() },
+    user: { findUnique: jest.fn(), findMany: jest.fn() },
     comment: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -37,10 +39,13 @@ describe("CommentsService", () => {
   const auditMock = { record: jest.fn() };
   // 멘션→알림 트리거(best-effort). createMany 는 PushNotification[] 를 반환(없으면 []).
   const notificationMock = { createMany: jest.fn() };
+  // 멘션→이메일 트리거(best-effort). 발송 자체는 MailService 가 책임 — 여기선 호출만 검증.
+  const mailMock = { sendMentionEmail: jest.fn() };
 
   // 권한 평가용 계약 행(references 포함). 케이스별 owner/creator 등 덮어쓰기.
   const makeContractRow = (over: Record<string, unknown> = {}) => ({
     id: "contract-1",
+    title: "비밀유지계약",
     createdById: "creator-1",
     ownerId: "owner-1",
     requesterId: "requester-1",
@@ -62,13 +67,16 @@ describe("CommentsService", () => {
     jest.clearAllMocks();
     auditMock.record.mockResolvedValue(undefined);
     notificationMock.createMany.mockResolvedValue([]);
+    mailMock.sendMentionEmail.mockResolvedValue(undefined);
     prismaMock.commentMention.findMany.mockResolvedValue([]);
+    prismaMock.user.findMany.mockResolvedValue([]);
     const moduleRef = await Test.createTestingModule({
       providers: [
         CommentsService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditService, useValue: auditMock },
         { provide: NotificationService, useValue: notificationMock },
+        { provide: MailService, useValue: mailMock },
       ],
     }).compile();
     service = moduleRef.get(CommentsService);
@@ -538,6 +546,224 @@ describe("CommentsService", () => {
         }),
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.contract.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // 멘션 이메일 발송(best-effort). 인앱 알림과 독립 — emailNotify=true 수신자에게만,
+  // 자기멘션 제외, update 는 신규 추가분(addedUserIds)만. 이메일/조회 실패해도 코멘트는 성공.
+  describe("mention email", () => {
+    // actor(viewer) 이름 조회 + 수신자 emailNotify 분기를 함께 모킹하기 위한 헬퍼.
+    // user.findUnique 는 viewer 조회(authz)와 actor 이름 조회 두 군데서 쓰이므로 id 로 분기한다.
+    const stubUserFindUnique = (viewer: {
+      id: string;
+      role: string;
+      departmentId?: string | null;
+    }) => {
+      prismaMock.user.findUnique.mockImplementation(
+        (args: { where: { id: string }; select?: unknown }) => {
+          // actorName 조회(select: { name })
+          if (args.select) {
+            return Promise.resolve({ name: `${args.where.id}-name` });
+          }
+          // viewer 조회(authz)
+          if (args.where.id === viewer.id) {
+            return Promise.resolve({
+              id: viewer.id,
+              role: viewer.role,
+              departmentId: viewer.departmentId ?? "dept-1",
+              name: `${viewer.id}-name`,
+            });
+          }
+          return Promise.resolve(null);
+        },
+      );
+    };
+
+    const createdMentionRow = {
+      id: "comment-1",
+      contractId: "contract-1",
+      authorId: "requester-1",
+      role: "general",
+      body: "멘션 포함 의견",
+      createdAt: new Date("2026-06-22T01:00:00.000Z"),
+      updatedAt: new Date("2026-06-22T01:00:00.000Z"),
+      deletedAt: null,
+      author: { name: "요청자" },
+      mentions: [
+        { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
+        { userId: "cc-1", user: { id: "cc-1", name: "참조자" } },
+      ],
+    };
+
+    it("create: emailNotify=true 수신자에게만 sendMentionEmail 호출 — false·자기멘션은 스킵", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      stubUserFindUnique({ id: "requester-1", role: "general" });
+      // owner-1: 수신 거부(false) → 스킵, cc-1: 수신(true) → 발송.
+      prismaMock.user.findMany.mockResolvedValue([
+        { id: "owner-1", email: "owner@law.ai", name: "오너", emailNotify: false },
+        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true },
+      ]);
+      prismaMock.comment.create.mockResolvedValue(createdMentionRow);
+      prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdMentionRow);
+      prismaMock.commentMention.createMany.mockResolvedValue({ count: 3 });
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
+
+      await service.create({
+        contractId: "contract-1",
+        body: "멘션 포함 의견",
+        viewerId: "requester-1",
+        // requester-1(자기멘션) 포함 → 발송/조회 대상에서 제외.
+        mentions: ["owner-1", "cc-1", "requester-1"],
+      });
+
+      // 수신자 조회는 자기멘션 제외된 owner-1, cc-1 만.
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ["owner-1", "cc-1"] } },
+        select: { id: true, email: true, name: true, emailNotify: true },
+      });
+      // emailNotify=true 인 cc-1 에게만 발송(owner-1 false 스킵, requester-1 자기멘션 제외).
+      expect(mailMock.sendMentionEmail).toHaveBeenCalledTimes(1);
+      expect(mailMock.sendMentionEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: "cc@law.ai",
+          recipientName: "참조자",
+          actorName: "requester-1-name",
+          contractTitle: "비밀유지계약",
+          contractId: "contract-1",
+          preview: "멘션 포함 의견",
+        }),
+      );
+    });
+
+    it("update: 신규 추가된 멘션(addedUserIds)에게만 sendMentionEmail 호출", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      stubUserFindUnique({ id: "counsel-1", role: "inHouseCounsel" });
+      prismaMock.comment.findFirst.mockResolvedValue({
+        id: "comment-1",
+        contractId: "contract-1",
+        authorId: "counsel-1",
+        role: "inHouseCounsel",
+        body: "원본",
+        createdAt: new Date("2026-06-22T01:00:00.000Z"),
+        updatedAt: new Date("2026-06-22T01:00:00.000Z"),
+        deletedAt: null,
+      });
+      prismaMock.comment.findUniqueOrThrow.mockResolvedValue({
+        id: "comment-1",
+        contractId: "contract-1",
+        authorId: "counsel-1",
+        role: "inHouseCounsel",
+        body: "수정된 본문",
+        createdAt: new Date("2026-06-22T01:00:00.000Z"),
+        updatedAt: new Date("2026-06-22T03:00:00.000Z"),
+        deletedAt: null,
+        author: { name: "이법무" },
+        mentions: [
+          { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
+          { userId: "cc-1", user: { id: "cc-1", name: "참조자" } },
+        ],
+      });
+      prismaMock.commentMention.deleteMany.mockResolvedValue({ count: 1 });
+      prismaMock.commentMention.createMany.mockResolvedValue({ count: 2 });
+      // 기존 멘션 = owner-1 → addedUserIds = cc-1 만.
+      prismaMock.commentMention.findMany.mockResolvedValue([
+        { userId: "owner-1" },
+      ]);
+      prismaMock.user.findMany.mockResolvedValue([
+        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true },
+      ]);
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
+
+      await service.update({
+        contractId: "contract-1",
+        commentId: "comment-1",
+        body: "수정된 본문",
+        viewerId: "counsel-1",
+        mentions: ["owner-1", "cc-1"],
+      });
+
+      // 수신자 조회는 신규 추가분(cc-1)만 — 기존 owner-1 은 재발송 안 함.
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ["cc-1"] } },
+        select: { id: true, email: true, name: true, emailNotify: true },
+      });
+      expect(mailMock.sendMentionEmail).toHaveBeenCalledTimes(1);
+      expect(mailMock.sendMentionEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "cc@law.ai" }),
+      );
+    });
+
+    it("이메일 발송이 실패(reject)해도 코멘트 create 는 성공하고 인앱 알림도 생성된다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      stubUserFindUnique({ id: "requester-1", role: "general" });
+      prismaMock.user.findMany.mockResolvedValue([
+        { id: "owner-1", email: "owner@law.ai", name: "오너", emailNotify: true },
+        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true },
+      ]);
+      // 발송 실패(best-effort) — service 내부 sendMentionEmails 가 swallow 해야 한다.
+      mailMock.sendMentionEmail.mockRejectedValue(new Error("mail down"));
+      prismaMock.comment.create.mockResolvedValue(createdMentionRow);
+      prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdMentionRow);
+      prismaMock.commentMention.createMany.mockResolvedValue({ count: 2 });
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
+
+      const result = await service.create({
+        contractId: "contract-1",
+        body: "멘션 포함 의견",
+        viewerId: "requester-1",
+        mentions: ["owner-1", "cc-1"],
+      });
+
+      // 이메일 실패와 무관하게 코멘트 정상 반환 + 인앱 알림 createMany 호출.
+      expect(result.comment.id).toBe("comment-1");
+      expect(notificationMock.createMany).toHaveBeenCalledTimes(1);
+      expect(mailMock.sendMentionEmail).toHaveBeenCalled();
+    });
+
+    it("수신자 조회(findMany)가 실패해도 코멘트 create 는 성공한다(best-effort swallow)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      stubUserFindUnique({ id: "requester-1", role: "general" });
+      // best-effort swallow 경로의 logger.error 가 콘솔을 더럽히지 않게 silence.
+      const errorSpy = jest
+        .spyOn(Logger.prototype, "error")
+        .mockImplementation(() => undefined);
+      // 수신자 조회 단계 실패 → sendMentionEmails try/catch 가 swallow.
+      prismaMock.user.findMany.mockRejectedValue(new Error("db down"));
+      prismaMock.comment.create.mockResolvedValue(createdMentionRow);
+      prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdMentionRow);
+      prismaMock.commentMention.createMany.mockResolvedValue({ count: 2 });
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
+
+      const result = await service.create({
+        contractId: "contract-1",
+        body: "멘션 포함 의견",
+        viewerId: "requester-1",
+        mentions: ["owner-1", "cc-1"],
+      });
+
+      expect(result.comment.id).toBe("comment-1");
+      // 조회 실패로 발송은 못 했지만 코멘트/인앱은 정상.
+      expect(mailMock.sendMentionEmail).not.toHaveBeenCalled();
+      expect(notificationMock.createMany).toHaveBeenCalledTimes(1);
+      // swallow 경로에서 logger.error 가 호출됐는지 확인(가시성).
+      expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
     });
   });
 
