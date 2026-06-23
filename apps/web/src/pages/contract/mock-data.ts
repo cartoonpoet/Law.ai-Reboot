@@ -36,6 +36,7 @@ export interface ContractDetail {
   stage: string;
   requester: string;
   owner: string;
+  ownerDept: string | null;
   catPath: string[];
   period: string;
   type: string;
@@ -88,7 +89,7 @@ export const RISKS: Risk[] = [
 
 const SAMPLE_DETAIL: ContractDetail = {
   id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", status: "법무 검토 중", secure: true, stage: "신규계약",
-  requester: "관리자1", owner: "김기찬", catPath: ["본사계약", "개발/공급", "용역"],
+  requester: "관리자1", owner: "김기찬", ownerDept: "법무팀", catPath: ["본사계약", "개발/공급", "용역"],
   period: "2026-06-12 ~ 2027-06-11", type: "일반 검토요청",
   files: [
     { name: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx", meta: "1.8 MB", kind: "계약서" },
