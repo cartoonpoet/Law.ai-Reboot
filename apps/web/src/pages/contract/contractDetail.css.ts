@@ -52,11 +52,10 @@ export const LAYOUT = {
 /* =========================================================================
  * 레이아웃
  * ======================================================================= */
-export const page = style({
-  maxWidth: LAYOUT.pageMaxWidth,
-  margin: "0 auto",
-  padding: "24px 20px 48px",
-});
+/* AppShell main 이 이미 padding(22px 24px 48px)·풀폭을 제공하므로, 상세도
+ * 요청 폼·목록과 동일하게 자체 max-width/중앙정렬/가로 패딩을 두지 않는다
+ * (이중 패딩·폭 불일치로 좌우 여백이 달라지던 문제 해소). */
+export const page = style({});
 
 export const backlink = style({
   display: "inline-flex",
