@@ -28,6 +28,32 @@ export interface Risk {
   suggest: string;
 }
 
+// 결재선 단계 뷰모델(approvalLine.steps[] 에서 파생).
+export interface ApprovalStepView {
+  order: number;
+  name: string;
+  dept: string;
+  type: string; // 기안/합의/결재/참조
+  typeKind: "draft" | "approve" | "agree" | "refer";
+  status: string; // 완료/진행중/대기
+  statusKind: "done" | "now" | "wait";
+}
+
+// 관련문서 행 뷰모델(details.relatedDocs[] 에서 파생).
+export interface RelatedDocView {
+  id: string;
+  name: string;
+  sub: string;
+  date: string;
+}
+
+// 참조수신자 뷰모델(references 에서 파생).
+export interface CcRecipientView {
+  id: string;
+  name: string;
+  isSecret: boolean;
+}
+
 export interface ContractDetail {
   id: string;
   name: string;
@@ -49,6 +75,20 @@ export interface ContractDetail {
   payTerms: string;
   purpose: string;
   notes: string;
+  // --- detail v3 확장(시안 정합) ---
+  createdAt: string | null; // 등록일(코어 createdAt, ISO)
+  dueDate: string | null; // 계약예정일(코어 dueDate, null→빈값)
+  moneyNote: string | null; // 금액 메모(details.moneyNote, 빈문자열→null)
+  keyPoints: string | null; // 주요 협의사항(details.keyPoints, 빈문자열→null)
+  urls: string[]; // 기타 URL(details.urls)
+  project: { id: string; name: string } | null; // 관련 프로젝트(details.project)
+  relatedDocs: RelatedDocView[]; // 관련문서(details.relatedDocs)
+  detailsOwner: { id: string; name: string } | null; // 업무담당자(details.owner = 상대측, 코어 owner와 다름)
+  counterpartyBizNo: string | null; // 상대 사업자번호(counterparties[0].snapshot.bizNo)
+  counterpartyRep: string | null; // 상대 대표(counterparties[0].snapshot.ceo)
+  ccUser: CcRecipientView[]; // 참조수신자(사용자, !isSecret)
+  ccSecret: CcRecipientView[]; // 참조수신자(비밀, 백엔드가 권한 따라 마스킹)
+  approvalLine: ApprovalStepView[] | null; // 결재선(approvalLine.steps, null→빈 상태)
 }
 
 export const CONTRACTS_FULL: ContractRow[] = [
@@ -101,6 +141,19 @@ const SAMPLE_DETAIL: ContractDetail = {
   payTerms: "선급금 30% / 중도금 40% / 잔금 30%, 검수 완료 후 30일 이내 지급",
   purpose: "EV 충전 인프라 확충을 위한 충전기 하드웨어 공급 및 설치 용역 계약. 공급사 AAA로부터 급속/완속 충전기 일괄 공급받아 전국 12개 거점에 설치.",
   notes: "지체상금·하자보수 조항 및 손해배상 한도 협의 필요. 표준 공급계약 대비 검수 기준 강화 요청.",
+  createdAt: "2026-06-09",
+  dueDate: "2026-06-11",
+  moneyNote: "부가세 별도, 검수 완료 기준",
+  keyPoints: "납기·검수 기준 및 하자보수 범위 명확화. 지체상금율 협의.",
+  urls: [],
+  project: null,
+  relatedDocs: [],
+  detailsOwner: null,
+  counterpartyBizNo: "110-81-xxxxx",
+  counterpartyRep: null,
+  ccUser: [],
+  ccSecret: [],
+  approvalLine: null,
 };
 
 export function getContractDetail(id: string): ContractDetail {

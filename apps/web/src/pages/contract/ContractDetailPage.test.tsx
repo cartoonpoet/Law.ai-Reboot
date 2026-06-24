@@ -102,6 +102,78 @@ describe("ContractDetailPage", () => {
     expect(screen.getByText("손해배상 한도")).toBeInTheDocument();
   });
 
+  it("재설계된 카드 IA(검토 내용/기본·분류/금액·협상/당사자·관계자/결재선)를 렌더한다", async () => {
+    renderAt("uuid-1");
+    await screen.findByText("사후계약관리 표준 NDA");
+    expect(screen.getByText("검토 내용")).toBeInTheDocument();
+    expect(screen.getByText("기본 · 분류")).toBeInTheDocument();
+    expect(screen.getByText("금액 · 협상")).toBeInTheDocument();
+    expect(screen.getByText("당사자 · 관계자")).toBeInTheDocument();
+    expect(screen.getByText("결재선")).toBeInTheDocument();
+    // 중복 제거: "핵심 정보" 카드는 없다.
+    expect(screen.queryByText("핵심 정보")).not.toBeInTheDocument();
+  });
+
+  it("빈값(moneyNote/keyPoints/concerns 등)은 emptychip(없음)으로 렌더한다", async () => {
+    renderAt("uuid-1");
+    await screen.findByText("사후계약관리 표준 NDA");
+    // ownerName=null 이지만 ownerId("이법무") fallback → 법무팀 담당자에 실명 노출.
+    expect(screen.getAllByText("이법무").length).toBeGreaterThan(0);
+    // moneyNote/keyPoints/concerns 등 빈값 → "없음"
+    expect(screen.getAllByText("없음").length).toBeGreaterThan(0);
+  });
+
+  it("법무 담당자가 미배정이면 needchip(미배정)을 렌더한다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      ownerId: null,
+      ownerName: null,
+    });
+    renderAt("uuid-1");
+    await screen.findByText("사후계약관리 표준 NDA");
+    expect(screen.getAllByText("미배정").length).toBeGreaterThan(0);
+  });
+
+  it("검토 단계(legalReview)에서 검토 액션 패널과 can 기반 버튼을 렌더한다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      can: { edit: true, assign: true, transition: true, delete: false },
+    });
+    renderAt("uuid-1");
+    expect(await screen.findByText("검토 액션")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "반려" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "검토 완료" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /담당자 배정/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("결재(signing) 단계에서는 결재 현황으로 전환하고 반려/배정 버튼을 숨긴다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      status: "signing",
+      can: { edit: false, assign: true, transition: true, delete: false },
+    });
+    renderAt("uuid-1");
+    expect(await screen.findByText("결재 현황")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "반려" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /담당자 배정/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("로딩 중(isLoading)에는 ContractDetailSkeleton(placeholder)을 렌더한다", () => {
+    // 영원히 pending 인 쿼리 → isLoading 유지.
+    vi.mocked(api.getContract).mockReturnValue(new Promise(() => {}));
+    const { container } = renderAt("uuid-1");
+    // 본문 데이터(계약명)는 아직 없고, 스켈레톤 placeholder(width 지정 div) 다수 노출.
+    expect(screen.queryByText("사후계약관리 표준 NDA")).not.toBeInTheDocument();
+    const placeholders = Array.from(container.querySelectorAll("div")).filter(
+      (el) => el.getAttribute("style")?.includes("width"),
+    );
+    expect(placeholders.length).toBeGreaterThan(10);
+  });
+
   it("검토 의견 섹션을 실 코멘트 데이터로 렌더한다", async () => {
     renderAt("uuid-1");
     expect(await screen.findByText("검토 의견")).toBeInTheDocument();

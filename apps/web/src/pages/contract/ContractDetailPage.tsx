@@ -1,83 +1,251 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Icon, Button, Avatar } from "@lawkit/ui";
+import { Icon, Button, StepBar, ProgressBar, Alert } from "@lawkit/ui";
 import { AssignModal } from "./sections/AssignModal";
 import { CommentPanel } from "./sections/CommentPanel";
-import { T } from "../../design/tokens";
-import { Panel } from "../../components/ui/Panel";
+import { ReviewActionPanel } from "./sections/ReviewActionPanel";
+import { ContractDetailSkeleton } from "./sections/ContractDetailSkeleton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { LIFECYCLE, RISKS } from "./mock-data";
-import type { LifecycleStep, Risk } from "./mock-data";
+import { RISKS } from "./mock-data";
+import type { Risk, ContractDetail, ApprovalStepView } from "./mock-data";
 import { getContract } from "../../api/contracts";
 import { toDetailView } from "./toDetailView";
-import { getStatusLabel } from "./contractStatus";
+import { getLifecycleSteps } from "./getLifecycleSteps";
 import { useContractStatus } from "./hooks/useContractStatus";
-import * as dcss from "./contractDetail.css";
+import { cx } from "./cx";
+import * as css from "./contractDetail.css";
 
-function LifecycleRail({ steps }: { steps: LifecycleStep[] }) {
-  const last = steps.length - 1;
+/* ── 작은 표시 헬퍼(SRP: 뷰 조각) ── */
+
+const RISK_LABEL: Record<Risk["level"], string> = {
+  high: "고위험",
+  mid: "주의",
+  low: "참고",
+};
+
+function EmptyChip() {
+  return <span className={css.emptychip}>없음</span>;
+}
+
+function NeedChip() {
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", padding: "4px 2px 2px" }}>
-      {steps.map((s, i) => {
-        const done = s.status === "completed";
-        const act = s.status === "active";
-        return (
-          <div key={i} style={{ flex: 1, minWidth: 72, position: "relative", textAlign: "center", paddingTop: 3 }}>
-            {i > 0 && <div style={{ position: "absolute", left: 0, right: "50%", top: 12, height: 2, background: done || act ? T.primary : T.border }} />}
-            {i < last && <div style={{ position: "absolute", left: "50%", right: 0, top: 12, height: 2, background: done ? T.primary : T.border }} />}
-            <div style={{ position: "relative", width: 22, height: 22, margin: "0 auto", borderRadius: 999, background: done ? T.primary : "#fff", border: `2px solid ${done || act ? T.primary : T.borderStrong}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: act ? `0 0 0 4px ${T.primarySoft}` : "none" }}>
-              {done && <Icon name="check" size="sm" style={{ width: 12, height: 12, color: "#fff" }} />}
-              {act && <span style={{ width: 8, height: 8, borderRadius: 999, background: T.primary }} />}
+    <span className={css.needchip}>
+      <Icon name="alertTriangle" size="sm" className={css.needchipIcon} />
+      미배정
+    </span>
+  );
+}
+
+function Fact({
+  label,
+  span,
+  children,
+}: {
+  label: string;
+  span?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className={span ? cx(css.fact, css.span2) : css.fact}>
+      <div className={css.fl}>{label}</div>
+      <div className={css.fv}>{children}</div>
+    </div>
+  );
+}
+
+function Rblock({ title, text }: { title: string; text: string | null }) {
+  return (
+    <div className={css.rblock}>
+      <div className={css.rbt}>{title}</div>
+      <div className={css.rbtxt}>{text ?? <EmptyChip />}</div>
+    </div>
+  );
+}
+
+function RiskCard({ risk }: { risk: Risk }) {
+  return (
+    <div className={cx(css.risk, css.riskLevel[risk.level])}>
+      <div className={css.riskHead}>
+        <span className={cx(css.rbadge, css.rbadgeLevel[risk.level])}>
+          {RISK_LABEL[risk.level]}
+        </span>
+        <span className={css.riskClause}>{risk.clause}</span>
+      </div>
+      <div className={css.riskFinding}>{risk.finding}</div>
+      <div className={css.rsuggest}>
+        <Icon name="autoAwesome" size="sm" className={css.rsuggestIcon} />
+        {risk.suggest}
+      </div>
+    </div>
+  );
+}
+
+function Gauge({ value }: { value: number }) {
+  return (
+    <span className={css.gauge}>
+      <span className={css.gbar}>
+        <ProgressBar value={value} color="primary" />
+      </span>
+      <span className={css.gaugeVal}>{value}%</span>
+    </span>
+  );
+}
+
+/* ── glance strip ── */
+
+function GlanceStrip({ d }: { d: ContractDetail }) {
+  return (
+    <div className={css.glance}>
+      <div className={css.gcell}>
+        <div className={css.gl}>상대 계약자</div>
+        <div className={css.gv}>{d.counter}</div>
+      </div>
+      <div className={css.gcell}>
+        <div className={css.gl}>계약 분류</div>
+        <div className={css.gv}>{d.catPath.join(" · ") || "-"}</div>
+      </div>
+      <div className={css.gcell}>
+        <div className={css.gl}>계약 기간</div>
+        <div className={css.gv}>{d.period}</div>
+      </div>
+      <div className={css.gcell}>
+        <div className={css.gl}>실 지급액</div>
+        <div className={css.gv}>{d.amount.total}</div>
+      </div>
+      <div className={css.gcell}>
+        <div className={css.gl}>협상력</div>
+        <div className={css.gv}>
+          <Gauge value={d.negotiation} />
+        </div>
+      </div>
+      <div className={css.gcell}>
+        <div className={css.gl}>법무 담당자</div>
+        <div className={cx(css.gv, css.gvWarn)}>
+          {d.owner === "미배정" ? <NeedChip /> : d.owner}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 결재선 카드 ── */
+
+function ApprovalLineCard({ steps }: { steps: ApprovalStepView[] | null }) {
+  return (
+    <section className={css.card}>
+      <header className={css.chead}>
+        <Icon name="checkCircle" size="sm" className={css.cheadIconMuted} />
+        결재선
+        {steps && steps.length > 0 && (
+          <span className={css.cheadNote}>기안 1순위 고정</span>
+        )}
+      </header>
+      <div className={css.cbody}>
+        {steps && steps.length > 0 ? (
+          steps.map((step) => (
+            <div key={step.order} className={css.apvrow}>
+              <span
+                className={cx(
+                  css.apvnum,
+                  step.statusKind === "done" && css.apvnumDone,
+                  step.statusKind === "now" && css.apvnumActive,
+                )}
+              >
+                {step.order}
+              </span>
+              <span>
+                <span className={css.apvname}>{step.name}</span>
+                <span className={css.apvdept}>{step.dept}</span>
+              </span>
+              <span className={cx(css.apvtype, css.apvtypeKind[step.typeKind])}>
+                {step.type}
+              </span>
             </div>
-            <div style={{ marginTop: 8, fontSize: 11, fontWeight: act ? 700 : 500, color: act ? T.heading : done ? T.body : T.faint, whiteSpace: "nowrap" }}>{s.label}</div>
+          ))
+        ) : (
+          <p className={css.docEmpty}>등록된 결재선이 없습니다.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ── 문서 카드(우측 레일) ── */
+
+function DocFileRow({
+  name,
+  showCompare,
+}: {
+  name: string;
+  showCompare?: boolean;
+}) {
+  return (
+    <div className={css.docFileRow}>
+      <Icon name="fileText" size="sm" className={css.fileIcon} />
+      <div className={css.docFileMain}>
+        <div className={css.docFileName}>{name}</div>
+        <div className={css.docFileLinks}>
+          <button type="button" className={css.flink}>
+            미리보기
+          </button>
+          {showCompare && (
+            <button type="button" className={cx(css.flink, css.flinkGreen)}>
+              문서 비교
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocsCard({ d }: { d: ContractDetail }) {
+  const contracts = d.files.filter((f) => f.kind === "계약서");
+  const attachs = d.files.filter((f) => f.kind === "첨부");
+  const refs = d.files.filter((f) => f.kind === "참고");
+  return (
+    <section className={css.card}>
+      <header className={css.chead}>
+        <Icon name="paperclip" size="sm" className={css.cheadIconMuted} />
+        문서
+      </header>
+      <div className={cx(css.cbody, css.docGroup)}>
+        <div>
+          <div className={css.docGroupLabel}>
+            계약서 <span className={css.minitag}>필수</span>
           </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, color: T.faint, fontWeight: 600, marginBottom: 5 }}>{label}</div>
-      <div style={{ fontSize: 13.5, color: T.heading, fontWeight: 600 }}>{children}</div>
-    </div>
-  );
-}
-
-const RISK_LEVEL = {
-  high: { c: T.danger, bg: "#fbeaea", label: "고위험" },
-  mid: { c: T.warningDark, bg: "#f8ead0", label: "주의" },
-  low: { c: T.muted, bg: "#eef0f4", label: "참고" },
-} as const;
-
-function RiskCard({ r }: { r: Risk }) {
-  const L = RISK_LEVEL[r.level];
-  return (
-    <div style={{ border: `1px solid ${T.border}`, borderLeft: `3px solid ${L.c}`, borderRadius: 7, padding: "12px 14px", background: T.surface }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 10.5, fontWeight: 800, color: L.c, background: L.bg, padding: "1px 7px", borderRadius: 4 }}>{L.label}</span>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: T.heading }}>{r.clause}</span>
+          {contracts.length > 0 ? (
+            contracts.map((f, i) => (
+              <DocFileRow key={i} name={f.name} showCompare />
+            ))
+          ) : (
+            <div className={css.docEmpty}>등록된 계약서가 없습니다.</div>
+          )}
+        </div>
+        <div>
+          <div className={css.docGroupLabel}>첨부 · 별첨</div>
+          {attachs.length > 0 ? (
+            attachs.map((f, i) => <DocFileRow key={i} name={f.name} />)
+          ) : (
+            <div className={css.docEmpty}>첨부된 파일이 없습니다.</div>
+          )}
+        </div>
+        <div>
+          <div className={css.docGroupLabel}>참고서류</div>
+          {refs.length > 0 ? (
+            refs.map((f, i) => <DocFileRow key={i} name={f.name} />)
+          ) : (
+            <div className={css.docEmpty}>등록된 참고서류가 없습니다.</div>
+          )}
+        </div>
       </div>
-      <div style={{ fontSize: 12.5, color: T.body, lineHeight: 1.55, marginBottom: 7 }}>{r.finding}</div>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "7px 10px", background: T.primaryTint, borderRadius: 5 }}>
-        <Icon name="autoAwesome" size="sm" style={{ width: 13, height: 13, color: T.primary, marginTop: 1, flexShrink: 0 }} />
-        <span style={{ fontSize: 12, color: T.primaryDark, fontWeight: 600, lineHeight: 1.5 }}>{r.suggest}</span>
-      </div>
-    </div>
+    </section>
   );
 }
 
-function KVRow({ label, children, last }: { label: string; children: React.ReactNode; last?: boolean }) {
-  return (
-    <div style={{ display: "flex", borderBottom: last ? "none" : `1px solid ${T.border}` }}>
-      <div style={{ width: 130, flexShrink: 0, padding: "11px 14px", background: T.surfaceAlt, fontSize: 12.5, color: T.muted, fontWeight: 600 }}>{label}</div>
-      <div style={{ flex: 1, padding: "11px 14px", fontSize: 13, color: T.heading }}>{children}</div>
-    </div>
-  );
-}
+/* ── 페이지 ── */
 
 export function ContractDetailPage() {
   const { id = "" } = useParams();
@@ -90,139 +258,331 @@ export function ContractDetailPage() {
   const { changeStatus, isUpdating } = useContractStatus(id);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
 
+  // 로딩 중에는 재설계된 상세 레이아웃 형태의 스켈레톤(loading-state-convention: 상세=스켈레톤).
+  if (isLoading) {
+    return <ContractDetailSkeleton />;
+  }
+
   if (!data) {
     return (
-      <Panel pad={18}>
-        {isLoading ? "불러오는 중…" : "계약을 찾을 수 없습니다."}
-      </Panel>
+      <div className={css.page}>
+        <div className={css.empty}>계약을 찾을 수 없습니다.</div>
+      </div>
     );
   }
 
   const d = toDetailView(data);
-  // 버튼 가시성은 백엔드가 내려준 data.can에서 파생(권한 정보 없으면 보수적으로 숨김).
-  const canEdit = Boolean(data.can?.edit);
-  // transition 권한은 반려(requesterReview)·검토 완료(reviewDone) 양방향 전이를 함께 의미한다(MVP: 단일 플래그).
-  const canTransition = Boolean(data.can?.transition);
-  // 배정 권한(미배정 계약 첫 배정 포함)도 백엔드 can.assign에서 파생.
-  const canAssign = Boolean(data.can?.assign);
+  // 버튼 가시성은 백엔드 data.can 에서 파생(권한 없으면 보수적으로 숨김).
+  const can = {
+    edit: Boolean(data.can?.edit),
+    assign: Boolean(data.can?.assign),
+    transition: Boolean(data.can?.transition),
+    delete: Boolean(data.can?.delete),
+  };
+  const riskHigh = RISKS.filter((r) => r.level === "high").length;
+  // 라이프사이클 단계(라벨 mock 고정) — completed/active/scheduled 는 실 status 에서 파생.
+  const lifecycleSteps = getLifecycleSteps(data.status);
+
   const handleAssign = (ownerId: string) => {
     changeStatus("assigning", ownerId);
     setIsAssignOpen(false);
   };
-  const riskHigh = RISKS.filter((r) => r.level === "high").length;
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
+    <div className={css.page}>
+      <button
+        type="button"
+        className={css.backlink}
+        onClick={() => navigate("/contract/list")}
+      >
+        <Icon name="chevronLeft" size="sm" className={css.backIcon} />
+        계약서 검토 조회
+      </button>
+
+      {/* hero */}
+      <header className={css.hero}>
         <div>
-          <button onClick={() => navigate("/contract/list")} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: T.muted, fontSize: 12, fontWeight: 600, fontFamily: "Pretendard", marginBottom: 8, padding: 0 }}>
-            <Icon name="chevronLeft" size="sm" style={{ width: 13, height: 13 }} />계약서 검토 조회
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {d.secure && <Icon name="lock" size="sm" style={{ width: 16, height: 16, color: T.warningDark }} />}
-            <h1 style={{ margin: 0, fontSize: 23, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em" }}>{d.name}</h1>
+          <div className={css.heroTitleRow}>
+            {d.secure && <Icon name="lock" size="sm" className={css.lockIcon} />}
+            <h1 className={css.heroTitle}>{d.name}</h1>
             <StatusBadge status={d.status} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, fontSize: 12.5, color: T.muted }}>
-            <span style={{ fontVariantNumeric: "tabular-nums" }}>{d.id}</span>
-            <span style={{ color: T.border }}>|</span><span>{d.stage}</span>
-            <span style={{ color: T.border }}>|</span><span>요청자 {d.requester}</span>
+          <div className={css.hmeta}>
+            <span className={css.hcode}>{d.id}</span>
+            <span className={css.sep}>|</span>
+            <span>{d.stage}</span>
+            <span className={css.sep}>|</span>
+            <span>등록 {d.createdAt ?? "-"}</span>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          {canEdit && (
-            <Button variant="outline" color="secondary" iconLeft={<Icon name="edit" size="sm" className={dcss.btnIcon} />} onClick={() => navigate(`/contract/${id}/edit`)}>수정</Button>
+        <div className={css.heroActions}>
+          <Button variant="outline" color="secondary" size="medium">
+            미리보기
+          </Button>
+          {can.edit && (
+            <Button
+              variant="outline"
+              color="secondary"
+              size="medium"
+              iconLeft={<Icon name="edit" size="sm" className={css.btnIcon} />}
+              onClick={() => navigate(`/contract/${id}/edit`)}
+            >
+              수정
+            </Button>
           )}
+          <Button size="medium">코멘트 추가</Button>
         </div>
-      </div>
+      </header>
 
-      <Panel pad={16} style={{ marginBottom: 16 }}>
-        <LifecycleRail steps={LIFECYCLE} />
-      </Panel>
+      {/* at-a-glance */}
+      <GlanceStrip d={d} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 332px", gap: 18, alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
-          <Panel title="검토 요약" icon="factCheck" pad={18}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "18px 20px" }}>
-              <Fact label="계약 당사자">{d.catPath[0]}</Fact>
-              <Fact label="계약 분류">{d.catPath.join(" › ")}</Fact>
-              <Fact label="계약 언어">{d.lang} · {d.legalCat}</Fact>
-              <Fact label="계약 기간">{d.period}</Fact>
-              <Fact label="상대 계약자">{d.counter}</Fact>
-              <Fact label="검토 요청자">{d.requester}</Fact>
-              <Fact label="계약 규모">{d.amount.contract}</Fact>
-              <Fact label="협상력">{d.negotiation}%</Fact>
-              <Fact label="계약서 유형">{d.type}</Fact>
-            </div>
-            <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-              <div style={{ fontSize: 11, color: T.faint, fontWeight: 600, marginBottom: 6 }}>계약의 배경 및 목적</div>
-              <p style={{ margin: 0, fontSize: 13, color: T.body, lineHeight: 1.65 }}>{d.purpose}</p>
-            </div>
-          </Panel>
+      {/* lifecycle StepBar(mock) */}
+      <section className={css.card}>
+        <div className={css.cbody}>
+          <div className={css.lifebar}>
+            <StepBar steps={lifecycleSteps} />
+          </div>
+        </div>
+      </section>
 
-          <Panel title="AI 계약 리스크" icon="autoAwesome"
-            actions={<span style={{ fontSize: 11.5, color: T.muted }}><b style={{ color: T.danger }}>고위험 {riskHigh}</b> · 총 {RISKS.length}건 감지</span>}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-              {RISKS.map((r, i) => <RiskCard key={i} r={r} />)}
+      <div className={css.railGrid}>
+        {/* 좌측 본문 stack */}
+        <div className={css.stack}>
+          {/* AI 리스크(mock) */}
+          <section className={css.card}>
+            <header className={css.chead}>
+              <Icon name="autoAwesome" size="sm" className={css.cheadIcon} />
+              AI 계약 리스크
+              <span className={css.riskCount}>
+                <b className={css.riskCountHigh}>고위험 {riskHigh}</b> · 총 {RISKS.length}건 감지
+              </span>
+            </header>
+            <div className={cx(css.cbody, css.stack)}>
+              {RISKS.map((r, i) => (
+                <RiskCard key={i} risk={r} />
+              ))}
+              <div className={css.docGroupLabel}>
+                <Icon name="info" size="sm" className={css.noteIcon} />
+                AI가 표준계약서·과거 검토 이력과 대조해 분석한 결과입니다. 최종 판단은 검토자에게 있습니다.
+              </div>
             </div>
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: T.faint }}>
-              <Icon name="info" size="sm" style={{ width: 13, height: 13 }} />AI가 표준계약서·과거 검토 이력과 대조해 분석한 결과입니다. 최종 판단은 검토자에게 있습니다.
-            </div>
-          </Panel>
+          </section>
 
+          {/* 검토 내용 */}
+          <section className={css.card}>
+            <header className={css.chead}>
+              <Icon name="list" size="sm" className={css.cheadIconMuted} />
+              검토 내용
+            </header>
+            <div className={css.cbody}>
+              <Rblock title="계약의 배경 및 목적" text={d.purpose || null} />
+              <Rblock title="주요 협의사항" text={d.keyPoints} />
+              <Rblock title="계약 지급 조건" text={d.payTerms || null} />
+              <Rblock title="요청부서의 우려사항 및 기타 고려사항" text={d.notes || null} />
+            </div>
+          </section>
+
+          {/* 기본 · 분류 */}
+          <section className={css.card}>
+            <header className={css.chead}>
+              <Icon name="shield" size="sm" className={css.cheadIconMuted} />
+              기본 · 분류
+            </header>
+            <div className={css.cbody}>
+              <div className={css.facts}>
+                <Fact label="보안 여부">
+                  {d.secure ? <span className={css.gvWarn}>보안</span> : "일반"}
+                </Fact>
+                <Fact label="계약서 유형">{d.type}</Fact>
+                <Fact label="계약 분류" span>
+                  <span className={css.crumb}>
+                    {d.catPath.length > 0 ? (
+                      d.catPath.map((p, i) => (
+                        <span key={i} className={css.crumbItem}>
+                          {p}
+                        </span>
+                      ))
+                    ) : (
+                      <EmptyChip />
+                    )}
+                  </span>
+                </Fact>
+                <Fact label="계약 기간">{d.period}</Fact>
+                <Fact label="계약예정일">
+                  {d.dueDate ? d.dueDate.slice(0, 10) : <EmptyChip />}
+                </Fact>
+                <Fact label="계약 언어">{d.lang}</Fact>
+                <Fact label="법무 분류">{d.legalCat}</Fact>
+              </div>
+            </div>
+          </section>
+
+          {/* 금액 · 협상 */}
+          <section className={css.card}>
+            <header className={css.chead}>
+              <Icon name="pay" size="sm" className={css.cheadIconMuted} />
+              금액 · 협상
+            </header>
+            <div className={css.cbody}>
+              <div className={css.facts}>
+                <Fact label="계약 규모(대가)" span>
+                  <span className={css.moneyChips}>
+                    <span className={cx(css.moneychip, css.moneychipColor.blue)}>
+                      계약금액 {d.amount.contract} [부가세 별도]
+                    </span>
+                    <span className={cx(css.moneychip, css.moneychipColor.red)}>
+                      세액 {d.amount.vat}
+                    </span>
+                    <span className={cx(css.moneychip, css.moneychipColor.green)}>
+                      실 지급액 {d.amount.total}
+                    </span>
+                  </span>
+                </Fact>
+                <Fact label="금액 메모" span>
+                  {d.moneyNote ?? <EmptyChip />}
+                </Fact>
+                <Fact label="계약상대방 협상력" span>
+                  <Gauge value={d.negotiation} />
+                </Fact>
+              </div>
+            </div>
+          </section>
+
+          {/* 당사자 · 관계자 */}
+          <section className={css.card}>
+            <header className={css.chead}>
+              <Icon name="users" size="sm" className={css.cheadIconMuted} />
+              당사자 · 관계자
+            </header>
+            <div className={css.cbody}>
+              <div className={css.facts}>
+                <Fact label="상대 계약자" span>
+                  {d.counter}
+                  {d.counterpartyBizNo && (
+                    <span className={css.fvFaint}> ({d.counterpartyBizNo})</span>
+                  )}
+                </Fact>
+                <Fact label="상대 대표/담당자">
+                  {d.counterpartyRep ?? <EmptyChip />}
+                </Fact>
+                <Fact label="업무담당자">
+                  {d.detailsOwner ? d.detailsOwner.name : <EmptyChip />}
+                </Fact>
+                <Fact label="검토 요청자">{d.requester}</Fact>
+                <Fact label="법무팀 담당자">
+                  {d.owner === "미배정" ? <NeedChip /> : d.owner}
+                </Fact>
+                <Fact label="참조수신자(사용자)">
+                  {d.ccUser.length > 0 ? (
+                    <span className={css.chipRow}>
+                      {d.ccUser.map((u) => (
+                        <span key={u.id} className={css.chipS}>
+                          {u.name}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <EmptyChip />
+                  )}
+                </Fact>
+                <Fact label="참조수신자(비밀)">
+                  {d.ccSecret.length > 0 ? (
+                    <span className={css.chipRow}>
+                      {d.ccSecret.map((u) => (
+                        <span key={u.id} className={css.chipS}>
+                          {u.name}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <EmptyChip />
+                  )}
+                </Fact>
+                <Fact label="참조수신자(부서)" span>
+                  {d.ccDept.length > 0 ? (
+                    <span className={css.chipRow}>
+                      {d.ccDept.map((dept, i) => (
+                        <span key={i} className={css.chipS}>
+                          {dept}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <EmptyChip />
+                  )}
+                </Fact>
+                <Fact label="관련 프로젝트">
+                  {d.project ? d.project.name : <EmptyChip />}
+                </Fact>
+                <Fact label="관련문서">
+                  {d.relatedDocs.length > 0 ? (
+                    <span className={css.linkList}>
+                      {d.relatedDocs.map((doc) => (
+                        <span key={doc.id}>{doc.name}</span>
+                      ))}
+                    </span>
+                  ) : (
+                    <EmptyChip />
+                  )}
+                </Fact>
+                <Fact label="기타 URL" span>
+                  {d.urls.length > 0 ? (
+                    <span className={css.linkList}>
+                      {d.urls.map((url, i) => (
+                        <a
+                          key={i}
+                          className={css.flink}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {url}
+                        </a>
+                      ))}
+                    </span>
+                  ) : (
+                    <EmptyChip />
+                  )}
+                </Fact>
+              </div>
+            </div>
+          </section>
+
+          {/* 비용(mock 빈 상태) */}
+          <section className={css.card}>
+            <header className={css.chead}>
+              <Icon name="pay" size="sm" className={css.cheadIconMuted} />
+              비용
+            </header>
+            <div className={css.cbody}>
+              <Alert type="info" size="small">
+                변호사를 먼저 선택하면 착수금·성공보수금을 입력할 수 있습니다.
+              </Alert>
+              <div className={css.empty}>등록된 비용 내역이 없습니다.</div>
+            </div>
+          </section>
+
+          {/* 결재선 */}
+          <ApprovalLineCard steps={d.approvalLine} />
+
+          {/* 코멘트 · 이력 */}
           <CommentPanel contractId={id} />
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Panel title="검토 액션" icon="factCheck" pad={16}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 12.5, color: T.muted }}>현재 단계</span>
-                <StatusBadge status={getStatusLabel(data.status)} size="sm" />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                <Avatar initials={d.owner[0]} size="sm" color="primary" />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.heading }}>{d.owner} <span style={{ fontSize: 11.5, color: T.faint, fontWeight: 500 }}>법무팀</span></div>
-                  <div style={{ fontSize: 11.5, color: T.muted }}>검토 담당</div>
-                </div>
-              </div>
-              <div style={{ height: 1, background: T.border }} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {canTransition && (
-                  <>
-                    <Button size="medium" color="danger" variant="outline" disabled={isUpdating} onClick={() => changeStatus("requesterReview")}>반려</Button>
-                    <Button size="medium" disabled={isUpdating} onClick={() => changeStatus("reviewDone")}>검토 완료</Button>
-                  </>
-                )}
-              </div>
-              {canAssign && (
-                <Button size="medium" variant="outline" iconLeft={<Icon name="user" size="sm" />} disabled={isUpdating} onClick={() => setIsAssignOpen(true)}>담당자 배정</Button>
-              )}
-            </div>
-          </Panel>
-
-          <Panel title="핵심 정보" icon="info" pad={0}>
-            <KVRow label="관리번호">{d.id}</KVRow>
-            <KVRow label="계약 단계">{d.stage}</KVRow>
-            <KVRow label="보안 여부">{d.secure ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: T.warningDark, fontWeight: 700 }}><Icon name="lock" size="sm" style={{ width: 12, height: 12 }} />보안</span> : "일반"}</KVRow>
-            <KVRow label="참조 부서" last>{d.ccDept.join(", ")}</KVRow>
-          </Panel>
-
-          <Panel title="첨부 파일" icon="paperclip" badge={d.files.length} pad={12}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {d.files.map((f, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", border: `1px solid ${T.border}`, borderRadius: 7 }}>
-                  <Icon name="fileText" size="sm" style={{ width: 18, height: 18, color: T.primary, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: T.heading, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
-                    <div style={{ fontSize: 11, color: T.faint }}>{f.kind} · {f.meta}</div>
-                  </div>
-                  <Icon name="download" size="sm" style={{ width: 15, height: 15, color: T.muted, flexShrink: 0 }} />
-                </div>
-              ))}
-            </div>
-          </Panel>
+        {/* 우측 레일(sticky) */}
+        <div className={cx(css.stack, css.sticky)}>
+          <ReviewActionPanel
+            status={data.status}
+            can={can}
+            ownerName={d.owner}
+            approvalLine={d.approvalLine}
+            isUpdating={isUpdating}
+            onReject={() => changeStatus("requesterReview")}
+            onReviewDone={() => changeStatus("reviewDone")}
+            onAssign={() => setIsAssignOpen(true)}
+          />
+          <DocsCard d={d} />
         </div>
       </div>
 

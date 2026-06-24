@@ -6,140 +6,189 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <style>
   :root{
-    --primary:#2151ec;--primaryDark:#1739a5;--primarySoft:#eaefff;--primaryTint:#2151ec0d;
-    --success:#1f8a52;--successTint:#1f8a5214;--danger:#d23b3b;--warning:#b8801a;--warningDark:#8a5a00;--info:#0e7c8c;
-    --heading:#161a26;--body:#3d4658;--muted:#6b7488;--faint:#9aa1b2;
-    --pageBg:#eef0f4;--surface:#fff;--surfaceAlt:#f4f5f8;--border:#e4e6ec;--borderStrong:#d3d7e0;
+    /* lawkit accents */
+    --primary:#2151ec;--primaryDark:#1739a5;
+    --primarySoft:color-mix(in srgb,#2151ec 10%,#fff);--primaryTint:color-mix(in srgb,#2151ec 6%,#fff);
+    --success:#006d38;--successAccent:#28c76f;--successTint:color-mix(in srgb,#28c76f 14%,#fff);
+    --danger:#b12a30;--dangerAccent:#ea5455;--dangerTint:color-mix(in srgb,#ea5455 12%,#fff);
+    --warning:#f0af23;--warningDark:#7d5800;--warningTint:color-mix(in srgb,#f0af23 16%,#fff);
+    --info:#006876;--infoAccent:#00cfe8;--infoTint:color-mix(in srgb,#00cfe8 12%,#fff);
+    /* lawkit text */
+    --heading:#11152a;--body:#4c5469;--muted:#626f86;--faint:#9ea7b8;
+    /* lawkit neutrals */
+    --pageBg:#f2f4f6;--surface:#fff;--surfaceAlt:#f1f4f9;--border:#cfd5e1;--borderSubtle:#eeeff2;--borderStrong:#cfd5e1;
     --navy:#141a2b;--navyLine:#252f4a;--navyText:#c2cad8;--navyMuted:#7a849a;
-    --shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);
+    /* lawkit radius */
+    --rSm:4px;--rMd:6px;--rLg:8px;
+    /* lawkit shadow */
+    --shadow:0 6px 16px rgba(17,24,39,.08);
+    --shadowSoft:0 1px 2px rgba(17,24,39,.05);
+    --focusRing:0 0 0 3px rgba(47,91,255,.14);
+    --dropShadow:0 4px 15px rgba(44,63,88,.35);
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:Pretendard,system-ui,sans-serif;background:#dfe3ea;color:var(--body);font-size:13px;}
+  body{margin:0;font-family:Pretendard,system-ui,sans-serif;background:var(--pageBg);color:var(--body);font-size:13px;-webkit-font-smoothing:antialiased;}
   .ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
   .ic-fill{fill:currentColor;stroke:none;}
-  .tabbar{position:sticky;top:0;z-index:30;display:flex;gap:6px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border);}
-  .tab{font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);background:var(--surfaceAlt);border:1px solid var(--border);border-radius:99px;padding:8px 16px;cursor:pointer;}
+  .tabbar{position:sticky;top:0;z-index:30;display:flex;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border);}
+  .tab{font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);background:var(--surfaceAlt);border:1px solid var(--border);border-radius:99px;padding:8px 16px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;}
+  .tab:hover{border-color:var(--primary);color:var(--primaryDark);}
   .tab.on{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .tab:focus-visible{outline:none;box-shadow:var(--focusRing);}
   .hint{font-size:12px;color:var(--faint);align-self:center;margin-left:8px;}
   .stage{background:var(--pageBg);}
   .view{display:none;}.view.on{display:block;}
-  .page{max-width:1240px;margin:0 auto;padding:22px 24px 70px;}
+  .page{max-width:1240px;margin:0 auto;padding:24px 24px 72px;}
   .eyebrow{font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.07em;text-transform:uppercase;}
-  h1.title{margin:6px 0 0;font-size:23px;font-weight:800;color:var(--heading);letter-spacing:-.025em;}
-  .btn{font-family:inherit;font-size:13px;font-weight:700;border-radius:8px;padding:9px 15px;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;}
-  .btn-primary{background:var(--primary);color:#fff;}.btn-outline{background:#fff;color:var(--body);border-color:var(--borderStrong);}
-  .btn-sm{padding:7px 12px;font-size:12.5px;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);}
-  .chead{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700;color:var(--heading);}
+  h1.title{margin:8px 0 0;font-size:23px;font-weight:700;color:var(--heading);letter-spacing:-.025em;}
+  .btn{font-family:inherit;font-size:13px;font-weight:700;border-radius:var(--rLg);padding:0 16px;height:38px;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;}
+  .btn:focus-visible{outline:none;box-shadow:var(--focusRing);}
+  .btn-primary{background:var(--primary);color:#fff;}.btn-primary:hover{background:var(--primaryDark);}
+  .btn-outline{background:#fff;color:var(--body);border-color:var(--border);}.btn-outline:hover{border-color:var(--primary);color:var(--primaryDark);}
+  .btn-sm{height:32px;padding:0 12px;font-size:12.5px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rLg);box-shadow:var(--shadow);}
+  .chead{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--borderSubtle);font-size:14px;font-weight:700;color:var(--heading);}
   .chead .ic{color:var(--muted);}
   .cbody{padding:16px;}
-  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
-  .b-assign{background:#fff4e0;color:var(--warningDark);}.b-legal{background:var(--primarySoft);color:var(--primaryDark);}
+  .badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;line-height:1.5;}
+  .b-assign{background:var(--warningTint);color:var(--warningDark);}.b-legal{background:var(--primarySoft);color:var(--primaryDark);}
   .b-done{background:var(--successTint);color:var(--success);}.b-draft{background:var(--surfaceAlt);color:var(--muted);}
   .dot{width:7px;height:7px;border-radius:99px;}
   .lockic{color:var(--warningDark);}
 
   /* ===== LIST v3 ===== */
-  .ltop{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;}
-  .seg{display:inline-flex;background:#fff;border:1px solid var(--border);border-radius:10px;padding:4px;gap:2px;box-shadow:var(--shadow);}
-  .segbtn{font-size:12.5px;font-weight:700;color:var(--muted);padding:8px 14px;border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
-  .segbtn.on{background:var(--primary);color:#fff;}
-  .segbtn .cnt{font-size:11px;font-weight:800;background:rgba(0,0,0,.08);border-radius:99px;padding:0 7px;}
-  .segbtn.on .cnt{background:rgba(255,255,255,.25);}
-  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
-  .search{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--borderStrong);border-radius:9px;padding:9px 12px;color:var(--faint);box-shadow:var(--shadow);}
-  .tbtn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--body);background:#fff;border:1px solid var(--border);border-radius:9px;padding:9px 12px;cursor:pointer;box-shadow:var(--shadow);}
-  .vchip{font-size:12px;font-weight:600;color:var(--muted);background:#fff;border:1px solid var(--border);border-radius:99px;padding:5px 12px;cursor:pointer;}
-  .vchip.on{background:var(--primarySoft);color:var(--primaryDark);border-color:#cdd9ff;}
-  .savedrow{display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
-  .rows{display:flex;flex-direction:column;gap:9px;}
-  .row{display:grid;grid-template-columns:6px 1fr auto;gap:0;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;cursor:pointer;transition:border-color .12s;}
-  .row:hover{border-color:#b9c9ff;}
+  .ltop{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px;}
+  .seg{display:inline-flex;background:#fff;border:1px solid var(--border);border-radius:var(--rLg);padding:4px;gap:2px;box-shadow:var(--shadowSoft);}
+  .segbtn{font-size:12.5px;font-weight:700;color:var(--muted);padding:8px 14px;border-radius:var(--rMd);cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:background .12s,color .12s;}
+  .segbtn:hover{background:var(--surfaceAlt);}
+  .segbtn.on,.segbtn.on:hover{background:var(--primary);color:#fff;}
+  .segbtn .cnt{font-size:11px;font-weight:800;background:var(--surfaceAlt);color:var(--muted);border-radius:99px;padding:0 7px;}
+  .segbtn.on .cnt{background:rgba(255,255,255,.25);color:#fff;}
+  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .search{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:var(--rLg);padding:0 12px;height:38px;color:var(--placeholder,var(--muted));cursor:text;transition:border-color .12s,box-shadow .12s;}
+  .search:hover{border-color:var(--primary);}
+  .search:focus-within{border-color:var(--primary);box-shadow:var(--focusRing);}
+  .tbtn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--body);background:#fff;border:1px solid var(--border);border-radius:var(--rLg);padding:0 12px;height:38px;cursor:pointer;transition:border-color .12s,color .12s;}
+  .tbtn:hover{border-color:var(--primary);color:var(--primaryDark);}
+  .vchip{font-size:12px;font-weight:600;color:var(--muted);background:#fff;border:1px solid var(--border);border-radius:99px;padding:5px 12px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;}
+  .vchip:hover{border-color:var(--primary);color:var(--primaryDark);}
+  .vchip.on,.vchip.on:hover{background:var(--primarySoft);color:var(--primaryDark);border-color:var(--primary);}
+  .savedrow{display:flex;gap:6px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+  .rows{display:flex;flex-direction:column;gap:8px;}
+  .row{display:grid;grid-template-columns:6px 1fr auto;gap:0;background:#fff;border:1px solid var(--border);border-radius:var(--rLg);box-shadow:var(--shadowSoft);overflow:hidden;cursor:pointer;transition:border-color .12s,box-shadow .12s;}
+  .row:hover{border-color:var(--primary);box-shadow:var(--shadow);}
   .rbar{width:6px;}
-  .rbar.assign{background:var(--warning);}.rbar.legal{background:var(--primary);}.rbar.done{background:var(--success);}.rbar.draft{background:var(--borderStrong);}
+  .rbar.assign{background:var(--warning);}.rbar.legal{background:var(--primary);}.rbar.done{background:var(--successAccent);}.rbar.draft{background:var(--border);}
   .rmain{padding:14px 16px;min-width:0;}
   .rtop{display:flex;align-items:center;gap:8px;}
   .rname{font-size:14.5px;font-weight:700;color:var(--heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .risk-chip{font-size:10px;font-weight:800;color:var(--danger);background:#fbeaea;border-radius:5px;padding:1px 7px;}
+  .risk-chip{font-size:10px;font-weight:800;color:var(--danger);background:var(--dangerTint);border-radius:var(--rSm);padding:1px 7px;}
   .star{color:var(--faint);}
-  .rmeta{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;font-size:12px;color:var(--muted);}
+  .rmeta{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;font-size:12px;color:var(--muted);}
   .rmeta b{color:var(--body);font-weight:600;}
   .rmeta .mk{color:var(--faint);margin-right:5px;}
-  .rside{padding:14px 16px;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:8px;border-left:1px solid var(--border);min-width:188px;}
-  .owner-none{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--warningDark);background:#fff4e0;border-radius:99px;padding:3px 9px;cursor:pointer;}
+  .rside{padding:14px 16px;display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:8px;border-left:1px solid var(--borderSubtle);min-width:188px;}
+  .owner-none{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--warningDark);background:var(--warningTint);border-radius:99px;padding:3px 10px;cursor:pointer;}
   .dday{font-size:11px;font-weight:800;color:var(--danger);}
   .rdate{font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums;}
-  .stat{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);}
-  .stat .n{font-size:21px;font-weight:800;color:var(--heading);}
+  .stat{background:#fff;border:1px solid var(--border);border-radius:var(--rLg);padding:12px 14px;box-shadow:var(--shadowSoft);}
+  .stat .n{font-size:21px;font-weight:700;color:var(--heading);}
   .stat .l{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:5px;}
-  .pager{display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:12.5px;color:var(--muted);}
-  .pages{display:flex;gap:4px;}.pg{min-width:30px;height:30px;padding:0 6px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted);background:#fff;border:1px solid var(--border);cursor:pointer;}.pg.on{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .pager{display:flex;align-items:center;justify-content:space-between;margin-top:20px;font-size:12.5px;color:var(--muted);}
+  .pages{display:flex;gap:4px;}.pg{min-width:30px;height:30px;padding:0 6px;border-radius:var(--rMd);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted);background:#fff;border:1px solid var(--border);cursor:pointer;transition:border-color .12s,color .12s;}.pg:hover{border-color:var(--primary);color:var(--primaryDark);}.pg.on,.pg.on:hover{background:var(--primary);color:#fff;border-color:var(--primary);}
 
   /* ===== DETAIL v3 ===== */
   .backlink{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:12px;font-weight:600;margin-bottom:10px;cursor:pointer;}
   .hero{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;}
-  .hero h1{margin:0;font-size:22px;font-weight:800;color:var(--heading);letter-spacing:-.025em;line-height:1.3;}
-  .hmeta{display:flex;align-items:center;gap:10px;margin-top:9px;font-size:12.5px;color:var(--muted);flex-wrap:wrap;}
+  .hero h1{margin:0;font-size:22px;font-weight:700;color:var(--heading);letter-spacing:-.025em;line-height:1.3;}
+  .hmeta{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12.5px;color:var(--muted);flex-wrap:wrap;}
   .sep{color:var(--border);}
   /* at-a-glance strip */
-  .glance{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;}
-  .gcell{background:#fff;padding:13px 15px;}
-  .gl{font-size:10.5px;color:var(--faint);font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin-bottom:5px;}
+  .glance{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--borderSubtle);border:1px solid var(--border);border-radius:var(--rLg);overflow:hidden;margin-bottom:16px;box-shadow:var(--shadowSoft);}
+  .gcell{background:#fff;padding:14px 16px;}
+  .gl{font-size:10.5px;color:var(--faint);font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin-bottom:6px;}
   .gv{font-size:14px;font-weight:700;color:var(--heading);}
   .gv.warn{color:var(--warningDark);}
   .gauge{display:flex;align-items:center;gap:8px;}
   .gbar{flex:1;height:6px;border-radius:99px;background:var(--surfaceAlt);overflow:hidden;}.gbar>i{display:block;height:100%;background:var(--primary);}
-  .rail-grid{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start;}
-  .stack{display:flex;flex-direction:column;gap:18px;}
+  .rail-grid{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;}
+  .stack{display:flex;flex-direction:column;gap:16px;}
   .sticky{position:sticky;top:16px;}
   /* lifecycle */
-  .lifebar{display:flex;align-items:flex-start;overflow-x:auto;padding:6px 2px;}
-  .lstep{flex:1;min-width:78px;text-align:center;position:relative;padding-top:3px;}
+  .lifebar{display:flex;align-items:flex-start;overflow-x:auto;padding:8px 2px;}
+  .lstep{flex:1;min-width:78px;text-align:center;position:relative;padding-top:4px;}
   .lstep .line{position:absolute;top:13px;height:2px;}
-  .lstep .lc{position:relative;width:26px;height:26px;border-radius:99px;margin:0 auto;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid var(--borderStrong);color:var(--faint);}
-  .lstep.done .lc{background:var(--primary);border-color:var(--primary);color:#fff;}.lstep.act .lc{border-color:var(--primary);color:var(--primary);box-shadow:0 0 0 4px var(--primarySoft);}
-  .lstep .ll{margin-top:7px;font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;}
+  .lstep .lc{position:relative;width:26px;height:26px;border-radius:99px;margin:0 auto;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid var(--border);color:var(--faint);font-size:11px;font-weight:700;}
+  .lstep.done .lc{background:var(--primary);border-color:var(--primary);color:#fff;}.lstep.act .lc{border-color:var(--primary);color:var(--primary);box-shadow:var(--focusRing);}
+  .lstep .ll{margin-top:8px;font-size:10px;font-weight:600;color:var(--faint);white-space:nowrap;}
   .lstep.done .ll{color:var(--body);}.lstep.act .ll{color:var(--heading);font-weight:700;}
   /* facts grid */
   .grouplabel{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:4px 0 12px;display:flex;align-items:center;gap:8px;}
-  .grouplabel::after{content:"";flex:1;height:1px;background:var(--border);}
-  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:15px 18px;}
+  .grouplabel::after{content:"";flex:1;height:1px;background:var(--borderSubtle);}
+  .facts{display:grid;grid-template-columns:repeat(2,1fr);gap:20px 24px;}
+  .facts.cols3{grid-template-columns:repeat(3,1fr);}
+  .span2{grid-column:1 / -1;}
   .fact{min-width:0;}
-  .fl{font-size:11px;color:var(--faint);font-weight:600;margin-bottom:4px;}
-  .fv{font-size:13px;color:var(--heading);font-weight:600;word-break:break-word;}
-  .fv.empty{color:var(--faint);font-weight:500;}
-  .crumb b{font-weight:600;color:var(--heading);background:var(--surfaceAlt);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-size:12px;}
-  .minitag{font-size:11px;font-weight:700;background:#fbeaea;color:var(--danger);border-radius:5px;padding:2px 8px;}
-  .moneychip{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:5px;margin:0 4px 4px 0;}
-  .mc-blue{background:var(--primarySoft);color:var(--primaryDark);}.mc-red{background:#fbeaea;color:var(--danger);}.mc-green{background:var(--successTint);color:var(--success);}
-  .docpill{display:inline-flex;align-items:center;gap:6px;background:var(--surfaceAlt);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;color:var(--heading);font-weight:600;}
-  .flink{color:var(--primary);font-size:11.5px;font-weight:600;cursor:pointer;}.flink.g{color:var(--success);}
-  .chip-s{font-size:11.5px;font-weight:600;color:var(--primary);background:var(--primarySoft);border-radius:99px;padding:3px 10px;}
+  .fl{font-size:11px;color:var(--faint);font-weight:600;margin-bottom:5px;letter-spacing:.01em;}
+  .fv{font-size:13.5px;color:var(--heading);font-weight:600;word-break:break-word;line-height:1.45;}
+  /* 빈 옵션 필드: 차분한 중립 뱃지 "없음" */
+  .emptychip{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;background:var(--surfaceAlt);border:1px solid var(--borderSubtle);color:var(--faint);border-radius:99px;padding:2px 8px;}
+  .crumb b{font-weight:600;color:var(--heading);background:var(--surfaceAlt);border:1px solid var(--border);border-radius:var(--rMd);padding:1px 7px;font-size:12px;}
+  .minitag{font-size:11px;font-weight:700;background:var(--dangerTint);color:var(--danger);border-radius:var(--rSm);padding:2px 8px;}
+  /* 액션 필요한 빈 값: 일관된 경고 칩 */
+  .needchip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;background:var(--warningTint);color:var(--warningDark);border-radius:99px;padding:2px 9px;}
+  .needchip .ic{width:12px;height:12px;color:var(--warningDark);}
+  .moneychip{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:var(--rMd);margin:0 4px 4px 0;}
+  .mc-blue{background:var(--primarySoft);color:var(--primaryDark);}.mc-red{background:var(--dangerTint);color:var(--danger);}.mc-green{background:var(--successTint);color:var(--success);}
+  .docpill{display:inline-flex;align-items:center;gap:6px;background:var(--surfaceAlt);border:1px solid var(--border);border-radius:var(--rLg);padding:5px 10px;font-size:12px;color:var(--heading);font-weight:600;}
+  .flink{color:var(--primary);font-size:11.5px;font-weight:600;cursor:pointer;}.flink:hover{color:var(--primaryDark);text-decoration:underline;}.flink.g{color:var(--success);}
+  .chip-s{font-size:11.5px;font-weight:600;color:var(--primaryDark);background:var(--primarySoft);border-radius:99px;padding:3px 10px;}
   /* rich content blocks */
-  .rblock{padding:14px 0;border-bottom:1px solid var(--border);}
+  .rblock{padding:16px 0;border-bottom:1px solid var(--borderSubtle);}
   .rblock:last-child{border-bottom:none;padding-bottom:0;}
   .rblock:first-child{padding-top:0;}
-  .rbt{font-size:13px;font-weight:700;color:var(--heading);margin-bottom:7px;display:flex;align-items:center;gap:7px;}
+  .rbt{font-size:13px;font-weight:700;color:var(--heading);margin-bottom:8px;display:flex;align-items:center;gap:7px;}
   .rbtxt{font-size:13px;color:var(--body);line-height:1.65;}
   /* AI risk */
-  .risk{border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
-  .risk.high{border-left:3px solid var(--danger);}.risk.mid{border-left:3px solid var(--warningDark);}
-  .rbadge{font-size:10px;font-weight:800;padding:1px 7px;border-radius:4px;}.rb-high{color:var(--danger);background:#fbeaea;}.rb-mid{color:var(--warningDark);background:#f8ead0;}
-  .rsuggest{display:flex;gap:6px;background:var(--primaryTint);border-radius:6px;padding:7px 9px;font-size:11.5px;color:var(--primaryDark);font-weight:600;margin-top:7px;}
+  .risk{border:1px solid var(--border);border-radius:var(--rLg);padding:12px 14px;}
+  .risk.high{border-left:3px solid var(--dangerAccent);}.risk.mid{border-left:3px solid var(--warning);}
+  .rbadge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:var(--rSm);}.rb-high{color:var(--danger);background:var(--dangerTint);}.rb-mid{color:var(--warningDark);background:var(--warningTint);}
+  .rsuggest{display:flex;gap:6px;background:var(--primaryTint);border-radius:var(--rMd);padding:8px 10px;font-size:11.5px;color:var(--primaryDark);font-weight:600;margin-top:8px;}
   .rsuggest .ic{color:var(--primary);width:13px;height:13px;margin-top:1px;}
   /* comments */
-  .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--border);padding:0 6px;}
-  .subtab{font-size:13px;font-weight:700;color:var(--muted);padding:12px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--borderSubtle);padding:0 6px;}
+  .subtab{font-size:13px;font-weight:700;color:var(--muted);padding:12px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s;}
+  .subtab:hover{color:var(--body);}
   .subtab.on{color:var(--primary);border-bottom-color:var(--primary);}
-  .cmt{display:flex;gap:11px;}
+  .cmt{display:flex;gap:12px;}
   .avatar{width:30px;height:30px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
   .av-p{background:var(--primary);}.av-i{background:var(--info);}.av-s{background:var(--success);}
-  .cmtbody{flex:1;background:var(--surfaceAlt);border:1px solid var(--border);border-radius:8px;padding:10px 13px;font-size:13px;color:var(--body);line-height:1.55;}
-  .empty{text-align:center;color:var(--faint);font-size:12.5px;padding:22px;}
-  .alert-info{display:flex;gap:9px;background:#e9f4f6;border:1px solid #cce4e8;border-radius:8px;padding:10px 12px;font-size:12px;color:#0c5b67;line-height:1.5;}
+  .cmtbody{flex:1;background:var(--surfaceAlt);border:1px solid var(--borderSubtle);border-radius:var(--rLg);padding:10px 13px;font-size:13px;color:var(--body);line-height:1.55;}
+  .empty{text-align:center;color:var(--faint);font-size:12.5px;padding:24px;}
+  .alert-info{display:flex;gap:9px;background:var(--infoTint);border:1px solid color-mix(in srgb,#00cfe8 28%,#fff);border-radius:var(--rLg);padding:10px 12px;font-size:12px;color:var(--info);line-height:1.5;}
+  .alert-info .ic{color:var(--info);}
   .arow{display:flex;align-items:center;gap:10px;}
-  .akv{display:flex;justify-content:space-between;gap:10px;padding:7px 0;font-size:12.5px;border-bottom:1px solid var(--border);}
+  .akv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;font-size:12.5px;border-bottom:1px solid var(--borderSubtle);}
   .akv:last-child{border-bottom:none;}.akv .k{color:var(--muted);}.akv .v{color:var(--heading);font-weight:600;text-align:right;}
+  /* stage selector (demo) */
+  .stagedemo{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .stageseg{display:inline-flex;background:#fff;border:1px solid var(--border);border-radius:var(--rLg);padding:4px;gap:2px;box-shadow:var(--shadowSoft);flex-wrap:wrap;}
+  .stagebtn{font-family:inherit;font-size:12px;font-weight:700;color:var(--muted);background:transparent;border:none;padding:7px 11px;border-radius:var(--rMd);cursor:pointer;transition:background .12s,color .12s;}
+  .stagebtn:hover{background:var(--surfaceAlt);}
+  .stagebtn.on,.stagebtn.on:hover{background:var(--primary);color:#fff;}
+  .stagebtn:focus-visible{outline:none;box-shadow:var(--focusRing);}
+  .demohint{font-size:11.5px;font-weight:600;color:var(--faint);display:inline-flex;align-items:center;gap:5px;}
+  /* approver line */
+  .apvrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--borderSubtle);}
+  .apvrow:last-child{border-bottom:none;}
+  .apvrow:first-child{padding-top:0;}
+  .apvnum{width:22px;height:22px;border-radius:99px;background:var(--surfaceAlt);color:var(--muted);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .apvrow.adone .apvnum{background:var(--primary);color:#fff;}.apvrow.aact .apvnum{background:#fff;border:2px solid var(--primary);color:var(--primary);}
+  .apvname{font-size:13px;font-weight:700;color:var(--heading);}
+  .apvdept{font-size:11.5px;color:var(--faint);font-weight:500;margin-left:5px;}
+  .apvtype{font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;background:var(--surfaceAlt);color:var(--muted);margin-left:auto;}
+  .apvtype.t-draft{background:var(--primarySoft);color:var(--primaryDark);}.apvtype.t-appr{background:var(--warningTint);color:var(--warningDark);}.apvtype.t-agree{background:var(--infoTint);color:var(--info);}
+  .apvstat{font-size:11px;font-weight:700;}.apvstat.s-done{color:var(--success);}.apvstat.s-wait{color:var(--faint);}.apvstat.s-now{color:var(--primary);}
 </style>
 </head>
 <body>
@@ -155,14 +204,18 @@
 <div class="view on" id="v-detail">
   <div class="page">
     <div class="backlink"><svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M15 18l-6-6 6-6"/></svg>계약서 검토 조회</div>
+    <div class="stagedemo">
+      <span class="demohint"><svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>단계 전환 미리보기 (데모)</span>
+      <div class="stageseg" id="stageSeg"></div>
+    </div>
     <div class="hero">
       <div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <svg class="ic lockic" viewBox="0 0 24 24" style="width:17px;height:17px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
           <h1>[hkpark2]Clean본 통합검색 다운로드 로직 테스트2</h1>
-          <span class="badge b-assign"><span class="dot" style="background:var(--warning)"></span>배정 중</span>
+          <span class="badge b-assign" id="heroBadge"><span class="dot" style="background:var(--warning)"></span>배정 중</span>
         </div>
-        <div class="hmeta"><span style="font-variant-numeric:tabular-nums">C20260609-0002</span><span class="sep">|</span>신규계약<span class="sep">|</span>일반 검토요청<span class="sep">|</span>요청자 관리자1<span class="sep">|</span>등록 2026-06-09</div>
+        <div class="hmeta"><span style="font-variant-numeric:tabular-nums">C20260609-0002</span><span class="sep">|</span>신규계약<span class="sep">|</span>등록 2026-06-09</div>
       </div>
       <div style="display:flex;gap:8px;flex-shrink:0">
         <button class="btn btn-outline btn-sm">미리보기</button>
@@ -178,11 +231,11 @@
       <div class="gcell"><div class="gl">계약 기간</div><div class="gv" style="font-variant-numeric:tabular-nums">05.12~05.14</div></div>
       <div class="gcell"><div class="gl">실 지급액</div><div class="gv">135 KRW</div></div>
       <div class="gcell"><div class="gl">협상력</div><div class="gv"><span class="gauge"><span class="gbar"><i style="width:50%"></i></span>50%</span></div></div>
-      <div class="gcell"><div class="gl">법무 담당자</div><div class="gv warn">미배정</div></div>
+      <div class="gcell"><div class="gl">법무 담당자</div><div class="gv"><span class="needchip"><svg class="ic" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>미배정</span></div></div>
     </div>
 
     <div class="card" style="margin-bottom:16px"><div class="cbody"><div class="lifebar" id="lifebar"></div>
-      <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center">다음 단계 <b style="color:var(--primary)">법무 검토 중</b> — 법무팀 담당자 배정이 필요합니다.</div>
+      <div id="nextHint" style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center">다음 단계 <b style="color:var(--primary)">법무 검토 중</b> — 법무팀 담당자 배정이 필요합니다.</div>
     </div></div>
 
     <div class="rail-grid">
@@ -206,39 +259,53 @@
           </div>
         </div>
 
+        <!-- 카드 ① 기본 · 분류 (개요 + 분류·기간 통합) -->
         <div class="card">
-          <div class="chead"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>계약 정보</div>
+          <div class="chead"><svg class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>기본 · 분류</div>
           <div class="cbody">
-            <div class="grouplabel">분류 · 기간</div>
             <div class="facts">
-              <div class="fact"><div class="fl">계약 분류</div><div class="fv"><span class="crumb"><b>법인계약</b> › <b>기타</b> › <b>LOI/MOU</b></span></div></div>
+              <div class="fact"><div class="fl">보안 여부</div><div class="fv" style="color:var(--warningDark)">보안</div></div>
               <div class="fact"><div class="fl">계약서 유형</div><div class="fv">일반 검토요청</div></div>
+              <div class="fact span2"><div class="fl">계약 분류</div><div class="fv"><span class="crumb"><b>법인계약</b> › <b>기타</b> › <b>LOI/MOU</b></span></div></div>
               <div class="fact"><div class="fl">계약 기간</div><div class="fv" style="font-variant-numeric:tabular-nums">2026-05-12 ~ 2026-05-14</div></div>
+              <div class="fact"><div class="fl">계약예정일</div><div class="fv"><span class="emptychip">없음</span></div></div>
               <div class="fact"><div class="fl">계약 언어</div><div class="fv">국문</div></div>
               <div class="fact"><div class="fl">법무 분류</div><div class="fv">국내 법무</div></div>
-              <div class="fact"><div class="fl">계약예정일</div><div class="fv empty">미입력</div></div>
               <div class="fact"><div class="fl">계약분류 가이드</div><div class="fv"><span class="docpill"><svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px;color:var(--primary)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>ㅋㅌㅊㅋㅊ</span></div></div>
               <div class="fact"><div class="fl">체크리스트</div><div class="fv">1.테스트 <span style="color:var(--faint)">· 12</span></div></div>
             </div>
+          </div>
+        </div>
 
-            <div class="grouplabel" style="margin-top:20px">금액 · 협상</div>
+        <!-- 카드 ③ 금액 · 협상 -->
+        <div class="card">
+          <div class="chead"><svg class="ic" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>금액 · 협상</div>
+          <div class="cbody">
             <div class="facts">
-              <div class="fact" style="grid-column:span 2"><div class="fl">계약 규모(대가)</div><div class="fv"><span class="moneychip mc-blue">계약금액 123 KRW [부가세 별도]</span><span class="moneychip mc-red">세액 12 KRW</span><span class="moneychip mc-green">실 지급액 135 KRW</span></div></div>
-              <div class="fact"><div class="fl">계약상대방 협상력</div><div class="fv"><span class="gauge"><span class="gbar"><i style="width:50%"></i></span>50%</span></div></div>
+              <div class="fact span2"><div class="fl">계약 규모(대가)</div><div class="fv"><span class="moneychip mc-blue">계약금액 123 KRW [부가세 별도]</span><span class="moneychip mc-red">세액 12 KRW</span><span class="moneychip mc-green">실 지급액 135 KRW</span></div></div>
+              <div class="fact span2"><div class="fl">금액 메모</div><div class="fv"><span class="emptychip">없음</span></div></div>
+              <div class="fact span2"><div class="fl">계약상대방 협상력</div><div class="fv"><span class="gauge"><span class="gbar"><i style="width:50%"></i></span>50%</span></div></div>
             </div>
+          </div>
+        </div>
 
-            <div class="grouplabel" style="margin-top:20px">당사자 · 관계자</div>
+        <!-- 카드 ④ 당사자 · 관계자 -->
+        <div class="card">
+          <div class="chead"><svg class="ic" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>당사자 · 관계자</div>
+          <div class="cbody">
             <div class="facts">
-              <div class="fact"><div class="fl">상대 계약자</div><div class="fv">휴맥스 테스트 회사 <span style="color:var(--faint);font-weight:500">(20251031-005)</span></div></div>
+              <div class="fact span2"><div class="fl">상대 계약자</div><div class="fv">휴맥스 테스트 회사 <span style="color:var(--faint);font-weight:500">(20251031-005)</span></div></div>
+              <div class="fact"><div class="fl">상대 대표/담당자</div><div class="fv"><span class="emptychip">없음</span></div></div>
+              <div class="fact"><div class="fl">업무담당자</div><div class="fv"><span class="emptychip">없음</span></div></div>
               <div class="fact"><div class="fl">검토 요청자</div><div class="fv">관리자1</div></div>
               <div class="fact"><div class="fl">배정자</div><div class="fv">조수하</div></div>
-              <div class="fact"><div class="fl">법무팀 담당자</div><div class="fv"><span class="minitag">미배정</span></div></div>
-              <div class="fact"><div class="fl">업무담당자</div><div class="fv empty">미지정</div></div>
-              <div class="fact"><div class="fl">관련 프로젝트</div><div class="fv empty">없음</div></div>
-              <div class="fact" style="grid-column:span 2"><div class="fl">참조수신자(부서)</div><div class="fv"><span class="chip-s">개발팀</span> <span class="chip-s">운영팀</span> <span class="chip-s">인프라팀</span></div></div>
-              <div class="fact"><div class="fl">참조수신자 · 비밀</div><div class="fv empty">없음</div></div>
-              <div class="fact"><div class="fl">관련문서</div><div class="fv empty">없음</div></div>
-              <div class="fact"><div class="fl">기타 URL</div><div class="fv empty">없음</div></div>
+              <div class="fact"><div class="fl">법무팀 담당자</div><div class="fv"><span class="needchip"><svg class="ic" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>미배정</span></div></div>
+              <div class="fact"><div class="fl">참조수신자(사용자)</div><div class="fv"><span class="emptychip">없음</span></div></div>
+              <div class="fact"><div class="fl">참조수신자(비밀)</div><div class="fv"><span class="emptychip">없음</span></div></div>
+              <div class="fact span2"><div class="fl">참조수신자(부서)</div><div class="fv"><span class="chip-s">개발팀</span> <span class="chip-s">운영팀</span> <span class="chip-s">인프라팀</span></div></div>
+              <div class="fact"><div class="fl">관련 프로젝트</div><div class="fv"><span class="emptychip">없음</span></div></div>
+              <div class="fact"><div class="fl">관련문서</div><div class="fv"><span class="emptychip">없음</span></div></div>
+              <div class="fact span2"><div class="fl">기타 URL</div><div class="fv"><span class="emptychip">없음</span></div></div>
             </div>
           </div>
         </div>
@@ -248,6 +315,16 @@
           <div class="cbody">
             <div class="alert-info" style="margin-bottom:12px"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>변호사를 먼저 선택하면 착수금·성공보수금을 입력할 수 있습니다.</div>
             <div class="empty">등록된 비용 내역이 없습니다.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="chead"><svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>결재선<span style="margin-left:auto;font-size:11.5px;color:var(--muted)">기안 1순위 고정</span></div>
+          <div class="cbody">
+            <div class="apvrow"><span class="apvnum">1</span><span><span class="apvname">관리자1</span><span class="apvdept">법무팀</span></span><span class="apvtype t-draft">기안</span></div>
+            <div class="apvrow"><span class="apvnum">2</span><span><span class="apvname">조수하</span><span class="apvdept">법무팀</span></span><span class="apvtype t-agree">합의</span></div>
+            <div class="apvrow"><span class="apvnum">3</span><span><span class="apvname">김기현</span><span class="apvdept">법무팀</span></span><span class="apvtype t-appr">결재</span></div>
+            <div class="apvrow"><span class="apvnum">4</span><span><span class="apvname">박현경</span><span class="apvdept">경영지원실</span></span><span class="apvtype">참조</span></div>
           </div>
         </div>
 
@@ -264,28 +341,24 @@
       <!-- 우측 레일 -->
       <div class="stack sticky">
         <div class="card">
-          <div class="chead">검토 액션</div>
-          <div class="cbody" style="display:flex;flex-direction:column;gap:12px">
-            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-assign">배정 중</span></div>
-            <div class="arow"><span class="avatar av-p">조</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">조수하 <span style="font-size:11.5px;color:var(--faint);font-weight:500">법무팀</span></div><div style="font-size:11.5px;color:var(--muted)">배정 담당</div></div></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn btn-outline btn-sm" style="justify-content:center;color:var(--danger);border-color:#e8b7b7">반려</button><button class="btn btn-primary btn-sm" style="justify-content:center">법무 담당자 배정</button></div>
-          </div>
+          <div class="chead" id="actionHead">검토 액션</div>
+          <div class="cbody" id="actionBody" style="display:flex;flex-direction:column;gap:12px"></div>
         </div>
         <div class="card">
           <div class="chead"><svg class="ic" viewBox="0 0 24 24"><path d="M21 11.5l-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/></svg>문서</div>
-          <div class="cbody" style="display:flex;flex-direction:column;gap:8px">
-            <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--primary)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">(D013) 유지보수계약서_LCMS…docx</div><div style="display:flex;gap:8px;margin-top:2px"><span class="flink">미리보기</span><span class="flink g">문서 비교</span></div></div></div>
-            <div style="font-size:11.5px;color:var(--faint)">첨부/별첨 · 참고서류 없음</div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="chead">핵심 정보</div>
-          <div class="cbody">
-            <div class="akv"><span class="k">관리번호</span><span class="v" style="font-variant-numeric:tabular-nums">C20260609-0002</span></div>
-            <div class="akv"><span class="k">계약 단계</span><span class="v">신규계약</span></div>
-            <div class="akv"><span class="k">보안 여부</span><span class="v" style="color:var(--warningDark)">보안</span></div>
-            <div class="akv"><span class="k">계약서 유형</span><span class="v">일반 검토요청</span></div>
-            <div class="akv"><span class="k">언어 · 법무</span><span class="v">국문 · 국내</span></div>
+          <div class="cbody" style="display:flex;flex-direction:column;gap:10px">
+            <div>
+              <div class="fl" style="margin-bottom:6px">계약서 <span class="minitag" style="background:var(--primarySoft);color:var(--primaryDark)">필수</span></div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px"><svg class="ic" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--primary)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">(D013) 유지보수계약서_LCMS…docx</div><div style="display:flex;gap:8px;margin-top:2px"><span class="flink">미리보기</span><span class="flink g">문서 비교</span></div></div></div>
+            </div>
+            <div>
+              <div class="fl" style="margin-bottom:6px">첨부 · 별첨</div>
+              <div style="font-size:11.5px;color:var(--faint)">첨부된 파일이 없습니다.</div>
+            </div>
+            <div>
+              <div class="fl" style="margin-bottom:6px">참고서류</div>
+              <div style="font-size:11.5px;color:var(--faint)">등록된 참고서류가 없습니다.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -405,16 +478,105 @@
   document.querySelectorAll('.subtab').forEach(function(t){t.onclick=function(){document.querySelectorAll('.subtab').forEach(function(x){x.classList.remove('on');});t.classList.add('on');};});
   document.querySelectorAll('.segbtn').forEach(function(t){t.onclick=function(){document.querySelectorAll('.segbtn').forEach(function(x){x.classList.remove('on');});t.classList.add('on');};});
   var STEPS=["임시 저장","계약 검토 의뢰","배정 중","법무 검토 중","요청자 검토 중","계약서 검토 완료","체결 품의 중","체결 품의 완료"];
-  var ACTIVE=2, bar=document.getElementById('lifebar'), html='';
+  var bar=document.getElementById('lifebar');
+
+  function renderLife(ACTIVE){
+    var html='';
+    STEPS.forEach(function(s,i){
+      var cls=i<ACTIVE?'done':(i===ACTIVE?'act':'');
+      html+='<div class="lstep '+cls+'">'+
+        (i>0?'<div class="line" style="left:0;right:50%;background:'+(i<=ACTIVE?'var(--primary)':'var(--border)')+'"></div>':'')+
+        (i<STEPS.length-1?'<div class="line" style="left:50%;right:0;background:'+(i<ACTIVE?'var(--primary)':'var(--border)')+'"></div>':'')+
+        '<div class="lc">'+(i<ACTIVE?'<svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px;color:#fff"><path d="M20 6L9 17l-5-5"/></svg>':(i===ACTIVE?'<span style="width:8px;height:8px;border-radius:99px;background:var(--primary)"></span>':(i+1)))+'</div>'+
+        '<div class="ll">'+s+'</div></div>';
+    });
+    bar.innerHTML=html;
+  }
+
+  /* ===== 단계 전환 데모 ===== */
+  var BTN_REJECT='<button class="btn btn-outline btn-sm" style="justify-content:center;color:var(--danger);border-color:color-mix(in srgb,var(--dangerAccent) 45%,#fff)">반려</button>';
+  var ASSIGNEE='<div class="arow"><span class="avatar av-p">조</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">조수하 <span style="font-size:11.5px;color:var(--faint);font-weight:500">법무팀</span></div><div style="font-size:11.5px;color:var(--muted)">배정 담당</div></div></div>';
+  // 결재선 진행 시각화 (체결 품의 단계)
+  function approvalFlow(done){
+    var apv=[['관리자1','법무팀','기안','t-draft'],['조수하','법무팀','합의','t-agree'],['김기현','법무팀','결재','t-appr'],['박현경','경영지원실','참조','']];
+    var h='';
+    apv.forEach(function(a,i){
+      var st = done ? 's-done' : (i<2?'s-done':(i===2?'s-now':'s-wait'));
+      var lab = done ? '완료' : (i<2?'완료':(i===2?'진행 중':'대기'));
+      var rc = (st==='s-done'?'adone':(st==='s-now'?'aact':''));
+      h+='<div class="apvrow '+rc+'"><span class="apvnum">'+(i+1)+'</span><span><span class="apvname">'+a[0]+'</span><span class="apvdept">'+a[1]+'</span></span><span class="apvtype '+a[3]+'">'+a[2]+'</span><span class="apvstat '+st+'" style="margin-left:10px">'+lab+'</span></div>';
+    });
+    return '<div>'+h+'</div>';
+  }
+
+  // 단계별: 라벨, 라이프사이클 active idx, hero 뱃지 클래스/텍스트/도트, 다음단계 안내, 액션패널 제목/본문
+  var DEMO=[
+    {step:0,badge:['b-draft','임시 저장','var(--border)'],next:'다음 단계 <b style="color:var(--primary)">계약 검토 의뢰</b> — 작성 후 제출하면 검토가 시작됩니다.',
+      head:'작성 액션',
+      body:'<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-draft">임시 저장</span></div>'+
+           '<div class="alert-info"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>작성 중인 임시 저장 건입니다. 제출 전까지 검토는 시작되지 않습니다.</div>'+
+           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn btn-outline btn-sm" style="justify-content:center">수정</button><button class="btn btn-primary btn-sm" style="justify-content:center">제출</button></div>'+
+           '<button class="btn btn-outline btn-sm" style="justify-content:center;color:var(--danger);border-color:color-mix(in srgb,var(--dangerAccent) 45%,#fff)">삭제</button>'},
+    {step:1,badge:['b-assign','계약 검토 의뢰','var(--warning)'],next:'다음 단계 <b style="color:var(--primary)">배정 중</b> — 법무팀이 검토 요청을 접수합니다.',
+      head:'검토 액션',
+      body:'<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-assign">계약 검토 의뢰</span></div>'+
+           '<div class="alert-info"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>검토 요청이 접수되었습니다. 담당자 배정을 기다리고 있습니다.</div>'+BTN_REJECT},
+    {step:2,badge:['b-assign','배정 중','var(--warning)'],next:'다음 단계 <b style="color:var(--primary)">법무 검토 중</b> — 법무팀 담당자 배정이 필요합니다.',
+      head:'검토 액션',
+      body:'<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-assign">배정 중</span></div>'+
+           ASSIGNEE+
+           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+BTN_REJECT+'<button class="btn btn-primary btn-sm" style="justify-content:center">법무 담당자 배정</button></div>'},
+    {step:3,badge:['b-legal','법무 검토 중','var(--primary)'],next:'다음 단계 <b style="color:var(--primary)">요청자 검토 중</b> — 법무 검토 완료 후 요청자 확인을 거칩니다.',
+      head:'검토 액션',
+      body:'<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-legal">법무 검토 중</span></div>'+
+           '<div class="arow"><span class="avatar av-i">김</span><div><div style="font-size:13px;font-weight:700;color:var(--heading)">김기현 <span style="font-size:11.5px;color:var(--faint);font-weight:500">법무팀</span></div><div style="font-size:11.5px;color:var(--muted)">검토 담당</div></div></div>'+
+           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+BTN_REJECT+'<button class="btn btn-primary btn-sm" style="justify-content:center">검토 완료</button></div>'},
+    {step:4,badge:['b-legal','요청자 검토 중','var(--primary)'],next:'다음 단계 <b style="color:var(--primary)">계약서 검토 완료</b> — 요청자 확인 후 검토가 마무리됩니다.',
+      head:'검토 액션',
+      body:'<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-legal">요청자 검토 중</span></div>'+
+           '<div class="alert-info"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>법무 검토 결과를 확인해 주세요. 이의가 있으면 재검토를 요청할 수 있습니다.</div>'+
+           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn btn-outline btn-sm" style="justify-content:center">재검토 요청</button><button class="btn btn-primary btn-sm" style="justify-content:center">확인</button></div>'},
+    {step:5,badge:['b-done','계약서 검토 완료','var(--successAccent)'],next:'다음 단계 <b style="color:var(--primary)">체결 품의 중</b> — 검토가 완료되어 체결 품의를 상신할 수 있습니다.',
+      head:'검토 액션',
+      body:'<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-done">계약서 검토 완료</span></div>'+
+           '<div class="alert-info" style="background:var(--successTint);border-color:color-mix(in srgb,#28c76f 28%,#fff);color:var(--success)"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--success)"><path d="M20 6L9 17l-5-5"/></svg>법무 검토가 완료되었습니다. 체결 품의를 상신하세요.</div>'+
+           '<button class="btn btn-primary btn-sm" style="justify-content:center">체결 품의 상신</button>'},
+    {step:6,badge:['b-legal','체결 품의 중','var(--primary)'],next:'다음 단계 <b style="color:var(--primary)">체결 품의 완료</b> — 결재선의 결재가 진행 중입니다.',
+      head:'결재 현황',
+      body:'<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-legal">체결 품의 중</span></div>'+
+           approvalFlow(false)+
+           '<button class="btn btn-outline btn-sm" style="justify-content:center">품의 취소</button>'},
+    {step:7,badge:['b-done','체결 품의 완료','var(--successAccent)'],next:'<b style="color:var(--success)">체결 완료</b> — 모든 결재가 완료되어 계약이 체결되었습니다.',
+      head:'결재 현황',
+      body:'<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;color:var(--muted)">현재 단계</span><span class="badge b-done">체결 품의 완료</span></div>'+
+           '<div class="alert-info" style="background:var(--successTint);border-color:color-mix(in srgb,#28c76f 28%,#fff);color:var(--success)"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--success)"><path d="M20 6L9 17l-5-5"/></svg>모든 결재가 완료되어 계약이 체결되었습니다. (읽기 전용)</div>'+
+           approvalFlow(true)}
+  ];
+
+  var seg=document.getElementById('stageSeg');
+  var heroBadge=document.getElementById('heroBadge');
+  var nextHint=document.getElementById('nextHint');
+  var actionHead=document.getElementById('actionHead');
+  var actionBody=document.getElementById('actionBody');
+
+  function applyStage(i){
+    var d=DEMO[i];
+    renderLife(d.step);
+    heroBadge.className='badge '+d.badge[0];
+    heroBadge.innerHTML='<span class="dot" style="background:'+d.badge[2]+'"></span>'+d.badge[1];
+    nextHint.innerHTML=d.next;
+    actionHead.textContent=d.head;
+    actionBody.innerHTML=d.body;
+    seg.querySelectorAll('.stagebtn').forEach(function(b,bi){b.classList.toggle('on',bi===i);});
+  }
+
   STEPS.forEach(function(s,i){
-    var cls=i<ACTIVE?'done':(i===ACTIVE?'act':'');
-    html+='<div class="lstep '+cls+'">'+
-      (i>0?'<div class="line" style="left:0;right:50%;background:'+(i<=ACTIVE?'var(--primary)':'var(--border)')+'"></div>':'')+
-      (i<STEPS.length-1?'<div class="line" style="left:50%;right:0;background:'+(i<ACTIVE?'var(--primary)':'var(--border)')+'"></div>':'')+
-      '<div class="lc">'+(i<ACTIVE?'<svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px;color:#fff"><path d="M20 6L9 17l-5-5"/></svg>':(i===ACTIVE?'<span style="width:8px;height:8px;border-radius:99px;background:var(--primary)"></span>':(i+1)))+'</div>'+
-      '<div class="ll">'+s+'</div></div>';
+    var b=document.createElement('button');
+    b.className='stagebtn';b.textContent=s;
+    b.onclick=function(){applyStage(i);};
+    seg.appendChild(b);
   });
-  bar.innerHTML=html;
+  applyStage(2); // 기본: 배정 중
 </script>
 </body>
 </html>
