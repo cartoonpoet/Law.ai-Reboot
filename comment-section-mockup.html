@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>검토 의견 — 시안</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    /* lawkit accents */
+    --primary:#2151ec;--primaryDark:#1739a5;
+    --primarySoft:color-mix(in srgb,#2151ec 10%,#fff);--primaryTint:color-mix(in srgb,#2151ec 6%,#fff);
+    --success:#006d38;--successAccent:#28c76f;--successTint:color-mix(in srgb,#28c76f 14%,#fff);
+    --danger:#b12a30;--dangerAccent:#ea5455;--dangerTint:color-mix(in srgb,#ea5455 12%,#fff);
+    --warning:#f0af23;--warningDark:#7d5800;--warningTint:color-mix(in srgb,#f0af23 16%,#fff);
+    --info:#006876;--infoAccent:#00cfe8;--infoTint:color-mix(in srgb,#00cfe8 12%,#fff);
+    /* lawkit text */
+    --heading:#11152a;--body:#4c5469;--muted:#626f86;--faint:#9ea7b8;
+    /* lawkit neutrals */
+    --pageBg:#f2f4f6;--surface:#fff;--surfaceAlt:#f1f4f9;--border:#cfd5e1;--borderSubtle:#eeeff2;--borderStrong:#cfd5e1;
+    /* lawkit radius */
+    --rSm:4px;--rMd:6px;--rLg:8px;
+    /* lawkit shadow */
+    --shadow:0 6px 16px rgba(17,24,39,.08);
+    --shadowSoft:0 1px 2px rgba(17,24,39,.05);
+    --focusRing:0 0 0 3px rgba(47,91,255,.14);
+    /* comment editor padding token (placeholder ↔ input 정렬 단일 출처) */
+    --cmtPadY:11px;--cmtPadX:13px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Pretendard,system-ui,sans-serif;background:var(--pageBg);color:var(--body);font-size:13px;-webkit-font-smoothing:antialiased;}
+  .ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+  .ic-fill{fill:currentColor;stroke:none;}
+
+  .page{max-width:760px;margin:0 auto;padding:28px 24px 80px;}
+  .pgtop{margin-bottom:18px;}
+  .eyebrow{font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.07em;text-transform:uppercase;}
+  h1.title{margin:6px 0 4px;font-size:21px;font-weight:700;color:var(--heading);letter-spacing:-.025em;}
+  .pgsub{font-size:12.5px;color:var(--muted);}
+
+  /* ===== card (lawkit) ===== */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rLg);box-shadow:var(--shadow);overflow:hidden;}
+  .chead{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--borderSubtle);font-size:14px;font-weight:700;color:var(--heading);}
+  .chead .ic{color:var(--primary);}
+  .cbody{padding:16px;}
+  .cnt-badge{font-size:11px;font-weight:800;background:var(--surfaceAlt);color:var(--muted);border-radius:99px;padding:2px 9px;line-height:1.5;}
+
+  /* ===== subtabs (optional) ===== */
+  .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--borderSubtle);padding:0 6px;}
+  .subtab{font-size:13px;font-weight:700;color:var(--muted);padding:12px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;}
+  .subtab:hover{color:var(--body);}
+  .subtab.on{color:var(--primary);border-bottom-color:var(--primary);}
+
+  /* ===== thread ===== */
+  .thread{display:flex;flex-direction:column;gap:18px;}
+  .cmt{display:flex;gap:12px;}
+  .avatar{width:32px;height:32px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+  .av-req{background:var(--primary);}      /* 요청자 */
+  .av-legal{background:var(--info);}        /* 법무팀 */
+  .av-sys{background:var(--faint);}         /* 시스템 */
+  .cmtmain{flex:1;min-width:0;}
+  .cmthd{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap;}
+  .cmtname{font-size:13px;font-weight:700;color:var(--heading);}
+  .roletag{font-size:10.5px;font-weight:700;border-radius:var(--rSm);padding:1px 7px;line-height:1.6;}
+  .rt-req{background:var(--primarySoft);color:var(--primaryDark);}
+  .rt-legal{background:var(--infoTint);color:var(--info);}
+  .rt-sys{background:var(--surfaceAlt);color:var(--muted);}
+  .cmttime{font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums;}
+  .cmtactions{margin-left:auto;display:flex;gap:4px;opacity:0;transition:opacity .12s;}
+  .cmt:hover .cmtactions{opacity:1;}
+  .miniact{font-size:11.5px;font-weight:600;color:var(--muted);background:#fff;border:1px dashed var(--border);border-radius:var(--rMd);padding:2px 9px;cursor:pointer;transition:border-color .12s,color .12s;font-family:inherit;}
+  .miniact:hover{border-style:solid;border-color:var(--primary);color:var(--primaryDark);}
+  .miniact.del:hover{border-color:var(--dangerAccent);color:var(--danger);}
+
+  .bubble{background:var(--surfaceAlt);border:1px solid var(--borderSubtle);border-radius:var(--rLg);padding:11px 13px;font-size:13px;color:var(--body);line-height:1.65;}
+  .bubble.own{background:var(--primaryTint);border-color:color-mix(in srgb,var(--primary) 14%,#fff);}
+
+  /* 멘션 인라인 칩 */
+  .mention{font-weight:700;color:var(--primaryDark);background:var(--primarySoft);border-radius:var(--rSm);padding:1px 5px;white-space:nowrap;}
+
+  /* 첨부 링크 */
+  .attach{display:inline-flex;align-items:center;gap:7px;margin-top:8px;padding:7px 10px;background:#fff;border:1px solid var(--border);border-radius:var(--rMd);font-size:12px;color:var(--heading);font-weight:600;}
+  .attach .ic{width:14px;height:14px;color:var(--primary);}
+  .flink{color:var(--primary);font-size:11.5px;font-weight:600;cursor:pointer;}
+  .flink:hover{color:var(--primaryDark);text-decoration:underline;}
+
+  /* 시스템 메시지 (차분) */
+  .cmt.sys .cmtname{color:var(--muted);font-weight:600;}
+  .sysline{font-size:12.5px;color:var(--muted);line-height:1.6;}
+  .statepill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--warningTint);color:var(--warningDark);}
+
+  /* 삭제된 코멘트 placeholder */
+  .deleted .bubble{background:transparent;border:1px dashed var(--border);color:var(--faint);font-style:italic;font-size:12.5px;display:flex;align-items:center;gap:7px;}
+  .deleted .bubble .ic{width:13px;height:13px;color:var(--faint);}
+
+  .divider{height:1px;background:var(--borderSubtle);margin:20px 0 16px;}
+
+  /* =========================================================
+     ===== 공유 에디터 디자인 언어 (검토의견=컴팩트 / 상세=풀) =====
+     contract-list-detail-mockup.html 의 토큰·카드·버튼 룩과 일관.
+     두 시안(comment / content-editor)이 동일한 .ed-* 규칙을 공유한다.
+     ========================================================= */
+  .editor{border:1px solid var(--border);border-radius:var(--rLg);background:#fff;box-shadow:var(--shadowSoft);transition:border-color .12s,box-shadow .12s;position:relative;overflow:hidden;}
+  .editor:focus-within,.editor.focused{border-color:var(--primary);box-shadow:var(--focusRing);}
+
+  /* --- 툴바 (그룹 구분선) --- */
+  .ed-toolbar{display:flex;align-items:center;gap:3px;flex-wrap:wrap;padding:6px var(--cmtPadX);border-bottom:1px solid var(--borderSubtle);background:color-mix(in srgb,var(--surfaceAlt) 55%,#fff);}
+  .ed-group{display:inline-flex;align-items:center;gap:2px;}
+  .ed-sep{width:1px;align-self:stretch;margin:4px 5px;background:var(--border);}
+  .tbtn-ic{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--rMd);color:var(--muted);background:transparent;border:1px solid transparent;cursor:pointer;font-family:inherit;font-size:13px;transition:background .12s,color .12s,border-color .12s;}
+  .tbtn-ic:hover{background:#fff;color:var(--primaryDark);border-color:var(--border);}
+  .tbtn-ic:focus-visible{outline:none;box-shadow:var(--focusRing);}
+  .tbtn-ic.on{background:var(--primarySoft);color:var(--primaryDark);border-color:color-mix(in srgb,var(--primary) 22%,#fff);}
+  .tbtn-ic .ic{width:15px;height:15px;}
+  .tbtn-ic b{font-weight:800;}
+  .tbtn-ic i{font-style:italic;font-weight:600;}
+  .tbtn-ic u{text-decoration:underline;}
+  .tbtn-ic s{text-decoration:line-through;}
+  /* 툴팁 */
+  .tbtn-ic{position:relative;}
+  .tbtn-ic[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--navy,#141a2b);color:#fff;font-size:10.5px;font-weight:600;white-space:nowrap;padding:3px 7px;border-radius:var(--rSm);z-index:9;pointer-events:none;box-shadow:var(--shadow);}
+
+  /* --- 콘텐츠(contenteditable 느낌) --- */
+  /* placeholder ↔ 입력 텍스트 동일 패딩/줄높이/폰트 정렬 (단일 출처 토큰) */
+  .ed-content{padding:var(--cmtPadY) var(--cmtPadX);font-size:13px;line-height:1.65;color:var(--body);min-height:72px;outline:none;}
+  .ed-content:empty::before{content:attr(data-ph);color:var(--faint);}
+  .ed-content p{margin:0 0 8px;}
+  .ed-content p:last-child{margin-bottom:0;}
+  .ed-content strong{font-weight:700;color:var(--heading);}
+  .ed-content ul,.ed-content ol{margin:4px 0 8px;padding-left:20px;}
+  .ed-content li{margin:2px 0;}
+  .ed-content h4{margin:10px 0 4px;font-size:13.5px;font-weight:700;color:var(--heading);}
+  .ed-content a{color:var(--primary);text-decoration:underline;}
+  .ed-content blockquote{margin:6px 0;padding:4px 12px;border-left:3px solid color-mix(in srgb,var(--primary) 40%,#fff);background:var(--primaryTint);color:var(--body);border-radius:0 var(--rSm) var(--rSm) 0;}
+  /* 레거시 textarea 호환(보조 데모 카드용) */
+  .editor textarea{display:block;width:100%;border:none;outline:none;resize:none;background:transparent;font-family:inherit;font-size:13px;line-height:1.65;color:var(--body);padding:var(--cmtPadY) var(--cmtPadX);min-height:64px;}
+  .editor textarea::placeholder{color:var(--faint);}
+  .editor .filledtext{padding:var(--cmtPadY) var(--cmtPadX);font-size:13px;line-height:1.65;color:var(--body);min-height:64px;}
+
+  /* --- 첨부 파일 strip (칩) --- */
+  .ed-attachstrip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 var(--cmtPadX) 10px;}
+  .filechip{display:inline-flex;align-items:center;gap:8px;padding:6px 8px 6px 9px;background:var(--surfaceAlt);border:1px solid var(--border);border-radius:var(--rMd);font-size:11.5px;}
+  .filechip .ficon{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:var(--rSm);background:var(--primarySoft);color:var(--primaryDark);flex-shrink:0;}
+  .filechip .ficon .ic{width:14px;height:14px;}
+  .filechip .fname{font-weight:700;color:var(--heading);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .filechip .fsize{color:var(--faint);font-variant-numeric:tabular-nums;}
+  .filechip .frm{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:99px;color:var(--faint);cursor:pointer;border:none;background:transparent;padding:0;transition:background .12s,color .12s;}
+  .filechip .frm:hover{background:var(--dangerTint);color:var(--danger);}
+  .filechip .frm .ic{width:12px;height:12px;}
+  .ed-dndhint{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--faint);font-weight:600;}
+  .ed-dndhint .ic{width:13px;height:13px;}
+
+  .editorbar{display:flex;align-items:center;gap:10px;padding:8px var(--cmtPadX);border-top:1px solid var(--borderSubtle);background:color-mix(in srgb,var(--surfaceAlt) 35%,#fff);}
+  .menhint{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--faint);font-weight:600;}
+  .menhint b{color:var(--muted);background:var(--surfaceAlt);border-radius:var(--rSm);padding:0 5px;font-weight:700;}
+  .pastehint{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);font-weight:600;}
+  .pastehint .ic{width:13px;height:13px;color:var(--info);}
+  .charcount{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums;}
+  .spacer{flex:1;}
+  .btn{font-family:inherit;font-size:12.5px;font-weight:700;border-radius:var(--rLg);padding:0 14px;height:34px;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;}
+  .btn:focus-visible{outline:none;box-shadow:var(--focusRing);}
+  .btn-primary{background:var(--primary);color:#fff;}.btn-primary:hover{background:var(--primaryDark);}
+  .btn-ghost{background:#fff;color:var(--muted);border-color:var(--border);}.btn-ghost:hover{border-color:var(--primary);color:var(--primaryDark);}
+
+  /* 멘션 자동완성 드롭다운 */
+  .mentionpop{position:absolute;left:var(--cmtPadX);top:38px;width:260px;background:#fff;border:1px solid var(--border);border-radius:var(--rLg);box-shadow:var(--shadow);padding:5px;z-index:5;}
+  .mentionhdr{font-size:10.5px;font-weight:700;color:var(--faint);letter-spacing:.04em;text-transform:uppercase;padding:5px 9px 4px;}
+  .mentionitem{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--rMd);cursor:pointer;}
+  .mentionitem:hover,.mentionitem.on{background:var(--primarySoft);}
+  .mentionitem .avatar{width:24px;height:24px;font-size:10px;}
+  .mname{font-size:12.5px;font-weight:700;color:var(--heading);}
+  .mdept{font-size:11px;color:var(--faint);margin-left:auto;}
+
+  /* ===== 빈 상태 ===== */
+  .emptystate{text-align:center;padding:36px 20px;}
+  .emptystate .ring{width:48px;height:48px;border-radius:99px;background:var(--primaryTint);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+  .emptystate .ring .ic{width:22px;height:22px;color:var(--primary);}
+  .emptystate .et{font-size:14px;font-weight:700;color:var(--heading);margin-bottom:4px;}
+  .emptystate .ed{font-size:12.5px;color:var(--muted);line-height:1.6;}
+
+  .demohint{max-width:760px;margin:0 auto 14px;padding:0 24px;font-size:12px;color:var(--faint);display:flex;align-items:center;gap:6px;}
+  .seclabel{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:0 0 10px;}
+</style>
+</head>
+<body>
+
+<div class="demohint" style="margin-top:24px">
+  <svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+  검토 의견 섹션 UI/UX 시안 — 컴팩트 WYSIWYG(서식 + 파일첨부 + 멘션). lawkit 토큰/컴포넌트 룩. 정적 미리보기(데모).
+</div>
+
+<!-- ================= 메인: 스레드가 있는 상태 ================= -->
+<div class="page">
+  <div class="pgtop">
+    <div class="eyebrow">상세 · 검토 의견</div>
+    <h1 class="title">검토 의견</h1>
+    <div class="pgsub">계약 검토에 대한 코멘트와 상태 이력을 시간순으로 확인하세요.</div>
+  </div>
+
+  <div class="card">
+    <!-- 헤더 + 서브탭 + 건수 배지 -->
+    <div class="subtabs">
+      <button class="subtab on">
+        <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        코멘트 · 이력 <span class="cnt-badge" style="margin-left:5px">5</span>
+      </button>
+      <button class="subtab">결재이력</button>
+    </div>
+
+    <div class="cbody">
+      <div class="thread">
+
+        <!-- 1) 요청자 코멘트 + 멘션 -->
+        <div class="cmt">
+          <span class="avatar av-req">관</span>
+          <div class="cmtmain">
+            <div class="cmthd">
+              <span class="cmtname">관리자1</span>
+              <span class="roletag rt-req">요청자</span>
+              <span class="cmttime">2026-06-09 16:08</span>
+            </div>
+            <div class="bubble">
+              계약 검토를 요청 드립니다. <span class="mention">@김기현</span> 변호사님, 손해배상 한도 조항(제12조) 위주로 봐주시면 감사하겠습니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- 2) 시스템 메시지 (상태 변경) -->
+        <div class="cmt sys">
+          <span class="avatar av-sys">
+            <svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px;color:#fff"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9z"/></svg>
+          </span>
+          <div class="cmtmain">
+            <div class="cmthd">
+              <span class="cmtname">시스템</span>
+              <span class="roletag rt-sys">시스템</span>
+              <span class="cmttime">2026-06-09 16:08</span>
+            </div>
+            <div class="sysline">상태가 <span class="statepill">배정 중</span> (으)로 변경되었습니다.</div>
+          </div>
+        </div>
+
+        <!-- 3) 법무팀 코멘트 + 첨부 -->
+        <div class="cmt">
+          <span class="avatar av-legal">김</span>
+          <div class="cmtmain">
+            <div class="cmthd">
+              <span class="cmtname">김기현</span>
+              <span class="roletag rt-legal">법무팀</span>
+              <span class="cmttime">2026-06-10 10:24</span>
+            </div>
+            <div class="bubble">
+              제12조 검토 결과 회신 드립니다. 배상 한도를 계약금액 100% 이내로 명시하는 수정안을 첨부했습니다. <span class="mention">@관리자1</span> 확인 부탁드립니다.
+              <div>
+                <span class="attach">
+                  <svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                  검토의견_제12조_수정안.docx
+                  <span class="flink">미리보기</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4) 본인 코멘트 (hover 시 수정/삭제) -->
+        <div class="cmt">
+          <span class="avatar av-legal">김</span>
+          <div class="cmtmain">
+            <div class="cmthd">
+              <span class="cmtname">김기현</span>
+              <span class="roletag rt-legal">법무팀</span>
+              <span class="cmttime">2026-06-10 10:31</span>
+              <span class="cmtactions">
+                <button class="miniact">수정</button>
+                <button class="miniact del">삭제</button>
+              </span>
+            </div>
+            <div class="bubble own">
+              제15조 해지 통보 기간도 7일 → 30일로 조정 권고드립니다. (본인 코멘트 — hover 시 우측 수정/삭제 노출)
+            </div>
+          </div>
+        </div>
+
+        <!-- 5) 삭제된 코멘트 placeholder -->
+        <div class="cmt deleted">
+          <span class="avatar av-req">관</span>
+          <div class="cmtmain">
+            <div class="cmthd">
+              <span class="cmtname">관리자1</span>
+              <span class="roletag rt-req">요청자</span>
+              <span class="cmttime">2026-06-10 11:02</span>
+            </div>
+            <div class="bubble">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+              삭제된 코멘트입니다.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ===== 입력란 (컴팩트 WYSIWYG + 첨부 + 멘션 자동완성) ===== -->
+      <div class="seclabel">새 검토 의견</div>
+      <div class="editor focused">
+
+        <!-- 컴팩트 툴바 (그룹 구분선) -->
+        <div class="ed-toolbar">
+          <div class="ed-group">
+            <button class="tbtn-ic on" data-tip="굵게 (Ctrl+B)"><b>B</b></button>
+            <button class="tbtn-ic" data-tip="기울임 (Ctrl+I)"><i>I</i></button>
+            <button class="tbtn-ic" data-tip="밑줄 (Ctrl+U)"><u>U</u></button>
+            <button class="tbtn-ic" data-tip="취소선"><s>S</s></button>
+          </div>
+          <span class="ed-sep"></span>
+          <div class="ed-group">
+            <button class="tbtn-ic" data-tip="글머리 목록"><svg class="ic" viewBox="0 0 24 24"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle class="ic-fill" cx="4" cy="6" r="1.4"/><circle class="ic-fill" cx="4" cy="12" r="1.4"/><circle class="ic-fill" cx="4" cy="18" r="1.4"/></svg></button>
+            <button class="tbtn-ic" data-tip="번호 목록"><svg class="ic" viewBox="0 0 24 24"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><path d="M4 5h1v3M3 12h2l-2 3h2" stroke-width="1.6"/></svg></button>
+          </div>
+          <span class="ed-sep"></span>
+          <div class="ed-group">
+            <button class="tbtn-ic" data-tip="링크"><svg class="ic" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></button>
+            <button class="tbtn-ic" data-tip="인용"><svg class="ic" viewBox="0 0 24 24"><path d="M7 7H4a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2v2a2 2 0 0 1-2 2M17 7h-3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2v2a2 2 0 0 1-2 2"/></svg></button>
+          </div>
+          <span class="ed-sep"></span>
+          <div class="ed-group">
+            <button class="tbtn-ic" data-tip="파일 첨부"><svg class="ic" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49"/></svg></button>
+          </div>
+        </div>
+
+        <!-- 콘텐츠 (contenteditable 느낌) — Word/HWP 서식 유지 붙여넣기 예시 -->
+        <div class="ed-content" contenteditable="true" role="textbox" data-ph="검토 의견을 입력하세요. @로 담당자를 멘션할 수 있습니다.">
+          <h4>제12조(손해배상) 검토 회신</h4>
+          <p><strong>결론:</strong> 배상 한도를 계약금액의 <strong>100% 이내</strong>로 명시하는 수정안을 권고드립니다. <span class="mention">@관리자1</span> 확인 부탁드립니다.</p>
+          <p>주요 사유는 다음과 같습니다.</p>
+          <ul>
+            <li>현행 무제한 배상 조항은 회사 리스크 과다</li>
+            <li>거래 규모 대비 통상적 상한(100%) 적용이 합리적</li>
+          </ul>
+        </div>
+
+        <!-- 멘션 자동완성 드롭다운 (옵션) -->
+        <div class="mentionpop">
+          <div class="mentionhdr">멘션할 담당자</div>
+          <div class="mentionitem on"><span class="avatar av-legal">김</span><span class="mname">김기현</span><span class="mdept">법무팀</span></div>
+          <div class="mentionitem"><span class="avatar av-legal">조</span><span class="mname">조수하</span><span class="mdept">법무팀</span></div>
+          <div class="mentionitem"><span class="avatar av-req">관</span><span class="mname">관리자1</span><span class="mdept">요청자</span></div>
+        </div>
+
+        <!-- 첨부 파일 칩 strip (드래그&드롭 힌트 포함) -->
+        <div class="ed-attachstrip">
+          <span class="filechip">
+            <span class="ficon"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+            <span class="fname">검토의견_제12조_수정안.docx</span>
+            <span class="fsize">82 KB</span>
+            <button class="frm" data-tip="제거"><svg class="ic" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </span>
+          <span class="filechip">
+            <span class="ficon"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+            <span class="fname">계약서_원본.pdf</span>
+            <span class="fsize">1.4 MB</span>
+            <button class="frm" data-tip="제거"><svg class="ic" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </span>
+          <span class="ed-dndhint"><svg class="ic" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49"/></svg> 파일을 끌어다 놓거나 📎</span>
+        </div>
+
+        <div class="editorbar">
+          <span class="pastehint"><svg class="ic" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Word/HWP 서식 붙여넣기 지원</span>
+          <span class="spacer"></span>
+          <span class="charcount">182 / 2000</span>
+          <button class="btn btn-primary">
+            <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
+            등록
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 보조: 빈 상태 + 정렬 비교 ================= -->
+<div class="page" style="padding-top:8px">
+  <div class="seclabel" style="margin-bottom:12px">빈 상태 (코멘트 없음)</div>
+  <div class="card" style="margin-bottom:28px">
+    <div class="subtabs">
+      <button class="subtab on">
+        <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        코멘트 · 이력 <span class="cnt-badge" style="margin-left:5px">0</span>
+      </button>
+      <button class="subtab">결재이력</button>
+    </div>
+    <div class="cbody">
+      <div class="emptystate">
+        <div class="ring">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="et">첫 검토 의견을 남겨보세요</div>
+        <div class="ed">담당자에게 전달할 의견을 작성하면 검토 이력에 기록됩니다.</div>
+      </div>
+      <div class="divider"></div>
+      <div class="seclabel">새 검토 의견</div>
+      <div class="editor">
+        <div class="ed-toolbar">
+          <div class="ed-group">
+            <button class="tbtn-ic" data-tip="굵게 (Ctrl+B)"><b>B</b></button>
+            <button class="tbtn-ic" data-tip="기울임 (Ctrl+I)"><i>I</i></button>
+            <button class="tbtn-ic" data-tip="밑줄 (Ctrl+U)"><u>U</u></button>
+            <button class="tbtn-ic" data-tip="취소선"><s>S</s></button>
+          </div>
+          <span class="ed-sep"></span>
+          <div class="ed-group">
+            <button class="tbtn-ic" data-tip="글머리 목록"><svg class="ic" viewBox="0 0 24 24"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle class="ic-fill" cx="4" cy="6" r="1.4"/><circle class="ic-fill" cx="4" cy="12" r="1.4"/><circle class="ic-fill" cx="4" cy="18" r="1.4"/></svg></button>
+            <button class="tbtn-ic" data-tip="번호 목록"><svg class="ic" viewBox="0 0 24 24"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><path d="M4 5h1v3M3 12h2l-2 3h2" stroke-width="1.6"/></svg></button>
+          </div>
+          <span class="ed-sep"></span>
+          <div class="ed-group">
+            <button class="tbtn-ic" data-tip="링크"><svg class="ic" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg></button>
+            <button class="tbtn-ic" data-tip="인용"><svg class="ic" viewBox="0 0 24 24"><path d="M7 7H4a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2v2a2 2 0 0 1-2 2M17 7h-3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2v2a2 2 0 0 1-2 2"/></svg></button>
+          </div>
+          <span class="ed-sep"></span>
+          <div class="ed-group">
+            <button class="tbtn-ic" data-tip="파일 첨부"><svg class="ic" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49"/></svg></button>
+          </div>
+        </div>
+        <div class="ed-content" contenteditable="true" role="textbox" data-ph="검토 의견을 입력하세요. @로 담당자를 멘션할 수 있습니다."></div>
+        <div class="ed-attachstrip">
+          <span class="ed-dndhint"><svg class="ic" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49"/></svg> 파일을 끌어다 놓거나 📎</span>
+        </div>
+        <div class="editorbar">
+          <span class="pastehint"><svg class="ic" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Word/HWP 서식 붙여넣기 지원</span>
+          <span class="spacer"></span>
+          <span class="charcount">0 / 2000</span>
+          <button class="btn btn-primary">
+            <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
+            등록
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 정렬 검증: placeholder vs 입력 텍스트 동일 위치 -->
+  <div class="seclabel" style="margin-bottom:12px">입력란 정렬 — placeholder = 입력 텍스트 (동일 패딩 · 줄높이)</div>
+  <div class="card">
+    <div class="cbody" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div class="pgsub" style="margin-bottom:7px">빈 상태 (네이티브 placeholder)</div>
+        <div class="editor">
+          <textarea placeholder="검토 의견을 입력하세요…"></textarea>
+        </div>
+      </div>
+      <div>
+        <div class="pgsub" style="margin-bottom:7px">입력됨 (동일 패딩/줄높이로 정렬)</div>
+        <div class="editor focused">
+          <div class="filledtext">검토 의견을 입력하세요…</div>
+        </div>
+      </div>
+    </div>
+    <div class="cbody" style="padding-top:0">
+      <span class="menhint"><svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M20 6L9 17l-5-5"/></svg> placeholder와 입력 텍스트가 동일한 <b>--cmtPadY / --cmtPadX</b> 패딩·line-height를 공유 — 절대배치 오프셋 없음.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 데모용: 서브탭 토글, 글자수 카운트 (선언적 데이터 표현이 아닌 정적 시안 인터랙션)
+  document.querySelectorAll('.subtabs').forEach(function(group){
+    group.querySelectorAll('.subtab').forEach(function(t){
+      t.onclick=function(){group.querySelectorAll('.subtab').forEach(function(x){x.classList.remove('on');});t.classList.add('on');};
+    });
+  });
+  document.querySelectorAll('.editor textarea').forEach(function(ta){
+    var bar=ta.closest('.editor').querySelector('.charcount');
+    if(!bar)return;
+    ta.addEventListener('input',function(){bar.textContent=ta.value.length+' / 2000';});
+  });
+  // contenteditable WYSIWYG: 포커스/글자수 데모 (정적 시안 — 실제 서식 명령 없음)
+  document.querySelectorAll('.ed-content[contenteditable]').forEach(function(ce){
+    var ed=ce.closest('.editor');
+    var bar=ed.querySelector('.charcount');
+    ce.addEventListener('focus',function(){ed.classList.add('focused');});
+    ce.addEventListener('blur',function(){ed.classList.remove('focused');});
+    if(bar){ce.addEventListener('input',function(){bar.textContent=(ce.textContent.trim().length)+' / 2000';});}
+  });
+  // 첨부 칩 제거 데모
+  document.querySelectorAll('.filechip .frm').forEach(function(b){
+    b.addEventListener('click',function(){b.closest('.filechip').remove();});
+  });
+  // 툴바 버튼 active 토글 데모 (시각만)
+  document.querySelectorAll('.ed-toolbar .tbtn-ic').forEach(function(b){
+    b.addEventListener('click',function(e){e.preventDefault();if(b.querySelector('b,i,u,s'))b.classList.toggle('on');});
+  });
+</script>
+</body>
+</html>

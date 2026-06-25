@@ -21,7 +21,7 @@ export function ContentSection() {
         {EDITORS.map((e) => (
           <Field key={e.name} label={e.label} info={e.info} required={e.required}>
             <Controller name={e.name} control={control} render={({ field }) => (
-              <RichTextEditor ariaLabel={e.label} value={field.value} onChange={field.onChange} />
+              <RichTextEditor ariaLabel={e.label} value={field.value} onChange={field.onChange} placeholder={e.info} />
             )} />
             {e.name === "purpose" && <ErrText msg={errors.purpose?.message} />}
           </Field>
