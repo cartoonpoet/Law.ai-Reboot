@@ -22,9 +22,6 @@ export const wrap = style({
   },
 });
 
-/* 입력 영역을 감싸 placeholder 오버레이를 절대배치하기 위한 relative 컨테이너. */
-export const editArea = style({ position: "relative" });
-
 export const area = style({
   minHeight: 76,
   padding: "10px 12px",
@@ -34,14 +31,14 @@ export const area = style({
   outline: "none",
 });
 
-/* 빈 에디터 placeholder — 에디터 비었을 때만 조건부 렌더(선언적). */
-export const placeholder = style({
-  position: "absolute",
-  top: 10,
-  left: 12,
-  fontSize: 13.5,
-  lineHeight: 1.6,
+/* placeholder — @tiptap/extension-placeholder가 빈 첫 문단에 is-editor-empty 클래스 +
+   data-placeholder 속성을 부여한다. ::before로 흐름 내부에 렌더돼 area의 padding/lineHeight를
+   상속하므로 입력 텍스트의 시작 위치와 정확히 일치한다(절대배치 span baseline 어긋남 해소). */
+globalStyle(`${area} p.is-editor-empty:first-child::before`, {
+  content: "attr(data-placeholder)",
   color: themeVars.color.textMuted,
+  float: "left",
+  height: 0,
   pointerEvents: "none",
 });
 

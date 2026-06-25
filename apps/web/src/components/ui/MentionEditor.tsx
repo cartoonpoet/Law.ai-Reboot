@@ -1,6 +1,7 @@
 import { useEditor, EditorContent, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Mention from "@tiptap/extension-mention";
+import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect } from "react";
 import {
   parseMentionMarkup,
@@ -82,6 +83,9 @@ export function MentionEditor({
         renderText: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
         suggestion,
       }),
+      // placeholder는 빈 첫 문단 ::before로 렌더돼 입력 텍스트와 동일한 흐름(padding/lineHeight)에
+      // 정렬된다 — 기존 절대배치 span은 블록 baseline과 어긋나 제거했다.
+      Placeholder.configure({ placeholder: placeholder ?? "" }),
     ],
     content: buildDoc(parseMentionMarkup(value)),
     immediatelyRender: false,
@@ -101,14 +105,9 @@ export function MentionEditor({
 
   if (!editor) return null;
 
-  const isEmpty = editor.isEmpty;
-
   return (
     <div className={s.wrap}>
-      <div className={s.editArea}>
-        {isEmpty && placeholder ? <span className={s.placeholder}>{placeholder}</span> : null}
-        <EditorContent editor={editor} />
-      </div>
+      <EditorContent editor={editor} />
     </div>
   );
 }
