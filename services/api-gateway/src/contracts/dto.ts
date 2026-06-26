@@ -182,6 +182,10 @@ export class CreateCommentDto {
   @ApiPropertyOptional({ description: "멘션 대상 userId 배열(계약 관련자 한정)", isArray: true })
   @IsOptional() @IsArray() @IsString({ each: true })
   mentions?: string[];
+
+  @ApiPropertyOptional({ description: "선업로드된 첨부 파일 id 배열(코멘트당 ≤5)", isArray: true })
+  @IsOptional() @IsArray() @IsString({ each: true })
+  attachmentIds?: string[];
 }
 
 // 코멘트 수정. body 전체 교체 + mentions 전체 교체(작성자 본인만).

@@ -51,6 +51,7 @@ const makeComment = (over: Partial<CommentDto> = {}): CommentDto => ({
   isDeleted: false,
   isAuthor: false,
   mentions: [],
+  attachments: [],
   ...over,
 });
 

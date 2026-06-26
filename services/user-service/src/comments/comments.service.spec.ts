@@ -99,6 +99,7 @@ describe("CommentsService", () => {
         deletedAt: null,
         author: { name: "이법무" },
         mentions: [],
+        attachments: [],
       };
       prismaMock.comment.create.mockResolvedValue(createdRow);
       // create 는 $transaction 으로 본체 생성 + 멘션 후 findUniqueOrThrow 로 재로드.
@@ -143,6 +144,7 @@ describe("CommentsService", () => {
         role: "inHouseCounsel",
         body: "검토 의견입니다",
         mentions: [],
+        attachments: [],
         createdAt: "2026-06-22T01:00:00.000Z",
         updatedAt: "2026-06-22T01:00:00.000Z",
         isDeleted: false,
@@ -230,6 +232,7 @@ describe("CommentsService", () => {
           { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
           { userId: "cc-1", user: { id: "cc-1", name: "참조자" } },
         ],
+        attachments: [],
       };
       prismaMock.comment.create.mockResolvedValue(createdRow);
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdRow);
@@ -283,6 +286,7 @@ describe("CommentsService", () => {
           { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
           { userId: "cc-1", user: { id: "cc-1", name: "참조자" } },
         ],
+        attachments: [],
       };
       prismaMock.comment.create.mockResolvedValue(createdRow);
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdRow);
@@ -347,6 +351,7 @@ describe("CommentsService", () => {
         deletedAt: null,
         author: { name: "이법무" },
         mentions: [{ userId: "owner-1", user: { id: "owner-1", name: "오너" } }],
+        attachments: [],
       };
       prismaMock.comment.create.mockResolvedValue(createdRow);
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdRow);
@@ -387,6 +392,68 @@ describe("CommentsService", () => {
       expect(prismaMock.comment.create).not.toHaveBeenCalled();
       expect(prismaMock.commentMention.createMany).not.toHaveBeenCalled();
     });
+
+    it("attachmentIds 가 있으면 트랜잭션에서 File.commentId 연결 + count mismatch 시 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("counsel-1", "inHouseCounsel"),
+      );
+      const fileUpdateManyMock = jest.fn().mockResolvedValue({ count: 1 });
+      const txMock = {
+        comment: {
+          create: jest
+            .fn()
+            .mockResolvedValue({ id: "comment-1", contractId: "contract-1" }),
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: "comment-1",
+            contractId: "contract-1",
+            authorId: "counsel-1",
+            role: "inHouseCounsel",
+            body: "본문",
+            createdAt: new Date("2026-06-22T01:00:00.000Z"),
+            updatedAt: new Date("2026-06-22T01:00:00.000Z"),
+            deletedAt: null,
+            author: { name: "이법무" },
+            mentions: [],
+            attachments: [],
+          }),
+        },
+        commentMention: { createMany: jest.fn() },
+        file: { updateMany: fileUpdateManyMock },
+      };
+      prismaMock.$transaction.mockImplementation(
+        async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),
+      );
+
+      // count mismatch → 400.
+      fileUpdateManyMock.mockResolvedValueOnce({ count: 0 });
+      await expect(
+        service.create({
+          contractId: "contract-1",
+          body: "본문",
+          viewerId: "counsel-1",
+          attachmentIds: ["file-1"],
+        }),
+      ).rejects.toBeInstanceOf(RpcException);
+
+      // 정상 케이스 — count match.
+      fileUpdateManyMock.mockResolvedValueOnce({ count: 1 });
+      const ok = await service.create({
+        contractId: "contract-1",
+        body: "본문2",
+        viewerId: "counsel-1",
+        attachmentIds: ["file-1"],
+      });
+      expect(fileUpdateManyMock).toHaveBeenCalledWith({
+        where: {
+          id: { in: ["file-1"] },
+          contractId: "contract-1",
+          commentId: null,
+        },
+        data: { commentId: "comment-1" },
+      });
+      expect(ok.comment.id).toBe("comment-1");
+    });
   });
 
   describe("update", () => {
@@ -413,6 +480,7 @@ describe("CommentsService", () => {
       deletedAt: null,
       author: { name: "이법무" },
       mentions: [{ userId: "owner-1", user: { id: "owner-1", name: "오너" } }],
+      attachments: [],
     };
 
     it("본인(authorId===viewer)이면 body·mentions 전체 교체 + updatedAt 갱신 + audit update", async () => {
@@ -595,6 +663,7 @@ describe("CommentsService", () => {
         { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
         { userId: "cc-1", user: { id: "cc-1", name: "참조자" } },
       ],
+      attachments: [],
     };
 
     it("create: emailNotify=true 수신자에게만 sendMentionEmail 호출 — false·자기멘션은 스킵", async () => {
@@ -670,6 +739,7 @@ describe("CommentsService", () => {
           { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
           { userId: "cc-1", user: { id: "cc-1", name: "참조자" } },
         ],
+        attachments: [],
       });
       prismaMock.commentMention.deleteMany.mockResolvedValue({ count: 1 });
       prismaMock.commentMention.createMany.mockResolvedValue({ count: 2 });
@@ -794,6 +864,7 @@ describe("CommentsService", () => {
         mentions: [
           { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
         ],
+        attachments: [],
       });
 
       const dto = await service.delete({
@@ -855,6 +926,7 @@ describe("CommentsService", () => {
           deletedAt: null,
           author: { name: "박변호" },
           mentions: [],
+          attachments: [],
         },
         {
           id: "c2",
@@ -867,6 +939,7 @@ describe("CommentsService", () => {
           deletedAt: null,
           author: { name: "이법무" },
           mentions: [],
+          attachments: [],
         },
       ]);
 
@@ -890,6 +963,7 @@ describe("CommentsService", () => {
         role: "outsideCounsel",
         body: "첫 의견",
         mentions: [],
+        attachments: [],
         createdAt: "2026-06-22T01:00:00.000Z",
         updatedAt: "2026-06-22T01:00:00.000Z",
         isDeleted: false,
@@ -918,6 +992,7 @@ describe("CommentsService", () => {
           mentions: [
             { userId: "counsel-1", user: { id: "counsel-1", name: "이법무" } },
           ],
+          attachments: [],
         },
         {
           id: "c2",
@@ -932,6 +1007,7 @@ describe("CommentsService", () => {
           mentions: [
             { userId: "owner-1", user: { id: "owner-1", name: "오너" } },
           ],
+          attachments: [],
         },
       ]);
 

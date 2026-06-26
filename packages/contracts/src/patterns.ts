@@ -45,6 +45,12 @@ export const COMMENT_PATTERNS = {
   DELETE: "comment.delete",
 } as const;
 
+export const FILE_PATTERNS = {
+  PRESIGN: "file.presign",
+  CONFIRM: "file.confirm",
+  GET_DOWNLOAD_URL: "file.getDownloadUrl",
+} as const;
+
 export const NOTIFICATION_PATTERNS = {
   LIST: "notification.list",
   MARK_READ: "notification.markRead",

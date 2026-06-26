@@ -10,6 +10,7 @@ import { NOTIFICATIONS_QUERY_KEY } from "../../../components/layout/hooks/useNot
 interface AddCommentInput {
   body: string;
   mentions?: string[];
+  attachmentIds?: string[];
 }
 
 interface EditCommentInput {
@@ -39,8 +40,8 @@ export const useComments = (contractId: string) => {
   };
 
   const mutation = useMutation({
-    mutationFn: ({ body, mentions }: AddCommentInput) =>
-      createComment(contractId, body, mentions),
+    mutationFn: ({ body, mentions, attachmentIds }: AddCommentInput) =>
+      createComment(contractId, body, mentions, attachmentIds),
     onSuccess: invalidateComments,
   });
 
@@ -59,8 +60,12 @@ export const useComments = (contractId: string) => {
     comments: query.data ?? [],
     isLoading: query.isLoading,
     // addComment 는 mutateAsync — CommentForm(React19 폼 액션)이 await 해 성공/실패 분기.
-    addComment: (body: string, mentions?: string[]) =>
-      mutation.mutateAsync({ body, mentions }),
+    // attachmentIds 는 P3 — 선업로드(presign/confirm)된 첨부 id 배열.
+    addComment: (
+      body: string,
+      mentions?: string[],
+      attachmentIds?: string[],
+    ) => mutation.mutateAsync({ body, mentions, attachmentIds }),
     // editComment 도 mutateAsync — CommentItem 인라인 편집 폼이 await.
     editComment: (commentId: string, body: string, mentions?: string[]) =>
       editMutation.mutateAsync({ commentId, body, mentions }),

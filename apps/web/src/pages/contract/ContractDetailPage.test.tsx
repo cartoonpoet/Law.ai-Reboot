@@ -85,6 +85,7 @@ describe("ContractDetailPage", () => {
         isDeleted: false,
         isAuthor: false,
         mentions: [],
+    attachments: [],
       },
     ]);
   });

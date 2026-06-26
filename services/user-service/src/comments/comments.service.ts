@@ -16,6 +16,7 @@ import type {
   DeleteCommentRequest,
 } from "@lawai/contracts";
 import { htmlToPreview } from "./htmlToPreview";
+import { toFileAttachmentDto } from "../files/files.service";
 
 // 코멘트 권한 평가에 필요한 계약 행(references 포함 — cc 사용자 추출용).
 const contractAuthzInclude = {
@@ -26,10 +27,21 @@ type ContractForAuthz = Prisma.ContractGetPayload<{
   include: typeof contractAuthzInclude;
 }>;
 
-// 코멘트 + 작성자 이름(authorName 매핑용) + 멘션(userId+이름).
+// 코멘트 + 작성자 이름(authorName 매핑용) + 멘션(userId+이름) + 첨부(P3).
 const commentInclude = {
   author: { select: { name: true } },
   mentions: { include: { user: { select: { id: true, name: true } } } },
+  attachments: {
+    select: {
+      id: true,
+      name: true,
+      size: true,
+      mimeType: true,
+      checksum: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "asc" },
+  },
 } satisfies Prisma.CommentInclude;
 
 type CommentWithAuthor = Prisma.CommentGetPayload<{
@@ -192,6 +204,7 @@ export class CommentsService {
       mentions: isDeleted
         ? []
         : row.mentions.map((m) => ({ userId: m.userId, name: m.user.name })),
+      attachments: isDeleted ? [] : row.attachments.map(toFileAttachmentDto),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       isDeleted,
@@ -233,7 +246,16 @@ export class CommentsService {
     const viewer = await this.authorizeViewer(contract, req.viewerId);
     const mentionUserIds = this.validateMentions(contract, req.mentions);
 
-    // comment 본체 + 멘션 행 동기화를 트랜잭션으로 원자적 처리.
+    // 첨부 ID 유효성 1차 검사(코멘트당 ≤5). 실제 commentId 연결은 트랜잭션 안에서.
+    const attachmentIds = Array.from(new Set(req.attachmentIds ?? []));
+    if (attachmentIds.length > 5) {
+      throw new RpcException({
+        status: 400,
+        message: "코멘트당 첨부는 최대 5개입니다",
+      });
+    }
+
+    // comment 본체 + 멘션 행 + 첨부 commentId 연결을 트랜잭션으로 원자적 처리.
     const comment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.comment.create({
         data: {
@@ -251,6 +273,22 @@ export class CommentsService {
           })),
           skipDuplicates: true,
         });
+      }
+      if (attachmentIds.length > 0) {
+        const updated = await tx.file.updateMany({
+          where: {
+            id: { in: attachmentIds },
+            contractId: req.contractId,
+            commentId: null,
+          },
+          data: { commentId: created.id },
+        });
+        if (updated.count !== attachmentIds.length) {
+          throw new RpcException({
+            status: 400,
+            message: "일부 첨부 파일을 찾을 수 없습니다",
+          });
+        }
       }
       return tx.comment.findUniqueOrThrow({
         where: { id: created.id },

@@ -58,7 +58,7 @@ export function CommentPanel({ contractId }: CommentPanelProps) {
 
       <div className={css.formWrap}>
         <div className={css.sectionLabel}>새 검토 의견</div>
-        <CommentForm onSubmit={addComment} />
+        <CommentForm onSubmit={addComment} contractId={contractId} />
       </div>
     </Panel>
   );

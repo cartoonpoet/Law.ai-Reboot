@@ -1,5 +1,5 @@
 import { EditorContent, type Editor } from "@tiptap/react";
-import type { ReactNode } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import {
   IconBulletList,
   IconOrderedList,
@@ -7,11 +7,16 @@ import {
   IconQuote,
   IconAttach,
   IconPaste,
+  IconDnd,
 } from "./EditorIcons";
 import { useCommentEditor } from "./useCommentEditor";
 import type { MentionSuggestion } from "../../pages/contract/hooks/useMentionSuggestion";
 import { getPlainTextFromHtml } from "../../pages/contract/utils/mentionHtml";
+import { ALLOWED_EXTENSIONS } from "../../pages/contract/utils/fileLimits";
+import { AttachmentChip } from "../../pages/contract/sections/AttachmentChip";
+import type { AttachmentState } from "../../pages/contract/hooks/useFileUpload";
 import * as s from "./commentEditor.css";
+import * as chipCss from "../../pages/contract/sections/attachmentChip.css";
 
 interface MentionEditorProps {
   /** 외부 body(HTML 단편 — `<p>...<span data-mention data-id="...">@name</span>...</p>`). */
@@ -24,6 +29,11 @@ interface MentionEditorProps {
   placeholder?: string;
   /** 글자수 카운트 최대치(시각 표시만, 차단 안 함). 표시 생략 시 미렌더. */
   maxLength?: number;
+  /** 첨부 상태(P3) — 제공 시 첨부 활성. 미제공 시 첨부 버튼은 disabled. */
+  attachments?: AttachmentState[];
+  /** 파일 추가 콜백 — 클릭/드래그&드롭 양쪽에서 호출. */
+  onAddFiles?: (files: File[]) => void;
+  onRemoveAttachment?: (localId: string) => void;
 }
 
 /** 툴바 버튼 선언식 정의 — `.map`으로 렌더. icon은 EditorIcons 또는 span 글리프. */
@@ -117,6 +127,9 @@ export function MentionEditor({
   ariaLabel,
   placeholder,
   maxLength,
+  attachments,
+  onAddFiles,
+  onRemoveAttachment,
 }: MentionEditorProps) {
   const editor = useCommentEditor({
     value,
@@ -126,14 +139,68 @@ export function MentionEditor({
     placeholder,
     areaClass: s.area,
   });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
+  const attachEnabled = Boolean(onAddFiles);
+
+  const triggerFilePick = () => {
+    if (!attachEnabled) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const list = event.target.files;
+    if (!list || !onAddFiles) return;
+    onAddFiles(Array.from(list));
+    // 같은 파일 다시 선택해도 onChange 트리거되도록 초기화.
+    event.target.value = "";
+  };
+
+  const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    if (!attachEnabled) return;
+    event.preventDefault();
+    dragCounterRef.current += 1;
+    if (dragCounterRef.current === 1) setIsDragOver(true);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!attachEnabled) return;
+    event.preventDefault();
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    if (!attachEnabled) return;
+    event.preventDefault();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!attachEnabled || !onAddFiles) return;
+    event.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    const list = event.dataTransfer.files;
+    if (list && list.length > 0) onAddFiles(Array.from(list));
+  };
 
   if (!editor) return null;
 
   const buttons = makeButtons(editor);
   const plainLen = getPlainTextFromHtml(value).length;
 
+  const wrapClassName = isDragOver ? `${s.wrap} ${chipCss.dropOverlay}` : s.wrap;
+
   return (
-    <div className={s.wrap}>
+    <div
+      className={wrapClassName}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      data-dragover={isDragOver}
+    >
       <div className={s.toolbar} role="toolbar" aria-label="서식">
         <div className={s.group}>
           {buttons.slice(0, 4).map((b) => (
@@ -190,19 +257,46 @@ export function MentionEditor({
         </div>
         <span className={s.sep} />
         <div className={s.group}>
-          {/* 파일 첨부는 P3에서 활성. 시각만 노출 + disabled + 안내 툴팁. */}
+          {/* 파일 첨부 — P3 활성. onAddFiles 미제공 시 disabled. */}
           <button
             type="button"
             className={s.tbtn}
-            disabled
-            aria-disabled
-            aria-label="파일 첨부 (P3 지원 예정)"
-            data-tip="파일 첨부는 곧 지원돼요"
+            disabled={!attachEnabled}
+            aria-disabled={!attachEnabled}
+            aria-label="파일 첨부"
+            data-tip={attachEnabled ? "파일 첨부" : "파일 첨부는 곧 지원돼요"}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={triggerFilePick}
           >
             <IconAttach />
           </button>
+          {attachEnabled && (
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              multiple
+              accept={ALLOWED_EXTENSIONS.join(",")}
+              onChange={handleFileChange}
+            />
+          )}
         </div>
       </div>
+      {attachEnabled && attachments && (attachments.length > 0 || isDragOver) && (
+        <div className={chipCss.strip}>
+          {attachments.map((a) => (
+            <AttachmentChip
+              key={a.localId}
+              attachment={a}
+              onRemove={(localId) => onRemoveAttachment?.(localId)}
+            />
+          ))}
+          <span className={chipCss.dndHint}>
+            <IconDnd />
+            파일을 끌어다 놓거나 클립 아이콘
+          </span>
+        </div>
+      )}
       <EditorContent editor={editor} />
       <div className={s.editorBar}>
         <span className={s.pasteHint}>

@@ -5,5 +5,6 @@ export * from "./dto/user.dto";
 export * from "./dto/company.dto";
 export * from "./dto/contract.dto";
 export * from "./dto/comment.dto";
+export * from "./dto/file.dto";
 export * from "./dto/contractCategory.dto";
 export * from "./dto/notification.dto";

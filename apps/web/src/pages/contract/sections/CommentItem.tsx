@@ -6,6 +6,10 @@ import { useMentionSuggestion } from "../hooks/useMentionSuggestion";
 import { extractMentionUserIdsFromHtml, isHtmlBlank } from "../utils/mentionHtml";
 import { sanitizeCommentHtml } from "../utils/sanitizeCommentHtml";
 import { AVATAR_COLOR, ROLE_TAG_CLASS, type RoleVariant } from "./commentRole";
+import { IconFile } from "../../../components/ui/EditorIcons";
+import { formatBytes } from "../utils/formatBytes";
+import { getDownloadUrl } from "../../../api/files";
+import * as attachCss from "./attachmentChip.css";
 import * as panelCss from "./commentPanel.css";
 import * as css from "./commentItem.css";
 
@@ -163,10 +167,39 @@ export function CommentItem({
         ) : (
           // sanitize 본문(HTML 단편). DOMPurify CONFIG는 sanitizeCommentHtml.ts 단일 출처.
           // 멘션 강조·콘텐츠 노드 스타일은 commentItem.css.ts의 globalStyle이 토큰으로 적용한다(인라인 0).
-          <div
-            className={bubbleClassName}
-            dangerouslySetInnerHTML={{ __html: sanitizeCommentHtml(comment.body) }}
-          />
+          <>
+            <div
+              className={bubbleClassName}
+              dangerouslySetInnerHTML={{ __html: sanitizeCommentHtml(comment.body) }}
+            />
+            {comment.attachments && comment.attachments.length > 0 && (
+              <div className={attachCss.downloadList}>
+                {comment.attachments.map((att) => (
+                  <button
+                    key={att.id}
+                    type="button"
+                    className={attachCss.downloadLink}
+                    onClick={async () => {
+                      try {
+                        const { url } = await getDownloadUrl(att.id);
+                        window.open(url, "_blank", "noopener");
+                      } catch (err) {
+                        window.alert(
+                          err instanceof Error
+                            ? err.message
+                            : "다운로드에 실패했습니다.",
+                        );
+                      }
+                    }}
+                  >
+                    <IconFile />
+                    {att.name}
+                    <span>· {formatBytes(att.size)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

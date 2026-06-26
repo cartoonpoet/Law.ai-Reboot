@@ -153,6 +153,7 @@ export class ContractsController {
       contractId: id,
       body: dto.body,
       mentions: dto.mentions,
+      attachmentIds: dto.attachmentIds,
       viewerId: sub,
     };
     return firstValueFrom(

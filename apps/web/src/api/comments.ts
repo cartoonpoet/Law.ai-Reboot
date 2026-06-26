@@ -6,16 +6,17 @@ export function listComments(contractId: string): Promise<CommentDto[]> {
   return apiFetch<CommentDto[]>(`/contracts/${contractId}/comments`);
 }
 
-// 코멘트 작성. body + 멘션 대상 userId 배열 전송(작성자 = JWT sub).
-// mentions 는 선택 — 비관련자 userId 가 섞이면 서버가 400 으로 거부(안전망).
+// 코멘트 작성. body + 멘션 대상 userId 배열 + 선업로드된 첨부 파일 id 배열 전송.
+// mentions/attachmentIds 는 선택. 서버가 추가 검증(비관련자 멘션·소유 첨부 외 거절).
 export function createComment(
   contractId: string,
   body: string,
   mentions?: string[],
+  attachmentIds?: string[],
 ): Promise<CommentDto> {
   return apiFetch<CommentDto>(`/contracts/${contractId}/comments`, {
     method: "POST",
-    body: JSON.stringify({ body, mentions }),
+    body: JSON.stringify({ body, mentions, attachmentIds }),
   });
 }
 

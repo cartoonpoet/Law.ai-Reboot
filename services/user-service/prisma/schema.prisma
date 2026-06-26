@@ -203,9 +203,10 @@ model Comment {
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
-  contract Contract         @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  author   User             @relation("CommentAuthor", fields: [authorId], references: [id])
-  mentions CommentMention[]
+  contract    Contract         @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  author      User             @relation("CommentAuthor", fields: [authorId], references: [id])
+  mentions    CommentMention[]
+  attachments File[]           @relation("CommentFiles")
 
   @@index([contractId])
   @@index([deletedAt])
@@ -313,18 +314,22 @@ enum FileRole {
 model File {
   id         String   @id @default(uuid())
   contractId String
+  commentId  String?
   role       FileRole
   name       String
   meta       String?
   size       Int?
   mimeType   String?
   storageKey String?
+  checksum   String?
   sortOrder  Int
   createdAt  DateTime @default(now())
 
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  comment  Comment? @relation("CommentFiles", fields: [commentId], references: [id], onDelete: Cascade)
 
   @@index([contractId])
+  @@index([commentId])
   @@schema("shared")
 }
 

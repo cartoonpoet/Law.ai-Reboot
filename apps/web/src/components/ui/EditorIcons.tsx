@@ -137,6 +137,29 @@ export const IconAttach = () => (
   </svg>
 );
 
+/* 파일 아이콘 — 시안 .filechip ficon 안의 문서. */
+export const IconFile = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <path d="M14 2v6h6" />
+  </svg>
+);
+
+/* X (닫기/제거) — 시안 .frm. */
+export const IconClose = () => (
+  <svg {...ICON_PROPS}>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+/* 드래그&드롭 힌트 클립 — 시안 .ed-dndhint. IconAttach 와 형태 동일하나 의미 분리. */
+export const IconDnd = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49" />
+  </svg>
+);
+
 /* 전송(등록) 버튼 아이콘 — 시안 종이비행기. */
 export const IconSend = () => (
   <svg {...ICON_PROPS}>

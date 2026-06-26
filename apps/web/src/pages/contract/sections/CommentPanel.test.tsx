@@ -47,6 +47,7 @@ const COMMENTS: CommentDto[] = [
     isDeleted: false,
     isAuthor: false,
     mentions: [],
+    attachments: [],
   },
   {
     id: "c2",
@@ -60,6 +61,7 @@ const COMMENTS: CommentDto[] = [
     isDeleted: false,
     isAuthor: false,
     mentions: [],
+    attachments: [],
   },
 ];
 
@@ -110,6 +112,7 @@ describe("CommentPanel", () => {
         "k1",
         "<p>추가 검토 의견</p>",
         [],
+        [],
       ),
     );
   });
@@ -128,6 +131,7 @@ describe("CommentPanel", () => {
         isDeleted: false,
         isAuthor: true,
         mentions: [{ userId: "owner-1", name: "오너" }],
+        attachments: [],
       },
     ]);
     renderPanel();
@@ -153,6 +157,7 @@ describe("CommentPanel", () => {
         isDeleted: true,
         isAuthor: true,
         mentions: [],
+        attachments: [],
       },
     ]);
     renderPanel();

@@ -38,7 +38,7 @@ vi.mock("../hooks/useMentionSuggestion", () => ({
 }));
 
 const renderForm = (onSubmit = vi.fn().mockResolvedValue(undefined)) => {
-  render(<CommentForm onSubmit={onSubmit} />);
+  render(<CommentForm onSubmit={onSubmit} contractId="k1" />);
   return { onSubmit };
 };
 
@@ -58,7 +58,7 @@ describe("CommentForm 멘션", () => {
 
     await user.click(screen.getByRole("button", { name: /코멘트 등록/ }));
     await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith(htmlBody, ["owner-1"]),
+      expect(onSubmit).toHaveBeenCalledWith(htmlBody, ["owner-1"], []),
     );
   });
 
@@ -69,7 +69,7 @@ describe("CommentForm 멘션", () => {
     fireEvent.change(editor, { target: { value: "<p>멘션 없는 의견</p>" } });
     await user.click(screen.getByRole("button", { name: /코멘트 등록/ }));
     await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith("<p>멘션 없는 의견</p>", []),
+      expect(onSubmit).toHaveBeenCalledWith("<p>멘션 없는 의견</p>", [], []),
     );
   });
 

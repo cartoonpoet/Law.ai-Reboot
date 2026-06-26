@@ -1,4 +1,5 @@
 import type { NotificationDto } from "./notification.dto";
+import type { FileAttachmentDto } from "./file.dto";
 
 // 코멘트에 멘션된 사용자 스냅(표시용). mentions 배열이 정규 출처.
 export interface MentionDto {
@@ -24,6 +25,8 @@ export interface CommentDto {
   isAuthor: boolean;
   // 멘션된 사용자 목록(정규 출처).
   mentions: MentionDto[];
+  // 첨부 파일(코멘트당 ≤5). 소프트 삭제 시 [].
+  attachments: FileAttachmentDto[];
 }
 
 // 코멘트 생성. viewerId 는 gateway 가 JWT sub 를 주입(작성자 = authorId 겸용).
@@ -32,6 +35,9 @@ export interface CreateCommentRequest {
   body: string;
   // 멘션 대상 userId 배열(계약 관련자 한정, 서버가 검증).
   mentions?: string[];
+  // 선업로드(presign/confirm)된 첨부 파일 id 배열 — comments.service 가
+  // 트랜잭션 내에서 File.commentId 연결(소유 검증: contractId 일치 + commentId NULL).
+  attachmentIds?: string[];
   viewerId?: string;
 }
 
@@ -48,6 +54,8 @@ export interface UpdateCommentRequest {
   body: string;
   // 멘션 대상 userId 배열(전체 교체).
   mentions?: string[];
+  // 본 P3 는 수정 시 첨부 변경 없음(03-phases 결정). 필드는 미래 확장을 위해 선언만.
+  attachmentIds?: string[];
   viewerId?: string;
 }
 

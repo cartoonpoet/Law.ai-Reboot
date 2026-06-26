@@ -1,0 +1,350 @@
+import { Injectable, Logger } from "@nestjs/common";
+import { RpcException } from "@nestjs/microservices";
+import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import {
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+  ALLOWED_EXTENSIONS,
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE_BYTES,
+  MAX_FILES_PER_COMMENT,
+  type AllowedMimeType,
+  type ConfirmUploadRequest,
+  type FileAttachmentDto,
+  type GetDownloadUrlRequest,
+  type GetDownloadUrlResponse,
+  type PresignUploadRequest,
+  type PresignUploadResponse,
+} from "@lawai/contracts";
+import { PrismaService } from "../prisma/prisma.service";
+import { evaluate } from "../contracts/contracts.authz";
+import type {
+  AuthzContract,
+  AuthzViewer,
+} from "../contracts/contracts.authz";
+import { R2Client } from "./r2.client";
+import { signUploadToken, verifyUploadToken } from "./uploadToken";
+
+const PRESIGN_TTL_SEC = 900;
+
+const contractAuthzInclude = {
+  references: true,
+} satisfies Prisma.ContractInclude;
+type ContractForAuthz = Prisma.ContractGetPayload<{
+  include: typeof contractAuthzInclude;
+}>;
+
+const extractCcUserIds = (
+  refs: { ccType: string; refId: string }[],
+): string[] => refs.filter((r) => r.ccType === "user").map((r) => r.refId);
+
+const toAuthzContract = (row: ContractForAuthz): AuthzContract => ({
+  createdById: row.createdById,
+  ownerId: row.ownerId,
+  requesterId: row.requesterId,
+  ccUserIds: extractCcUserIds(row.references),
+  status: row.status,
+  securityLevel: row.securityLevel,
+  departmentId: row.departmentId,
+});
+
+// ASCII 안전 파일명 sanitize — storageKey 에 들어가는 부분(Cloudflare R2 key 는 ASCII 권장).
+// 원본 파일명은 File.name 에 보존하므로 다운로드 시 ResponseContentDisposition 으로 그대로 노출.
+const sanitizeFileName = (name: string): string => {
+  const trimmed = name.trim().slice(0, 200);
+  const safe = trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return safe || "file";
+};
+
+const getExtension = (name: string): string => {
+  const idx = name.lastIndexOf(".");
+  return idx === -1 ? "" : name.slice(idx).toLowerCase();
+};
+
+interface FileForDto {
+  id: string;
+  name: string;
+  size: number | null;
+  mimeType: string | null;
+  checksum: string | null;
+  createdAt: Date;
+}
+
+export const toFileAttachmentDto = (row: FileForDto): FileAttachmentDto => ({
+  id: row.id,
+  name: row.name,
+  size: row.size ?? 0,
+  mimeType: row.mimeType ?? "application/octet-stream",
+  sha256: row.checksum,
+  createdAt: row.createdAt.toISOString(),
+});
+
+@Injectable()
+export class FilesService {
+  private readonly logger = new Logger(FilesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly r2: R2Client,
+  ) {}
+
+  private async loadViewer(viewerId?: string): Promise<AuthzViewer | null> {
+    if (!viewerId) return null;
+    const user = await this.prisma.user.findUnique({
+      where: { id: viewerId },
+    });
+    if (!user) return null;
+    return { id: user.id, role: user.role, departmentId: user.departmentId };
+  }
+
+  private async loadContract(contractId: string): Promise<ContractForAuthz> {
+    const row = await this.prisma.contract.findFirst({
+      where: { id: contractId, deletedAt: null },
+      include: contractAuthzInclude,
+    });
+    if (!row) {
+      throw new RpcException({
+        status: 404,
+        message: "계약을 찾을 수 없습니다",
+      });
+    }
+    return row;
+  }
+
+  private async authorizeCanView(
+    contract: ContractForAuthz,
+    viewerId?: string,
+  ): Promise<AuthzViewer> {
+    const viewer = await this.loadViewer(viewerId);
+    const authz = evaluate(viewer, toAuthzContract(contract));
+    if (!viewer || !authz.canView) {
+      throw new RpcException({
+        status: 403,
+        message: "파일 업로드 권한이 없습니다",
+      });
+    }
+    return viewer;
+  }
+
+  private ensureEnabled(): void {
+    if (this.r2.disabled || !this.r2.client || !this.r2.bucket) {
+      throw new RpcException({
+        status: 503,
+        message: "파일 업로드가 구성되지 않았습니다 (R2 미설정)",
+      });
+    }
+  }
+
+  private validateFileMeta(args: {
+    fileName: string;
+    size: number;
+    mimeType: string;
+    sha256: string;
+  }): void {
+    const { fileName, size, mimeType, sha256 } = args;
+    if (!fileName || fileName.length > 255) {
+      throw new RpcException({
+        status: 400,
+        message: "파일명이 유효하지 않습니다",
+      });
+    }
+    if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(mimeType)) {
+      throw new RpcException({
+        status: 400,
+        message: "허용되지 않은 파일 형식입니다",
+      });
+    }
+    const ext = getExtension(fileName);
+    if (!(ALLOWED_EXTENSIONS as readonly string[]).includes(ext)) {
+      throw new RpcException({
+        status: 400,
+        message: "허용되지 않은 파일 확장자입니다",
+      });
+    }
+    if (!Number.isInteger(size) || size <= 0 || size > MAX_FILE_SIZE_BYTES) {
+      throw new RpcException({
+        status: 400,
+        message: "파일 크기가 50MB 를 초과하거나 유효하지 않습니다",
+      });
+    }
+    if (!/^[0-9a-f]{64}$/.test(sha256)) {
+      throw new RpcException({
+        status: 400,
+        message: "유효하지 않은 sha256 해시입니다",
+      });
+    }
+  }
+
+  async presign(req: PresignUploadRequest): Promise<PresignUploadResponse> {
+    this.ensureEnabled();
+    const contract = await this.loadContract(req.contractId);
+    const viewer = await this.authorizeCanView(contract, req.viewerId);
+    this.validateFileMeta({
+      fileName: req.fileName,
+      size: req.size,
+      mimeType: req.mimeType,
+      sha256: req.sha256,
+    });
+
+    // commentId 가 명시되면 이미 부착된 첨부 카운트로 코멘트당 5개 제한 재검증.
+    if (req.commentId) {
+      const count = await this.prisma.file.count({
+        where: { commentId: req.commentId },
+      });
+      if (count >= MAX_FILES_PER_COMMENT) {
+        throw new RpcException({
+          status: 400,
+          message: `코멘트당 첨부는 최대 ${MAX_FILES_PER_COMMENT}개입니다`,
+        });
+      }
+    }
+
+    const safeName = sanitizeFileName(req.fileName);
+    const storageKey = `contracts/${req.contractId}/${randomUUID()}/${safeName}`;
+
+    // R2 PutObject presigned URL — Content-Type 만 강제(서명 일관성). 클라가 동일 ContentType 으로 PUT.
+    const command = new PutObjectCommand({
+      Bucket: this.r2.bucket as string,
+      Key: storageKey,
+      ContentType: req.mimeType,
+    });
+    const uploadUrl = await getSignedUrl(this.r2.client as never, command, {
+      expiresIn: PRESIGN_TTL_SEC,
+    });
+
+    const uploadToken = signUploadToken(
+      {
+        sub: viewer.id,
+        contractId: req.contractId,
+        commentId: req.commentId ?? null,
+        storageKey,
+        fileName: req.fileName,
+        sha256: req.sha256,
+        size: req.size,
+        mimeType: req.mimeType,
+      },
+      PRESIGN_TTL_SEC,
+    );
+
+    return {
+      uploadUrl,
+      uploadToken,
+      storageKey,
+      expiresIn: PRESIGN_TTL_SEC,
+    };
+  }
+
+  async confirm(req: ConfirmUploadRequest): Promise<FileAttachmentDto> {
+    this.ensureEnabled();
+    let claims;
+    try {
+      claims = verifyUploadToken(req.uploadToken);
+    } catch {
+      throw new RpcException({
+        status: 401,
+        message: "업로드 토큰이 만료되었거나 유효하지 않습니다",
+      });
+    }
+    if (!req.viewerId || claims.sub !== req.viewerId) {
+      throw new RpcException({
+        status: 403,
+        message: "업로드 토큰 소유자가 아닙니다",
+      });
+    }
+
+    // 객체 존재 + Size 일치 확인(클라이언트가 보낸 size 와 ±0).
+    const head = await (this.r2.client as never as {
+      send: (cmd: HeadObjectCommand) => Promise<{ ContentLength?: number }>;
+    }).send(
+      new HeadObjectCommand({
+        Bucket: this.r2.bucket as string,
+        Key: claims.storageKey,
+      }),
+    );
+    if (head.ContentLength !== claims.size) {
+      throw new RpcException({
+        status: 400,
+        message: "업로드된 파일 크기가 일치하지 않습니다",
+      });
+    }
+
+    // sortOrder = 동일 contract 의 max+1(코멘트 기준이 아니라 contract 기준 — 기존 패턴).
+    const last = await this.prisma.file.findFirst({
+      where: { contractId: claims.contractId },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    const sortOrder = (last?.sortOrder ?? 0) + 1;
+
+    const created = await this.prisma.file.create({
+      data: {
+        contractId: claims.contractId,
+        commentId: claims.commentId ?? null,
+        role: "attach",
+        name: claims.fileName,
+        mimeType: claims.mimeType as AllowedMimeType,
+        size: claims.size,
+        storageKey: claims.storageKey,
+        checksum: req.etag,
+        sortOrder,
+      },
+    });
+
+    return toFileAttachmentDto(created);
+  }
+
+  async getDownloadUrl(
+    req: GetDownloadUrlRequest,
+  ): Promise<GetDownloadUrlResponse> {
+    this.ensureEnabled();
+    const file = await this.prisma.file.findFirst({
+      where: { id: req.fileId },
+      include: {
+        contract: { include: { references: true } },
+        comment: true,
+      },
+    });
+    if (!file || !file.storageKey) {
+      throw new RpcException({
+        status: 404,
+        message: "파일을 찾을 수 없습니다",
+      });
+    }
+    if (file.contract.deletedAt) {
+      throw new RpcException({
+        status: 404,
+        message: "계약이 삭제되었습니다",
+      });
+    }
+    const viewer = await this.loadViewer(req.viewerId);
+    const authz = evaluate(viewer, toAuthzContract(file.contract));
+    if (!viewer || !authz.canView) {
+      throw new RpcException({
+        status: 403,
+        message: "파일 다운로드 권한이 없습니다",
+      });
+    }
+    if (file.comment?.deletedAt) {
+      throw new RpcException({
+        status: 404,
+        message: "삭제된 코멘트의 첨부입니다",
+      });
+    }
+
+    const encodedName = encodeURIComponent(file.name);
+    const cmd = new GetObjectCommand({
+      Bucket: this.r2.bucket as string,
+      Key: file.storageKey,
+      ResponseContentDisposition: `attachment; filename*=UTF-8''${encodedName}`,
+    });
+    const url = await getSignedUrl(this.r2.client as never, cmd, {
+      expiresIn: PRESIGN_TTL_SEC,
+    });
+    return { url, expiresIn: PRESIGN_TTL_SEC };
+  }
+}
