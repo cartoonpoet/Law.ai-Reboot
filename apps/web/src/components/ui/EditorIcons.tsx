@@ -121,3 +121,26 @@ export const IconPaste = () => (
     <rect x="8" y="2" width="8" height="4" rx="1" />
   </svg>
 );
+
+/* 인용/Blockquote — 시안 컴팩트 툴바의 quote 버튼. */
+export const IconQuote = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M7 7H4a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2v2a2 2 0 0 1-2 2" />
+    <path d="M17 7h-3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2v2a2 2 0 0 1-2 2" />
+  </svg>
+);
+
+/* 파일 첨부 — 클립 아이콘. P2 시점에는 disabled로만 노출(P3에서 활성). */
+export const IconAttach = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49" />
+  </svg>
+);
+
+/* 전송(등록) 버튼 아이콘 — 시안 종이비행기. */
+export const IconSend = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M22 2L11 13" />
+    <path d="M22 2l-7 20-4-9-9-4z" />
+  </svg>
+);

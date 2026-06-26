@@ -5,19 +5,18 @@ import type { CommentDto } from "@lawai/contracts";
 import { CommentItem } from "./CommentItem";
 
 /**
- * CommentItem 행 렌더/액션 단위 테스트 (인라인 @멘션).
+ * CommentItem 행 렌더/액션 단위 테스트 (P2 HTML 본문 + sanitize).
  *
- * - isAuthor 면 수정/삭제 버튼 노출, isAuthor=false 면 숨김.
+ * - isAuthor 면 수정/삭제 버튼 노출(hover 시 등장, DOM에는 존재), isAuthor=false 면 숨김.
  * - isDeleted 면 placeholder + 버튼/본문 숨김.
  * - updatedAt > createdAt 이면 "(수정됨)" 표기.
- * - 본문 마크업(@[이름](userId))을 @이름 인라인 하이라이트로 렌더(별도 칩 row 없음).
+ * - 본문 HTML(`<span data-mention>`)은 sanitize 후 `dangerouslySetInnerHTML`로 렌더.
  * - 인라인 편집 저장 → onEdit(commentId, body, mentions) 3-인자, 삭제 → confirm 후 onDelete.
  *
  * 수정모드 입력은 tiptap MentionEditor지만 jsdom contenteditable 한계로 직접 타이핑이
  * 불가하므로 value/onChange를 노출하는 textarea 스텁으로 목킹한다.
  */
 
-// MentionEditor를 textarea 스텁으로 대체 — 수정모드에서 마크업 in/out 검증.
 vi.mock("../../../components/ui/MentionEditor", () => ({
   MentionEditor: ({
     value,
@@ -46,7 +45,7 @@ const makeComment = (over: Partial<CommentDto> = {}): CommentDto => ({
   authorId: "u1",
   authorName: "이법무",
   role: "inHouseCounsel",
-  body: "검토 의견입니다",
+  body: "<p>검토 의견입니다</p>",
   createdAt: "2026-06-22T01:00:00.000Z",
   updatedAt: "2026-06-22T01:00:00.000Z",
   isDeleted: false,
@@ -67,7 +66,7 @@ const renderItem = (
   render(
     <CommentItem
       comment={comment}
-      isLegal
+      roleVariant="legal"
       roleLabel="사내변호사"
       formattedTime="2026-06-22 10:00"
       onEdit={onEdit}
@@ -82,13 +81,13 @@ describe("CommentItem", () => {
     vi.clearAllMocks();
   });
 
-  it("isAuthor=true 면 수정/삭제 버튼을 노출한다", () => {
+  it("isAuthor=true 면 수정/삭제 버튼이 DOM에 존재한다(hover 시각 노출은 CSS)", () => {
     renderItem(makeComment({ isAuthor: true }));
     expect(screen.getByRole("button", { name: /수정/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /삭제/ })).toBeInTheDocument();
   });
 
-  it("isAuthor=false 면 수정/삭제 버튼을 숨긴다", () => {
+  it("isAuthor=false 면 수정/삭제 버튼을 렌더하지 않는다", () => {
     renderItem(makeComment({ isAuthor: false }));
     expect(screen.queryByRole("button", { name: /수정/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /삭제/ })).not.toBeInTheDocument();
@@ -115,20 +114,37 @@ describe("CommentItem", () => {
     expect(screen.queryByText("(수정됨)")).not.toBeInTheDocument();
   });
 
-  it("본문 마크업의 멘션을 @이름 인라인 하이라이트로 렌더한다(별도 칩 row 없음)", () => {
+  it("본문 HTML의 멘션 span(@label)을 sanitize 후 인라인 렌더한다", () => {
     renderItem(
       makeComment({
-        body: "@[오너](owner-1) 확인 부탁 @[참조자](cc-1)",
+        body: '<p><span data-mention data-id="owner-1">@오너</span> 확인 부탁 <span data-mention data-id="cc-1">@참조자</span></p>',
         mentions: [
           { userId: "owner-1", name: "오너" },
           { userId: "cc-1", name: "참조자" },
         ],
       }),
     );
-    // 본문 인라인에 @이름 형태로 노출(텍스트 세그먼트와 함께 한 버블에 렌더).
-    expect(screen.getByText("@오너")).toBeInTheDocument();
-    expect(screen.getByText("@참조자")).toBeInTheDocument();
+    // sanitize 본문은 dangerouslySetInnerHTML로 렌더돼 텍스트 노드로 노출된다.
+    expect(screen.getByText(/@오너/)).toBeInTheDocument();
+    expect(screen.getByText(/@참조자/)).toBeInTheDocument();
     expect(screen.getByText(/확인 부탁/)).toBeInTheDocument();
+  });
+
+  it("script 등 위험 태그는 sanitize로 제거된다", () => {
+    const { container } = render(
+      <CommentItem
+        comment={makeComment({
+          body: '<p>안녕</p><script>alert("x")</script>',
+        })}
+        roleVariant="legal"
+        roleLabel="사내변호사"
+        formattedTime="2026-06-22 10:00"
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(container.querySelector("script")).toBeNull();
+    expect(screen.getByText("안녕")).toBeInTheDocument();
   });
 
   it("인라인 편집 저장 시 onEdit(commentId, body, mentions)를 호출한다", async () => {
@@ -136,22 +152,23 @@ describe("CommentItem", () => {
     const { onEdit } = renderItem(
       makeComment({
         isAuthor: true,
-        body: "원본 의견",
+        body: "<p>원본 의견</p>",
       }),
     );
     await user.click(screen.getByRole("button", { name: /수정/ }));
-    // 스텁 에디터(textarea)는 초기 value=comment.body(마크업)로 진입.
-    // 마크업의 `[]()` 는 userEvent 키 디스크립터로 해석되므로 fireEvent.change로 값을 주입.
     const editor = screen.getByLabelText("코멘트 수정");
+    // 스텁 textarea — `<>` 디스크립터 회피 위해 fireEvent.change로 값 주입.
     fireEvent.change(editor, {
-      target: { value: "@[오너](owner-1) 수정된 내용" },
+      target: {
+        value:
+          '<p><span data-mention data-id="owner-1">@오너</span> 수정된 내용</p>',
+      },
     });
     await user.click(screen.getByRole("button", { name: "저장" }));
-    // 에디터 산출 userId[]를 3번째 인자로 함께 전달.
     await waitFor(() =>
       expect(onEdit).toHaveBeenCalledWith(
         "c1",
-        "@[오너](owner-1) 수정된 내용",
+        '<p><span data-mention data-id="owner-1">@오너</span> 수정된 내용</p>',
         ["owner-1"],
       ),
     );
@@ -160,16 +177,28 @@ describe("CommentItem", () => {
   it("멘션 없이 수정 저장하면 빈 mentions[] 를 전달한다", async () => {
     const user = userEvent.setup();
     const { onEdit } = renderItem(
-      makeComment({ isAuthor: true, body: "원본" }),
+      makeComment({ isAuthor: true, body: "<p>원본</p>" }),
     );
     await user.click(screen.getByRole("button", { name: /수정/ }));
     const editor = screen.getByLabelText("코멘트 수정");
-    await user.clear(editor);
-    await user.type(editor, "멘션 없이 수정");
+    fireEvent.change(editor, { target: { value: "<p>멘션 없이 수정</p>" } });
     await user.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() =>
-      expect(onEdit).toHaveBeenCalledWith("c1", "멘션 없이 수정", []),
+      expect(onEdit).toHaveBeenCalledWith("c1", "<p>멘션 없이 수정</p>", []),
     );
+  });
+
+  it("빈 본문(`<p></p>`)으로 저장 시 onEdit 호출하지 않고 에러를 노출한다", async () => {
+    const user = userEvent.setup();
+    const { onEdit } = renderItem(
+      makeComment({ isAuthor: true, body: "<p>원본</p>" }),
+    );
+    await user.click(screen.getByRole("button", { name: /수정/ }));
+    const editor = screen.getByLabelText("코멘트 수정");
+    fireEvent.change(editor, { target: { value: "<p></p>" } });
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    expect(await screen.findByText("코멘트 내용을 입력하세요.")).toBeInTheDocument();
+    expect(onEdit).not.toHaveBeenCalled();
   });
 
   it("삭제 버튼 클릭 시 confirm 후 onDelete(commentId)를 호출한다", async () => {

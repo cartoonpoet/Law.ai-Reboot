@@ -15,6 +15,7 @@ import type {
   UpdateCommentRequest,
   DeleteCommentRequest,
 } from "@lawai/contracts";
+import { htmlToPreview } from "./htmlToPreview";
 
 // 코멘트 권한 평가에 필요한 계약 행(references 포함 — cc 사용자 추출용).
 const contractAuthzInclude = {
@@ -40,21 +41,10 @@ const extractCcUserIds = (
   refs: { ccType: string; refId: string }[],
 ): string[] => refs.filter((r) => r.ccType === "user").map((r) => r.refId);
 
-// 알림 detail.preview 최대 길이(코멘트 본문 미리보기). 개행은 공백으로 정규화 후 slice.
-const PREVIEW_LEN = 80;
-
-// `@[표시이름](userId)` 마크업을 `@표시이름`으로 치환한다(preview/요약용).
-// 프론트 apps/web/src/pages/contract/utils/mentionMarkup.ts stripMentionMarkup와
-// 1:1 동일 — 패턴을 바꾸면 양쪽을 함께 수정해야 한다(드리프트 시 미리보기 깨짐).
-const stripMentionMarkup = (body: string): string =>
-  body.replace(/@\[([^\]]+)\]\(([^)]+)\)/g, "@$1");
-
-// 코멘트 본문 → 알림 미리보기 텍스트(멘션 마크업 strip + 개행 정규화 + 길이 제한).
-const buildPreview = (body: string): string => {
-  const stripped = stripMentionMarkup(body);
-  const normalized = stripped.replace(/\s+/g, " ").trim();
-  return normalized.slice(0, PREVIEW_LEN);
-};
+// 코멘트 본문(HTML) → 알림 미리보기 텍스트는 `htmlToPreview`가 단일 출처.
+// 프론트 `apps/web/src/pages/contract/utils/mentionHtml.ts`의 `getPlainTextFromHtml`과 알고리즘 동치 —
+// 멘션 span 내부 텍스트(@label)는 보존하고 그 외 태그는 strip한다.
+// (P2 ff-review 예측가능성: passthrough 래퍼 `buildPreview` 제거 — 호출부가 `htmlToPreview` 직접 사용.)
 
 /**
  * 계약 코멘트 도메인 서비스(생성/조회).
@@ -278,7 +268,7 @@ export class CommentsService {
 
     // 멘션 알림(best-effort, 트랜잭션 밖 — audit 옆). 자기멘션 제외(NotificationService 가 방어적 필터).
     // createMany 가 생성된 PushNotification[] 를 반환 → gateway 가 SSE fan-out 에 사용.
-    const preview = buildPreview(body);
+    const preview = htmlToPreview(body);
     const notifications = await this.notifications.createMany(
       mentionUserIds
         .filter((userId) => userId !== viewer.id)
@@ -394,7 +384,7 @@ export class CommentsService {
     const addedUserIds = mentionUserIds.filter(
       (userId) => !prevSet.has(userId) && userId !== viewer.id,
     );
-    const preview = buildPreview(body);
+    const preview = htmlToPreview(body);
     const notifications = await this.notifications.createMany(
       addedUserIds.map((userId) => ({
         recipientId: userId,

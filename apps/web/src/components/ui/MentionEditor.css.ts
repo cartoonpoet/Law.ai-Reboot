@@ -1,58 +1,19 @@
-import { style, globalStyle } from "@vanilla-extract/css";
+import { style } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
 
-/** 멘션 칩 DOM 클래스 — MentionEditor.tsx의 HTMLAttributes.class와 1:1 공유(드리프트 방지). */
+/**
+ * 멘션 칩 식별 DOM 클래스 — MentionEditor의 Mention 노드 HTMLAttributes.class와 1:1 공유.
+ * sanitize·표시·에디터 내부 강조 셀렉터가 모두 이 상수를 참조한다(드리프트 방지).
+ *
+ * P2 직렬화 규약은 class에 의존하지 않고 `data-mention` 속성으로 식별한다 — 본 클래스는 보조
+ * 셀렉터이자 에디터 내부 강조용. (DOMPurify 환경에서 class가 떨어져도 data-mention만 보존되면
+ * commentItem.css.ts의 `[data-mention]` 셀렉터가 강조를 적용한다.)
+ */
 export const MENTION_CLASS = "lawai-mention";
 
 const surface = themeVars.color.neutralSurface;
 const border = themeVars.color.neutralBorder;
 const accent = themeVars.color.accentPrimary;
-
-/* 에디터 컨테이너 — RichTextEditor.css.ts의 wrap/area 패턴 차용. */
-export const wrap = style({
-  border: `1px solid ${border}`,
-  borderRadius: 8,
-  background: surface,
-  overflow: "hidden",
-  selectors: {
-    "&:focus-within": {
-      borderColor: accent,
-      boxShadow: `0 0 0 3px color-mix(in srgb, ${accent} 14%, transparent)`,
-    },
-  },
-});
-
-export const area = style({
-  minHeight: 76,
-  padding: "10px 12px",
-  fontSize: 13.5,
-  lineHeight: 1.6,
-  color: themeVars.color.textHeading,
-  outline: "none",
-});
-
-/* placeholder — @tiptap/extension-placeholder가 빈 첫 문단에 is-editor-empty 클래스 +
-   data-placeholder 속성을 부여한다. ::before로 흐름 내부에 렌더돼 area의 padding/lineHeight를
-   상속하므로 입력 텍스트의 시작 위치와 정확히 일치한다(절대배치 span baseline 어긋남 해소). */
-globalStyle(`${area} p.is-editor-empty:first-child::before`, {
-  content: "attr(data-placeholder)",
-  color: themeVars.color.textMuted,
-  float: "left",
-  height: 0,
-  pointerEvents: "none",
-});
-
-/* 멘션 칩 — 에디터 내부 인라인 노드(MentionEditor가 MENTION_CLASS 부여).
-   contenteditable 안에서 렌더되므로 globalStyle로 노드 셀렉터에 토큰을 적용한다(인라인 금지 준수). */
-globalStyle(`${area} .${MENTION_CLASS}`, {
-  display: "inline",
-  padding: "1px 4px",
-  borderRadius: 5,
-  fontWeight: 600,
-  color: accent,
-  background: `color-mix(in srgb, ${accent} 12%, ${surface})`,
-  whiteSpace: "nowrap",
-});
 
 /* suggestion 드롭다운 — useMentionSuggestion의 MentionList가 포털로 마운트해 사용. */
 export const dropdown = style({

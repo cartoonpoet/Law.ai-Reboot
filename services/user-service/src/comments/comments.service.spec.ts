@@ -325,9 +325,11 @@ describe("CommentsService", () => {
       });
     });
 
-    it("알림 preview는 본문의 @[이름](userId) 마크업을 @이름으로 strip해 노출한다", async () => {
-      // 본문에 멘션 마크업이 섞여 있어도 preview엔 raw 마크업이 아니라 @표시이름이 들어간다.
-      // 프론트 mentionMarkup.stripMentionMarkup과 1:1 동일 규칙(정규식 복제).
+    it("알림 preview는 본문 HTML의 멘션 span을 @label로 보존하고 그 외 태그는 strip한다", async () => {
+      // P2 직렬화: 본문은 HTML 단편. 멘션은 `<span data-mention data-id>` 마크업.
+      // preview는 멘션 라벨(@오너)을 보존하고 strong/p 등 그 외 태그는 strip한 plain text.
+      const htmlBody =
+        '<p><span data-mention data-id="owner-1">@오너</span> 확인 부탁드립니다</p>';
       prismaMock.contract.findFirst.mockResolvedValue(
         makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
       );
@@ -339,7 +341,7 @@ describe("CommentsService", () => {
         contractId: "contract-1",
         authorId: "counsel-1",
         role: "inHouseCounsel",
-        body: "@[오너](owner-1) 확인 부탁드립니다",
+        body: htmlBody,
         createdAt: new Date("2026-06-22T01:00:00.000Z"),
         updatedAt: new Date("2026-06-22T01:00:00.000Z"),
         deletedAt: null,
@@ -355,7 +357,7 @@ describe("CommentsService", () => {
 
       await service.create({
         contractId: "contract-1",
-        body: "@[오너](owner-1) 확인 부탁드립니다",
+        body: htmlBody,
         viewerId: "counsel-1",
         mentions: ["owner-1"],
       });
@@ -363,7 +365,7 @@ describe("CommentsService", () => {
       const items = notificationMock.createMany.mock.calls[0][0] as Array<{
         detail: { preview: string };
       }>;
-      // raw 마크업 미노출 → @오너 로 치환.
+      // 멘션 라벨 보존 + p 태그 strip → "@오너 확인 부탁드립니다".
       expect(items[0].detail.preview).toBe("@오너 확인 부탁드립니다");
     });
 

@@ -1,21 +1,26 @@
 import { useState } from "react";
-import { Button, Icon } from "@lawkit/ui";
+import { Button } from "@lawkit/ui";
 import { MentionEditor } from "../../../components/ui/MentionEditor";
+import { IconSend } from "../../../components/ui/EditorIcons";
 import { useMentionSuggestion } from "../hooks/useMentionSuggestion";
-import { extractMentionUserIds, stripMentionMarkup } from "../utils/mentionMarkup";
+import { extractMentionUserIdsFromHtml, isHtmlBlank } from "../utils/mentionHtml";
 import * as css from "./commentForm.css";
 
 interface CommentFormProps {
-  // 본문(@[이름](userId) 마크업) + 멘션 userId 배열을 받아 코멘트를 생성한다(useComments.addComment).
+  // 본문(HTML 단편) + 멘션 userId 배열을 받아 코멘트를 생성한다(useComments.addComment).
   // 성공 시 에디터를 비운다.
   onSubmit: (body: string, mentions: string[]) => Promise<unknown>;
 }
 
+/** 시안 컴팩트 에디터 `.charcount`의 시각 한도(차단 안 함, 표시만). */
+const MAX_LEN = 2000;
+
 /**
- * 코멘트 작성 폼 — 인라인 @멘션 에디터(MentionEditor) 단일 입력.
- * 에디터 상태(body 마크업)를 로컬 state로 보유하고, 제출은 폼 액션이 아니라
- * 핸들러에서 직접 처리한다(tiptap 콘텐츠는 FormData에 안 실리므로). 제출 시
- * extractMentionUserIds(body)로 userId[]를 산출해 onSubmit(body, mentions)을 호출한다.
+ * 코멘트 작성 폼 — 시안 컴팩트 WYSIWYG(MentionEditor) + 등록 버튼.
+ *
+ * 본문은 HTML 단편. 제출 시 `extractMentionUserIdsFromHtml(body)`로 userId[]를 산출해
+ * `onSubmit(body, mentions)`을 호출한다. 빈 본문 가드(`isHtmlBlank`)는 plain text 기준.
+ * 툴바·pasteHint·charcount는 MentionEditor 컨테이너 안에 내장(시안 `.editor` 구조).
  */
 export function CommentForm({ onSubmit }: CommentFormProps) {
   const suggestion = useMentionSuggestion();
@@ -23,8 +28,7 @@ export function CommentForm({ onSubmit }: CommentFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 마크업을 표시이름으로 치환·trim 한 뒤 비었으면 제출을 막는다(렌더/제출 시 파생).
-  const isEmpty = stripMentionMarkup(body).trim().length === 0;
+  const isEmpty = isHtmlBlank(body);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -34,7 +38,7 @@ export function CommentForm({ onSubmit }: CommentFormProps) {
     }
     setIsSubmitting(true);
     try {
-      await onSubmit(body, extractMentionUserIds(body));
+      await onSubmit(body, extractMentionUserIdsFromHtml(body));
       setBody("");
       setError(null);
     } catch (err) {
@@ -51,7 +55,8 @@ export function CommentForm({ onSubmit }: CommentFormProps) {
         onChange={setBody}
         suggestion={suggestion}
         ariaLabel="코멘트 입력"
-        placeholder="검토 의견을 남겨주세요. @로 멘션을 추가할 수 있어요."
+        placeholder="검토 의견을 입력하세요. @로 담당자를 멘션할 수 있습니다."
+        maxLength={MAX_LEN}
       />
 
       <div className={css.footRow}>
@@ -60,7 +65,7 @@ export function CommentForm({ onSubmit }: CommentFormProps) {
           type="submit"
           size="medium"
           disabled={isSubmitting}
-          iconLeft={<Icon name="messageSquare" size="sm" />}
+          iconLeft={<IconSend />}
         >
           {isSubmitting ? "등록 중…" : "코멘트 등록"}
         </Button>
