@@ -11,6 +11,13 @@ import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
 import { ContractCreatePage } from "./pages/contract/ContractCreatePage";
 import { ContractEditPage } from "./pages/contract/ContractEditPage";
+import { MockupsIndex } from "./pages/mockups/MockupsIndex";
+import { PreviewModalMock } from "./pages/mockups/PreviewModalMock";
+import { PreviewDrawerMock } from "./pages/mockups/PreviewDrawerMock";
+import { PreviewPageMock } from "./pages/mockups/PreviewPageMock";
+import { CompareDirectMock } from "./pages/mockups/CompareDirectMock";
+import { CompareSwapMock } from "./pages/mockups/CompareSwapMock";
+import { ComparePickerMock } from "./pages/mockups/ComparePickerMock";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!localStorage.getItem("accessToken")) {
@@ -22,6 +29,16 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export function AppRoutes() {
   return (
     <Routes>
+      {/* 시안 — AppShell 안에서 렌더(실제 사이드바/탑바), 인증은 우회 (mockup 평가용, 채택 후 삭제) */}
+      <Route element={<AppShell />}>
+        <Route path="/mockups" element={<MockupsIndex />} />
+        <Route path="/mockups/preview-modal" element={<PreviewModalMock />} />
+        <Route path="/mockups/preview-drawer" element={<PreviewDrawerMock />} />
+        <Route path="/mockups/preview-page" element={<PreviewPageMock />} />
+        <Route path="/mockups/compare-direct" element={<CompareDirectMock />} />
+        <Route path="/mockups/compare-swap" element={<CompareSwapMock />} />
+        <Route path="/mockups/compare-picker" element={<ComparePickerMock />} />
+      </Route>
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
