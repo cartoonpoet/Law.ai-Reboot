@@ -6,13 +6,12 @@ import {
   Param,
   Post,
   Req,
-  Res,
   UseGuards,
 } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { firstValueFrom } from "rxjs";
-import type { Request, Response } from "express";
+import type { Request } from "express";
 import {
   FILE_PATTERNS,
   type ConfirmUploadRequest,
@@ -31,7 +30,8 @@ import { ConfirmDto, PresignDto } from "./dto";
  *
  * - presign: 클라이언트가 SubtleCrypto 로 sha256 계산 후 호출 → R2 PUT URL + uploadToken 발급.
  * - confirm: 클라이언트가 R2 PUT 후 ETag 와 함께 호출 → user-service 가 HeadObject 검증 + File row.
- * - download: 권한 검증 후 단기 presigned GET URL 로 302 리다이렉트.
+ * - download: 권한 검증 후 단기 presigned GET URL 을 JSON 으로 반환.
+ *   (302 리다이렉트는 fetch 의 opaqueredirect 로 Location 헤더가 가려져 프론트가 2회 호출하게 됨 → JSON 으로 단일 호출.)
  */
 @ApiTags("files")
 @Controller("files")
@@ -73,17 +73,16 @@ export class FilesController {
   }
 
   @ApiOperation({
-    summary: "파일 다운로드(302 redirect)",
-    description: "권한 검증 후 단기 presigned GET URL 로 리다이렉트",
+    summary: "파일 다운로드 URL 발급",
+    description: "권한 검증 후 단기 presigned GET URL 을 JSON 으로 반환. 프론트는 url 을 window.open 으로 연다.",
   })
   @Get(":id/download")
   async download(
     @Param("id") id: string,
     @Req() req: Request,
-    @Res() res: Response,
-  ): Promise<void> {
+  ): Promise<GetDownloadUrlResponse> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const result = await firstValueFrom(
+    return firstValueFrom(
       this.userClient
         .send<GetDownloadUrlResponse>(FILE_PATTERNS.GET_DOWNLOAD_URL, {
           fileId: id,
@@ -91,6 +90,5 @@ export class FilesController {
         })
         .pipe(rpcToHttp()),
     );
-    res.redirect(302, result.url);
   }
 }
