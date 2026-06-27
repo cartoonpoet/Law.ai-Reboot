@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Avatar, Button, Icon } from "@lawkit/ui";
-import type { CommentDto } from "@lawai/contracts";
+import type { CommentDto, FileAttachmentDto } from "@lawai/contracts";
 import { MentionEditor } from "../../../components/ui/MentionEditor";
 import { useMentionSuggestion } from "../hooks/useMentionSuggestion";
 import { useFileUpload } from "../hooks/useFileUpload";
@@ -9,10 +9,20 @@ import { sanitizeCommentHtml } from "../utils/sanitizeCommentHtml";
 import { AVATAR_COLOR, ROLE_TAG_CLASS, type RoleVariant } from "./commentRole";
 import { IconFile } from "../../../components/ui/EditorIcons";
 import { formatBytes } from "../utils/formatBytes";
-import { getDownloadUrl } from "../../../api/files";
+import {
+  FilePreviewModal,
+  type PreviewFileRef,
+} from "../../../components/filePreview";
 import * as attachCss from "./attachmentChip.css";
 import * as panelCss from "./commentPanel.css";
 import * as css from "./commentItem.css";
+
+// FileAttachmentDto → 미리보기 모달 ref 매핑.
+const toPreviewRef = (att: FileAttachmentDto): PreviewFileRef => ({
+  id: att.id,
+  name: att.name,
+  mimeType: att.mimeType,
+});
 
 interface CommentItemProps {
   comment: CommentDto;
@@ -52,6 +62,9 @@ export function CommentItem({
   onDelete,
 }: CommentItemProps) {
   const [isEditing, setIsEditing] = useState(false);
+  // 미리보기 상태: previewAId 가 있으면 모달 open. previewBId 는 비교 모드(좌우).
+  const [previewAId, setPreviewAId] = useState<string | null>(null);
+  const [previewBId, setPreviewBId] = useState<string | null>(null);
 
   const isEdited = checkEdited(comment);
   const canModify = comment.isAuthor && !comment.isDeleted;
@@ -147,17 +160,9 @@ export function CommentItem({
                     key={att.id}
                     type="button"
                     className={attachCss.downloadLink}
-                    onClick={async () => {
-                      try {
-                        const { url } = await getDownloadUrl(att.id);
-                        window.open(url, "_blank", "noopener");
-                      } catch (err) {
-                        window.alert(
-                          err instanceof Error
-                            ? err.message
-                            : "다운로드에 실패했습니다.",
-                        );
-                      }
+                    onClick={() => {
+                      setPreviewAId(att.id);
+                      setPreviewBId(null);
                     }}
                   >
                     <IconFile />
@@ -170,6 +175,30 @@ export function CommentItem({
           </>
         )}
       </div>
+
+      {previewAId && (
+        <FilePreviewModal
+          open
+          fileA={
+            comment.attachments.find((a) => a.id === previewAId)
+              ? toPreviewRef(
+                  comment.attachments.find((a) => a.id === previewAId)!,
+                )
+              : null
+          }
+          fileB={(() => {
+            if (!previewBId) return null;
+            const b = comment.attachments.find((a) => a.id === previewBId);
+            return b ? toPreviewRef(b) : null;
+          })()}
+          candidates={comment.attachments.map(toPreviewRef)}
+          onChangeFileB={setPreviewBId}
+          onClose={() => {
+            setPreviewAId(null);
+            setPreviewBId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
