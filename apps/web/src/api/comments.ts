@@ -21,15 +21,17 @@ export function createComment(
 }
 
 // 코멘트 수정(작성자 본인만). body + 멘션 전체 교체. 비관련자 멘션은 서버가 400.
+// attachmentIds 가 배열이면 첨부 전체 교체(빠진 건 detach, 새 건 attach). undefined 면 기존 유지.
 export function updateComment(
   contractId: string,
   commentId: string,
   body: string,
   mentions?: string[],
+  attachmentIds?: string[],
 ): Promise<CommentDto> {
   return apiFetch<CommentDto>(`/contracts/${contractId}/comments/${commentId}`, {
     method: "PATCH",
-    body: JSON.stringify({ body, mentions }),
+    body: JSON.stringify({ body, mentions, attachmentIds }),
   });
 }
 

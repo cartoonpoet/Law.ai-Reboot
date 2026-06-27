@@ -11,7 +11,7 @@ import { CommentItem } from "./CommentItem";
  * - isDeleted 면 placeholder + 버튼/본문 숨김.
  * - updatedAt > createdAt 이면 "(수정됨)" 표기.
  * - 본문 HTML(`<span data-mention>`)은 sanitize 후 `dangerouslySetInnerHTML`로 렌더.
- * - 인라인 편집 저장 → onEdit(commentId, body, mentions) 3-인자, 삭제 → confirm 후 onDelete.
+ * - 인라인 편집 저장 → onEdit(commentId, body, mentions, attachmentIds) 4-인자, 삭제 → confirm 후 onDelete.
  *
  * 수정모드 입력은 tiptap MentionEditor지만 jsdom contenteditable 한계로 직접 타이핑이
  * 불가하므로 value/onChange를 노출하는 textarea 스텁으로 목킹한다.
@@ -22,16 +22,25 @@ vi.mock("../../../components/ui/MentionEditor", () => ({
     value,
     onChange,
     ariaLabel,
+    attachments,
   }: {
     value: string;
     onChange: (body: string) => void;
     ariaLabel: string;
+    attachments?: { localId: string; name: string }[];
   }) => (
-    <textarea
-      aria-label={ariaLabel}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    />
+    <div>
+      <textarea
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {attachments?.map((a) => (
+        <span key={a.localId} data-testid={`att-${a.localId}`}>
+          {a.name}
+        </span>
+      ))}
+    </div>
   ),
 }));
 
@@ -171,6 +180,7 @@ describe("CommentItem", () => {
         "c1",
         '<p><span data-mention data-id="owner-1">@오너</span> 수정된 내용</p>',
         ["owner-1"],
+        [],
       ),
     );
   });
@@ -185,7 +195,46 @@ describe("CommentItem", () => {
     fireEvent.change(editor, { target: { value: "<p>멘션 없이 수정</p>" } });
     await user.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() =>
-      expect(onEdit).toHaveBeenCalledWith("c1", "<p>멘션 없이 수정</p>", []),
+      expect(onEdit).toHaveBeenCalledWith(
+        "c1",
+        "<p>멘션 없이 수정</p>",
+        [],
+        [],
+      ),
+    );
+  });
+
+  it("기존 첨부가 있는 코멘트는 수정 모드 진입 시 첨부 칩으로 노출되고 attachmentIds 로 전달된다", async () => {
+    const user = userEvent.setup();
+    const { onEdit } = renderItem(
+      makeComment({
+        isAuthor: true,
+        body: "<p>원본</p>",
+        attachments: [
+          {
+            id: "f-1",
+            name: "초안.pdf",
+            size: 1234,
+            mimeType: "application/pdf",
+            sha256: null,
+            createdAt: "2026-06-22T01:00:00.000Z",
+          },
+        ],
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: /수정/ }));
+    // 시드된 첨부 칩이 노출돼야 한다.
+    expect(screen.getByText("초안.pdf")).toBeInTheDocument();
+    const editor = screen.getByLabelText("코멘트 수정");
+    fireEvent.change(editor, { target: { value: "<p>유지 + 수정</p>" } });
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() =>
+      expect(onEdit).toHaveBeenCalledWith(
+        "c1",
+        "<p>유지 + 수정</p>",
+        [],
+        ["f-1"],
+      ),
     );
   });
 

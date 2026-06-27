@@ -374,6 +374,19 @@ export class CommentsService {
 
     const mentionUserIds = this.validateMentions(contract, req.mentions);
 
+    // 첨부 전체교체(선택). attachmentIds === undefined 면 기존 첨부 유지(생략 시 변경 없음).
+    // 배열로 들어오면 desired 집합 기준 detach(빠진 id)/attach(새 id) 를 같은 트랜잭션에서 적용.
+    const desiredAttachmentIds =
+      req.attachmentIds === undefined
+        ? null
+        : Array.from(new Set(req.attachmentIds));
+    if (desiredAttachmentIds && desiredAttachmentIds.length > 5) {
+      throw new RpcException({
+        status: 400,
+        message: "코멘트당 첨부는 최대 5개입니다",
+      });
+    }
+
     // body 갱신 + 멘션 전체 교체(deleteMany→createMany)를 트랜잭션으로. updatedAt 은 @updatedAt 자동.
     // 멘션 알림 diff 를 위해 교체 전 기존 멘션 userId 집합(prevSet)을 deleteMany 직전 같은 tx 에서 확보.
     const { comment, prevUserIds } = await this.prisma.$transaction(
@@ -397,6 +410,43 @@ export class CommentsService {
             })),
             skipDuplicates: true,
           });
+        }
+        // 첨부 전체교체: 현재 첨부 vs desired 의 diff 를 detach/attach.
+        // - detach: 빠진 id 는 File.commentId=null (R2 객체는 보존; 별도 GC 정책 대상)
+        // - attach: 새 id 는 contractId 일치 + commentId IS NULL 인 행만(소유/멱등 검증)
+        if (desiredAttachmentIds) {
+          const current = await tx.file.findMany({
+            where: { commentId: req.commentId },
+            select: { id: true },
+          });
+          const currentSet = new Set(current.map((f) => f.id));
+          const desiredSet = new Set(desiredAttachmentIds);
+          const toDetach = [...currentSet].filter((id) => !desiredSet.has(id));
+          const toAttach = desiredAttachmentIds.filter(
+            (id) => !currentSet.has(id),
+          );
+          if (toDetach.length > 0) {
+            await tx.file.updateMany({
+              where: { id: { in: toDetach }, commentId: req.commentId },
+              data: { commentId: null },
+            });
+          }
+          if (toAttach.length > 0) {
+            const attached = await tx.file.updateMany({
+              where: {
+                id: { in: toAttach },
+                contractId: req.contractId,
+                commentId: null,
+              },
+              data: { commentId: req.commentId },
+            });
+            if (attached.count !== toAttach.length) {
+              throw new RpcException({
+                status: 400,
+                message: "일부 첨부 파일을 찾을 수 없습니다",
+              });
+            }
+          }
         }
         const reloaded = await tx.comment.findUniqueOrThrow({
           where: { id: req.commentId },

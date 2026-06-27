@@ -37,6 +37,9 @@ const newLocalId = (): string =>
 
 interface UseFileUploadOptions {
   contractId: string;
+  // 기존에 이미 업로드(confirm)된 첨부를 초기 상태로 시드한다(코멘트 수정 모드 진입 시).
+  // useState 초기값으로만 사용 — 이후 변경은 무시(편집 세션 중에는 사용자 액션이 정답).
+  initialAttachments?: FileAttachmentDto[];
 }
 
 interface UseFileUploadReturn {
@@ -48,6 +51,18 @@ interface UseFileUploadReturn {
   hasPending: boolean;
 }
 
+// FileAttachmentDto → 'done' 상태의 AttachmentState 로 시드.
+const seedFromAttachments = (
+  initial?: FileAttachmentDto[],
+): AttachmentState[] =>
+  (initial ?? []).map((att) => ({
+    localId: `seed-${att.id}`,
+    name: att.name,
+    size: att.size,
+    status: "done" as const,
+    attachment: att,
+  }));
+
 /**
  * 코멘트 첨부 업로드 훅 — presign → PUT → confirm 의 3단계 흐름을 상태 기반으로 관리.
  *
@@ -57,8 +72,11 @@ interface UseFileUploadReturn {
  */
 export const useFileUpload = ({
   contractId,
+  initialAttachments,
 }: UseFileUploadOptions): UseFileUploadReturn => {
-  const [attachments, setAttachments] = useState<AttachmentState[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentState[]>(() =>
+    seedFromAttachments(initialAttachments),
+  );
 
   const updateOne = (
     localId: string,

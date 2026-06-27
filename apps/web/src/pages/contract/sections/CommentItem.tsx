@@ -3,6 +3,7 @@ import { Avatar, Button, Icon } from "@lawkit/ui";
 import type { CommentDto } from "@lawai/contracts";
 import { MentionEditor } from "../../../components/ui/MentionEditor";
 import { useMentionSuggestion } from "../hooks/useMentionSuggestion";
+import { useFileUpload } from "../hooks/useFileUpload";
 import { extractMentionUserIdsFromHtml, isHtmlBlank } from "../utils/mentionHtml";
 import { sanitizeCommentHtml } from "../utils/sanitizeCommentHtml";
 import { AVATAR_COLOR, ROLE_TAG_CLASS, type RoleVariant } from "./commentRole";
@@ -19,9 +20,14 @@ interface CommentItemProps {
   roleVariant: RoleVariant;
   roleLabel: string;
   formattedTime: string;
-  // 본문(HTML 단편) + 멘션 userId 배열을 받아 코멘트를 수정한다.
-  // 멘션은 에디터에서 산출한 userId[]로 전체 교체한다.
-  onEdit: (commentId: string, body: string, mentions: string[]) => Promise<unknown>;
+  // 본문(HTML 단편) + 멘션 userId 배열 + 첨부 id 배열을 받아 코멘트를 수정한다.
+  // 멘션·첨부 모두 전체 교체 의미(빠진 첨부는 detach, 새 첨부는 attach).
+  onEdit: (
+    commentId: string,
+    body: string,
+    mentions: string[],
+    attachmentIds: string[],
+  ) => Promise<unknown>;
   onDelete: (commentId: string) => Promise<unknown>;
 }
 
@@ -45,42 +51,23 @@ export function CommentItem({
   onEdit,
   onDelete,
 }: CommentItemProps) {
-  const suggestion = useMentionSuggestion();
   const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(comment.body);
-  const [errorText, setErrorText] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   const isEdited = checkEdited(comment);
   const canModify = comment.isAuthor && !comment.isDeleted;
   const isSystem = roleVariant === "system";
 
   const handleStartEdit = () => {
-    setDraft(comment.body);
-    setErrorText(null);
     setIsEditing(true);
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    setErrorText(null);
   };
 
-  const handleSave = async () => {
-    if (isHtmlBlank(draft)) {
-      setErrorText("코멘트 내용을 입력하세요.");
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await onEdit(comment.id, draft, extractMentionUserIdsFromHtml(draft));
-      setIsEditing(false);
-      setErrorText(null);
-    } catch (err) {
-      setErrorText(err instanceof Error ? err.message : "코멘트 수정에 실패했습니다.");
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSaved = () => {
+    // 저장 성공 시 useComments 가 목록을 invalidate → comment 가 최신으로 갱신된 채 읽기 모드 복귀.
+    setIsEditing(false);
   };
 
   const handleDelete = async () => {
@@ -139,31 +126,12 @@ export function CommentItem({
             삭제된 코멘트입니다.
           </div>
         ) : isEditing ? (
-          <div className={css.editForm}>
-            <MentionEditor
-              value={draft}
-              onChange={setDraft}
-              suggestion={suggestion}
-              ariaLabel="코멘트 수정"
-              placeholder="검토 의견을 남겨주세요. @로 멘션을 추가할 수 있어요."
-            />
-            {errorText && <span className={css.editError}>{errorText}</span>}
-            <div className={css.editActions}>
-              <Button
-                type="button"
-                variant="outline"
-                color="secondary"
-                size="small"
-                onClick={handleCancel}
-                disabled={isSaving}
-              >
-                취소
-              </Button>
-              <Button type="button" size="small" onClick={handleSave} disabled={isSaving}>
-                {isSaving ? "저장 중…" : "저장"}
-              </Button>
-            </div>
-          </div>
+          <CommentEditForm
+            comment={comment}
+            onSubmit={onEdit}
+            onCancel={handleCancel}
+            onSaved={handleSaved}
+          />
         ) : (
           // sanitize 본문(HTML 단편). DOMPurify CONFIG는 sanitizeCommentHtml.ts 단일 출처.
           // 멘션 강조·콘텐츠 노드 스타일은 commentItem.css.ts의 globalStyle이 토큰으로 적용한다(인라인 0).
@@ -201,6 +169,100 @@ export function CommentItem({
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+interface CommentEditFormProps {
+  comment: CommentDto;
+  onSubmit: CommentItemProps["onEdit"];
+  onCancel: () => void;
+  onSaved: () => void;
+}
+
+/**
+ * 코멘트 인라인 편집 폼 — 진입 시 새 마운트라 깨끗한 상태로 시작한다.
+ *
+ * - useFileUpload 를 comment.attachments 로 시드해 기존 첨부를 'done' 상태로 노출(추가/삭제 가능).
+ * - 저장 성공 시 attachmentIds 배열(현재 done 상태) 을 onSubmit 으로 전달 → 백엔드가 전체교체.
+ * - 취소/저장 모두 unmount 라 폼 내부 상태는 폐기. 다시 수정 들어가면 최신 comment.attachments 로 재시드.
+ */
+function CommentEditForm({
+  comment,
+  onSubmit,
+  onCancel,
+  onSaved,
+}: CommentEditFormProps) {
+  const suggestion = useMentionSuggestion();
+  const upload = useFileUpload({
+    contractId: comment.contractId,
+    initialAttachments: comment.attachments,
+  });
+  const [draft, setDraft] = useState(comment.body);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (isHtmlBlank(draft)) {
+      setErrorText("코멘트 내용을 입력하세요.");
+      return;
+    }
+    if (upload.hasPending) {
+      setErrorText("첨부 업로드가 끝난 뒤 저장해 주세요.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSubmit(
+        comment.id,
+        draft,
+        extractMentionUserIdsFromHtml(draft),
+        upload.getReadyIds(),
+      );
+      setErrorText(null);
+      onSaved();
+    } catch (err) {
+      setErrorText(
+        err instanceof Error ? err.message : "코멘트 수정에 실패했습니다.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className={css.editForm}>
+      <MentionEditor
+        value={draft}
+        onChange={setDraft}
+        suggestion={suggestion}
+        ariaLabel="코멘트 수정"
+        placeholder="검토 의견을 남겨주세요. @로 멘션을 추가할 수 있어요."
+        attachments={upload.attachments}
+        onAddFiles={upload.addFiles}
+        onRemoveAttachment={upload.removeAttachment}
+      />
+      {errorText && <span className={css.editError}>{errorText}</span>}
+      <div className={css.editActions}>
+        <Button
+          type="button"
+          variant="outline"
+          color="secondary"
+          size="small"
+          onClick={onCancel}
+          disabled={isSaving}
+        >
+          취소
+        </Button>
+        <Button
+          type="button"
+          size="small"
+          onClick={handleSave}
+          disabled={isSaving || upload.hasPending}
+        >
+          {isSaving ? "저장 중…" : "저장"}
+        </Button>
       </div>
     </div>
   );

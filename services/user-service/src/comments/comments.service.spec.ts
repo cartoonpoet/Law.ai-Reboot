@@ -617,6 +617,151 @@ describe("CommentsService", () => {
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.contract.findFirst).not.toHaveBeenCalled();
     });
+
+    it("attachmentIds 전체교체: 빠진 id 는 detach, 새 id 는 attach (트랜잭션 안)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("counsel-1", "inHouseCounsel"),
+      );
+      prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
+      // 현재 첨부: file-a, file-b. desired: file-b, file-c → detach=file-a, attach=file-c.
+      const fileFindManyMock = jest
+        .fn()
+        .mockResolvedValue([{ id: "file-a" }, { id: "file-b" }]);
+      const fileUpdateManyMock = jest.fn().mockResolvedValue({ count: 1 });
+      const commentFindUniqueMock = jest
+        .fn()
+        .mockResolvedValue(updatedReloaded);
+      const txMock = {
+        comment: {
+          update: jest.fn(),
+          findUniqueOrThrow: commentFindUniqueMock,
+        },
+        commentMention: {
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn(),
+          createMany: jest.fn(),
+        },
+        file: { findMany: fileFindManyMock, updateMany: fileUpdateManyMock },
+      };
+      prismaMock.$transaction.mockImplementation(
+        async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),
+      );
+
+      await service.update({
+        contractId: "contract-1",
+        commentId: "comment-1",
+        body: "본문 갱신",
+        viewerId: "counsel-1",
+        attachmentIds: ["file-b", "file-c"],
+      });
+
+      // detach: 빠진 file-a 만 commentId=null.
+      expect(fileUpdateManyMock).toHaveBeenCalledWith({
+        where: { id: { in: ["file-a"] }, commentId: "comment-1" },
+        data: { commentId: null },
+      });
+      // attach: 새 file-c 만 commentId 연결(소유: contractId 일치 + commentId NULL).
+      expect(fileUpdateManyMock).toHaveBeenCalledWith({
+        where: {
+          id: { in: ["file-c"] },
+          contractId: "contract-1",
+          commentId: null,
+        },
+        data: { commentId: "comment-1" },
+      });
+    });
+
+    it("attachmentIds 생략(undefined) 이면 첨부 ops 자체를 호출하지 않는다(기존 첨부 유지)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("counsel-1", "inHouseCounsel"),
+      );
+      prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
+      const fileFindManyMock = jest.fn();
+      const fileUpdateManyMock = jest.fn();
+      const txMock = {
+        comment: {
+          update: jest.fn(),
+          findUniqueOrThrow: jest.fn().mockResolvedValue(updatedReloaded),
+        },
+        commentMention: {
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn(),
+          createMany: jest.fn(),
+        },
+        file: { findMany: fileFindManyMock, updateMany: fileUpdateManyMock },
+      };
+      prismaMock.$transaction.mockImplementation(
+        async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),
+      );
+
+      await service.update({
+        contractId: "contract-1",
+        commentId: "comment-1",
+        body: "본문 갱신",
+        viewerId: "counsel-1",
+        // attachmentIds 생략.
+      });
+
+      expect(fileFindManyMock).not.toHaveBeenCalled();
+      expect(fileUpdateManyMock).not.toHaveBeenCalled();
+    });
+
+    it("attachmentIds 6개 이상이면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("counsel-1", "inHouseCounsel"),
+      );
+      prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
+
+      await expect(
+        service.update({
+          contractId: "contract-1",
+          commentId: "comment-1",
+          body: "본문",
+          viewerId: "counsel-1",
+          attachmentIds: ["f1", "f2", "f3", "f4", "f5", "f6"],
+        }),
+      ).rejects.toBeInstanceOf(RpcException);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("attach count mismatch(다른 계약의 파일 등) 면 400 으로 롤백", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("counsel-1", "inHouseCounsel"),
+      );
+      prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
+      const fileFindManyMock = jest.fn().mockResolvedValue([]);
+      // attach 대상 1건인데 updateMany 가 0건 일치 → throw.
+      const fileUpdateManyMock = jest.fn().mockResolvedValue({ count: 0 });
+      const txMock = {
+        comment: {
+          update: jest.fn(),
+          findUniqueOrThrow: jest.fn(),
+        },
+        commentMention: {
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn(),
+          createMany: jest.fn(),
+        },
+        file: { findMany: fileFindManyMock, updateMany: fileUpdateManyMock },
+      };
+      prismaMock.$transaction.mockImplementation(
+        async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),
+      );
+
+      await expect(
+        service.update({
+          contractId: "contract-1",
+          commentId: "comment-1",
+          body: "본문",
+          viewerId: "counsel-1",
+          attachmentIds: ["file-other-contract"],
+        }),
+      ).rejects.toBeInstanceOf(RpcException);
+    });
   });
 
   // 멘션 이메일 발송(best-effort). 인앱 알림과 독립 — emailNotify=true 수신자에게만,

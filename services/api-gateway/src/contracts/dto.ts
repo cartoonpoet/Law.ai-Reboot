@@ -189,6 +189,8 @@ export class CreateCommentDto {
 }
 
 // 코멘트 수정. body 전체 교체 + mentions 전체 교체(작성자 본인만).
+// attachmentIds 는 선택 — 배열로 들어오면 첨부 전체 교체(빠진 건 detach, 새 id 는 attach).
+// 생략(undefined)이면 기존 첨부 유지(변경 없음).
 export class UpdateCommentDto {
   @ApiProperty({ description: "코멘트 본문", example: "수정한 의견입니다." })
   @IsString()
@@ -199,4 +201,11 @@ export class UpdateCommentDto {
   @ApiPropertyOptional({ description: "멘션 대상 userId 배열(계약 관련자 한정)", isArray: true })
   @IsOptional() @IsArray() @IsString({ each: true })
   mentions?: string[];
+
+  @ApiPropertyOptional({
+    description: "첨부 파일 id 배열(전체 교체, 코멘트당 ≤5). 생략 시 기존 첨부 유지.",
+    isArray: true,
+  })
+  @IsOptional() @IsArray() @IsString({ each: true })
+  attachmentIds?: string[];
 }

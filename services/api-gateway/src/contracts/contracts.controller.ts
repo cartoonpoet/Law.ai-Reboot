@@ -200,6 +200,7 @@ export class ContractsController {
       commentId,
       body: dto.body,
       mentions: dto.mentions,
+      attachmentIds: dto.attachmentIds,
       viewerId: sub,
     };
     return firstValueFrom(

@@ -17,6 +17,8 @@ interface EditCommentInput {
   commentId: string;
   body: string;
   mentions?: string[];
+  // 배열이면 첨부 전체교체(빠진 건 detach, 새 건 attach). undefined 면 기존 첨부 유지.
+  attachmentIds?: string[];
 }
 
 // 계약 코멘트 조회 + 작성. 작성 성공 시 목록 캐시 무효화로 재조회.
@@ -46,8 +48,8 @@ export const useComments = (contractId: string) => {
   });
 
   const editMutation = useMutation({
-    mutationFn: ({ commentId, body, mentions }: EditCommentInput) =>
-      updateComment(contractId, commentId, body, mentions),
+    mutationFn: ({ commentId, body, mentions, attachmentIds }: EditCommentInput) =>
+      updateComment(contractId, commentId, body, mentions, attachmentIds),
     onSuccess: invalidateComments,
   });
 
@@ -67,8 +69,13 @@ export const useComments = (contractId: string) => {
       attachmentIds?: string[],
     ) => mutation.mutateAsync({ body, mentions, attachmentIds }),
     // editComment 도 mutateAsync — CommentItem 인라인 편집 폼이 await.
-    editComment: (commentId: string, body: string, mentions?: string[]) =>
-      editMutation.mutateAsync({ commentId, body, mentions }),
+    // attachmentIds 가 배열이면 첨부 전체교체. undefined 면 기존 첨부 유지.
+    editComment: (
+      commentId: string,
+      body: string,
+      mentions?: string[],
+      attachmentIds?: string[],
+    ) => editMutation.mutateAsync({ commentId, body, mentions, attachmentIds }),
     deleteComment: (commentId: string) => deleteMutation.mutateAsync(commentId),
     isEditing: editMutation.isPending,
     isDeleting: deleteMutation.isPending,

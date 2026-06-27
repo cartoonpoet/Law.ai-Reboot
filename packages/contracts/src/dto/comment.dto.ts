@@ -54,7 +54,8 @@ export interface UpdateCommentRequest {
   body: string;
   // 멘션 대상 userId 배열(전체 교체).
   mentions?: string[];
-  // 본 P3 는 수정 시 첨부 변경 없음(03-phases 결정). 필드는 미래 확장을 위해 선언만.
+  // 첨부 파일 id 배열(전체 교체). 배열로 들어오면 desired 기준 detach(빠진 id)/attach(새 id) 를
+  // 같은 트랜잭션에서 적용한다. undefined 면 기존 첨부 유지(변경 없음). 코멘트당 ≤5.
   attachmentIds?: string[];
   viewerId?: string;
 }
