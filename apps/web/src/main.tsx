@@ -7,6 +7,7 @@ import "@lawkit/ui/style.css";
 import "./style.css";
 import { AppRoutes } from "./routes";
 import { queryClient } from "./lib/queryClient";
+import { NewVersionBanner } from "./components/layout/NewVersionBanner";
 
 // 테마 토큰(--surface 등)을 body에도 적용한다. lawkit Modal/Popover는 document.body로
 // portal되므로, 테마 클래스가 래퍼 div에만 있으면 portal된 모달이 테마 변수를 못 받아
@@ -18,6 +19,7 @@ createRoot(document.getElementById("app")!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <div className={lightThemeClass} style={{ height: "100%" }}>
+          <NewVersionBanner />
           <AppRoutes />
         </div>
       </BrowserRouter>
