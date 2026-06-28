@@ -9,6 +9,7 @@ import {
 } from "@lawkit/ui";
 import { FileRenderer } from "./FileRenderer";
 import { isTextExtractable } from "./extract/extractText";
+import { useDownloadChangeReport } from "./useDownloadChangeReport";
 import * as css from "./filePreview.css";
 
 // DiffView 는 diff + extract 청크를 끌어와 무거워질 수 있어 별 청크로 lazy.
@@ -58,6 +59,13 @@ export function FilePreviewModal({
     isTextExtractable(fileA.mimeType, fileA.name) &&
     isTextExtractable(fileB.mimeType, fileB.name);
 
+  // 변경 보고서 다운로드 — 두 파일 모두 텍스트 추출 가능할 때만(=diffSupported).
+  // useFileText 캐시 공유 → DiffView 가 이미 추출했으면 즉시 PDF 가능.
+  const report = useDownloadChangeReport(
+    diffSupported ? fileA : null,
+    diffSupported ? fileB : null,
+  );
+
   const options = candidates
     .filter((c) => c.id !== fileA?.id)
     .map((c) => ({ value: c.id, label: c.name }));
@@ -90,6 +98,19 @@ export function FilePreviewModal({
                 }
               >
                 텍스트 diff
+              </Button>
+              <Button
+                size="small"
+                variant="outline"
+                disabled={!report.isReady || report.isDownloading}
+                onClick={report.download}
+                title={
+                  diffSupported
+                    ? "두 파일의 변경 사항을 PDF 로 다운로드 (결재 첨부·감사 보관용)"
+                    : "PDF / DOCX 두 파일일 때만 사용 가능"
+                }
+              >
+                {report.isDownloading ? "PDF 생성 중…" : "📄 변경 보고서"}
               </Button>
               <Button size="small" variant="outline" onClick={() => onChangeFileB(null)}>
                 ← 미리보기
