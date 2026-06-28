@@ -549,6 +549,13 @@ export const flink = style({
 
 export const flinkGreen = style({ color: SUCCESS });
 
+// 업로드 안 된 레거시 파일(metadata-only) — 미리보기/비교 비활성.
+export const flinkDisabled = style({
+  color: MUTED,
+  cursor: "not-allowed",
+  selectors: { "&:hover": { textDecoration: "none", color: MUTED } },
+});
+
 /* 키-값 행(우측 레일 akv) */
 export const akv = style({
   display: "flex",

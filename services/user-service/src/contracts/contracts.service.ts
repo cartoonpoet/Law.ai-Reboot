@@ -26,7 +26,12 @@ const contractInclude = {
   owner: { select: { name: true } },
   counterparties: true,
   approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
-  files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
+  // 코멘트 첨부(File.commentId 가 있는 행)는 Comment 응답으로만 노출.
+  // Contract.files 는 계약 본 파일만 — DocsCard 가 코멘트 첨부와 섞이지 않도록 같은 쿼리에서 분리.
+  files: {
+    where: { commentId: null },
+    orderBy: [{ role: "asc" }, { sortOrder: "asc" }],
+  },
   references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
 } satisfies Prisma.ContractInclude;
 

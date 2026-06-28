@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon, Button, StepBar, ProgressBar, Alert } from "@lawkit/ui";
+import {
+  FilePreviewModal,
+  type PreviewFileRef,
+} from "../../components/filePreview";
 import { AssignModal } from "./sections/AssignModal";
 import { CommentPanel } from "./sections/CommentPanel";
 import { ReviewActionPanel } from "./sections/ReviewActionPanel";
@@ -174,24 +178,45 @@ function ApprovalLineCard({ steps }: { steps: ApprovalStepView[] | null }) {
 
 /* ── 문서 카드(우측 레일) ── */
 
-function DocFileRow({
-  name,
-  showCompare,
-}: {
-  name: string;
+type DocFile = ContractDetail["files"][number];
+
+interface DocFileRowProps {
+  file: DocFile;
   showCompare?: boolean;
-}) {
+  onPreview: (file: DocFile) => void;
+  onCompare?: (file: DocFile) => void;
+}
+
+function DocFileRow({ file, showCompare, onPreview, onCompare }: DocFileRowProps) {
+  const enabled = file.hasStorage;
+  const disabledTitle = "미리보기/비교는 R2 업로드된 파일만 가능 (업로드 흐름은 후속 PR)";
   return (
     <div className={css.docFileRow}>
       <Icon name="fileText" size="sm" className={css.fileIcon} />
       <div className={css.docFileMain}>
-        <div className={css.docFileName}>{name}</div>
+        <div className={css.docFileName}>{file.name}</div>
         <div className={css.docFileLinks}>
-          <button type="button" className={css.flink}>
+          <button
+            type="button"
+            className={enabled ? css.flink : cx(css.flink, css.flinkDisabled)}
+            disabled={!enabled}
+            title={enabled ? undefined : disabledTitle}
+            onClick={() => enabled && onPreview(file)}
+          >
             미리보기
           </button>
           {showCompare && (
-            <button type="button" className={cx(css.flink, css.flinkGreen)}>
+            <button
+              type="button"
+              className={
+                enabled
+                  ? cx(css.flink, css.flinkGreen)
+                  : cx(css.flink, css.flinkDisabled)
+              }
+              disabled={!enabled}
+              title={enabled ? undefined : disabledTitle}
+              onClick={() => enabled && onCompare?.(file)}
+            >
               문서 비교
             </button>
           )}
@@ -201,10 +226,50 @@ function DocFileRow({
   );
 }
 
+// DocFile → PreviewFileRef (id 가 있는 것만 — 호출 전 hasStorage 가드로 안전).
+const toPreviewRef = (f: DocFile): PreviewFileRef => ({
+  id: f.id!,
+  name: f.name,
+  mimeType: f.mimeType,
+});
+
 function DocsCard({ d }: { d: ContractDetail }) {
   const contracts = d.files.filter((f) => f.kind === "계약서");
   const attachs = d.files.filter((f) => f.kind === "첨부");
   const refs = d.files.filter((f) => f.kind === "참고");
+
+  // 미리보기 상태 — DocsCard 가 모달 owner. previewBId 가 있으면 좌우 분할.
+  const [previewAId, setPreviewAId] = useState<string | null>(null);
+  const [previewBId, setPreviewBId] = useState<string | null>(null);
+
+  const previewableFiles = d.files.filter((f) => f.hasStorage && f.id);
+  const candidates = previewableFiles.map(toPreviewRef);
+
+  const handlePreview = (file: DocFile) => {
+    setPreviewAId(file.id);
+    setPreviewBId(null);
+  };
+
+  // 비교 — 기본 B 는 같은 그룹의 다른 첫 파일(없으면 어떤 그룹이든 다른 첫 파일).
+  const handleCompare = (file: DocFile) => {
+    const sameGroup = previewableFiles.find(
+      (f) => f.id !== file.id && f.kind === file.kind,
+    );
+    const fallback = previewableFiles.find((f) => f.id !== file.id);
+    const b = sameGroup ?? fallback;
+    if (!b) {
+      window.alert("비교할 다른 파일이 없습니다.");
+      return;
+    }
+    setPreviewAId(file.id);
+    setPreviewBId(b.id);
+  };
+
+  const fileA =
+    previewableFiles.find((f) => f.id === previewAId) ?? null;
+  const fileB =
+    previewableFiles.find((f) => f.id === previewBId) ?? null;
+
   return (
     <section className={css.card}>
       <header className={css.chead}>
@@ -218,7 +283,13 @@ function DocsCard({ d }: { d: ContractDetail }) {
           </div>
           {contracts.length > 0 ? (
             contracts.map((f, i) => (
-              <DocFileRow key={i} name={f.name} showCompare />
+              <DocFileRow
+                key={i}
+                file={f}
+                showCompare
+                onPreview={handlePreview}
+                onCompare={handleCompare}
+              />
             ))
           ) : (
             <div className={css.docEmpty}>등록된 계약서가 없습니다.</div>
@@ -227,7 +298,9 @@ function DocsCard({ d }: { d: ContractDetail }) {
         <div>
           <div className={css.docGroupLabel}>첨부 · 별첨</div>
           {attachs.length > 0 ? (
-            attachs.map((f, i) => <DocFileRow key={i} name={f.name} />)
+            attachs.map((f, i) => (
+              <DocFileRow key={i} file={f} onPreview={handlePreview} />
+            ))
           ) : (
             <div className={css.docEmpty}>첨부된 파일이 없습니다.</div>
           )}
@@ -235,12 +308,28 @@ function DocsCard({ d }: { d: ContractDetail }) {
         <div>
           <div className={css.docGroupLabel}>참고서류</div>
           {refs.length > 0 ? (
-            refs.map((f, i) => <DocFileRow key={i} name={f.name} />)
+            refs.map((f, i) => (
+              <DocFileRow key={i} file={f} onPreview={handlePreview} />
+            ))
           ) : (
             <div className={css.docEmpty}>등록된 참고서류가 없습니다.</div>
           )}
         </div>
       </div>
+
+      {fileA && (
+        <FilePreviewModal
+          open
+          fileA={toPreviewRef(fileA)}
+          fileB={fileB ? toPreviewRef(fileB) : null}
+          candidates={candidates}
+          onChangeFileB={setPreviewBId}
+          onClose={() => {
+            setPreviewAId(null);
+            setPreviewBId(null);
+          }}
+        />
+      )}
     </section>
   );
 }

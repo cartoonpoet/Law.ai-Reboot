@@ -65,7 +65,16 @@ export interface ContractDetail {
   catPath: string[];
   period: string;
   type: string;
-  files: { name: string; meta: string; kind: string }[];
+  // id/mimeType/hasStorage 는 미리보기 모달 활성 조건에 사용. 신규 업로드는 R2 storageKey
+  // 가 채워져 미리보기/비교 활성, 레거시(메타데이터만)는 hasStorage=false 라 버튼 비활성.
+  files: {
+    id: string | null;
+    name: string;
+    meta: string;
+    kind: string;
+    mimeType: string | null;
+    hasStorage: boolean;
+  }[];
   ccDept: string[];
   counter: string;
   lang: string;
@@ -131,9 +140,30 @@ const SAMPLE_DETAIL: ContractDetail = {
   requester: "관리자1", owner: "김기찬", catPath: ["본사계약", "개발/공급", "용역"],
   period: "2026-06-12 ~ 2027-06-11", type: "일반 검토요청",
   files: [
-    { name: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx", meta: "1.8 MB", kind: "계약서" },
-    { name: "별첨1_물품명세_단가표.xlsx", meta: "248 KB", kind: "첨부" },
-    { name: "사업제안_검토참고.pdf", meta: "3.1 MB", kind: "참고" },
+    {
+      id: null,
+      name: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx",
+      meta: "1.8 MB",
+      kind: "계약서",
+      mimeType: null,
+      hasStorage: false,
+    },
+    {
+      id: null,
+      name: "별첨1_물품명세_단가표.xlsx",
+      meta: "248 KB",
+      kind: "첨부",
+      mimeType: null,
+      hasStorage: false,
+    },
+    {
+      id: null,
+      name: "사업제안_검토참고.pdf",
+      meta: "3.1 MB",
+      kind: "참고",
+      mimeType: null,
+      hasStorage: false,
+    },
   ],
   ccDept: ["개발팀", "운영팀", "인프라팀"], counter: "AAA (사업자 110-81-xxxxx)", lang: "국문", legalCat: "국내 법무",
   negotiation: 60,

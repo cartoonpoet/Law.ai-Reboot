@@ -223,7 +223,10 @@ describe("ContractsService", () => {
         owner: { select: { name: true } },
         counterparties: true,
         approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
-        files: { orderBy: [{ role: "asc" }, { sortOrder: "asc" }] },
+        files: {
+          where: { commentId: null },
+          orderBy: [{ role: "asc" }, { sortOrder: "asc" }],
+        },
         references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
       },
     });

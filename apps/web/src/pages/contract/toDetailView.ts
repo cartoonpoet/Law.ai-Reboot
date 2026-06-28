@@ -163,9 +163,13 @@ export const toDetailView = (c: ContractResponse): ContractDetail => {
     period: fmtPeriod(c.periodStart, c.periodEnd, d.periodText, d.noEndDate),
     type: c.reviewType === "std" ? "표준계약서 계약체결" : "일반 검토요청",
     files: c.files.map((f) => ({
+      id: f.id,
       name: f.name,
       meta: f.meta ?? "",
       kind: FILE_KIND[f.role],
+      mimeType: f.mimeType,
+      // R2 backing 이 있는 파일만 미리보기/비교 활성. 메타데이터-only 레거시는 false.
+      hasStorage: Boolean(f.storageKey),
     })),
     ccDept: c.references.filter((r) => r.ccType === "dept").map((r) => r.name),
     counter: snapshot?.name ?? "-",
