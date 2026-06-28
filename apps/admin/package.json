@@ -13,7 +13,8 @@
     "@lawai/contracts": "workspace:*",
     "@lawkit/ui": "^0.1.41",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.17.0"
   },
   "devDependencies": {
     "@lawai/eslint-config": "workspace:*",

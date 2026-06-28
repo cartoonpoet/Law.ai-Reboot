@@ -1,8 +1,21 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { LoginPage } from "./pages/auth/LoginPage";
+import { DashboardPage } from "./pages/dashboard/DashboardPage";
+import { RequireAdmin } from "./components/RequireAdmin";
+
 export function App() {
   return (
-    <div style={{ padding: 24 }}>
-      <h1>Lawai Admin</h1>
-      <p>관리자 콘솔 스켈레톤</p>
-    </div>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/"
+        element={
+          <RequireAdmin>
+            <DashboardPage />
+          </RequireAdmin>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
