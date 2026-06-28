@@ -1,38 +1,20 @@
 import { useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import { FileUploadArea, FileItem } from "@lawkit/ui";
-import type { FileRole } from "@lawai/contracts";
 import type { ContractRequestForm } from "../request-schema";
+import { FIELD_TO_ROLE, type FileFieldName } from "../fileFieldRole";
 import { formatFileMeta } from "../fileMeta";
-import { confirmFile, presignFile } from "../../../api/files";
+import { uploadContractFile } from "../hooks/uploadContractFile";
 import * as css from "../contractRequest.css";
-
-type FileFieldName = "contractFiles" | "attachFiles" | "refFiles";
-
-// 폼 필드명 → File.role 매핑 단일 출처.
-const FIELD_TO_ROLE: Record<FileFieldName, FileRole> = {
-  contractFiles: "contract",
-  attachFiles: "attach",
-  refFiles: "ref",
-};
 
 interface FileUploadFieldProps {
   name: FileFieldName;
   description?: string;
   accept?: string;
   // 편집 모드 (contractId 있음) → presign/confirm 으로 R2 업로드. 신규 작성 (contractId 없음) →
-  // 메타데이터-only 폴백(폼 제출 시 id null 로 저장, 향후 batch 업로드 도입 시 교체).
+  // blob 을 폼에 보관 후 submit 시점에 일괄 업로드(useContractSubmit 의 2단계 흐름).
   contractId?: string | null;
 }
-
-// 클라이언트에서 SHA-256 hex 계산 — presign 요청에 동봉.
-const sha256Hex = async (file: File): Promise<string> => {
-  const buf = await file.arrayBuffer();
-  const digest = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-};
 
 export function FileUploadField({
   name,
@@ -52,7 +34,8 @@ export function FileUploadField({
         const files = field.value;
 
         const handleFilesAdded = async (added: File[]) => {
-          // contractId 가 없는 신규 작성 흐름 — 메타데이터-only 로 즉시 폼에 추가.
+          // contractId 가 없는 신규 작성 흐름 — blob 을 폼에 보관해서 submit 시점에 일괄 업로드.
+          // 표준양식 모달 등 blob 없이 추가되는 케이스도 그대로 metadata-only 로 함께 처리.
           if (!contractId) {
             field.onChange([
               ...files,
@@ -61,36 +44,17 @@ export function FileUploadField({
                 name: f.name,
                 meta: formatFileMeta(f),
                 mimeType: null,
+                blob: f,
               })),
             ]);
             return;
           }
 
-          // 편집 흐름 — 파일별 presign → R2 PUT → confirm. 성공한 것만 폼에 append.
+          // 편집 흐름 — 파일별 presign → R2 PUT → confirm (uploadContractFile 헬퍼). 성공한 것만 폼에 append.
           setPendingNames((prev) => [...prev, ...added.map((f) => f.name)]);
           for (const file of added) {
             try {
-              const sha256 = await sha256Hex(file);
-              const presign = await presignFile({
-                contractId,
-                role,
-                fileName: file.name,
-                size: file.size,
-                mimeType: file.type,
-                sha256,
-              });
-              const putRes = await fetch(presign.uploadUrl, {
-                method: "PUT",
-                headers: { "Content-Type": file.type },
-                body: file,
-              });
-              if (!putRes.ok) throw new Error(`업로드 실패 (${putRes.status})`);
-              const etag =
-                putRes.headers.get("etag")?.replace(/^"|"$/g, "") || sha256;
-              const att = await confirmFile({
-                uploadToken: presign.uploadToken,
-                etag,
-              });
+              const att = await uploadContractFile(contractId, role, file);
               field.onChange([
                 ...field.value,
                 {

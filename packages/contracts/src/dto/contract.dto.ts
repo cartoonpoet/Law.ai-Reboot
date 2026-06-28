@@ -113,8 +113,12 @@ export interface CounterpartyInput {
   snapshot: Company; // 체결 시점 회사 정보 동결
 }
 
-/** 계약검토 요청 생성 — createdById 는 gateway 가 JWT 에서 주입한다. */
+/** 계약검토 요청 생성 — createdById 는 gateway 가 JWT 에서 주입한다.
+ * id 가 제공되면 그 값으로 contract.id 를 강제(없으면 서버에서 uuid 생성).
+ * 클라이언트 사전 생성 흐름: 신규 작성 페이지에서 첨부 파일을 즉시 R2 업로드하려면
+ * presign(contractId) 가 미리 같은 id 를 알아야 하므로 client UUID + 동일 id 로 create. */
 export interface CreateContractRequest {
+  id?: string;
   title: string;
   securityLevel: SecurityLevel;
   reviewType: ReviewType;
