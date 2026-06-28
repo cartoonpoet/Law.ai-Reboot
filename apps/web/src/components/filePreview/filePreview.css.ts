@@ -172,3 +172,81 @@ export const image = style({
 });
 
 export { BACKGROUND };
+
+// === 텍스트 diff (DiffView) ===
+export const diffWrap = style({
+  background: "#fff",
+  padding: 0,
+  fontFamily:
+    'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+  fontSize: 12.5,
+  lineHeight: 1.6,
+  color: HEADING,
+  overflow: "auto",
+  flex: 1,
+});
+
+export const diffRow = style({
+  display: "flex",
+  alignItems: "flex-start",
+  padding: "1px 8px",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+});
+
+export const diffRowAdd = style({
+  background: "#dcfce7",
+  borderLeft: "3px solid #16a34a",
+});
+
+export const diffRowRemove = style({
+  background: "#fee2e2",
+  borderLeft: "3px solid #dc2626",
+});
+
+export const diffRowContext = style({
+  background: "#fff",
+  color: MUTED,
+  borderLeft: "3px solid transparent",
+});
+
+export const diffSign = style({
+  width: 16,
+  flexShrink: 0,
+  textAlign: "center",
+  fontWeight: 700,
+  userSelect: "none",
+});
+
+export const diffHunk = style({
+  background: BACKGROUND,
+  color: MUTED,
+  padding: "6px 12px",
+  fontSize: 11,
+  fontWeight: 600,
+  borderTop: `1px solid ${BORDER}`,
+  borderBottom: `1px solid ${BORDER}`,
+});
+
+export const diffSummary = style({
+  padding: "8px 12px",
+  fontSize: 12,
+  color: MUTED,
+  background: SURFACE,
+  borderBottom: `1px solid ${BORDER}`,
+  display: "flex",
+  gap: 16,
+});
+
+export const diffSummaryItem = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+});
+
+export const diffEmpty = style({
+  padding: 24,
+  textAlign: "center",
+  color: MUTED,
+  fontSize: 13,
+});

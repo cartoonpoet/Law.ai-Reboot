@@ -1,6 +1,20 @@
-import { Modal, ModalHeader, ModalBody, ModalFooter, Button, Dropdown } from "@lawkit/ui";
+import { lazy, Suspense, useState } from "react";
+import {
+  Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Dropdown,
+} from "@lawkit/ui";
 import { FileRenderer } from "./FileRenderer";
+import { isTextExtractable } from "./extract/extractText";
 import * as css from "./filePreview.css";
+
+// DiffView 는 diff + extract 청크를 끌어와 무거워질 수 있어 별 청크로 lazy.
+const DiffView = lazy(async () => ({
+  default: (await import("./DiffView")).DiffView,
+}));
 
 export interface PreviewFileRef {
   id: string;
@@ -8,24 +22,25 @@ export interface PreviewFileRef {
   mimeType: string | null;
 }
 
+type CompareMode = "split" | "diff";
+
 interface FilePreviewModalProps {
-  // open === null 이면 닫힘.
   open: boolean;
   fileA: PreviewFileRef | null;
-  // 비교할 파일(B). null 이면 단일 미리보기, 값이 있으면 좌우 분할.
+  // 비교할 파일(B). null 이면 단일 미리보기, 값이 있으면 좌우 분할 또는 텍스트 diff.
   fileB: PreviewFileRef | null;
-  // 후보(B 교체용 dropdown 옵션 — A 와 같은 계약 안의 다른 파일들).
+  // 후보(B 교체용 dropdown 옵션 — 같은 코멘트 등의 다른 파일).
   candidates: PreviewFileRef[];
   onChangeFileB: (fileId: string | null) => void;
   onClose: () => void;
 }
 
 /**
- * 파일 미리보기 + (선택) 좌우 비교 모달.
+ * 파일 미리보기 + (선택) 좌우 비교 / 텍스트 diff 모달.
  *
- * - fileB === null → 단일 미리보기(시안 A).
- * - fileB !== null → 좌우 분할(B1 — 직진). 헤더 dropdown 으로 B 교체, "← 미리보기" 로 단일 복귀.
- * - 렌더러 분기는 FileRenderer → pickRenderer 단일 출처. PDF/이미지/DOCX 외엔 UnsupportedRenderer 다운로드 안내.
+ * - fileB === null → 단일 미리보기.
+ * - fileB !== null + mode="split" → 좌우 분할(원본 렌더).
+ * - fileB !== null + mode="diff" → 두 파일 평문 추출 후 jsdiff unified diff. PDF/DOCX 만 활성.
  */
 export function FilePreviewModal({
   open,
@@ -35,21 +50,51 @@ export function FilePreviewModal({
   onChangeFileB,
   onClose,
 }: FilePreviewModalProps) {
+  const [mode, setMode] = useState<CompareMode>("split");
   const isCompare = fileB !== null;
+  const diffSupported =
+    isCompare &&
+    fileA !== null &&
+    isTextExtractable(fileA.mimeType, fileA.name) &&
+    isTextExtractable(fileB.mimeType, fileB.name);
 
-  // dropdown 옵션 — A 제외, 자기 자신 제거.
   const options = candidates
     .filter((c) => c.id !== fileA?.id)
     .map((c) => ({ value: c.id, label: c.name }));
+
+  // B 가 바뀌어 diff 불가가 되면 split 으로 강제 복귀(잘못된 mode 잔존 방지).
+  const effectiveMode: CompareMode = mode === "diff" && !diffSupported ? "split" : mode;
 
   return (
     <Modal open={open} onClose={onClose} size="xlarge">
       <ModalHeader
         actions={
           isCompare ? (
-            <Button size="small" variant="outline" onClick={() => onChangeFileB(null)}>
-              ← 미리보기
-            </Button>
+            <>
+              <Button
+                size="small"
+                variant={effectiveMode === "split" ? "default" : "outline"}
+                onClick={() => setMode("split")}
+              >
+                좌우
+              </Button>
+              <Button
+                size="small"
+                variant={effectiveMode === "diff" ? "default" : "outline"}
+                disabled={!diffSupported}
+                onClick={() => setMode("diff")}
+                title={
+                  diffSupported
+                    ? "텍스트 diff"
+                    : "PDF / DOCX 두 파일일 때만 사용 가능"
+                }
+              >
+                텍스트 diff
+              </Button>
+              <Button size="small" variant="outline" onClick={() => onChangeFileB(null)}>
+                ← 미리보기
+              </Button>
+            </>
           ) : null
         }
       >
@@ -78,7 +123,17 @@ export function FilePreviewModal({
       <ModalBody>
         {fileA && (
           <div className={css.stage}>
-            {isCompare ? (
+            {!isCompare && (
+              <div className={css.single}>
+                <FileRenderer
+                  fileId={fileA.id}
+                  fileName={fileA.name}
+                  mimeType={fileA.mimeType}
+                />
+              </div>
+            )}
+
+            {isCompare && effectiveMode === "split" && (
               <div className={css.split}>
                 <div className={css.splitCol}>
                   <div className={css.splitColLabel}>A · {fileA.name}</div>
@@ -103,14 +158,14 @@ export function FilePreviewModal({
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className={css.single}>
-                <FileRenderer
-                  fileId={fileA.id}
-                  fileName={fileA.name}
-                  mimeType={fileA.mimeType}
-                />
-              </div>
+            )}
+
+            {isCompare && effectiveMode === "diff" && diffSupported && (
+              <Suspense
+                fallback={<div className={css.placeholder}>diff 모듈 로딩…</div>}
+              >
+                <DiffView fileA={fileA} fileB={fileB} />
+              </Suspense>
             )}
           </div>
         )}
