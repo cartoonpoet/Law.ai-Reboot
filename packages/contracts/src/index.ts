@@ -8,3 +8,4 @@ export * from "./dto/comment.dto";
 export * from "./dto/file.dto";
 export * from "./dto/contractCategory.dto";
 export * from "./dto/notification.dto";
+export * from "./dto/admin.dto";

@@ -12,6 +12,7 @@ import { DepartmentsModule } from "./departments/departments.module";
 import { ContractCategoriesModule } from "./contractCategories/contractCategories.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { NotificationHubModule } from "./notifications/notification-hub.module";
+import { AdminModule } from "./admin/admin.module";
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { NotificationHubModule } from "./notifications/notification-hub.module";
     DepartmentsModule,
     ContractCategoriesModule,
     NotificationsModule,
+    AdminModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

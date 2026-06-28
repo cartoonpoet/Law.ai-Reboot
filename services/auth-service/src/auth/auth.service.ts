@@ -167,7 +167,11 @@ export class AuthService {
   }
 
   private async buildResult(user: UserWithHash): Promise<AuthResult> {
-    const payload: JwtPayload = { sub: user.id, email: user.email };
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
     const tokens = await this.signTokens(payload);
     const publicUser: PublicUser = {
       id: user.id,

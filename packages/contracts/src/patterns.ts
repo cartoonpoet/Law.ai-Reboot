@@ -53,6 +53,13 @@ export const FILE_PATTERNS = {
   AUDIT_COMPARE_REPORT: "file.auditCompareReport",
 } as const;
 
+export const ADMIN_PATTERNS = {
+  // 어드민 대시보드 — 계약/사용자/파일/최근 비교보고서 다운로드 카운트.
+  GET_STATS: "admin.getStats",
+  // 최근 감사 로그(actor 이름 포함). limit 로 페이지네이션.
+  GET_AUDIT: "admin.getAudit",
+} as const;
+
 export const NOTIFICATION_PATTERNS = {
   LIST: "notification.list",
   MARK_READ: "notification.markRead",
