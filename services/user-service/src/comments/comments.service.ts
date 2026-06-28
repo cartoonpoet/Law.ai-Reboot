@@ -17,6 +17,7 @@ import type {
 } from "@lawai/contracts";
 import { htmlToPreview } from "./htmlToPreview";
 import { toFileAttachmentDto } from "../files/files.service";
+import { R2Client } from "../files/r2.client";
 
 // 코멘트 권한 평가에 필요한 계약 행(references 포함 — cc 사용자 추출용).
 const contractAuthzInclude = {
@@ -77,6 +78,7 @@ export class CommentsService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationService,
     private readonly mail: MailService,
+    private readonly r2: R2Client,
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 미존재면 null(evaluate 안전 기본).
@@ -389,7 +391,8 @@ export class CommentsService {
 
     // body 갱신 + 멘션 전체 교체(deleteMany→createMany)를 트랜잭션으로. updatedAt 은 @updatedAt 자동.
     // 멘션 알림 diff 를 위해 교체 전 기존 멘션 userId 집합(prevSet)을 deleteMany 직전 같은 tx 에서 확보.
-    const { comment, prevUserIds } = await this.prisma.$transaction(
+    // 첨부 제거 시 R2 객체 cleanup 을 위해 detach 대상의 storageKey 도 함께 회수.
+    const { comment, prevUserIds, detachedStorageKeys } = await this.prisma.$transaction(
       async (tx) => {
         await tx.comment.update({
           where: { id: req.commentId },
@@ -411,25 +414,30 @@ export class CommentsService {
             skipDuplicates: true,
           });
         }
-        // 첨부 전체교체: 현재 첨부 vs desired 의 diff 를 detach/attach.
-        // - detach: 빠진 id 는 File.commentId=null (R2 객체는 보존; 별도 GC 정책 대상)
+        // 첨부 전체교체: 현재 첨부 vs desired 의 diff 를 delete(detach 가 아님) / attach.
+        // - delete: 빠진 id 는 File row 삭제 + R2 객체 cleanup (트랜잭션 밖, best-effort) →
+        //   사용자가 "이 첨부 빼겠다" 한 의도와 일치(R2 영구 보존 X).
         // - attach: 새 id 는 contractId 일치 + commentId IS NULL 인 행만(소유/멱등 검증)
+        let detachedKeys: string[] = [];
         if (desiredAttachmentIds) {
           const current = await tx.file.findMany({
             where: { commentId: req.commentId },
-            select: { id: true },
+            select: { id: true, storageKey: true },
           });
           const currentSet = new Set(current.map((f) => f.id));
           const desiredSet = new Set(desiredAttachmentIds);
-          const toDetach = [...currentSet].filter((id) => !desiredSet.has(id));
+          const toDelete = current.filter((f) => !desiredSet.has(f.id));
           const toAttach = desiredAttachmentIds.filter(
             (id) => !currentSet.has(id),
           );
-          if (toDetach.length > 0) {
-            await tx.file.updateMany({
-              where: { id: { in: toDetach }, commentId: req.commentId },
-              data: { commentId: null },
+          if (toDelete.length > 0) {
+            const ids = toDelete.map((f) => f.id);
+            await tx.file.deleteMany({
+              where: { id: { in: ids }, commentId: req.commentId },
             });
+            detachedKeys = toDelete
+              .map((f) => f.storageKey)
+              .filter((k): k is string => Boolean(k));
           }
           if (toAttach.length > 0) {
             const attached = await tx.file.updateMany({
@@ -455,9 +463,15 @@ export class CommentsService {
         return {
           comment: reloaded,
           prevUserIds: prevMentions.map((m) => m.userId),
+          detachedStorageKeys: detachedKeys,
         };
       },
     );
+
+    // 트랜잭션 성공 후 R2 객체 정리 (best-effort). 실패해도 코멘트 update 흐름엔 영향 없음.
+    if (detachedStorageKeys.length > 0) {
+      await this.r2.deleteObjects(detachedStorageKeys);
+    }
 
     await this.audit.record({
       action: "update",

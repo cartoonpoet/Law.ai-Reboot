@@ -6,6 +6,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../contracts/contracts.audit";
 import { NotificationService } from "../notifications/notifications.service";
 import { MailService } from "../mail/mail.service";
+import { R2Client } from "../files/r2.client";
 
 /**
  * CommentsService 단위 테스트.
@@ -41,6 +42,8 @@ describe("CommentsService", () => {
   const notificationMock = { createMany: jest.fn() };
   // 멘션→이메일 트리거(best-effort). 발송 자체는 MailService 가 책임 — 여기선 호출만 검증.
   const mailMock = { sendMentionEmail: jest.fn() };
+  // R2 객체 정리(best-effort). 첨부 detach/delete 시 deleteObjects 호출 검증용.
+  const r2Mock = { deleteObjects: jest.fn(), deleteObject: jest.fn() };
 
   // 권한 평가용 계약 행(references 포함). 케이스별 owner/creator 등 덮어쓰기.
   const makeContractRow = (over: Record<string, unknown> = {}) => ({
@@ -68,6 +71,8 @@ describe("CommentsService", () => {
     auditMock.record.mockResolvedValue(undefined);
     notificationMock.createMany.mockResolvedValue([]);
     mailMock.sendMentionEmail.mockResolvedValue(undefined);
+    r2Mock.deleteObjects.mockResolvedValue(undefined);
+    r2Mock.deleteObject.mockResolvedValue(undefined);
     prismaMock.commentMention.findMany.mockResolvedValue([]);
     prismaMock.user.findMany.mockResolvedValue([]);
     const moduleRef = await Test.createTestingModule({
@@ -77,6 +82,7 @@ describe("CommentsService", () => {
         { provide: AuditService, useValue: auditMock },
         { provide: NotificationService, useValue: notificationMock },
         { provide: MailService, useValue: mailMock },
+        { provide: R2Client, useValue: r2Mock },
       ],
     }).compile();
     service = moduleRef.get(CommentsService);
@@ -618,16 +624,18 @@ describe("CommentsService", () => {
       expect(prismaMock.contract.findFirst).not.toHaveBeenCalled();
     });
 
-    it("attachmentIds 전체교체: 빠진 id 는 detach, 새 id 는 attach (트랜잭션 안)", async () => {
+    it("attachmentIds 전체교체: 빠진 id 는 hard delete + R2 정리, 새 id 는 attach (트랜잭션 안)", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
       prismaMock.user.findUnique.mockResolvedValue(
         makeUser("counsel-1", "inHouseCounsel"),
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
-      // 현재 첨부: file-a, file-b. desired: file-b, file-c → detach=file-a, attach=file-c.
-      const fileFindManyMock = jest
-        .fn()
-        .mockResolvedValue([{ id: "file-a" }, { id: "file-b" }]);
+      // 현재 첨부: file-a(key-a), file-b(key-b). desired: file-b, file-c → delete=file-a, attach=file-c.
+      const fileFindManyMock = jest.fn().mockResolvedValue([
+        { id: "file-a", storageKey: "contracts/contract-1/uuid-a/a.pdf" },
+        { id: "file-b", storageKey: "contracts/contract-1/uuid-b/b.pdf" },
+      ]);
+      const fileDeleteManyMock = jest.fn().mockResolvedValue({ count: 1 });
       const fileUpdateManyMock = jest.fn().mockResolvedValue({ count: 1 });
       const commentFindUniqueMock = jest
         .fn()
@@ -642,7 +650,11 @@ describe("CommentsService", () => {
           deleteMany: jest.fn(),
           createMany: jest.fn(),
         },
-        file: { findMany: fileFindManyMock, updateMany: fileUpdateManyMock },
+        file: {
+          findMany: fileFindManyMock,
+          deleteMany: fileDeleteManyMock,
+          updateMany: fileUpdateManyMock,
+        },
       };
       prismaMock.$transaction.mockImplementation(
         async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),
@@ -656,11 +668,14 @@ describe("CommentsService", () => {
         attachmentIds: ["file-b", "file-c"],
       });
 
-      // detach: 빠진 file-a 만 commentId=null.
-      expect(fileUpdateManyMock).toHaveBeenCalledWith({
+      // delete: 빠진 file-a 만 DB 에서 hard delete.
+      expect(fileDeleteManyMock).toHaveBeenCalledWith({
         where: { id: { in: ["file-a"] }, commentId: "comment-1" },
-        data: { commentId: null },
       });
+      // R2 객체 정리: 트랜잭션 밖에서 deleteObjects 호출(file-a 의 storageKey).
+      expect(r2Mock.deleteObjects).toHaveBeenCalledWith([
+        "contracts/contract-1/uuid-a/a.pdf",
+      ]);
       // attach: 새 file-c 만 commentId 연결(소유: contractId 일치 + commentId NULL).
       expect(fileUpdateManyMock).toHaveBeenCalledWith({
         where: {
@@ -679,6 +694,7 @@ describe("CommentsService", () => {
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
       const fileFindManyMock = jest.fn();
+      const fileDeleteManyMock = jest.fn();
       const fileUpdateManyMock = jest.fn();
       const txMock = {
         comment: {
@@ -690,7 +706,11 @@ describe("CommentsService", () => {
           deleteMany: jest.fn(),
           createMany: jest.fn(),
         },
-        file: { findMany: fileFindManyMock, updateMany: fileUpdateManyMock },
+        file: {
+          findMany: fileFindManyMock,
+          deleteMany: fileDeleteManyMock,
+          updateMany: fileUpdateManyMock,
+        },
       };
       prismaMock.$transaction.mockImplementation(
         async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),
@@ -705,7 +725,9 @@ describe("CommentsService", () => {
       });
 
       expect(fileFindManyMock).not.toHaveBeenCalled();
+      expect(fileDeleteManyMock).not.toHaveBeenCalled();
       expect(fileUpdateManyMock).not.toHaveBeenCalled();
+      expect(r2Mock.deleteObjects).not.toHaveBeenCalled();
     });
 
     it("attachmentIds 6개 이상이면 400", async () => {
@@ -734,6 +756,7 @@ describe("CommentsService", () => {
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
       const fileFindManyMock = jest.fn().mockResolvedValue([]);
+      const fileDeleteManyMock = jest.fn();
       // attach 대상 1건인데 updateMany 가 0건 일치 → throw.
       const fileUpdateManyMock = jest.fn().mockResolvedValue({ count: 0 });
       const txMock = {
@@ -746,7 +769,11 @@ describe("CommentsService", () => {
           deleteMany: jest.fn(),
           createMany: jest.fn(),
         },
-        file: { findMany: fileFindManyMock, updateMany: fileUpdateManyMock },
+        file: {
+          findMany: fileFindManyMock,
+          deleteMany: fileDeleteManyMock,
+          updateMany: fileUpdateManyMock,
+        },
       };
       prismaMock.$transaction.mockImplementation(
         async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),

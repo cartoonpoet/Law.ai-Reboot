@@ -3,6 +3,7 @@ import { RpcException } from "@nestjs/microservices";
 import { ContractsService } from "./contracts.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
+import { R2Client } from "../files/r2.client";
 import type { CreateContractRequest } from "@lawai/contracts";
 
 const companySnapshot = {
@@ -103,17 +104,29 @@ describe("ContractsService", () => {
         }),
       ),
     },
+    // contract update 의 파일 GC 가 삭제 대상 storageKey 를 미리 조회할 때 사용.
+    file: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
   const auditMock = { record: jest.fn().mockResolvedValue(undefined) };
+  // R2 객체 정리(best-effort) — contract update 의 파일 제거 시 호출 검증용.
+  const r2Mock = {
+    deleteObjects: jest.fn().mockResolvedValue(undefined),
+    deleteObject: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    r2Mock.deleteObjects.mockResolvedValue(undefined);
+    r2Mock.deleteObject.mockResolvedValue(undefined);
     const moduleRef = await Test.createTestingModule({
       providers: [
         ContractsService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditService, useValue: auditMock },
+        { provide: R2Client, useValue: r2Mock },
       ],
     }).compile();
     service = moduleRef.get(ContractsService);

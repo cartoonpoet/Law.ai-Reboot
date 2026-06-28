@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 /**
  * Cloudflare R2 S3Client wrapper.
@@ -42,5 +42,32 @@ export class R2Client {
     });
     this.bucket = bucket;
     this.disabled = false;
+  }
+
+  /**
+   * R2 객체 best-effort 삭제. 실패는 로깅만 — 호출자(파일 삭제 흐름)는 DB row 정리를 우선하고
+   * R2 cleanup 실패가 사용자 흐름을 깨지 않게 한다. 추후 cron-based 청소가 도입되면 그때 회수.
+   */
+  async deleteObject(storageKey: string): Promise<void> {
+    if (this.disabled || !this.client || !this.bucket) return;
+    try {
+      await this.client.send(
+        new DeleteObjectCommand({ Bucket: this.bucket, Key: storageKey }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[files] R2 deleteObject 실패 (key=${storageKey}): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  /**
+   * 여러 객체를 병렬로 삭제. allSettled 라 일부 실패가 다른 삭제를 막지 않는다.
+   */
+  async deleteObjects(storageKeys: string[]): Promise<void> {
+    if (storageKeys.length === 0) return;
+    await Promise.allSettled(storageKeys.map((k) => this.deleteObject(k)));
   }
 }

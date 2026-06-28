@@ -3,6 +3,7 @@ import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
+import { R2Client } from "../files/r2.client";
 import { evaluate } from "./contracts.authz";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
 import { CATEGORY_LABEL_SEPARATOR } from "@lawai/contracts";
@@ -100,6 +101,7 @@ export class ContractsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly r2: R2Client,
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
@@ -401,6 +403,9 @@ export class ContractsService {
         })),
       };
     }
+    // 삭제될 File 의 R2 storageKey 를 update 직전 미리 수집 (deleteMany 가 끝나면 row 가 사라져 못 가져옴).
+    // update 성공 후 best-effort 로 R2 객체 삭제 → "편집에서 파일 빼면 R2 도 사라짐" 사용자 의도와 일치.
+    let storageKeysToDelete: string[] = [];
     if (req.files !== undefined) {
       // 코멘트 첨부(commentId != null) 보호: deleteMany 가 같은 contractId 의 코멘트 첨부까지
       // 지우지 않게 commentId:null 로 필터.
@@ -409,6 +414,20 @@ export class ContractsService {
       const keepIds = req.files.map((f) => f.id).filter(Boolean) as string[];
       const updates = req.files.filter((f) => f.id);
       const creates = req.files.filter((f) => !f.id);
+
+      const toDelete = await this.prisma.file.findMany({
+        where: {
+          contractId: req.id,
+          commentId: null,
+          ...(keepIds.length > 0 ? { id: { notIn: keepIds } } : {}),
+          storageKey: { not: null },
+        },
+        select: { storageKey: true },
+      });
+      storageKeysToDelete = toDelete
+        .map((f) => f.storageKey)
+        .filter((k): k is string => Boolean(k));
+
       data.files = {
         deleteMany: {
           commentId: null,
@@ -461,6 +480,11 @@ export class ContractsService {
       data,
       include: contractInclude,
     });
+
+    // 삭제된 File 의 R2 객체 cleanup (best-effort, 실패해도 사용자 응답엔 영향 없음).
+    if (storageKeysToDelete.length > 0) {
+      await this.r2.deleteObjects(storageKeysToDelete);
+    }
 
     // 변경된 필드 목록(viewerId/id 제외)을 감사 detail 로 기록.
     const changed = Object.keys(req).filter(
