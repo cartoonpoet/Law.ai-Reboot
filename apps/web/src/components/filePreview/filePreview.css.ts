@@ -218,6 +218,33 @@ export const diffSign = style({
   userSelect: "none",
 });
 
+// 페어 라인 안의 단어 단위 span — 줄 자체는 컬러 안 입히고 변경 단어만 강조.
+export const diffSpanAdd = style({
+  background: "#bbf7d0",
+  color: "#14532d",
+  borderRadius: 2,
+  padding: "0 2px",
+});
+
+export const diffSpanRemove = style({
+  background: "#fecaca",
+  color: "#7f1d1d",
+  borderRadius: 2,
+  padding: "0 2px",
+  textDecoration: "line-through",
+});
+
+// 페어 라인 컨테이너 — 줄 배경은 옅게 깔고 그 위에 강조 span 이 더 짙게.
+export const diffRowPairedAdd = style({
+  background: "#f0fdf4",
+  borderLeft: "3px solid #16a34a",
+});
+
+export const diffRowPairedRemove = style({
+  background: "#fef2f2",
+  borderLeft: "3px solid #dc2626",
+});
+
 export const diffHunk = style({
   background: BACKGROUND,
   color: MUTED,

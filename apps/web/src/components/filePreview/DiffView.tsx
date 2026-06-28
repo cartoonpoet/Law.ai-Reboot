@@ -1,6 +1,10 @@
 import { useMemo } from "react";
-import { diffLines } from "diff";
 import { useFileText } from "./useFileText";
+import {
+  computeDiff,
+  type DiffRow,
+  type DiffSpan,
+} from "./computeDiffRows";
 import type { PreviewFileRef } from "./FilePreviewModal";
 import * as css from "./filePreview.css";
 
@@ -10,28 +14,25 @@ interface DiffViewProps {
 }
 
 /**
- * 두 파일의 평문 diff 를 보여준다 (jsdiff `diffLines`, unified 스타일).
+ * 두 파일의 평문 diff (jsdiff `diffLines` + 인접 -/+ 페어는 `diffWordsWithSpace` 로 intra-line 강조).
  *
- * - 두 파일 텍스트는 useFileText 가 react-query 로 캐싱 — diff 모드와 좌우 모드 사이를 토글해도 재추출 X.
- * - 라인 단위 비교가 1차. 단어 단위 강조(diffWordsWithSpace) 는 후속 — 한국어는 공백 토큰화가 거칠어
- *   라인 + 인접 컨텍스트 위주가 일단 더 안정적.
+ * - useFileText 가 react-query 로 텍스트 캐싱 → 좌우 ↔ diff 모드 토글해도 재추출 X.
+ * - 한국어 계약서처럼 한 줄에서 단어 몇 개만 바뀌는 케이스는 paired 라인으로 바뀐 어절만 강조해
+ *   사용자가 "어디가 바뀌었는지" 즉시 식별 가능.
  */
 export function DiffView({ fileA, fileB }: DiffViewProps) {
   const a = useFileText(fileA.id, fileA.mimeType, fileA.name);
   const b = useFileText(fileB.id, fileB.mimeType, fileB.name);
 
-  const parts = useMemo(() => {
+  const result = useMemo(() => {
     if (!a.data || !b.data) return null;
-    return diffLines(a.data, b.data, { newlineIsToken: false });
+    return computeDiff(a.data, b.data);
   }, [a.data, b.data]);
 
-  const isLoading = a.isLoading || b.isLoading;
-  const isError = a.error || b.error;
-
-  if (isLoading) {
+  if (a.isLoading || b.isLoading) {
     return <div className={css.diffEmpty}>텍스트 추출 중…</div>;
   }
-  if (isError || !parts) {
+  if (a.error || b.error || !result) {
     return (
       <div className={css.diffEmpty}>
         텍스트를 추출하지 못했습니다. 스캔 PDF 등 OCR 미지원 파일일 수 있어요.
@@ -39,23 +40,15 @@ export function DiffView({ fileA, fileB }: DiffViewProps) {
     );
   }
 
-  // 변경 요약 — added/removed value 의 라인 수 합. context 는 제외.
-  const added = parts
-    .filter((p) => p.added)
-    .reduce((n, p) => n + (p.count ?? 0), 0);
-  const removed = parts
-    .filter((p) => p.removed)
-    .reduce((n, p) => n + (p.count ?? 0), 0);
+  const { rows, summary } = result;
 
-  if (added === 0 && removed === 0) {
+  if (summary.added === 0 && summary.removed === 0) {
     return (
       <>
         <div className={css.diffSummary}>
           <span className={css.diffSummaryItem}>두 파일의 텍스트가 동일합니다.</span>
         </div>
-        <div className={css.diffWrap}>
-          {parts.map((p, i) => renderPart(p, i))}
-        </div>
+        <div className={css.diffWrap}>{rows.map((r, i) => renderRow(r, i))}</div>
       </>
     );
   }
@@ -63,40 +56,70 @@ export function DiffView({ fileA, fileB }: DiffViewProps) {
   return (
     <>
       <div className={css.diffSummary}>
-        <span className={css.diffSummaryItem}>+ 추가 {added} 라인</span>
-        <span className={css.diffSummaryItem}>− 삭제 {removed} 라인</span>
+        <span className={css.diffSummaryItem}>+ 추가 {summary.added} 라인</span>
+        <span className={css.diffSummaryItem}>− 삭제 {summary.removed} 라인</span>
       </div>
-      <div className={css.diffWrap}>
-        {parts.map((p, i) => renderPart(p, i))}
-      </div>
+      <div className={css.diffWrap}>{rows.map((r, i) => renderRow(r, i))}</div>
     </>
   );
 }
 
-const renderPart = (
-  part: { value: string; added?: boolean; removed?: boolean; count?: number },
-  index: number,
-) => {
-  const sign = part.added ? "+" : part.removed ? "−" : " ";
-  const rowClass = part.added
-    ? `${css.diffRow} ${css.diffRowAdd}`
-    : part.removed
-      ? `${css.diffRow} ${css.diffRowRemove}`
-      : `${css.diffRow} ${css.diffRowContext}`;
-
-  // 한 part 가 여러 라인일 수 있어 라인 단위로 쪼개 한 줄씩 렌더 — 한 줄 단위 색상이 깔끔.
-  // 마지막 빈 라인(끝 개행) 은 skip 해서 빈 행이 생기지 않게.
-  const lines = part.value.split("\n");
-  if (lines[lines.length - 1] === "") lines.pop();
-
+const renderRow = (row: DiffRow, key: number) => {
+  if (row.kind === "context") {
+    return (
+      <div key={key} className={`${css.diffRow} ${css.diffRowContext}`}>
+        <span className={css.diffSign}> </span>
+        <span>{row.text || " "}</span>
+      </div>
+    );
+  }
+  if (row.kind === "add") {
+    return (
+      <div key={key} className={`${css.diffRow} ${css.diffRowAdd}`}>
+        <span className={css.diffSign}>+</span>
+        <span>{row.text || " "}</span>
+      </div>
+    );
+  }
+  if (row.kind === "remove") {
+    return (
+      <div key={key} className={`${css.diffRow} ${css.diffRowRemove}`}>
+        <span className={css.diffSign}>−</span>
+        <span>{row.text || " "}</span>
+      </div>
+    );
+  }
+  if (row.kind === "paired-remove") {
+    return (
+      <div key={key} className={`${css.diffRow} ${css.diffRowPairedRemove}`}>
+        <span className={css.diffSign}>−</span>
+        <span>{row.spans.map((s, i) => renderSpan(s, i))}</span>
+      </div>
+    );
+  }
+  // paired-add
   return (
-    <div key={`${index}-${part.added ? "a" : part.removed ? "r" : "c"}`}>
-      {lines.map((line, j) => (
-        <div key={j} className={rowClass}>
-          <span className={css.diffSign}>{sign}</span>
-          <span>{line}</span>
-        </div>
-      ))}
+    <div key={key} className={`${css.diffRow} ${css.diffRowPairedAdd}`}>
+      <span className={css.diffSign}>+</span>
+      <span>{row.spans.map((s, i) => renderSpan(s, i))}</span>
     </div>
   );
+};
+
+const renderSpan = (span: DiffSpan, key: number) => {
+  if (span.kind === "add") {
+    return (
+      <span key={key} className={css.diffSpanAdd}>
+        {span.text}
+      </span>
+    );
+  }
+  if (span.kind === "remove") {
+    return (
+      <span key={key} className={css.diffSpanRemove}>
+        {span.text}
+      </span>
+    );
+  }
+  return <span key={key}>{span.text}</span>;
 };

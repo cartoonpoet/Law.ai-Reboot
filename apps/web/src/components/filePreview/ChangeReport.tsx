@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
+import { partsToRows, summarizeParts, type DiffRow, type DiffSpan } from "./computeDiffRows";
 import type { Change } from "diff";
 import type { PreviewFileRef } from "./FilePreviewModal";
 
@@ -84,6 +85,10 @@ const styles = StyleSheet.create({
   diffAdd: { backgroundColor: "#dcfce7", color: "#14532d" },
   diffRemove: { backgroundColor: "#fee2e2", color: "#7f1d1d" },
   diffContext: { color: "#6b7280" },
+  diffPairedAdd: { backgroundColor: "#f0fdf4", borderLeftWidth: 2, borderLeftColor: "#16a34a" },
+  diffPairedRemove: { backgroundColor: "#fef2f2", borderLeftWidth: 2, borderLeftColor: "#dc2626" },
+  spanAdd: { backgroundColor: "#bbf7d0", color: "#14532d" },
+  spanRemove: { backgroundColor: "#fecaca", color: "#7f1d1d", textDecoration: "line-through" },
   footer: {
     position: "absolute",
     bottom: 18,
@@ -116,12 +121,8 @@ export function ChangeReport({
 }: ChangeReportProps) {
   registerFont();
 
-  const added = parts
-    .filter((p) => p.added)
-    .reduce((n, p) => n + (p.count ?? 0), 0);
-  const removed = parts
-    .filter((p) => p.removed)
-    .reduce((n, p) => n + (p.count ?? 0), 0);
+  const { added, removed } = summarizeParts(parts);
+  const rows = partsToRows(parts);
 
   return (
     <Document>
@@ -156,22 +157,7 @@ export function ChangeReport({
           </Text>
         </View>
 
-        {parts.flatMap((p, partIdx) => {
-          const sign = p.added ? "+" : p.removed ? "−" : " ";
-          const rowStyle = p.added
-            ? [styles.diffLine, styles.diffAdd]
-            : p.removed
-              ? [styles.diffLine, styles.diffRemove]
-              : [styles.diffLine, styles.diffContext];
-          const lines = p.value.split("\n");
-          if (lines[lines.length - 1] === "") lines.pop();
-          return lines.map((line, lineIdx) => (
-            <View key={`${partIdx}-${lineIdx}`} style={rowStyle} wrap={false}>
-              <Text style={styles.diffSign}>{sign}</Text>
-              <Text style={styles.diffText}>{line || " "}</Text>
-            </View>
-          ));
-        })}
+        {rows.map((row, i) => renderPdfRow(row, i))}
 
         <Text
           style={styles.footer}
@@ -184,3 +170,63 @@ export function ChangeReport({
     </Document>
   );
 }
+
+const renderPdfRow = (row: DiffRow, key: number) => {
+  if (row.kind === "context") {
+    return (
+      <View key={key} style={[styles.diffLine, styles.diffContext]} wrap={false}>
+        <Text style={styles.diffSign}> </Text>
+        <Text style={styles.diffText}>{row.text || " "}</Text>
+      </View>
+    );
+  }
+  if (row.kind === "add") {
+    return (
+      <View key={key} style={[styles.diffLine, styles.diffAdd]} wrap={false}>
+        <Text style={styles.diffSign}>+</Text>
+        <Text style={styles.diffText}>{row.text || " "}</Text>
+      </View>
+    );
+  }
+  if (row.kind === "remove") {
+    return (
+      <View key={key} style={[styles.diffLine, styles.diffRemove]} wrap={false}>
+        <Text style={styles.diffSign}>−</Text>
+        <Text style={styles.diffText}>{row.text || " "}</Text>
+      </View>
+    );
+  }
+  if (row.kind === "paired-remove") {
+    return (
+      <View key={key} style={[styles.diffLine, styles.diffPairedRemove]} wrap={false}>
+        <Text style={styles.diffSign}>−</Text>
+        <Text style={styles.diffText}>{row.spans.map((s, i) => renderPdfSpan(s, i))}</Text>
+      </View>
+    );
+  }
+  // paired-add
+  return (
+    <View key={key} style={[styles.diffLine, styles.diffPairedAdd]} wrap={false}>
+      <Text style={styles.diffSign}>+</Text>
+      <Text style={styles.diffText}>{row.spans.map((s, i) => renderPdfSpan(s, i))}</Text>
+    </View>
+  );
+};
+
+const renderPdfSpan = (span: DiffSpan, key: number) => {
+  if (span.kind === "add") {
+    return (
+      <Text key={key} style={styles.spanAdd}>
+        {span.text}
+      </Text>
+    );
+  }
+  if (span.kind === "remove") {
+    return (
+      <Text key={key} style={styles.spanRemove}>
+        {span.text}
+      </Text>
+    );
+  }
+  return <Text key={key}>{span.text}</Text>;
+};
