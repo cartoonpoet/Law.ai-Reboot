@@ -98,8 +98,12 @@ describe("toEditDefaults", () => {
   it("관계를 폼 배열로 복원한다", () => {
     const f = toEditDefaults(response);
     expect(f.counterparties[0].name).toBe("삼성전자(주)");
-    expect(f.contractFiles).toEqual([{ name: "계약서.docx", meta: "DOCX" }]);
-    expect(f.attachFiles).toEqual([{ name: "별첨.pdf", meta: "PDF" }]);
+    expect(f.contractFiles).toEqual([
+      { id: "f-1", name: "계약서.docx", meta: "DOCX", mimeType: null },
+    ]);
+    expect(f.attachFiles).toEqual([
+      { id: "f-2", name: "별첨.pdf", meta: "PDF", mimeType: null },
+    ]);
     expect(f.ccUsers).toEqual([{ id: "u2", name: "김참조" }]);
     expect(f.ccDepts).toEqual([{ id: "d1", name: "법무팀" }]);
     expect(f.ccSecret).toEqual([{ id: "u9", name: "비밀임원" }]);

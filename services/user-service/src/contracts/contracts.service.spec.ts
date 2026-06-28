@@ -376,8 +376,10 @@ describe("ContractsService", () => {
       approvers: [],
     });
     const arg = prismaMock.contract.update.mock.calls[0][0];
-    expect(arg.data.files.deleteMany).toEqual({});
+    // 코멘트 첨부 보호: deleteMany 가 commentId:null 만 노리고, keepIds 가 없으면 그 외 추가 필터 없음.
+    expect(arg.data.files.deleteMany).toEqual({ commentId: null });
     expect(arg.data.files.create).toHaveLength(1);
+    expect(arg.data.files.update).toEqual([]);
     expect(arg.data.references.create[0].name).toBe("운영팀");
     // 빈 approvers → 결재선 전부 삭제만(재생성 없음)
     expect(arg.data.approvalLines).toEqual({ deleteMany: {} });

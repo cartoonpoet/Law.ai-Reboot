@@ -48,6 +48,15 @@ export class PresignDto {
   @ApiProperty({ description: "SHA-256 hex (64자)" })
   @Matches(/^[0-9a-f]{64}$/)
   sha256!: string;
+
+  @ApiPropertyOptional({
+    enum: ["contract", "attach", "ref", "etc"],
+    description:
+      "파일 역할 — 계약 본 파일은 contract/attach/ref, 코멘트 첨부는 생략(기본 attach).",
+  })
+  @IsOptional()
+  @IsIn(["contract", "attach", "ref", "etc"])
+  role?: "contract" | "attach" | "ref" | "etc";
 }
 
 // confirm 요청 — 토큰 + R2 PUT 응답 ETag.

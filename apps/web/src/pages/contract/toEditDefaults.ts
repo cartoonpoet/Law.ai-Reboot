@@ -12,7 +12,12 @@ export const toEditDefaults = (c: ContractResponse): ContractRequestForm => {
   const filesByRole = (role: "contract" | "attach" | "ref") =>
     c.files
       .filter((f) => f.role === role)
-      .map((f) => ({ name: f.name, meta: f.meta ?? "" }));
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        meta: f.meta ?? "",
+        mimeType: f.mimeType,
+      }));
   const refsBy = (ccType: "user" | "dept", isSecret: boolean) =>
     c.references
       .filter((r) => r.ccType === ccType && r.isSecret === isSecret)

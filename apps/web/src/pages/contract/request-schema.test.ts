@@ -19,7 +19,9 @@ describe("contractRequestSchema", () => {
           managerName: null, managerPhone: null, managerEmail: null,
           createdAt: "2026-01-01T00:00:00.000Z" },
       ],
-      contractFiles: [{ name: "계약서.docx", meta: "DOCX · 1.2MB" }],
+      contractFiles: [
+        { id: null, name: "계약서.docx", meta: "DOCX · 1.2MB", mimeType: null },
+      ],
       money: [{ vat: "excluded", amount: 1000, currency: "KRW" }],
       purpose: "<p>배경</p>",
     };

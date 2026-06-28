@@ -6,6 +6,9 @@ export interface UploadTokenClaims {
   sub: string; // viewerId
   contractId: string;
   commentId?: string | null;
+  // 어떤 슬롯의 파일인지 — 코멘트 첨부는 항상 attach, 계약 본 파일은 contract/attach/ref.
+  // presign 시 클라이언트가 지정, confirm 시 token 에서 그대로 사용(서버 결정 유지).
+  role: "contract" | "attach" | "ref" | "etc";
   storageKey: string;
   fileName: string;
   sha256: string;
@@ -31,6 +34,7 @@ export const verifyUploadToken = (token: string): UploadTokenClaims => {
     sub: payload.sub,
     contractId: payload.contractId,
     commentId: payload.commentId ?? null,
+    role: payload.role,
     storageKey: payload.storageKey,
     fileName: payload.fileName,
     sha256: payload.sha256,

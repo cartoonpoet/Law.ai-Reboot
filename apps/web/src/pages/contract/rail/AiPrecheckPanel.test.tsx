@@ -23,7 +23,7 @@ describe("AiPrecheckPanel", () => {
 
   it("계약서 첨부 시 위험 조항과 요약 배지를 보여준다", () => {
     render(<AiPrecheckPanel />, {
-      wrapper: makeWrapper([{ name: "계약서.docx", meta: "DOCX · 1.2MB" }]),
+      wrapper: makeWrapper([{ id: null, name: "계약서.docx", meta: "DOCX · 1.2MB", mimeType: null }]),
     });
     expect(screen.getByText(/2건 감지/)).toBeInTheDocument();
     expect(screen.getByText("고위험")).toBeInTheDocument();

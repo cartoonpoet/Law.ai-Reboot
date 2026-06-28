@@ -402,9 +402,23 @@ export class ContractsService {
       };
     }
     if (req.files !== undefined) {
+      // 코멘트 첨부(commentId != null) 보호: deleteMany 가 같은 contractId 의 코멘트 첨부까지
+      // 지우지 않게 commentId:null 로 필터.
+      // R2 backed 파일(id 있는 입력)은 keep — update 만, R2 객체 보존.
+      // id 없는 입력 = 메타데이터-only 신규 생성. 누락된 기존 id(== keep 안 함)는 delete.
+      const keepIds = req.files.map((f) => f.id).filter(Boolean) as string[];
+      const updates = req.files.filter((f) => f.id);
+      const creates = req.files.filter((f) => !f.id);
       data.files = {
-        deleteMany: {},
-        create: req.files.map((f) => ({
+        deleteMany: {
+          commentId: null,
+          ...(keepIds.length > 0 ? { id: { notIn: keepIds } } : {}),
+        },
+        update: updates.map((f) => ({
+          where: { id: f.id! },
+          data: { role: f.role, sortOrder: f.sortOrder, name: f.name, meta: f.meta },
+        })),
+        create: creates.map((f) => ({
           role: f.role,
           name: f.name,
           meta: f.meta,

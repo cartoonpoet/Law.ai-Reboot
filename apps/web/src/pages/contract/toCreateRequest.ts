@@ -42,9 +42,28 @@ export const toCreateRequest = (
   })),
   approvers: form.approvers,
   files: [
-    ...form.contractFiles.map((f, i) => ({ role: "contract" as const, name: f.name, meta: f.meta, sortOrder: i })),
-    ...form.attachFiles.map((f, i) => ({ role: "attach" as const, name: f.name, meta: f.meta, sortOrder: i })),
-    ...form.refFiles.map((f, i) => ({ role: "ref" as const, name: f.name, meta: f.meta, sortOrder: i })),
+    ...form.contractFiles.map((f, i) => ({
+      // id 가 있으면(편집/업로드 완료) 서버가 update 모드로 처리 — R2 객체 보존.
+      ...(f.id ? { id: f.id } : {}),
+      role: "contract" as const,
+      name: f.name,
+      meta: f.meta,
+      sortOrder: i,
+    })),
+    ...form.attachFiles.map((f, i) => ({
+      ...(f.id ? { id: f.id } : {}),
+      role: "attach" as const,
+      name: f.name,
+      meta: f.meta,
+      sortOrder: i,
+    })),
+    ...form.refFiles.map((f, i) => ({
+      ...(f.id ? { id: f.id } : {}),
+      role: "ref" as const,
+      name: f.name,
+      meta: f.meta,
+      sortOrder: i,
+    })),
   ],
   references: [
     ...form.ccUsers.map((u) => ({ ccType: "user" as const, isSecret: false, refId: u.id, name: u.name })),

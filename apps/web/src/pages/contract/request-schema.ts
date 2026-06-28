@@ -62,10 +62,14 @@ export const moneyRowSchema = z.object({
   currency: z.string(),
 });
 
-// 첨부 파일 — 파일명 + 메타("DOCX · 1.2MB") 표기용
+// 첨부 파일 — 파일명/메타 + R2 업로드 식별자(있으면 미리보기/비교 활성).
+// id/mimeType 은 presign/confirm 으로 업로드된 후 채워지고, 메타데이터-only 레거시는 둘 다 null.
+// (default 대신 nullable 만 — zodResolver 의 input/output 타입 분리로 타입 오류 발생을 회피.)
 export const uploadedFileSchema = z.object({
+  id: z.string().nullable(),
   name: z.string(),
   meta: z.string(),
+  mimeType: z.string().nullable(),
 });
 
 export const contractRequestSchema = z.object({

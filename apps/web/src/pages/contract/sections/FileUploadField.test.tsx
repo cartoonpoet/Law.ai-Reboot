@@ -18,7 +18,7 @@ function Wrap({ files = [] }: { files?: ContractRequestForm["attachFiles"] }) {
 
 describe("FileUploadField", () => {
   it("기존 파일 목록을 렌더한다", () => {
-    render(<Wrap files={[{ name: "계약서.pdf", meta: "PDF · 1.0MB" }]} />);
+    render(<Wrap files={[{ id: null, name: "계약서.pdf", meta: "PDF · 1.0MB", mimeType: null }]} />);
     expect(screen.getByText("계약서.pdf")).toBeInTheDocument();
   });
 
@@ -32,7 +32,7 @@ describe("FileUploadField", () => {
 
   it("삭제 시 목록에서 제거된다", async () => {
     const user = userEvent.setup();
-    render(<Wrap files={[{ name: "지울것.pdf", meta: "PDF · 0.5MB" }]} />);
+    render(<Wrap files={[{ id: null, name: "지울것.pdf", meta: "PDF · 0.5MB", mimeType: null }]} />);
     const deleteButton = screen.getByRole("button", { name: /삭제|delete/i });
     await user.click(deleteButton);
     expect(screen.queryByText("지울것.pdf")).not.toBeInTheDocument();

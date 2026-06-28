@@ -8,14 +8,27 @@ import { FileUploadField } from "./FileUploadField";
 import { StandardFormsModal } from "./StandardFormsModal";
 import * as css from "../contractRequest.css";
 
-export function DocsSection() {
+interface DocsSectionProps {
+  // 편집 모드의 contractId — FileUploadField 가 R2 업로드 활성화. 신규 작성은 undefined.
+  contractId?: string;
+}
+
+export function DocsSection({ contractId }: DocsSectionProps = {}) {
   const { getValues, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
   const [isFormsOpen, setIsFormsOpen] = useState(false);
 
   const handleAttachForm = (form: StandardForm) => {
     setValue(
       "contractFiles",
-      [...getValues("contractFiles"), { name: `${form.name} ${form.version}.docx`, meta: "표준양식 · DOCX" }],
+      [
+        ...getValues("contractFiles"),
+        {
+          id: null,
+          name: `${form.name} ${form.version}.docx`,
+          meta: "표준양식 · DOCX",
+          mimeType: null,
+        },
+      ],
       { shouldValidate: true },
     );
     setIsFormsOpen(false);
@@ -33,16 +46,25 @@ export function DocsSection() {
             name="contractFiles"
             accept=".docx,.hwp,.pdf"
             description="파일을 여기에 드래그하거나 버튼을 클릭해 선택하세요. · 가능한 워드(.docx) 권장"
+            contractId={contractId}
           />
           <ErrText msg={errors.contractFiles?.message} />
         </Field>
 
         <div className={css.grid2}>
           <Field label="첨부 / 별첨">
-            <FileUploadField name="attachFiles" description="드래그 또는 클릭" />
+            <FileUploadField
+              name="attachFiles"
+              description="드래그 또는 클릭"
+              contractId={contractId}
+            />
           </Field>
           <Field label="참고서류">
-            <FileUploadField name="refFiles" description="드래그 또는 클릭" />
+            <FileUploadField
+              name="refFiles"
+              description="드래그 또는 클릭"
+              contractId={contractId}
+            />
           </Field>
         </div>
 

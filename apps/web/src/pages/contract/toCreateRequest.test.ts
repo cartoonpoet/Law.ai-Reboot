@@ -30,8 +30,13 @@ const form: ContractRequestForm = {
   expectedDate: "2026-07-10",
   urls: [{ value: "https://example.com" }],
   counterparties: [company],
-  contractFiles: [{ name: "계약서.docx", meta: "DOCX · 1.2MB" }],
-  attachFiles: [{ name: "별첨1.pdf", meta: "PDF" }, { name: "별첨2.pdf", meta: "PDF" }],
+  contractFiles: [
+    { id: null, name: "계약서.docx", meta: "DOCX · 1.2MB", mimeType: null },
+  ],
+  attachFiles: [
+    { id: null, name: "별첨1.pdf", meta: "PDF", mimeType: null },
+    { id: null, name: "별첨2.pdf", meta: "PDF", mimeType: null },
+  ],
   refFiles: [],
   ccUsers: [{ id: "u1", name: "김참조" }],
   ccDepts: [{ id: "d1", name: "법무팀" }],

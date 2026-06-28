@@ -222,6 +222,8 @@ export class FilesService {
         sub: viewer.id,
         contractId: req.contractId,
         commentId: req.commentId ?? null,
+        // 기본 attach — 코멘트 첨부 흐름(role 미지정) 호환. 계약 본 파일은 명시 필요.
+        role: req.role ?? "attach",
         storageKey,
         fileName: req.fileName,
         sha256: req.sha256,
@@ -285,7 +287,7 @@ export class FilesService {
       data: {
         contractId: claims.contractId,
         commentId: claims.commentId ?? null,
-        role: "attach",
+        role: claims.role,
         name: claims.fileName,
         mimeType: claims.mimeType as AllowedMimeType,
         size: claims.size,

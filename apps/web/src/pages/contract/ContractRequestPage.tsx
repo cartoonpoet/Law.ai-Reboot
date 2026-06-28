@@ -57,7 +57,7 @@ export function ContractRequestPage({
         <div className={css.layout}>
           <div className={css.formCol}>
             <OverviewSection />
-            <DocsSection />
+            <DocsSection contractId={contractId} />
             <PeopleSection />
             <TermsSection />
             <ContentSection />

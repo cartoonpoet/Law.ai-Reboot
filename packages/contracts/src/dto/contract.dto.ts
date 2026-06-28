@@ -61,8 +61,11 @@ export interface UploadedFileMeta {
 
 export type FileRole = "contract" | "attach" | "ref";
 
-// 첨부 파일 입력(메타데이터 행). 실제 업로드 전까지 size/mimeType/storageKey 는 미전송.
+// 첨부 파일 입력.
+// - id 가 있으면 이미 presign/confirm 으로 R2 업로드된 File row → 서버는 role/sortOrder 만 갱신, R2 객체 보존.
+// - id 가 없으면 메타데이터-only(레거시 흐름) → 서버가 새 File row 생성.
 export interface FileInput {
+  id?: string;
   role: FileRole;
   name: string;
   meta: string;
