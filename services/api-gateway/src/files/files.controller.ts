@@ -14,6 +14,7 @@ import { firstValueFrom } from "rxjs";
 import type { Request } from "express";
 import {
   FILE_PATTERNS,
+  type AuditCompareReportRequest,
   type ConfirmUploadRequest,
   type FileAttachmentDto,
   type GetDownloadUrlResponse,
@@ -23,7 +24,7 @@ import {
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
-import { ConfirmDto, PresignDto } from "./dto";
+import { AuditCompareReportDto, ConfirmDto, PresignDto } from "./dto";
 
 /**
  * 파일 업로드/다운로드 게이트웨이.
@@ -88,6 +89,25 @@ export class FilesController {
           fileId: id,
           viewerId: sub,
         })
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({
+    summary: "비교 보고서 다운로드 감사 기록",
+    description:
+      "클라이언트가 변경 보고서 PDF 생성 직후 best-effort 로 호출. 두 fileId/contractId 와 viewer 권한을 서버가 재검증한다.",
+  })
+  @Post("audit/compare-report")
+  async auditCompareReport(
+    @Body() dto: AuditCompareReportDto,
+    @Req() req: Request,
+  ): Promise<{ ok: true }> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: AuditCompareReportRequest = { ...dto, viewerId: sub };
+    return firstValueFrom(
+      this.userClient
+        .send<{ ok: true }>(FILE_PATTERNS.AUDIT_COMPARE_REPORT, payload)
         .pipe(rpcToHttp()),
     );
   }

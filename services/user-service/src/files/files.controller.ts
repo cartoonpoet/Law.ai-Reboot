@@ -2,6 +2,7 @@ import { Controller } from "@nestjs/common";
 import { MessagePattern, Payload } from "@nestjs/microservices";
 import {
   FILE_PATTERNS,
+  type AuditCompareReportRequest,
   type ConfirmUploadRequest,
   type FileAttachmentDto,
   type GetDownloadUrlRequest,
@@ -34,5 +35,12 @@ export class FilesController {
     @Payload() req: GetDownloadUrlRequest,
   ): Promise<GetDownloadUrlResponse> {
     return this.files.getDownloadUrl(req);
+  }
+
+  @MessagePattern(FILE_PATTERNS.AUDIT_COMPARE_REPORT)
+  auditCompareReport(
+    @Payload() req: AuditCompareReportRequest,
+  ): Promise<{ ok: true }> {
+    return this.files.auditCompareReport(req);
   }
 }

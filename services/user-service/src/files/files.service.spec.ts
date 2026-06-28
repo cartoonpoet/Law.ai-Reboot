@@ -3,6 +3,7 @@ import { RpcException } from "@nestjs/microservices";
 import { FilesService } from "./files.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { R2Client } from "./r2.client";
+import { AuditService } from "../contracts/contracts.audit";
 import { signUploadToken } from "./uploadToken";
 
 /**
@@ -54,14 +55,19 @@ describe("FilesService", () => {
     ...over,
   });
 
+  // 감사 기록은 best-effort — 검증 시점엔 호출 여부만 보면 됨.
+  const auditMock = { record: jest.fn().mockResolvedValue(undefined) };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     process.env.FILE_UPLOAD_SECRET = "test-secret";
+    auditMock.record.mockResolvedValue(undefined);
     const moduleRef = await Test.createTestingModule({
       providers: [
         FilesService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: R2Client, useValue: r2Enabled },
+        { provide: AuditService, useValue: auditMock },
       ],
     }).compile();
     service = moduleRef.get(FilesService);
@@ -78,6 +84,7 @@ describe("FilesService", () => {
           FilesService,
           { provide: PrismaService, useValue: prismaMock },
           { provide: R2Client, useValue: disabled },
+          { provide: AuditService, useValue: auditMock },
         ],
       }).compile();
       const svc = mod.get(FilesService);

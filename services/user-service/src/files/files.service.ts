@@ -14,6 +14,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   MAX_FILES_PER_COMMENT,
   type AllowedMimeType,
+  type AuditCompareReportRequest,
   type ConfirmUploadRequest,
   type FileAttachmentDto,
   type GetDownloadUrlRequest,
@@ -22,6 +23,7 @@ import {
   type PresignUploadResponse,
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditService } from "../contracts/contracts.audit";
 import { evaluate } from "../contracts/contracts.authz";
 import type {
   AuthzContract,
@@ -91,6 +93,7 @@ export class FilesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly r2: R2Client,
+    private readonly audit: AuditService,
   ) {}
 
   private async loadViewer(viewerId?: string): Promise<AuthzViewer | null> {
@@ -348,5 +351,46 @@ export class FilesService {
       expiresIn: PRESIGN_TTL_SEC,
     });
     return { url, expiresIn: PRESIGN_TTL_SEC };
+  }
+
+  /**
+   * 비교 보고서 PDF 다운로드 감사 기록.
+   *
+   * - 클라이언트가 PDF blob 생성 직후 best-effort 로 호출(다운로드 자체를 막지 않음).
+   * - 두 fileId 가 같은 contractId 의 파일인지 + viewer 가 canView 인지 검증해서
+   *   임의 fileId/contractId 조합으로 가짜 감사 행을 만들지 못하게 한다.
+   * - AuditService.record 자체도 best-effort 라 DB 쓰기 실패는 swallow → 응답 빈 객체.
+   */
+  async auditCompareReport(req: AuditCompareReportRequest): Promise<{ ok: true }> {
+    const contract = await this.loadContract(req.contractId);
+    const viewer = await this.authorizeCanView(contract, req.viewerId);
+    const files = await this.prisma.file.findMany({
+      where: {
+        id: { in: [req.fileAId, req.fileBId] },
+        contractId: req.contractId,
+      },
+      select: { id: true },
+    });
+    if (files.length !== 2) {
+      throw new RpcException({
+        status: 400,
+        message: "두 파일이 같은 계약에 속하지 않습니다",
+      });
+    }
+    await this.audit.record({
+      action: "compare_report_download",
+      targetType: "Contract",
+      targetId: req.contractId,
+      actorId: viewer.id,
+      detail: {
+        fileAId: req.fileAId,
+        fileAName: req.fileAName,
+        fileBId: req.fileBId,
+        fileBName: req.fileBName,
+        addedLines: req.addedLines,
+        removedLines: req.removedLines,
+      },
+    });
+    return { ok: true };
   }
 }

@@ -16,7 +16,14 @@ export type ContractStatus =
 export type ApproverType = "draft" | "approve" | "agree" | "refer";
 
 // 감사 로그 액션 종류(서비스/프론트 공유). AuditLog.action 과 일치.
-export type AuditAction = "create" | "update" | "delete" | "transition" | "view";
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "transition"
+  | "view"
+  // 두 파일 비교 결과 PDF 다운로드 — 결재 첨부·감사 보관용. detail 에 두 파일 메타와 변경 요약.
+  | "compare_report_download";
 
 // 조회자(viewer)가 해당 계약에 대해 수행 가능한 액션. authz evaluate 결과에서 산출.
 export interface ContractCan {

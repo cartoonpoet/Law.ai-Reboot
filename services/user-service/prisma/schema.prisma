@@ -363,6 +363,7 @@ enum AuditAction {
   delete
   transition
   view
+  compare_report_download
 
   @@schema("shared")
 }

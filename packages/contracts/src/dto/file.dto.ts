@@ -94,3 +94,16 @@ export interface GetDownloadUrlResponse {
   url: string;
   expiresIn: number;
 }
+
+// 비교 보고서 PDF 다운로드 감사 기록. 클라이언트가 PDF 생성 직후 best-effort 로 호출.
+// fileAId/fileBId 가 같은 contractId 의 파일인지 + viewer 가 canView 인지 서버가 검증.
+export interface AuditCompareReportRequest {
+  contractId: string;
+  fileAId: string;
+  fileAName: string;
+  fileBId: string;
+  fileBName: string;
+  addedLines: number;
+  removedLines: number;
+  viewerId?: string;
+}

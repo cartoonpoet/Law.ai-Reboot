@@ -192,6 +192,7 @@ export function CommentItem({
             return b ? toPreviewRef(b) : null;
           })()}
           candidates={comment.attachments.map(toPreviewRef)}
+          contractId={comment.contractId}
           onChangeFileB={setPreviewBId}
           onClose={() => {
             setPreviewAId(null);

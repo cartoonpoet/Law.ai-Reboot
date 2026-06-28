@@ -59,6 +59,44 @@ export class PresignDto {
   role?: "contract" | "attach" | "ref" | "etc";
 }
 
+// 비교 보고서 다운로드 감사 — 두 fileId 가 같은 contractId 의 파일인지 + viewer 권한 서버에서 재검증.
+export class AuditCompareReportDto {
+  @ApiProperty()
+  @IsString()
+  @MaxLength(64)
+  contractId!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(64)
+  fileAId!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(255)
+  fileAName!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(64)
+  fileBId!: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(255)
+  fileBName!: string;
+
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  addedLines!: number;
+
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  removedLines!: number;
+}
+
 // confirm 요청 — 토큰 + R2 PUT 응답 ETag.
 export class ConfirmDto {
   @ApiProperty({ description: "presign 응답의 uploadToken" })

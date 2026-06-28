@@ -2,6 +2,8 @@ import { useState } from "react";
 import { diffLines } from "diff";
 import type { PreviewFileRef } from "./FilePreviewModal";
 import { useFileText } from "./useFileText";
+import { logCompareReportDownload } from "../../api/files";
+import { summarizeParts } from "./computeDiffRows";
 
 interface UseDownloadChangeReportResult {
   download: () => Promise<void>;
@@ -16,10 +18,12 @@ interface UseDownloadChangeReportResult {
  * - 텍스트는 useFileText(react-query 캐시)로 가져와 모달의 DiffView 와 공유 → 추가 추출 X.
  * - @react-pdf/renderer 의 pdf() 는 무거우니 동적 import (다운로드 클릭 시점에 lazy).
  * - 부분 실패(텍스트 추출 안 됨) 면 download 비활성(isReady=false) → 호출자는 버튼 disable.
+ * - 다운로드 직후 contractId 가 주어졌으면 best-effort 로 감사 로그 기록(실패 swallow).
  */
 export const useDownloadChangeReport = (
   fileA: PreviewFileRef | null,
   fileB: PreviewFileRef | null,
+  contractId?: string | null,
 ): UseDownloadChangeReportResult => {
   const aText = useFileText(
     fileA?.id ?? null,
@@ -62,6 +66,22 @@ export const useDownloadChangeReport = (
       a.download = `${fileA.name}_vs_${fileB.name}_변경보고서.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+
+      // 감사 로그 — contractId 가 있을 때만, best-effort (실패해도 다운로드는 이미 성공).
+      if (contractId) {
+        const { added, removed } = summarizeParts(parts);
+        logCompareReportDownload({
+          contractId,
+          fileAId: fileA.id,
+          fileAName: fileA.name,
+          fileBId: fileB.id,
+          fileBName: fileB.name,
+          addedLines: added,
+          removedLines: removed,
+        }).catch(() => {
+          /* swallow — 감사 실패가 다운로드 UX 를 막지 않게 */
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "PDF 생성 실패");
     } finally {

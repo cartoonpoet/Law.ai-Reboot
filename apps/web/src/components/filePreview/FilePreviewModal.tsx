@@ -34,6 +34,9 @@ interface FilePreviewModalProps {
   candidates: PreviewFileRef[];
   onChangeFileB: (fileId: string | null) => void;
   onClose: () => void;
+  // 변경 보고서 다운로드 감사 로그용 — 두 fileId 가 속한 contract id.
+  // 생략 가능(감사 기록 없이 다운로드만).
+  contractId?: string | null;
 }
 
 /**
@@ -50,6 +53,7 @@ export function FilePreviewModal({
   candidates,
   onChangeFileB,
   onClose,
+  contractId,
 }: FilePreviewModalProps) {
   const [mode, setMode] = useState<CompareMode>("split");
   const isCompare = fileB !== null;
@@ -64,6 +68,7 @@ export function FilePreviewModal({
   const report = useDownloadChangeReport(
     diffSupported ? fileA : null,
     diffSupported ? fileB : null,
+    contractId ?? null,
   );
 
   const options = candidates

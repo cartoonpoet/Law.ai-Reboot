@@ -233,7 +233,7 @@ const toPreviewRef = (f: DocFile): PreviewFileRef => ({
   mimeType: f.mimeType,
 });
 
-function DocsCard({ d }: { d: ContractDetail }) {
+function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) {
   const contracts = d.files.filter((f) => f.kind === "계약서");
   const attachs = d.files.filter((f) => f.kind === "첨부");
   const refs = d.files.filter((f) => f.kind === "참고");
@@ -323,6 +323,7 @@ function DocsCard({ d }: { d: ContractDetail }) {
           fileA={toPreviewRef(fileA)}
           fileB={fileB ? toPreviewRef(fileB) : null}
           candidates={candidates}
+          contractId={contractId}
           onChangeFileB={setPreviewBId}
           onClose={() => {
             setPreviewAId(null);
@@ -671,7 +672,7 @@ export function ContractDetailPage() {
             onReviewDone={() => changeStatus("reviewDone")}
             onAssign={() => setIsAssignOpen(true)}
           />
-          <DocsCard d={d} />
+          <DocsCard d={d} contractId={id} />
         </div>
       </div>
 
