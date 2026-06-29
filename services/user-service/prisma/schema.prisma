@@ -65,7 +65,7 @@ model UserTenant {
 model Department {
   id        String   @id @default(uuid())
   name      String
-  tenantId  String? // Task 3 백필 후 NOT NULL 전환
+  tenantId  String
   createdAt DateTime @default(now())
 
   users     User[]
@@ -125,7 +125,7 @@ model Company {
   type          CompanyType @default(company)
   name          String
   bizNo         String
-  tenantId      String? // Task 3 백필 후 NOT NULL 전환
+  tenantId      String
   ceo           String?
   phone         String?
   address       String?
@@ -179,7 +179,7 @@ model ContractCategory {
   name      String
   slug      String   @unique
   parentId  String?
-  tenantId  String? // Task 3 백필 후 NOT NULL 전환
+  tenantId  String
   sortOrder Int?
   createdAt DateTime @default(now())
 
@@ -212,7 +212,7 @@ model Contract {
   createdById  String
   departmentId String?
 
-  tenantId String? // Task 3 백필 후 NOT NULL 전환
+  tenantId String
 
   periodStart DateTime?
   periodEnd   DateTime?
@@ -370,7 +370,7 @@ model File {
   id         String   @id @default(uuid())
   contractId String
   commentId  String?
-  tenantId   String? // Task 3 백필 후 NOT NULL 전환
+  tenantId   String
   role       FileRole
   name       String
   meta       String?
@@ -434,7 +434,7 @@ model AuditLog {
   actorId    String
   targetType String
   targetId   String
-  tenantId   String? // Task 3 백필 후 NOT NULL 전환
+  tenantId   String
   detail     Json?
   at         DateTime    @default(now())
 
@@ -454,7 +454,7 @@ model Notification {
   actorId     String
   targetType  String
   targetId    String
-  tenantId    String? // Task 3 백필 후 NOT NULL 전환
+  tenantId    String
   detail      Json?
   readAt      DateTime?
   createdAt   DateTime  @default(now())
