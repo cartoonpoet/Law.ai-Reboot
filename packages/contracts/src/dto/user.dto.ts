@@ -23,6 +23,8 @@ export interface FindUserByIdRequest {
 export interface SearchUsersRequest {
   q?: string;
   limit?: number;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리). 동일 테넌트 사용자만 반환.
+  tenantContext?: TenantContext;
 }
 
 export interface DepartmentDto {

@@ -75,15 +75,31 @@ export class UsersService {
 
   async search(req: SearchUsersRequest): Promise<PublicUser[]> {
     const q = req.q?.trim();
-    const rows = (await this.prisma.user.findMany({
-      where: q
+    const ctx = req.tenantContext;
+
+    // 테넌트 격리: admin 이 아닌 경우 같은 테넌트 멤버만 반환한다.
+    // UserTenant 조인으로 tenantId 에 속한 사용자만 필터.
+    const tenantFilter =
+      ctx && !ctx.isSystemAdmin && ctx.tenantId
         ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } },
-            ],
+            tenantMemberships: {
+              some: { tenantId: ctx.tenantId },
+            },
           }
-        : {},
+        : {};
+
+    const rows = (await this.prisma.user.findMany({
+      where: {
+        ...tenantFilter,
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { email: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
       include: { department: true },
       take: req.limit ?? 20,
       orderBy: { name: "asc" },
