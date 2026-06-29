@@ -14,11 +14,13 @@ import {
   USER_PATTERNS,
   type JwtPayload,
   type PublicUser,
+  type SearchUsersRequest,
   type UserWithHash,
 } from "@lawai/contracts";
 import type { Request } from "express";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
+import { extractTenantContext } from "../common/tenant-context";
 
 @ApiTags("users")
 @Controller("users")
@@ -55,15 +57,18 @@ export class UsersController {
   @ApiOperation({ summary: "사용자 검색(디렉터리)", description: "관계자·참조·결재자 선택용" })
   @Get()
   search(
+    @Req() req: Request,
     @Query("q") q = "",
     @Query("limit") limit?: string,
   ): Promise<PublicUser[]> {
+    const payload: SearchUsersRequest = {
+      q,
+      limit: limit ? Math.min(Number(limit), 100) : undefined,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
-        .send<PublicUser[]>(USER_PATTERNS.SEARCH, {
-          q,
-          limit: limit ? Math.min(Number(limit), 100) : undefined,
-        })
+        .send<PublicUser[]>(USER_PATTERNS.SEARCH, payload)
         .pipe(rpcToHttp()),
     );
   }
