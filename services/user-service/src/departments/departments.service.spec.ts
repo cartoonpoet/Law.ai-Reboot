@@ -66,12 +66,10 @@ describe("DepartmentsService", () => {
     });
   });
 
-  it("tenantContext 없으면 where 없이 전체 조회(하위 호환)", async () => {
-    prismaMock.department.findMany.mockResolvedValue([]);
-    await service.list();
-    expect(prismaMock.department.findMany).toHaveBeenCalledWith({
-      where: undefined,
-      orderBy: { name: "asc" },
+  it("tenantContext 없으면 RpcException(400) — fail-closed", async () => {
+    await expect(service.list()).rejects.toMatchObject({
+      error: { status: 400 },
     });
+    expect(prismaMock.department.findMany).not.toHaveBeenCalled();
   });
 });

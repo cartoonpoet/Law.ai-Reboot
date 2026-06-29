@@ -102,13 +102,10 @@ describe("CompaniesService", () => {
     ).rejects.toBeInstanceOf(RpcException);
   });
 
-  it("search: tenantContext 없이 호출하면 tenantScope 없이 전체 조회(하위 호환)", async () => {
-    prismaMock.company.findMany.mockResolvedValue([]);
-    await service.search({ q: "삼성" });
-    expect(prismaMock.company.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.not.objectContaining({ tenantId: expect.anything() }),
-      }),
-    );
+  it("search: tenantContext 없이 호출하면 RpcException(400) — fail-closed", async () => {
+    await expect(service.search({ q: "삼성" })).rejects.toMatchObject({
+      error: { status: 400 },
+    });
+    expect(prismaMock.company.findMany).not.toHaveBeenCalled();
   });
 });

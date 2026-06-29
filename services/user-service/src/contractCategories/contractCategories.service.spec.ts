@@ -82,12 +82,10 @@ describe("ContractCategoriesService", () => {
     });
   });
 
-  it("tenantContext 없으면 where 없이 전체 조회(하위 호환)", async () => {
-    prismaMock.contractCategory.findMany.mockResolvedValue([]);
-    await service.list();
-    expect(prismaMock.contractCategory.findMany).toHaveBeenCalledWith({
-      where: undefined,
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  it("tenantContext 없으면 RpcException(400) — fail-closed", async () => {
+    await expect(service.list()).rejects.toMatchObject({
+      error: { status: 400 },
     });
+    expect(prismaMock.contractCategory.findMany).not.toHaveBeenCalled();
   });
 });
