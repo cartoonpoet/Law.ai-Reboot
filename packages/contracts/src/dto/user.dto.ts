@@ -1,5 +1,3 @@
-import type { Role } from "../types";
-
 export interface CreateUserRequest {
   email: string;
   name: string;
@@ -31,7 +29,7 @@ export interface UserWithHash {
   email: string;
   name: string;
   passwordHash: string;
-  role: Role;
+  isSystemAdmin: boolean;
   departmentId: string | null;
   departmentName: string | null;
   createdAt: string;
@@ -55,4 +53,18 @@ export interface ConsumeResetTokenResult {
 export interface UpdatePasswordRequest {
   userId: string;
   passwordHash: string;
+}
+
+// 멤버십 조회(auth-service 가 토큰 발급/전환에 사용).
+export interface FindMembershipsRequest {
+  userId: string;
+}
+export interface MembershipRow {
+  tenantId: string;
+  tenantName: string;
+  role: import("../types").TenantRole;
+}
+export interface FindMembershipsResponse {
+  isSystemAdmin: boolean;
+  memberships: MembershipRow[];
 }

@@ -5,6 +5,8 @@ export const AUTH_PATTERNS = {
   PASSWORD_RESET_REQUEST: "auth.password.resetRequest",
   PASSWORD_RESET_CONFIRM: "auth.password.resetConfirm",
   REFRESH: "auth.refresh",
+  SWITCH_TENANT: "auth.switchTenant",
+  MY_TENANTS: "auth.myTenants",
 } as const;
 
 export const USER_PATTERNS = {
@@ -15,6 +17,7 @@ export const USER_PATTERNS = {
   CREATE_RESET_TOKEN: "user.resetToken.create",
   CONSUME_RESET_TOKEN: "user.resetToken.consume",
   UPDATE_PASSWORD: "user.updatePassword",
+  FIND_MEMBERSHIPS: "user.findMemberships",
 } as const;
 
 export const DEPARTMENT_PATTERNS = {

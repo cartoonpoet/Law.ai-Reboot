@@ -30,3 +30,17 @@ export interface PasswordResetConfirmRequest {
 export interface PasswordResetResult {
   ok: true;
 }
+
+export interface SwitchTenantRequest {
+  // gateway 가 JWT sub 주입(누가 전환하는지). controller 에서 채움.
+  userId?: string;
+  tenantId: string;
+}
+
+export interface MyTenantsRequest {
+  userId?: string; // gateway 가 JWT sub 주입
+}
+
+export interface MyTenantsResponse {
+  tenants: import("./tenant.dto").TenantMembership[];
+}
