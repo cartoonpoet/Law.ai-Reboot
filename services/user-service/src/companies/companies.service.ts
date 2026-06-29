@@ -33,7 +33,10 @@ export class CompaniesService {
     const q = req.q.trim();
     if (!q) return [];
     const ctx = req.tenantContext;
-    const tScope = ctx ? tenantScope(ctx) : {};
+    if (!ctx) {
+      throw new RpcException({ status: 400, message: "테넌트 컨텍스트가 없습니다" });
+    }
+    const tScope = tenantScope(ctx);
     const rows = (await this.prisma.company.findMany({
       where: {
         ...tScope,
