@@ -140,6 +140,26 @@ describe("NotificationService", () => {
       expect(arg.data[0].detail).toBe(Prisma.JsonNull);
     });
 
+    it("tenantId 가 주입되면 생성 data 에 포함된다", async () => {
+      prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+      prismaMock.notification.findMany.mockResolvedValue([]);
+      prismaMock.user.findMany.mockResolvedValue([]);
+      await service.createMany([
+        {
+          recipientId: "u-2",
+          type: "comment_mention",
+          actorId: "u-1",
+          targetType: "Comment",
+          targetId: "c-1",
+          tenantId: "tenant-1",
+        },
+      ]);
+      const arg = prismaMock.notification.createMany.mock.calls[0][0] as {
+        data: Array<{ tenantId: string }>;
+      };
+      expect(arg.data[0].tenantId).toBe("tenant-1");
+    });
+
     it("best-effort: prisma 가 reject 해도 예외를 던지지 않고 [] 를 반환한다(swallow)", async () => {
       prismaMock.notification.createMany.mockRejectedValue(
         new Error("db down"),
@@ -181,6 +201,25 @@ describe("NotificationService", () => {
       );
       expect(prismaMock.notification.count).toHaveBeenCalledWith({
         where: { recipientId: "u-1", readAt: null },
+      });
+    });
+
+    it("tenantContext 가 있으면 tenantScope 를 where 에 합쳐 테넌트 격리한다", async () => {
+      prismaMock.notification.findMany.mockResolvedValue([]);
+      prismaMock.notification.count.mockResolvedValue(0);
+
+      await service.listForViewer({
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
+
+      expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { recipientId: "u-1", tenantId: "tenant-1" },
+        }),
+      );
+      expect(prismaMock.notification.count).toHaveBeenCalledWith({
+        where: { recipientId: "u-1", readAt: null, tenantId: "tenant-1" },
       });
     });
 

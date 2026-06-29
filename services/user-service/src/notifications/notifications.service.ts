@@ -9,6 +9,7 @@ import type {
   PushNotification,
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+import { tenantScope, resolveTenantId } from "../common/tenant-scope";
 
 // notification 행 → DTO 매핑에 필요한 최소 필드(createMany/listForViewer 공유).
 type NotificationRow = {
@@ -30,6 +31,8 @@ export interface CreateNotificationInput {
   targetType: string;
   targetId: string;
   detail?: Prisma.InputJsonValue;
+  // 테넌트 격리: 생성 시 tenantId 를 직접 주입한다. 미지정 시 빈 문자열(fallback — 호출부가 항상 제공).
+  tenantId?: string;
 }
 
 // 목록 기본 조회 개수(최근 N건). limit 미지정 시 적용.
@@ -106,6 +109,7 @@ export class NotificationService {
           actorId: item.actorId,
           targetType: item.targetType,
           targetId: item.targetId,
+          tenantId: item.tenantId ?? "",
           detail: item.detail ?? Prisma.JsonNull,
         })),
       });
@@ -153,15 +157,17 @@ export class NotificationService {
     if (!viewerId) return { items: [], unreadCount: 0 };
 
     const limit = req.limit ?? DEFAULT_LIST_LIMIT;
+    const ctx = req.tenantContext;
+    const tScope = ctx ? tenantScope(ctx) : {};
 
     const [rows, unreadCount] = await Promise.all([
       this.prisma.notification.findMany({
-        where: { recipientId: viewerId },
+        where: { recipientId: viewerId, ...tScope },
         orderBy: { createdAt: "desc" },
         take: limit,
       }),
       this.prisma.notification.count({
-        where: { recipientId: viewerId, readAt: null },
+        where: { recipientId: viewerId, readAt: null, ...tScope },
       }),
     ]);
 
