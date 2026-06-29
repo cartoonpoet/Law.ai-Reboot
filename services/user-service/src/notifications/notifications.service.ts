@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import type {
   ListNotificationsRequest,
@@ -116,12 +117,15 @@ export class NotificationService {
 
       // 방금 생성한 행 재조회(id 확보). recipientId/actorId/targetType/targetId/type +
       // createdAt >= 생성 시작 시각으로 좁혀, 동일 대상 과거 알림과 겹치지 않게 한다.
+      // tenantId 필터로 타 테넌트 동시 생성 알림이 결과에 섞이지 않도록 격리한다(I1).
       const recipientIds = targets.map((t) => t.recipientId);
       const targetIds = targets.map((t) => t.targetId);
+      const tenantIds = [...new Set(targets.map((t) => t.tenantId))];
       const rows = await this.prisma.notification.findMany({
         where: {
           recipientId: { in: recipientIds },
           targetId: { in: targetIds },
+          tenantId: { in: tenantIds },
           createdAt: { gte: createdAtFrom },
         },
         orderBy: { createdAt: "asc" },
@@ -158,7 +162,10 @@ export class NotificationService {
 
     const limit = req.limit ?? DEFAULT_LIST_LIMIT;
     const ctx = req.tenantContext;
-    const tScope = ctx ? tenantScope(ctx) : {};
+    if (!ctx) {
+      throw new RpcException({ status: 400, message: "테넌트 컨텍스트가 없습니다" });
+    }
+    const tScope = tenantScope(ctx);
 
     const [rows, unreadCount] = await Promise.all([
       this.prisma.notification.findMany({
@@ -187,7 +194,10 @@ export class NotificationService {
   async markRead(req: MarkNotificationReadRequest): Promise<void> {
     if (!req.viewerId) return;
     const ctx = req.tenantContext;
-    const tScope = ctx ? tenantScope(ctx) : {};
+    if (!ctx) {
+      throw new RpcException({ status: 400, message: "테넌트 컨텍스트가 없습니다" });
+    }
+    const tScope = tenantScope(ctx);
     await this.prisma.notification.updateMany({
       where: { id: req.id, recipientId: req.viewerId, readAt: null, ...tScope },
       data: { readAt: new Date() },
@@ -201,7 +211,10 @@ export class NotificationService {
   async markAllRead(req: MarkAllNotificationsReadRequest): Promise<void> {
     if (!req.viewerId) return;
     const ctx = req.tenantContext;
-    const tScope = ctx ? tenantScope(ctx) : {};
+    if (!ctx) {
+      throw new RpcException({ status: 400, message: "테넌트 컨텍스트가 없습니다" });
+    }
+    const tScope = tenantScope(ctx);
     await this.prisma.notification.updateMany({
       where: { recipientId: req.viewerId, readAt: null, ...tScope },
       data: { readAt: new Date() },

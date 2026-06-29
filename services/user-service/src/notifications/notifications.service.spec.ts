@@ -8,8 +8,11 @@ import { PrismaService } from "../prisma/prisma.service";
  *
  * - createMany: 빈 배열 no-op, 자기알림(recipientId===actorId) 제외, 생성 후 재조회한
  *   PushNotification[] 반환(actorName 포함), best-effort(실패 시 [] 반환).
+ *   I1: 재조회 where 에 tenantId 필터 포함 검증.
  * - listForViewer: recipientId 필터 + createdAt desc + actorName 매핑(N+1 회피) + isRead 파생 + unreadCount.
+ *   tenantContext 없으면 RpcException (fail-closed, M5).
  * - markRead / markAllRead: where 에 recipientId===viewerId 강제(타인 알림 미영향), viewerId 없으면 no-op.
+ *   tenantContext 없으면 RpcException (fail-closed, M5).
  */
 describe("NotificationService", () => {
   let service: NotificationService;
@@ -202,6 +205,34 @@ describe("NotificationService", () => {
         ]),
       ).resolves.toEqual([]);
     });
+
+    it("I1: createMany 재조회 where 에 tenantId 필터가 포함된다(타 테넌트 유입 방지)", async () => {
+      prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+      prismaMock.notification.findMany.mockResolvedValue([]);
+      prismaMock.user.findMany.mockResolvedValue([]);
+
+      await service.createMany([
+        {
+          recipientId: "u-2",
+          type: "comment_mention",
+          actorId: "u-1",
+          targetType: "Comment",
+          targetId: "c-1",
+          tenantId: "tenant-42",
+        },
+      ]);
+
+      expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenantId: expect.anything() }),
+        }),
+      );
+      // 구체적 값 확인: 입력 tenantId 집합이 그대로 전달됨.
+      const findArg = prismaMock.notification.findMany.mock.calls[0][0] as {
+        where: { tenantId: { in: string[] } };
+      };
+      expect(findArg.where.tenantId).toEqual({ in: ["tenant-42"] });
+    });
   });
 
   describe("listForViewer", () => {
@@ -212,21 +243,32 @@ describe("NotificationService", () => {
       expect(prismaMock.notification.count).not.toHaveBeenCalled();
     });
 
+    it("tenantContext 없으면 RpcException 을 던진다(M5 fail-closed)", async () => {
+      await expect(
+        service.listForViewer({ viewerId: "u-1" }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.notification.findMany).not.toHaveBeenCalled();
+    });
+
     it("recipientId 필터 + createdAt desc + take(limit)로 조회한다", async () => {
       prismaMock.notification.findMany.mockResolvedValue([]);
       prismaMock.notification.count.mockResolvedValue(0);
 
-      await service.listForViewer({ viewerId: "u-1", limit: 5 });
+      await service.listForViewer({
+        viewerId: "u-1",
+        limit: 5,
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
 
       expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { recipientId: "u-1" },
+          where: { recipientId: "u-1", tenantId: "tenant-1" },
           orderBy: { createdAt: "desc" },
           take: 5,
         }),
       );
       expect(prismaMock.notification.count).toHaveBeenCalledWith({
-        where: { recipientId: "u-1", readAt: null },
+        where: { recipientId: "u-1", readAt: null, tenantId: "tenant-1" },
       });
     });
 
@@ -252,7 +294,10 @@ describe("NotificationService", () => {
     it("limit 미지정 시 기본 20을 쓴다", async () => {
       prismaMock.notification.findMany.mockResolvedValue([]);
       prismaMock.notification.count.mockResolvedValue(0);
-      await service.listForViewer({ viewerId: "u-1" });
+      await service.listForViewer({
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
       expect(prismaMock.notification.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: 20 }),
       );
@@ -284,7 +329,10 @@ describe("NotificationService", () => {
       prismaMock.notification.count.mockResolvedValue(1);
       prismaMock.user.findMany.mockResolvedValue([{ id: "a-1", name: "홍길동" }]);
 
-      const result = await service.listForViewer({ viewerId: "u-1" });
+      const result = await service.listForViewer({
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
 
       // actor 조회는 dedupe 된 1개 id 로 1회.
       expect(prismaMock.user.findMany).toHaveBeenCalledTimes(1);
@@ -326,20 +374,34 @@ describe("NotificationService", () => {
       prismaMock.notification.count.mockResolvedValue(1);
       prismaMock.user.findMany.mockResolvedValue([]);
 
-      const result = await service.listForViewer({ viewerId: "u-1" });
+      const result = await service.listForViewer({
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
       expect(result.items[0].actorName).toBe("");
     });
   });
 
   describe("markRead", () => {
+    it("tenantContext 없으면 RpcException 을 던진다(M5 fail-closed)", async () => {
+      await expect(
+        service.markRead({ id: "n-1", viewerId: "u-1" }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.notification.updateMany).not.toHaveBeenCalled();
+    });
+
     it("where 에 id + recipientId(viewerId) + readAt:null 을 강제한다(타인 알림 0건)", async () => {
       prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.markRead({ id: "n-1", viewerId: "u-1" });
+      await service.markRead({
+        id: "n-1",
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
 
       expect(prismaMock.notification.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "n-1", recipientId: "u-1", readAt: null },
+          where: { id: "n-1", recipientId: "u-1", readAt: null, tenantId: "tenant-1" },
           data: { readAt: expect.any(Date) },
         }),
       );
@@ -369,14 +431,24 @@ describe("NotificationService", () => {
   });
 
   describe("markAllRead", () => {
+    it("tenantContext 없으면 RpcException 을 던진다(M5 fail-closed)", async () => {
+      await expect(
+        service.markAllRead({ viewerId: "u-1" }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.notification.updateMany).not.toHaveBeenCalled();
+    });
+
     it("where 에 recipientId(viewerId) + readAt:null 강제로 본인 안읽음만 갱신한다", async () => {
       prismaMock.notification.updateMany.mockResolvedValue({ count: 3 });
 
-      await service.markAllRead({ viewerId: "u-1" });
+      await service.markAllRead({
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
 
       expect(prismaMock.notification.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { recipientId: "u-1", readAt: null },
+          where: { recipientId: "u-1", readAt: null, tenantId: "tenant-1" },
           data: { readAt: expect.any(Date) },
         }),
       );
