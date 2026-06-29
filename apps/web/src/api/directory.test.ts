@@ -9,7 +9,7 @@ const user = (id: string, name: string, dept: string | null): PublicUser => ({
   id,
   email: `${id}@law.ai`,
   name,
-  role: "general",
+  isSystemAdmin: false,
   departmentId: dept ? `d-${dept}` : null,
   departmentName: dept,
   createdAt: "2026-01-01T00:00:00.000Z",

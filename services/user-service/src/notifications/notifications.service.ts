@@ -9,7 +9,7 @@ import type {
   PushNotification,
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
-import { tenantScope, resolveTenantId } from "../common/tenant-scope";
+import { tenantScope } from "../common/tenant-scope";
 
 // notification 행 → DTO 매핑에 필요한 최소 필드(createMany/listForViewer 공유).
 type NotificationRow = {

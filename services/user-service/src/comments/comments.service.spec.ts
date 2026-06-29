@@ -69,12 +69,6 @@ describe("CommentsService", () => {
     isSystemAdmin: false,
   });
 
-  const makeUser = (
-    id: string,
-    role: string,
-    departmentId: string | null = "dept-1",
-  ) => ({ id, role, departmentId, name: `${id}-name` });
-
   beforeEach(async () => {
     jest.clearAllMocks();
     auditMock.record.mockResolvedValue(undefined);
