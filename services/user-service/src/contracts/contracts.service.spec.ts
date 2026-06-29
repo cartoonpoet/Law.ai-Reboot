@@ -348,7 +348,7 @@ describe("ContractsService", () => {
     prismaMock.contract.update.mockResolvedValue(fullRow("reviewDone"));
     const res = await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1", ...makeCtx() });
     expect(prismaMock.contract.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "ct-1" }, data: expect.objectContaining({ status: "reviewDone" }) }),
+      expect.objectContaining({ where: expect.objectContaining({ id: "ct-1", tenantId: "t1" }), data: expect.objectContaining({ status: "reviewDone" }) }),
     );
     expect(res.status).toBe("reviewDone");
   });
@@ -750,5 +750,29 @@ describe("ContractsService", () => {
     ).rejects.toBeInstanceOf(RpcException);
     const arg = prismaMock.contract.findFirst.mock.calls[0][0];
     expect(arg.where).toMatchObject({ tenantId: "t1" });
+  });
+
+  it("update: 최종 contract.update where 에 tenantId 포함 (TOCTOU 방어)", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+    prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+    await service.update({ id: "ct-1", title: "수정됨", viewerId: "admin-1", ...makeCtx("t1") });
+    const arg = prismaMock.contract.update.mock.calls[0][0];
+    // ensureExists 이후 최종 update 도 tenantScope 로 이중 방어.
+    expect(arg.where).toMatchObject({ id: "ct-1", tenantId: "t1" });
+  });
+
+  it("update: 감사 changed 목록에 tenantContext 가 포함되지 않는다", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+    prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+    await service.update({ id: "ct-1", title: "제목변경", viewerId: "admin-1", ...makeCtx("t1") });
+    const auditCall = auditMock.record.mock.calls.find((c) => c[0]?.action === "update");
+    expect(auditCall).toBeDefined();
+    const changed: string[] = auditCall![0].detail.changed;
+    expect(changed).not.toContain("tenantContext");
+    expect(changed).not.toContain("id");
+    expect(changed).not.toContain("viewerId");
+    expect(changed).toContain("title");
   });
 });

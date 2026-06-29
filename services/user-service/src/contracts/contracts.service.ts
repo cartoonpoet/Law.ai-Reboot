@@ -450,7 +450,7 @@ export class ContractsService {
           ...(keepIds.length > 0 ? { id: { notIn: keepIds } } : {}),
         },
         update: updates.map((f) => ({
-          where: { id: f.id! },
+          where: { id: f.id!, contractId: req.id },
           data: { role: f.role, sortOrder: f.sortOrder, name: f.name, meta: f.meta },
         })),
         create: creates.map((f) => ({
@@ -493,7 +493,7 @@ export class ContractsService {
     }
 
     const row = await this.prisma.contract.update({
-      where: { id: req.id },
+      where: { id: req.id, ...tenantScope(ctx) },
       data,
       include: contractInclude,
     });
@@ -503,9 +503,9 @@ export class ContractsService {
       await this.r2.deleteObjects(storageKeysToDelete);
     }
 
-    // 변경된 필드 목록(viewerId/id 제외)을 감사 detail 로 기록.
+    // 변경된 필드 목록(viewerId/id/tenantContext 제외)을 감사 detail 로 기록.
     const changed = Object.keys(req).filter(
-      (k) => k !== "id" && k !== "viewerId",
+      (k) => k !== "id" && k !== "viewerId" && k !== "tenantContext",
     );
     await this.audit.record({
       action: "update",
@@ -552,7 +552,7 @@ export class ContractsService {
     }
 
     const row = await this.prisma.contract.update({
-      where: { id: req.id },
+      where: { id: req.id, ...tenantScope(ctx) },
       data: {
         status: req.status,
         ...(req.ownerId !== undefined ? { ownerId: req.ownerId } : {}),
