@@ -7,7 +7,7 @@ export interface AdminLoginResponse {
     id: string;
     email: string;
     name: string;
-    role: string;
+    isSystemAdmin: boolean;
     departmentId: string | null;
     departmentName: string | null;
     createdAt: string;

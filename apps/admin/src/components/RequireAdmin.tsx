@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { getAccessToken, getRole } from "../api/tokens";
+import { getAccessToken, getIsSystemAdmin } from "../api/tokens";
 
 interface RequireAdminProps {
   children: ReactNode;
@@ -15,11 +15,10 @@ interface RequireAdminProps {
  */
 export function RequireAdmin({ children }: RequireAdminProps) {
   const token = getAccessToken();
-  const role = getRole();
   if (!token) {
     return <Navigate to="/login" replace />;
   }
-  if (role !== "admin") {
+  if (!getIsSystemAdmin()) {
     return <Navigate to="/login?reason=forbidden" replace />;
   }
   return <>{children}</>;

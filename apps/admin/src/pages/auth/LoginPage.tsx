@@ -203,8 +203,8 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       const { user, tokens } = await login({ email, password });
-      // admin role 가드 — 일반 사용자가 admin 콘솔 로그인 시도해도 토큰 저장하지 않음.
-      if (user.role !== "admin") {
+      // admin 가드 — isSystemAdmin 이 아닌 사용자가 admin 콘솔 로그인 시도해도 토큰 저장하지 않음.
+      if (!user.isSystemAdmin) {
         clearTokens();
         setError("관리자 권한이 없는 계정입니다.");
         return;
@@ -212,7 +212,7 @@ export function LoginPage() {
       setTokens({
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        role: user.role,
+        isSystemAdmin: user.isSystemAdmin,
         name: user.name,
         email: user.email,
       });
