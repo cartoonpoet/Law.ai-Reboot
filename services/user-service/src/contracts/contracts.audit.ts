@@ -28,9 +28,10 @@ export class AuditService {
     targetId: string;
     actorId: string;
     action: AuditAction;
+    tenantId: string;
     detail?: Prisma.InputJsonValue;
   }): Promise<void> {
-    const { targetType, targetId, actorId, action, detail } = params;
+    const { targetType, targetId, actorId, action, tenantId, detail } = params;
     try {
       await this.prisma.auditLog.create({
         data: {
@@ -38,6 +39,7 @@ export class AuditService {
           targetId,
           actorId,
           action,
+          tenantId,
           detail: detail ?? Prisma.JsonNull,
         },
       });

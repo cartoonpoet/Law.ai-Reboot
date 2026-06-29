@@ -57,6 +57,7 @@ describe("CommentsService", () => {
     status: "legalReview",
     securityLevel: "secure",
     departmentId: "dept-1",
+    tenantId: "tenant-1",
     deletedAt: null,
     references: [],
     ...over,
@@ -167,6 +168,42 @@ describe("CommentsService", () => {
       });
       // 멘션 없음 → notifications 빈 배열(createMany 빈 입력 → []).
       expect(result.notifications).toEqual([]);
+    });
+
+    it("create: audit.record 에 tenantId 가 기록된다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
+      );
+      const createdRow = {
+        id: "comment-1",
+        contractId: "contract-1",
+        authorId: "counsel-1",
+        role: "inHouseCounsel",
+        body: "감사 tenantId 검증",
+        createdAt: new Date("2026-06-22T01:00:00.000Z"),
+        updatedAt: new Date("2026-06-22T01:00:00.000Z"),
+        deletedAt: null,
+        author: { name: "이법무" },
+        mentions: [],
+        attachments: [],
+      };
+      prismaMock.comment.create.mockResolvedValue(createdRow);
+      prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdRow);
+      prismaMock.$transaction.mockImplementation(
+        (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+      );
+
+      await service.create({
+        contractId: "contract-1",
+        body: "감사 tenantId 검증",
+        viewerId: "counsel-1",
+        tenantContext: makeCtx(),
+      });
+
+      expect(auditMock.record).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: "tenant-1" }),
+      );
     });
 
     it("관련 없는 general 은 canView=false → 403, 생성/감사 없음", async () => {

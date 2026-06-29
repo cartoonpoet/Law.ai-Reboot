@@ -398,6 +398,7 @@ export class FilesService {
       targetType: "Contract",
       targetId: req.contractId,
       actorId: viewer.id,
+      tenantId: contract.tenantId,
       detail: {
         fileAId: req.fileAId,
         fileAName: req.fileAName,

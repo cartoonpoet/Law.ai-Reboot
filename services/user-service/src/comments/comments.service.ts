@@ -320,6 +320,7 @@ export class CommentsService {
       targetType: "Comment",
       targetId: comment.id,
       actorId: viewer.id,
+      tenantId: contract.tenantId,
       detail: { contractId: req.contractId, role: viewer.role },
     });
 
@@ -497,6 +498,7 @@ export class CommentsService {
       targetType: "Comment",
       targetId: comment.id,
       actorId: viewer.id,
+      tenantId: contract.tenantId,
       detail: { contractId: req.contractId },
     });
 
@@ -573,6 +575,7 @@ export class CommentsService {
       targetType: "Comment",
       targetId: comment.id,
       actorId: viewer.id,
+      tenantId: contract.tenantId,
       detail: { contractId: req.contractId },
     });
 

@@ -237,6 +237,7 @@ export class ContractsService {
         targetType: "Contract",
         targetId: row.id,
         actorId: req.createdById,
+        tenantId: row.tenantId,
       });
       return this.toResponse(row);
     } catch (error) {
@@ -301,6 +302,7 @@ export class ContractsService {
         targetType: "Contract",
         targetId: row.id,
         actorId: viewer.id,
+        tenantId: row.tenantId,
         detail: { securityLevel: row.securityLevel },
       });
     }
@@ -513,6 +515,7 @@ export class ContractsService {
       targetType: "Contract",
       targetId: req.id,
       actorId: viewer?.id ?? "system",
+      tenantId: row.tenantId,
       detail: { changed },
     });
 
@@ -567,6 +570,7 @@ export class ContractsService {
         targetType: "Contract",
         targetId: req.id,
         actorId: viewer?.id ?? "system",
+        tenantId: row.tenantId,
         detail: { from: current.status, to: req.status },
       });
     }

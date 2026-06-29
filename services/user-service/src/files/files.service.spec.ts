@@ -29,6 +29,7 @@ describe("FilesService", () => {
     file: {
       count: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
     },
   };
@@ -50,6 +51,7 @@ describe("FilesService", () => {
     status: "legalReview",
     securityLevel: "secure",
     departmentId: "dept-1",
+    tenantId: "tenant-1",
     deletedAt: null,
     references: [],
     ...over,
@@ -385,6 +387,44 @@ describe("FilesService", () => {
       expect(prismaMock.file.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ tenantId: "tenant-2" }),
+        }),
+      );
+    });
+  });
+
+  describe("auditCompareReport", () => {
+    it("성공 시 audit.record 에 tenantId 가 기록된다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: "counsel-1",
+        role: "inHouseCounsel",
+        departmentId: "dept-1",
+      });
+      prismaMock.file.findMany.mockResolvedValue([
+        { id: "file-a" },
+        { id: "file-b" },
+      ]);
+
+      const result = await service.auditCompareReport({
+        contractId: "contract-1",
+        fileAId: "file-a",
+        fileAName: "v1.pdf",
+        fileBId: "file-b",
+        fileBName: "v2.pdf",
+        addedLines: 10,
+        removedLines: 5,
+        viewerId: "counsel-1",
+        tenantContext: makeCtx(),
+      });
+
+      expect(result).toEqual({ ok: true });
+      expect(auditMock.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "compare_report_download",
+          targetType: "Contract",
+          targetId: "contract-1",
+          actorId: "counsel-1",
+          tenantId: "tenant-1",
         }),
       );
     });

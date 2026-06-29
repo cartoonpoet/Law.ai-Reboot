@@ -332,6 +332,7 @@ describe("ContractsService", () => {
     requesterId: null,
     ownerId: null,
     createdById: "u1",
+    tenantId: "t1",
     periodStart: null,
     periodEnd: null,
     dueDate: null,
@@ -540,6 +541,18 @@ describe("ContractsService", () => {
         targetId: "ct-new",
         actorId: "user-uuid-1",
       }),
+    );
+  });
+
+  it("create: audit.record 에 tenantId 가 기록된다", async () => {
+    prismaMock.contract.create.mockResolvedValue({
+      ...fullRow("unassigned"),
+      id: "ct-new",
+      createdById: "user-uuid-1",
+    });
+    await service.create({ ...createReq, ...makeCtx() });
+    expect(auditMock.record).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "t1" }),
     );
   });
 
