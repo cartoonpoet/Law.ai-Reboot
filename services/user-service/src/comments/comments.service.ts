@@ -84,20 +84,22 @@ export class CommentsService {
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 미존재면 null(evaluate 안전 기본).
-  // TODO(Task 10): user.role 이 User 모델에서 제거됐으므로 UserTenant.role 로 교체 필요.
-  //               현재는 타입 캐스트로 빌드만 통과시키고 Task 10 에서 완성한다.
-  private async loadViewer(viewerId?: string): Promise<AuthzViewer | null> {
+  // role 공급원: 활성 테넌트의 UserTenant.role(토큰 stale 방지). admin 은 inHouseCounsel 로 매핑.
+  private async loadViewer(
+    viewerId: string | undefined,
+    ctx: TenantContext,
+  ): Promise<AuthzViewer | null> {
     if (!viewerId) return null;
-    const user = await this.prisma.user.findUnique({
-      where: { id: viewerId },
+    if (ctx.isSystemAdmin) {
+      // 시스템 admin 은 전권 — authz 상 전체 view 동급(inHouseCounsel 역할로 평가).
+      const u = await this.prisma.user.findUnique({ where: { id: viewerId } });
+      return u ? { id: u.id, role: "inHouseCounsel", departmentId: u.departmentId } : null;
+    }
+    const m = await this.prisma.userTenant.findFirst({
+      where: { userId: viewerId, tenantId: ctx.tenantId },
+      include: { user: { select: { departmentId: true } } },
     });
-    if (!user) return null;
-    return {
-      id: user.id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      role: (user as any).role ?? "general",
-      departmentId: user.departmentId,
-    };
+    return m ? { id: viewerId, role: m.role, departmentId: m.user.departmentId } : null;
   }
 
   // 멘션 수신자 email/name/emailNotify 일괄 조회(N+1 회피, notifications.loadActorNames 패턴).
@@ -190,9 +192,10 @@ export class CommentsService {
   // canView 통과 viewer 를 보장(미통과 403). 반환 viewer 는 작성/스냅에 사용.
   private async authorizeViewer(
     contract: ContractForAuthz,
-    viewerId?: string,
+    viewerId: string | undefined,
+    ctx: TenantContext,
   ): Promise<AuthzViewer> {
-    const viewer = await this.loadViewer(viewerId);
+    const viewer = await this.loadViewer(viewerId, ctx);
     const authz = evaluate(viewer, this.toAuthzContract(contract));
     if (!viewer || !authz.canView) {
       throw new RpcException({
@@ -259,7 +262,7 @@ export class CommentsService {
     }
 
     const contract = await this.loadContract(req.contractId, ctx);
-    const viewer = await this.authorizeViewer(contract, req.viewerId);
+    const viewer = await this.authorizeViewer(contract, req.viewerId, ctx);
     const mentionUserIds = this.validateMentions(contract, req.mentions);
 
     // 첨부 ID 유효성 1차 검사(코멘트당 ≤5). 실제 commentId 연결은 트랜잭션 안에서.
@@ -363,7 +366,7 @@ export class CommentsService {
     }
 
     const contract = await this.loadContract(req.contractId, ctx);
-    const viewer = await this.authorizeViewer(contract, req.viewerId);
+    const viewer = await this.authorizeViewer(contract, req.viewerId, ctx);
 
     // 코멘트 조회(삭제분 포함 — 삭제 상태 판정에 필요).
     const existing = await this.prisma.comment.findFirst({
@@ -530,7 +533,7 @@ export class CommentsService {
   async delete(req: DeleteCommentRequest): Promise<CommentDto> {
     const ctx = req.tenantContext!;
     const contract = await this.loadContract(req.contractId, ctx);
-    const viewer = await this.authorizeViewer(contract, req.viewerId);
+    const viewer = await this.authorizeViewer(contract, req.viewerId, ctx);
 
     const existing = await this.prisma.comment.findFirst({
       where: { id: req.commentId, contractId: req.contractId },
@@ -579,7 +582,7 @@ export class CommentsService {
   async list(req: ListCommentsRequest): Promise<CommentDto[]> {
     const ctx = req.tenantContext!;
     const contract = await this.loadContract(req.contractId, ctx);
-    const viewer = await this.authorizeViewer(contract, req.viewerId);
+    const viewer = await this.authorizeViewer(contract, req.viewerId, ctx);
 
     // 삭제 행 제외 금지 — placeholder 로 직렬화해 맥락 보존(plan T4-5).
     const rows = await this.prisma.comment.findMany({

@@ -107,21 +107,22 @@ export class ContractsService {
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
-  // TODO(Task 10): user.role 이 User 모델에서 제거됐으므로 UserTenant.role 로 교체 필요.
-  //               현재는 타입 캐스트로 빌드만 통과시키고 Task 10 에서 완성한다.
-  private async loadViewer(viewerId?: string): Promise<AuthzViewer | null> {
+  // role 공급원: 활성 테넌트의 UserTenant.role(토큰 stale 방지). admin 은 inHouseCounsel 로 매핑.
+  private async loadViewer(
+    viewerId: string | undefined,
+    ctx: TenantContext,
+  ): Promise<AuthzViewer | null> {
     if (!viewerId) return null;
-    const user = await this.prisma.user.findUnique({
-      where: { id: viewerId },
-      include: { department: true },
+    if (ctx.isSystemAdmin) {
+      // 시스템 admin 은 전권 — authz 상 전체 view 동급(inHouseCounsel 역할로 평가).
+      const u = await this.prisma.user.findUnique({ where: { id: viewerId } });
+      return u ? { id: u.id, role: "inHouseCounsel", departmentId: u.departmentId } : null;
+    }
+    const m = await this.prisma.userTenant.findFirst({
+      where: { userId: viewerId, tenantId: ctx.tenantId },
+      include: { user: { select: { departmentId: true } } },
     });
-    if (!user) return null;
-    return {
-      id: user.id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      role: (user as any).role ?? "general",
-      departmentId: user.departmentId,
-    };
+    return m ? { id: viewerId, role: m.role, departmentId: m.user.departmentId } : null;
   }
 
   // contractInclude row → 권한 평가용 AuthzContract.
@@ -265,7 +266,7 @@ export class ContractsService {
       throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
     }
     // 권한 평가는 중앙 authz 모듈(evaluate) 단일 출처로 구동(이중 판정 금지).
-    const viewer = await this.loadViewer(req.viewerId);
+    const viewer = await this.loadViewer(req.viewerId, ctx);
     const authz = evaluate(viewer, this.toAuthzContract(row));
 
     // 비관련 계약 접근은 존재를 노출하지 않도록 404(general 본인무관·outsideCounsel 미배정 등).
@@ -384,7 +385,7 @@ export class ContractsService {
     const current = await this.ensureExists(req.id, ctx);
 
     // 수정 권한(canEdit) 가드 — 중앙 authz 결과만 사용.
-    const viewer = await this.loadViewer(req.viewerId);
+    const viewer = await this.loadViewer(req.viewerId, ctx);
     const authz = evaluate(viewer, this.toAuthzContract(current));
     if (!authz.canEdit) {
       throw new RpcException({ status: 403, message: "수정 권한이 없습니다" });
@@ -523,7 +524,7 @@ export class ContractsService {
   ): Promise<ContractResponse> {
     const ctx = req.tenantContext!;
     const current = await this.ensureExists(req.id, ctx);
-    const viewer = await this.loadViewer(req.viewerId);
+    const viewer = await this.loadViewer(req.viewerId, ctx);
     const authz = evaluate(viewer, this.toAuthzContract(current));
 
     const isTransition = current.status !== req.status;

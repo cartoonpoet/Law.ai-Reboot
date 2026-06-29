@@ -22,6 +22,8 @@ describe("CommentsService", () => {
   const prismaMock = {
     contract: { findFirst: jest.fn() },
     user: { findUnique: jest.fn(), findMany: jest.fn() },
+    // Task 10: viewer role 공급원 — 활성 테넌트 UserTenant.role.
+    userTenant: { findFirst: jest.fn() },
     comment: {
       create: jest.fn(),
       findMany: jest.fn(),
@@ -97,8 +99,8 @@ describe("CommentsService", () => {
   describe("create", () => {
     it("canView 통과자(법무팀)면 코멘트를 생성하고 role 스냅 + 감사 1건을 기록한다", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       const createdRow = {
         id: "comment-1",
@@ -170,8 +172,8 @@ describe("CommentsService", () => {
     it("관련 없는 general 은 canView=false → 403, 생성/감사 없음", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
       // stranger general: creator/owner/requester/cc 어디에도 없음 → view:related 실패.
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("stranger", "general"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "general", user: { departmentId: "dept-9" } },
       );
 
       await expect(
@@ -189,7 +191,7 @@ describe("CommentsService", () => {
 
     it("viewer 미존재(미인증)면 403", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(null);
+      prismaMock.userTenant.findFirst.mockResolvedValue(null);
 
       await expect(
         service.create({
@@ -232,8 +234,8 @@ describe("CommentsService", () => {
       prismaMock.contract.findFirst.mockResolvedValue(
         makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
       );
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       const createdRow = {
         id: "comment-1",
@@ -287,8 +289,8 @@ describe("CommentsService", () => {
       prismaMock.contract.findFirst.mockResolvedValue(
         makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
       );
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("requester-1", "general"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "general", user: { departmentId: "dept-1" } },
       );
       const createdRow = {
         id: "comment-1",
@@ -356,8 +358,8 @@ describe("CommentsService", () => {
       prismaMock.contract.findFirst.mockResolvedValue(
         makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
       );
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       const createdRow = {
         id: "comment-1",
@@ -396,8 +398,8 @@ describe("CommentsService", () => {
 
     it("비관련자 멘션이 섞이면 400, comment 생성·멘션 저장 없음", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
 
       await expect(
@@ -416,8 +418,8 @@ describe("CommentsService", () => {
 
     it("attachmentIds 가 있으면 트랜잭션에서 File.commentId 연결 + count mismatch 시 400", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       const fileUpdateManyMock = jest.fn().mockResolvedValue({ count: 1 });
       const txMock = {
@@ -508,8 +510,8 @@ describe("CommentsService", () => {
 
     it("본인(authorId===viewer)이면 body·mentions 전체 교체 + updatedAt 갱신 + audit update", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(updatedReloaded);
@@ -552,8 +554,8 @@ describe("CommentsService", () => {
       prismaMock.contract.findFirst.mockResolvedValue(
         makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
       );
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(updatedReloaded);
@@ -592,8 +594,9 @@ describe("CommentsService", () => {
 
     it("타인 코멘트 수정은 403, update/감사 없음", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("owner-1", "outsideCounsel"),
+      // outsideCounsel: ownerId("owner-1") 와 일치 → canView=true(owned), but authorId 불일치로 403.
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "outsideCounsel", user: { departmentId: "dept-1" } },
       );
       // 코멘트 작성자는 counsel-1, viewer 는 owner-1.
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
@@ -614,8 +617,8 @@ describe("CommentsService", () => {
 
     it("삭제된 코멘트 수정은 400", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(
         mentionRow({ deletedAt: new Date("2026-06-22T02:00:00.000Z") }),
@@ -648,8 +651,8 @@ describe("CommentsService", () => {
 
     it("attachmentIds 전체교체: 빠진 id 는 hard delete + R2 정리, 새 id 는 attach (트랜잭션 안)", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
       // 현재 첨부: file-a(key-a), file-b(key-b). desired: file-b, file-c → delete=file-a, attach=file-c.
@@ -712,8 +715,8 @@ describe("CommentsService", () => {
 
     it("attachmentIds 생략(undefined) 이면 첨부 ops 자체를 호출하지 않는다(기존 첨부 유지)", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
       const fileFindManyMock = jest.fn();
@@ -756,8 +759,8 @@ describe("CommentsService", () => {
 
     it("attachmentIds 6개 이상이면 400", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
 
@@ -776,8 +779,8 @@ describe("CommentsService", () => {
 
     it("attach count mismatch(다른 계약의 파일 등) 면 400 으로 롤백", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
       const fileFindManyMock = jest.fn().mockResolvedValue([]);
@@ -820,30 +823,21 @@ describe("CommentsService", () => {
   // 멘션 이메일 발송(best-effort). 인앱 알림과 독립 — emailNotify=true 수신자에게만,
   // 자기멘션 제외, update 는 신규 추가분(addedUserIds)만. 이메일/조회 실패해도 코멘트는 성공.
   describe("mention email", () => {
-    // actor(viewer) 이름 조회 + 수신자 emailNotify 분기를 함께 모킹하기 위한 헬퍼.
-    // user.findUnique 는 viewer 조회(authz)와 actor 이름 조회 두 군데서 쓰이므로 id 로 분기한다.
+    // Task 10: viewer role 은 userTenant.findFirst 로, actor 이름은 user.findUnique(select:name)로 분리.
     const stubUserFindUnique = (viewer: {
       id: string;
       role: string;
       departmentId?: string | null;
     }) => {
+      // viewer 조회(authz): userTenant.findFirst 로 role/departmentId 공급.
+      prismaMock.userTenant.findFirst.mockResolvedValue({
+        role: viewer.role,
+        user: { departmentId: viewer.departmentId ?? "dept-1" },
+      });
+      // actorName 조회(sendMentionEmails 내부 user.findUnique select:{name}): id 기반 name 반환.
       prismaMock.user.findUnique.mockImplementation(
-        (args: { where: { id: string }; select?: unknown }) => {
-          // actorName 조회(select: { name })
-          if (args.select) {
-            return Promise.resolve({ name: `${args.where.id}-name` });
-          }
-          // viewer 조회(authz)
-          if (args.where.id === viewer.id) {
-            return Promise.resolve({
-              id: viewer.id,
-              role: viewer.role,
-              departmentId: viewer.departmentId ?? "dept-1",
-              name: `${viewer.id}-name`,
-            });
-          }
-          return Promise.resolve(null);
-        },
+        (args: { where: { id: string }; select?: unknown }) =>
+          Promise.resolve({ name: `${args.where.id}-name` }),
       );
     };
 
@@ -1055,8 +1049,8 @@ describe("CommentsService", () => {
 
     it("본인이면 소프트 삭제(deletedAt set) + audit delete, placeholder 직렬화", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("counsel-1", "inHouseCounsel"),
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(liveRow);
       prismaMock.comment.update.mockResolvedValue({
@@ -1093,8 +1087,9 @@ describe("CommentsService", () => {
 
     it("타인 코멘트 삭제는 403, update/감사 없음", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("owner-1", "outsideCounsel"),
+      // outsideCounsel: ownerId("owner-1") 와 일치 → canView=true(owned), but authorId 불일치로 403.
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "outsideCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findFirst.mockResolvedValue(liveRow);
 
@@ -1115,8 +1110,9 @@ describe("CommentsService", () => {
   describe("list", () => {
     it("canView 통과자면 createdAt asc 정렬로 조회하고 CommentDto[] 로 매핑한다", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("owner-1", "outsideCounsel"),
+      // outsideCounsel: ownerId("owner-1") 와 일치 → canView=true(owned).
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "outsideCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findMany.mockResolvedValue([
         {
@@ -1180,8 +1176,9 @@ describe("CommentsService", () => {
 
     it("삭제 행은 제외하지 않고 placeholder 로, isAuthor/mentions 를 직렬화한다", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("owner-1", "outsideCounsel"),
+      // outsideCounsel: ownerId("owner-1") 와 일치 → canView=true(owned).
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "outsideCounsel", user: { departmentId: "dept-1" } },
       );
       prismaMock.comment.findMany.mockResolvedValue([
         {
@@ -1244,8 +1241,9 @@ describe("CommentsService", () => {
 
     it("관련 없는 general 은 403, 조회 없음", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("stranger", "general"),
+      // stranger는 테넌트 멤버이지만 계약 관련자가 아님 → view:related 실패 → 403.
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "general", user: { departmentId: "dept-9" } },
       );
 
       await expect(
@@ -1286,8 +1284,9 @@ describe("CommentsService", () => {
 
     it("admin(isSystemAdmin=true)은 전 테넌트 계약에 접근 가능(tenantScope 비어 있음)", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      // isSystemAdmin=true → loadViewer 가 user.findUnique 를 호출(admin 분기), inHouseCounsel 로 매핑.
       prismaMock.user.findUnique.mockResolvedValue(
-        makeUser("admin-1", "inHouseCounsel"),
+        { id: "admin-1", departmentId: "dept-1" },
       );
       prismaMock.comment.findMany.mockResolvedValue([]);
 

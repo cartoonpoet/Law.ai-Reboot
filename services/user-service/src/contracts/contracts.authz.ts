@@ -1,4 +1,4 @@
-import type { Role, ContractStatus, SecurityLevel } from "@lawai/contracts";
+import type { TenantRole, ContractStatus, SecurityLevel } from "@lawai/contracts";
 
 /**
  * 중앙 RBAC 정책 모듈 — 계약 도메인의 역할 기반 인가를 한 곳에 격리한다.
@@ -19,9 +19,10 @@ import type { Role, ContractStatus, SecurityLevel } from "@lawai/contracts";
  */
 
 // 평가에 필요한 조회자(viewer) 최소 정보. role 은 JWT 가 아니라 user-service DB 에서 조회.
+// TenantRole 을 사용한다: admin 조회자는 loadViewer 에서 "inHouseCounsel" 로 매핑해 이 인터페이스에 진입.
 export interface AuthzViewer {
   id: string;
-  role: Role;
+  role: TenantRole;
   departmentId: string | null;
 }
 
@@ -74,11 +75,10 @@ interface RolePolicy {
 }
 
 /**
- * 6역할 × 5액션 정책 매트릭스 (01-clarify / 03-phases 표 그대로, 선언적 데이터).
+ * 5역할(TenantRole) × 5액션 정책 매트릭스 (01-clarify / 03-phases 표 기준).
  *
  * | 역할             | view    | edit | assign | transition | delete |
  * |-----------------|---------|------|--------|------------|--------|
- * | admin           | 전체    | O    | O      | O          | O      |
  * | inHouseCounsel  | 전체*   | 담당 | 담당   | 담당(전이맵)| X      |
  * | contractManager | 전체*   | 담당 | 담당   | 담당(전이맵)| X      |
  * | outsideCounsel  | 배정(owner)만 | 배정 | X | 배정(전이맵)| X      |
@@ -86,16 +86,11 @@ interface RolePolicy {
  * | sealManager     | signing 단계 | X | X    | signing→signed만 | X |
  *
  * * inHouseCounsel·contractManager 의 "전체 view"는 법무팀 가정 기본값(테넌트 가변).
+ *
+ * admin 조회자(isSystemAdmin=true)는 loadViewer 에서 "inHouseCounsel" 로 매핑되어 진입하므로
+ * ROLE_POLICY 에 "admin" 키가 없어도 전체 view 권한을 얻는다. delete 는 service 레이어에서 관리.
  */
-const ROLE_POLICY: Record<Role, RolePolicy> = {
-  admin: {
-    view: "all",
-    edit: true,
-    assign: true,
-    transition: true,
-    delete: true, // delete 는 MVP 에서 admin 전용
-    requiresOwner: false,
-  },
+const ROLE_POLICY: Record<TenantRole, RolePolicy> = {
   inHouseCounsel: {
     view: "all",
     edit: true,
@@ -139,8 +134,8 @@ const ROLE_POLICY: Record<Role, RolePolicy> = {
 };
 
 // 원문(비밀참조·상대회사 PII) 열람 특권 역할. 이 역할이거나 owner/creator 면 maskSecret=false.
-const SECRET_PRIVILEGED_ROLES: ReadonlySet<Role> = new Set<Role>([
-  "admin",
+// admin 은 loadViewer 에서 inHouseCounsel 로 매핑되므로 별도 키 불필요.
+const SECRET_PRIVILEGED_ROLES: ReadonlySet<TenantRole> = new Set<TenantRole>([
   "inHouseCounsel",
   "contractManager",
 ]);

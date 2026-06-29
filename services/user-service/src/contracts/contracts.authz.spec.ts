@@ -1,6 +1,6 @@
 import { evaluate, listRelatedUserIds } from "./contracts.authz";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
-import type { Role } from "@lawai/contracts";
+import type { TenantRole } from "@lawai/contracts";
 
 /**
  * 중앙 RBAC 정책(evaluate) 단위 테스트 — 6역할 × 5액션 매트릭스(01-clarify 표) 검증.
@@ -27,21 +27,24 @@ const makeContract = (
 });
 
 const makeViewer = (
-  role: Role,
+  role: TenantRole,
   id = "viewer-x",
   departmentId: string | null = "dept-1",
 ): AuthzViewer => ({ id, role, departmentId });
 
 describe("contracts.authz evaluate", () => {
-  describe("admin (전체 view/edit/assign/transition/delete)", () => {
-    it("무관한 계약에도 전체 권한을 가진다", () => {
-      const r = evaluate(makeViewer("admin"), makeContract());
+  // admin 역할은 loadViewer 에서 "inHouseCounsel" 로 매핑된 뒤 evaluate 에 진입하므로,
+  // 여기서는 inHouseCounsel 로 evaluate 를 검증한다.
+  // delete 는 TenantRole 어디에도 없음(admin 전용 권한은 service 레이어에서 관리).
+  describe("inHouseCounsel(admin 매핑 포함): owner 건 전체 권한, delete 제외", () => {
+    it("owner 인 무관 계약에도 view+edit+assign+transition 가능, delete=false", () => {
+      const r = evaluate(makeViewer("inHouseCounsel", OWNER_ID), makeContract());
       expect(r).toEqual({
         canView: true,
         canEdit: true,
         canAssign: true,
         canTransition: true,
-        canDelete: true,
+        canDelete: false, // TenantRole 기준 delete=false (admin 전용 로직은 service 레이어)
         maskSecret: false, // 특권 역할
       });
     });
@@ -209,8 +212,9 @@ describe("contracts.authz evaluate", () => {
       expect(r.canAssign).toBe(true);
     });
 
-    it("미배정 건에서 admin canAssign=true", () => {
-      const r = evaluate(makeViewer("admin", "other-1"), unassigned());
+    it("미배정 건에서 inHouseCounsel(admin 매핑 포함) canAssign=true", () => {
+      // admin 은 loadViewer 에서 inHouseCounsel 로 매핑되므로 동일 케이스.
+      const r = evaluate(makeViewer("inHouseCounsel", "other-1"), unassigned());
       expect(r.canAssign).toBe(true);
     });
 
@@ -322,9 +326,8 @@ describe("contracts.authz evaluate", () => {
   });
 
   describe("maskSecret 산출 매트릭스", () => {
-    it("특권 역할(admin/inHouseCounsel/contractManager)은 maskSecret=false", () => {
-      const privilegedRoles: Role[] = [
-        "admin",
+    it("특권 역할(inHouseCounsel/contractManager)은 maskSecret=false (admin은 inHouseCounsel로 매핑)", () => {
+      const privilegedRoles: TenantRole[] = [
         "inHouseCounsel",
         "contractManager",
       ];
