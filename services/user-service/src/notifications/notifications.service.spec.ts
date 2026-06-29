@@ -68,6 +68,7 @@ describe("NotificationService", () => {
           actorId: "u-1",
           targetType: "Comment",
           targetId: "c-1",
+          tenantId: "tenant-1",
         },
         // 타인 → 생성
         {
@@ -77,6 +78,7 @@ describe("NotificationService", () => {
           targetType: "Comment",
           targetId: "c-1",
           detail: { contractId: "k-1", preview: "안녕" },
+          tenantId: "tenant-1",
         },
       ]);
 
@@ -115,6 +117,7 @@ describe("NotificationService", () => {
           actorId: "u-1",
           targetType: "Comment",
           targetId: "c-1",
+          tenantId: "tenant-1",
         },
       ]);
       expect(result).toEqual([]);
@@ -132,6 +135,7 @@ describe("NotificationService", () => {
           actorId: "u-1",
           targetType: "Comment",
           targetId: "c-1",
+          tenantId: "tenant-1",
         },
       ]);
       const arg = prismaMock.notification.createMany.mock.calls[0][0] as {
@@ -160,6 +164,27 @@ describe("NotificationService", () => {
       expect(arg.data[0].tenantId).toBe("tenant-1");
     });
 
+    it("tenantId 가 빈 문자열 fallback 없이 그대로 전달된다(필수 필드)", async () => {
+      prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+      prismaMock.notification.findMany.mockResolvedValue([]);
+      prismaMock.user.findMany.mockResolvedValue([]);
+      await service.createMany([
+        {
+          recipientId: "u-2",
+          type: "comment_mention",
+          actorId: "u-1",
+          targetType: "Comment",
+          targetId: "c-1",
+          tenantId: "tenant-abc",
+        },
+      ]);
+      const arg = prismaMock.notification.createMany.mock.calls[0][0] as {
+        data: Array<{ tenantId: string }>;
+      };
+      // tenantId 는 호출부가 제공한 값 그대로 — 빈 문자열 fallback 없음.
+      expect(arg.data[0].tenantId).toBe("tenant-abc");
+    });
+
     it("best-effort: prisma 가 reject 해도 예외를 던지지 않고 [] 를 반환한다(swallow)", async () => {
       prismaMock.notification.createMany.mockRejectedValue(
         new Error("db down"),
@@ -172,6 +197,7 @@ describe("NotificationService", () => {
             actorId: "u-1",
             targetType: "Comment",
             targetId: "c-1",
+            tenantId: "tenant-1",
           },
         ]),
       ).resolves.toEqual([]);
@@ -319,6 +345,23 @@ describe("NotificationService", () => {
       );
     });
 
+    it("tenantContext 가 있으면 where 에 tenantId 를 추가해 타 테넌트 알림 읽음 차단", async () => {
+      prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.markRead({
+        id: "n-1",
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
+
+      expect(prismaMock.notification.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "n-1", recipientId: "u-1", readAt: null, tenantId: "tenant-1" },
+          data: { readAt: expect.any(Date) },
+        }),
+      );
+    });
+
     it("viewerId 없으면 no-op(updateMany 미호출)", async () => {
       await service.markRead({ id: "n-1" });
       expect(prismaMock.notification.updateMany).not.toHaveBeenCalled();
@@ -334,6 +377,22 @@ describe("NotificationService", () => {
       expect(prismaMock.notification.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { recipientId: "u-1", readAt: null },
+          data: { readAt: expect.any(Date) },
+        }),
+      );
+    });
+
+    it("tenantContext 가 있으면 where 에 tenantId 를 추가해 타 테넌트 알림 일괄 읽음 차단", async () => {
+      prismaMock.notification.updateMany.mockResolvedValue({ count: 5 });
+
+      await service.markAllRead({
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-2", isSystemAdmin: false },
+      });
+
+      expect(prismaMock.notification.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { recipientId: "u-1", readAt: null, tenantId: "tenant-2" },
           data: { readAt: expect.any(Date) },
         }),
       );

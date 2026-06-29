@@ -31,8 +31,8 @@ export interface CreateNotificationInput {
   targetType: string;
   targetId: string;
   detail?: Prisma.InputJsonValue;
-  // 테넌트 격리: 생성 시 tenantId 를 직접 주입한다. 미지정 시 빈 문자열(fallback — 호출부가 항상 제공).
-  tenantId?: string;
+  // 테넌트 격리: 생성 시 tenantId 를 반드시 주입해야 한다(필수). 누락 시 RpcException.
+  tenantId: string;
 }
 
 // 목록 기본 조회 개수(최근 N건). limit 미지정 시 적용.
@@ -109,7 +109,7 @@ export class NotificationService {
           actorId: item.actorId,
           targetType: item.targetType,
           targetId: item.targetId,
-          tenantId: item.tenantId ?? "",
+          tenantId: item.tenantId,
           detail: item.detail ?? Prisma.JsonNull,
         })),
       });
@@ -182,22 +182,28 @@ export class NotificationService {
 
   /**
    * 단건 읽음 처리. 본인(recipientId === viewerId) 알림만 — 타인 알림은 0건 영향(차단).
+   * tenantScope 로 타 테넌트 알림을 읽음 처리하는 것도 차단한다.
    */
   async markRead(req: MarkNotificationReadRequest): Promise<void> {
     if (!req.viewerId) return;
+    const ctx = req.tenantContext;
+    const tScope = ctx ? tenantScope(ctx) : {};
     await this.prisma.notification.updateMany({
-      where: { id: req.id, recipientId: req.viewerId, readAt: null },
+      where: { id: req.id, recipientId: req.viewerId, readAt: null, ...tScope },
       data: { readAt: new Date() },
     });
   }
 
   /**
    * 전체 읽음 처리. viewer 본인 안읽음 전부.
+   * tenantScope 로 타 테넌트 알림이 섞이지 않도록 격리한다.
    */
   async markAllRead(req: MarkAllNotificationsReadRequest): Promise<void> {
     if (!req.viewerId) return;
+    const ctx = req.tenantContext;
+    const tScope = ctx ? tenantScope(ctx) : {};
     await this.prisma.notification.updateMany({
-      where: { recipientId: req.viewerId, readAt: null },
+      where: { recipientId: req.viewerId, readAt: null, ...tScope },
       data: { readAt: new Date() },
     });
   }
