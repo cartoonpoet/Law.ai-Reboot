@@ -13,6 +13,7 @@ import { signUploadToken } from "./uploadToken";
  * - 검증: MIME 화이트리스트/size 50MB/sha256 hex/파일명 길이 거절.
  * - confirm: HeadObject 검증 + size 일치 + File row 생성 + checksum=etag.
  * - getDownloadUrl: canView + Comment soft-delete 시 차단.
+ * - viewer role 공급원: UserTenant.role(토큰 stale 방지). admin=isSystemAdmin → user.findUnique.
  */
 
 // AWS SDK presigner 는 항상 가짜 URL 반환 — 네트워크 호출 없음.
@@ -26,6 +27,7 @@ describe("FilesService", () => {
   const prismaMock = {
     contract: { findFirst: jest.fn() },
     user: { findUnique: jest.fn() },
+    userTenant: { findFirst: jest.fn() },
     file: {
       count: jest.fn(),
       findFirst: jest.fn(),
@@ -58,9 +60,9 @@ describe("FilesService", () => {
   });
 
   // 테넌트 컨텍스트 헬퍼.
-  const makeCtx = (tenantId = "tenant-1") => ({
+  const makeCtx = (tenantId = "tenant-1", isSystemAdmin = false) => ({
     tenantId,
-    isSystemAdmin: false,
+    isSystemAdmin,
   });
 
   // 감사 기록은 best-effort — 검증 시점엔 호출 여부만 보면 됨.
@@ -109,13 +111,11 @@ describe("FilesService", () => {
       ).rejects.toBeInstanceOf(RpcException);
     });
 
-    it("canView 통과자(법무팀)는 uploadUrl + uploadToken 발급", async () => {
+    it("canView 통과자(법무팀)는 uploadUrl + uploadToken 발급 — UserTenant.role 공급", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "counsel-1",
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "inHouseCounsel",
-        departmentId: "dept-1",
-        name: "이법무",
+        user: { departmentId: "dept-1" },
       });
       const res = await service.presign({
         contractId: "contract-1",
@@ -130,14 +130,15 @@ describe("FilesService", () => {
       expect(res.uploadToken).toEqual(expect.any(String));
       expect(res.storageKey).toMatch(/^contracts\/contract-1\//);
       expect(res.expiresIn).toBe(900);
+      // user.findUnique 는 호출되지 않아야 함(일반 테넌트 경로는 userTenant 사용).
+      expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
     });
 
-    it("관련 없는 general 은 403", async () => {
+    it("관련 없는 general 은 403 — UserTenant.role 공급", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "stranger",
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "general",
-        departmentId: "dept-9",
+        user: { departmentId: "dept-9" },
       });
       await expect(
         service.presign({
@@ -152,12 +153,48 @@ describe("FilesService", () => {
       ).rejects.toBeInstanceOf(RpcException);
     });
 
-    it("허용되지 않은 MIME 은 400", async () => {
+    it("타 테넌트 멤버(userTenant null) → viewer null → 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      // 해당 tenantId 에 UserTenant 없음 → loadViewer 가 null 반환.
+      prismaMock.userTenant.findFirst.mockResolvedValue(null);
+      await expect(
+        service.presign({
+          contractId: "contract-1",
+          fileName: "a.pdf",
+          size: 100,
+          mimeType: VALID_MIME,
+          sha256: VALID_SHA,
+          viewerId: "outsider",
+          tenantContext: makeCtx("tenant-other"),
+        }),
+      ).rejects.toBeInstanceOf(RpcException);
+    });
+
+    it("isSystemAdmin=true 면 user.findUnique 경로 — inHouseCounsel 로 평가", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
       prismaMock.user.findUnique.mockResolvedValue({
-        id: "counsel-1",
+        id: "admin-1",
+        departmentId: null,
+      });
+      const res = await service.presign({
+        contractId: "contract-1",
+        fileName: "admin.pdf",
+        size: 100_000,
+        mimeType: VALID_MIME,
+        sha256: VALID_SHA,
+        viewerId: "admin-1",
+        tenantContext: makeCtx("tenant-1", true),
+      });
+      expect(res.uploadUrl).toBe("https://r2.example/signed-url");
+      // userTenant.findFirst 는 호출되지 않아야 함(admin 경로).
+      expect(prismaMock.userTenant.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("허용되지 않은 MIME 은 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "inHouseCounsel",
-        departmentId: "dept-1",
+        user: { departmentId: "dept-1" },
       });
       await expect(
         service.presign({
@@ -174,10 +211,9 @@ describe("FilesService", () => {
 
     it("50MB 초과 size 는 400", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "counsel-1",
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "inHouseCounsel",
-        departmentId: "dept-1",
+        user: { departmentId: "dept-1" },
       });
       await expect(
         service.presign({
@@ -194,10 +230,9 @@ describe("FilesService", () => {
 
     it("commentId 지정 시 코멘트당 5개 초과면 400", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "counsel-1",
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "inHouseCounsel",
-        departmentId: "dept-1",
+        user: { departmentId: "dept-1" },
       });
       prismaMock.file.count.mockResolvedValue(5);
       await expect(
@@ -314,7 +349,7 @@ describe("FilesService", () => {
   });
 
   describe("getDownloadUrl", () => {
-    it("canView 통과 + 코멘트 미삭제면 presigned GET URL 반환", async () => {
+    it("canView 통과 + 코멘트 미삭제면 presigned GET URL 반환 — UserTenant.role 공급", async () => {
       prismaMock.file.findFirst.mockResolvedValue({
         id: "file-1",
         name: "a.pdf",
@@ -322,10 +357,9 @@ describe("FilesService", () => {
         contract: { ...makeContractRow(), references: [] },
         comment: null,
       });
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "counsel-1",
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "inHouseCounsel",
-        departmentId: "dept-1",
+        user: { departmentId: "dept-1" },
       });
       const res = await service.getDownloadUrl({
         fileId: "file-1",
@@ -333,6 +367,7 @@ describe("FilesService", () => {
         tenantContext: makeCtx(),
       });
       expect(res.url).toBe("https://r2.example/signed-url");
+      expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
     });
 
     it("코멘트 soft-deleted 첨부는 404", async () => {
@@ -343,17 +378,16 @@ describe("FilesService", () => {
         contract: { ...makeContractRow(), references: [] },
         comment: { deletedAt: new Date() },
       });
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "counsel-1",
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "inHouseCounsel",
-        departmentId: "dept-1",
+        user: { departmentId: "dept-1" },
       });
       await expect(
         service.getDownloadUrl({ fileId: "file-1", viewerId: "counsel-1", tenantContext: makeCtx() }),
       ).rejects.toBeInstanceOf(RpcException);
     });
 
-    it("canView 미통과 stranger 는 403", async () => {
+    it("canView 미통과 general stranger 는 403 — UserTenant.role 공급", async () => {
       prismaMock.file.findFirst.mockResolvedValue({
         id: "file-1",
         name: "a.pdf",
@@ -361,13 +395,31 @@ describe("FilesService", () => {
         contract: { ...makeContractRow(), references: [] },
         comment: null,
       });
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "stranger",
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "general",
-        departmentId: "dept-9",
+        user: { departmentId: "dept-9" },
       });
       await expect(
         service.getDownloadUrl({ fileId: "file-1", viewerId: "stranger", tenantContext: makeCtx() }),
+      ).rejects.toBeInstanceOf(RpcException);
+    });
+
+    it("타 테넌트 멤버(userTenant null) → viewer null → 403", async () => {
+      prismaMock.file.findFirst.mockResolvedValue({
+        id: "file-1",
+        name: "a.pdf",
+        storageKey: "contracts/contract-1/uuid/a.pdf",
+        contract: { ...makeContractRow(), references: [] },
+        comment: null,
+      });
+      // 해당 tenantId 에 UserTenant 없음 → loadViewer 가 null 반환.
+      prismaMock.userTenant.findFirst.mockResolvedValue(null);
+      await expect(
+        service.getDownloadUrl({
+          fileId: "file-1",
+          viewerId: "outsider",
+          tenantContext: makeCtx("tenant-other"),
+        }),
       ).rejects.toBeInstanceOf(RpcException);
     });
 
@@ -393,12 +445,11 @@ describe("FilesService", () => {
   });
 
   describe("auditCompareReport", () => {
-    it("성공 시 audit.record 에 tenantId 가 기록된다", async () => {
+    it("성공 시 audit.record 에 tenantId 가 기록된다 — UserTenant.role 공급", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
-      prismaMock.user.findUnique.mockResolvedValue({
-        id: "counsel-1",
+      prismaMock.userTenant.findFirst.mockResolvedValue({
         role: "inHouseCounsel",
-        departmentId: "dept-1",
+        user: { departmentId: "dept-1" },
       });
       prismaMock.file.findMany.mockResolvedValue([
         { id: "file-a" },
@@ -427,6 +478,27 @@ describe("FilesService", () => {
           tenantId: "tenant-1",
         }),
       );
+      expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("타 테넌트 멤버(userTenant null) → viewer null → 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue(null);
+      prismaMock.file.findMany.mockResolvedValue([{ id: "file-a" }, { id: "file-b" }]);
+
+      await expect(
+        service.auditCompareReport({
+          contractId: "contract-1",
+          fileAId: "file-a",
+          fileAName: "v1.pdf",
+          fileBId: "file-b",
+          fileBName: "v2.pdf",
+          addedLines: 10,
+          removedLines: 5,
+          viewerId: "outsider",
+          tenantContext: makeCtx("tenant-other"),
+        }),
+      ).rejects.toBeInstanceOf(RpcException);
     });
   });
 });

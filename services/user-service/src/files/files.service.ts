@@ -21,6 +21,7 @@ import {
   type GetDownloadUrlResponse,
   type PresignUploadRequest,
   type PresignUploadResponse,
+  type TenantContext,
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../contracts/contracts.audit";
@@ -97,18 +98,23 @@ export class FilesService {
     private readonly audit: AuditService,
   ) {}
 
-  private async loadViewer(viewerId?: string): Promise<AuthzViewer | null> {
+  // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
+  // role 공급원: 활성 테넌트의 UserTenant.role(토큰 stale 방지). admin 은 inHouseCounsel 로 매핑.
+  private async loadViewer(
+    viewerId: string | undefined,
+    ctx: TenantContext,
+  ): Promise<AuthzViewer | null> {
     if (!viewerId) return null;
-    const user = await this.prisma.user.findUnique({
-      where: { id: viewerId },
+    if (ctx.isSystemAdmin) {
+      // 시스템 admin 은 전권 — authz 상 전체 view 동급(inHouseCounsel 역할로 평가).
+      const u = await this.prisma.user.findUnique({ where: { id: viewerId } });
+      return u ? { id: u.id, role: "inHouseCounsel", departmentId: u.departmentId } : null;
+    }
+    const m = await this.prisma.userTenant.findFirst({
+      where: { userId: viewerId, tenantId: ctx.tenantId },
+      include: { user: { select: { departmentId: true } } },
     });
-    if (!user) return null;
-    return {
-      id: user.id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      role: (user as any).role ?? "general",
-      departmentId: user.departmentId,
-    };
+    return m ? { id: viewerId, role: m.role, departmentId: m.user.departmentId } : null;
   }
 
   // tenantScope 를 where 에 합쳐 타 테넌트 계약 ID 위조를 차단한다.
@@ -131,9 +137,10 @@ export class FilesService {
 
   private async authorizeCanView(
     contract: ContractForAuthz,
-    viewerId?: string,
+    viewerId: string | undefined,
+    ctx: TenantContext,
   ): Promise<AuthzViewer> {
-    const viewer = await this.loadViewer(viewerId);
+    const viewer = await this.loadViewer(viewerId, ctx);
     const authz = evaluate(viewer, toAuthzContract(contract));
     if (!viewer || !authz.canView) {
       throw new RpcException({
@@ -197,7 +204,7 @@ export class FilesService {
     const ctx = req.tenantContext!;
     this.ensureEnabled();
     const contract = await this.loadContract(req.contractId, ctx);
-    const viewer = await this.authorizeCanView(contract, req.viewerId);
+    const viewer = await this.authorizeCanView(contract, req.viewerId, ctx);
     this.validateFileMeta({
       fileName: req.fileName,
       size: req.size,
@@ -341,7 +348,7 @@ export class FilesService {
         message: "계약이 삭제되었습니다",
       });
     }
-    const viewer = await this.loadViewer(req.viewerId);
+    const viewer = await this.loadViewer(req.viewerId, ctx);
     const authz = evaluate(viewer, toAuthzContract(file.contract));
     if (!viewer || !authz.canView) {
       throw new RpcException({
@@ -379,7 +386,7 @@ export class FilesService {
   async auditCompareReport(req: AuditCompareReportRequest): Promise<{ ok: true }> {
     const ctx = req.tenantContext!;
     const contract = await this.loadContract(req.contractId, ctx);
-    const viewer = await this.authorizeCanView(contract, req.viewerId);
+    const viewer = await this.authorizeCanView(contract, req.viewerId, ctx);
     const files = await this.prisma.file.findMany({
       where: {
         id: { in: [req.fileAId, req.fileBId] },
