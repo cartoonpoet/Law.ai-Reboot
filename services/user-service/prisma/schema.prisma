@@ -8,40 +8,87 @@ datasource db {
   schemas  = ["users", "companies", "contracts", "shared"]
 }
 
-enum Role {
-  general // 일반(요청자)
-  contractManager // 계약담당자
-  inHouseCounsel // 사내변호사
-  outsideCounsel // 사외변호사
-  sealManager // 인감관리자
-  admin // 관리자
+enum TenantPlan {
+  enterprise
+  pro
+  starter
 
+  @@schema("users")
+}
+
+enum TenantStatus {
+  active
+  trial
+  suspended
+
+  @@schema("users")
+}
+
+enum TenantRole {
+  general
+  contractManager
+  inHouseCounsel
+  outsideCounsel
+  sealManager
+
+  @@schema("users")
+}
+
+model Tenant {
+  id        String       @id @default(uuid())
+  name      String
+  plan      TenantPlan   @default(starter)
+  status    TenantStatus @default(active)
+  createdAt DateTime     @default(now())
+
+  memberships UserTenant[]
+
+  @@schema("users")
+}
+
+model UserTenant {
+  id       String     @id @default(uuid())
+  userId   String
+  tenantId String
+  role     TenantRole @default(general)
+  joinedAt DateTime   @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([tenantId])
   @@schema("users")
 }
 
 model Department {
   id        String   @id @default(uuid())
-  name      String   @unique
+  name      String
+  tenantId  String? // Task 3 백필 후 NOT NULL 전환
   createdAt DateTime @default(now())
 
   users     User[]
   contracts Contract[]
 
+  @@unique([tenantId, name])
+  @@index([tenantId])
   @@schema("users")
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  role         Role     @default(general)
-  departmentId String?
-  emailNotify  Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  isSystemAdmin Boolean  @default(false)
+  departmentId  String?
+  emailNotify   Boolean  @default(true)
+  createdAt     DateTime @default(now())
 
   department          Department?          @relation(fields: [departmentId], references: [id])
   passwordResetTokens PasswordResetToken[]
+  tenantMemberships   UserTenant[]
   createdContracts    Contract[]           @relation("ContractCreatedBy")
   requestedContracts  Contract[]           @relation("ContractRequester")
   ownedContracts      Contract[]           @relation("ContractOwner")
@@ -77,7 +124,8 @@ model Company {
   id            String      @id @default(uuid())
   type          CompanyType @default(company)
   name          String
-  bizNo         String      @unique
+  bizNo         String
+  tenantId      String? // Task 3 백필 후 NOT NULL 전환
   ceo           String?
   phone         String?
   address       String?
@@ -89,7 +137,9 @@ model Company {
 
   counterparties Counterparty[]
 
+  @@unique([tenantId, bizNo])
   @@index([name])
+  @@index([tenantId])
   @@schema("companies")
 }
 
@@ -129,6 +179,7 @@ model ContractCategory {
   name      String
   slug      String   @unique
   parentId  String?
+  tenantId  String? // Task 3 백필 후 NOT NULL 전환
   sortOrder Int?
   createdAt DateTime @default(now())
 
@@ -138,6 +189,7 @@ model ContractCategory {
 
   @@unique([parentId, name])
   @@index([parentId])
+  @@index([tenantId])
   @@schema("contracts")
 }
 
@@ -159,6 +211,8 @@ model Contract {
   ownerId      String?
   createdById  String
   departmentId String?
+
+  tenantId String? // Task 3 백필 후 NOT NULL 전환
 
   periodStart DateTime?
   periodEnd   DateTime?
@@ -182,6 +236,7 @@ model Contract {
   references     ContractReference[]
   comments       Comment[]
 
+  @@index([tenantId])
   @@index([createdById])
   @@index([requesterId])
   @@index([ownerId])
@@ -315,6 +370,7 @@ model File {
   id         String   @id @default(uuid())
   contractId String
   commentId  String?
+  tenantId   String? // Task 3 백필 후 NOT NULL 전환
   role       FileRole
   name       String
   meta       String?
@@ -330,6 +386,7 @@ model File {
 
   @@index([contractId])
   @@index([commentId])
+  @@index([tenantId])
   @@schema("shared")
 }
 
@@ -377,11 +434,13 @@ model AuditLog {
   actorId    String
   targetType String
   targetId   String
+  tenantId   String? // Task 3 백필 후 NOT NULL 전환
   detail     Json?
   at         DateTime    @default(now())
 
   @@index([targetType, targetId])
   @@index([actorId])
+  @@index([tenantId])
   @@schema("shared")
 }
 
@@ -395,11 +454,13 @@ model Notification {
   actorId     String
   targetType  String
   targetId    String
+  tenantId    String? // Task 3 백필 후 NOT NULL 전환
   detail      Json?
   readAt      DateTime?
   createdAt   DateTime  @default(now())
 
   @@index([recipientId, readAt])
   @@index([recipientId, createdAt])
+  @@index([tenantId])
   @@schema("shared")
 }
