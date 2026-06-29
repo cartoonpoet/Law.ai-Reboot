@@ -7,6 +7,7 @@ import { NotificationService } from "../notifications/notifications.service";
 import { MailService } from "../mail/mail.service";
 import { evaluate, listRelatedUserIds } from "../contracts/contracts.authz";
 import type { AuthzViewer, AuthzContract } from "../contracts/contracts.authz";
+import { tenantScope } from "../common/tenant-scope";
 import type {
   CommentDto,
   CreateCommentRequest,
@@ -14,6 +15,7 @@ import type {
   ListCommentsRequest,
   UpdateCommentRequest,
   DeleteCommentRequest,
+  TenantContext,
 } from "@lawai/contracts";
 import { htmlToPreview } from "./htmlToPreview";
 import { toFileAttachmentDto } from "../files/files.service";
@@ -82,13 +84,20 @@ export class CommentsService {
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 미존재면 null(evaluate 안전 기본).
+  // TODO(Task 10): user.role 이 User 모델에서 제거됐으므로 UserTenant.role 로 교체 필요.
+  //               현재는 타입 캐스트로 빌드만 통과시키고 Task 10 에서 완성한다.
   private async loadViewer(viewerId?: string): Promise<AuthzViewer | null> {
     if (!viewerId) return null;
     const user = await this.prisma.user.findUnique({
       where: { id: viewerId },
     });
     if (!user) return null;
-    return { id: user.id, role: user.role, departmentId: user.departmentId };
+    return {
+      id: user.id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      role: (user as any).role ?? "general",
+      departmentId: user.departmentId,
+    };
   }
 
   // 멘션 수신자 email/name/emailNotify 일괄 조회(N+1 회피, notifications.loadActorNames 패턴).
@@ -163,9 +172,13 @@ export class CommentsService {
   }
 
   // 삭제되지 않은 계약 로드(없으면 404). 권한 평가에 references 필요.
-  private async loadContract(contractId: string): Promise<ContractForAuthz> {
+  // tenantScope 를 where 에 합쳐 타 테넌트 계약 ID 위조를 차단한다.
+  private async loadContract(
+    contractId: string,
+    ctx: TenantContext,
+  ): Promise<ContractForAuthz> {
     const row = await this.prisma.contract.findFirst({
-      where: { id: contractId, deletedAt: null },
+      where: { id: contractId, deletedAt: null, ...tenantScope(ctx) },
       include: contractAuthzInclude,
     });
     if (!row) {
@@ -236,6 +249,7 @@ export class CommentsService {
   }
 
   async create(req: CreateCommentRequest): Promise<CreateCommentResult> {
+    const ctx = req.tenantContext!;
     const body = req.body?.trim();
     if (!body) {
       throw new RpcException({
@@ -244,7 +258,7 @@ export class CommentsService {
       });
     }
 
-    const contract = await this.loadContract(req.contractId);
+    const contract = await this.loadContract(req.contractId, ctx);
     const viewer = await this.authorizeViewer(contract, req.viewerId);
     const mentionUserIds = this.validateMentions(contract, req.mentions);
 
@@ -338,6 +352,7 @@ export class CommentsService {
   }
 
   async update(req: UpdateCommentRequest): Promise<CreateCommentResult> {
+    const ctx = req.tenantContext!;
     const body = req.body?.trim();
     if (!body) {
       throw new RpcException({
@@ -346,7 +361,7 @@ export class CommentsService {
       });
     }
 
-    const contract = await this.loadContract(req.contractId);
+    const contract = await this.loadContract(req.contractId, ctx);
     const viewer = await this.authorizeViewer(contract, req.viewerId);
 
     // 코멘트 조회(삭제분 포함 — 삭제 상태 판정에 필요).
@@ -511,7 +526,8 @@ export class CommentsService {
   }
 
   async delete(req: DeleteCommentRequest): Promise<CommentDto> {
-    const contract = await this.loadContract(req.contractId);
+    const ctx = req.tenantContext!;
+    const contract = await this.loadContract(req.contractId, ctx);
     const viewer = await this.authorizeViewer(contract, req.viewerId);
 
     const existing = await this.prisma.comment.findFirst({
@@ -559,7 +575,8 @@ export class CommentsService {
   }
 
   async list(req: ListCommentsRequest): Promise<CommentDto[]> {
-    const contract = await this.loadContract(req.contractId);
+    const ctx = req.tenantContext!;
+    const contract = await this.loadContract(req.contractId, ctx);
     const viewer = await this.authorizeViewer(contract, req.viewerId);
 
     // 삭제 행 제외 금지 — placeholder 로 직렬화해 맥락 보존(plan T4-5).

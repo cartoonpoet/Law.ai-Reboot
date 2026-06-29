@@ -60,6 +60,12 @@ describe("CommentsService", () => {
     ...over,
   });
 
+  // 테넌트 컨텍스트 헬퍼. 기본 일반 사용자(tenant-1).
+  const makeCtx = (tenantId = "tenant-1") => ({
+    tenantId,
+    isSystemAdmin: false,
+  });
+
   const makeUser = (
     id: string,
     role: string,
@@ -118,6 +124,7 @@ describe("CommentsService", () => {
         contractId: "contract-1",
         body: "검토 의견입니다",
         viewerId: "counsel-1",
+        tenantContext: makeCtx(),
       });
 
       // 작성자/역할 스냅 확인.
@@ -172,6 +179,7 @@ describe("CommentsService", () => {
           contractId: "contract-1",
           body: "끼어들기",
           viewerId: "stranger",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
 
@@ -188,6 +196,7 @@ describe("CommentsService", () => {
           contractId: "contract-1",
           body: "x",
           viewerId: "ghost",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.comment.create).not.toHaveBeenCalled();
@@ -199,6 +208,7 @@ describe("CommentsService", () => {
           contractId: "contract-1",
           body: "   ",
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.contract.findFirst).not.toHaveBeenCalled();
@@ -212,6 +222,7 @@ describe("CommentsService", () => {
           contractId: "missing",
           body: "x",
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
@@ -252,6 +263,7 @@ describe("CommentsService", () => {
         body: "멘션 포함 의견",
         viewerId: "counsel-1",
         mentions: ["owner-1", "cc-1"],
+        tenantContext: makeCtx(),
       });
 
       expect(prismaMock.commentMention.createMany).toHaveBeenCalledWith(
@@ -307,6 +319,7 @@ describe("CommentsService", () => {
         viewerId: "requester-1",
         // requester-1 은 작성자 본인(자기멘션) → 알림 제외 대상.
         mentions: ["owner-1", "cc-1", "requester-1"],
+        tenantContext: makeCtx(),
       });
 
       expect(notificationMock.createMany).toHaveBeenCalledTimes(1);
@@ -371,6 +384,7 @@ describe("CommentsService", () => {
         body: htmlBody,
         viewerId: "counsel-1",
         mentions: ["owner-1"],
+        tenantContext: makeCtx(),
       });
 
       const items = notificationMock.createMany.mock.calls[0][0] as Array<{
@@ -392,6 +406,7 @@ describe("CommentsService", () => {
           body: "엉뚱 멘션",
           viewerId: "counsel-1",
           mentions: ["owner-1", "stranger-99"],
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
 
@@ -439,6 +454,7 @@ describe("CommentsService", () => {
           body: "본문",
           viewerId: "counsel-1",
           attachmentIds: ["file-1"],
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
 
@@ -449,6 +465,7 @@ describe("CommentsService", () => {
         body: "본문2",
         viewerId: "counsel-1",
         attachmentIds: ["file-1"],
+        tenantContext: makeCtx(),
       });
       expect(fileUpdateManyMock).toHaveBeenCalledWith({
         where: {
@@ -508,6 +525,7 @@ describe("CommentsService", () => {
         body: "수정된 본문",
         viewerId: "counsel-1",
         mentions: ["owner-1"],
+        tenantContext: makeCtx(),
       });
 
       expect(prismaMock.comment.update).toHaveBeenCalledWith(
@@ -556,6 +574,7 @@ describe("CommentsService", () => {
         viewerId: "counsel-1",
         // 기존 owner-1(prevSet, 재알림 안 함) + 신규 cc-1(알림).
         mentions: ["owner-1", "cc-1"],
+        tenantContext: makeCtx(),
       });
 
       // prevSet 조회가 같은 tx 에서 일어났는지 확인.
@@ -585,6 +604,7 @@ describe("CommentsService", () => {
           commentId: "comment-1",
           body: "남의 글 수정",
           viewerId: "owner-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
 
@@ -607,6 +627,7 @@ describe("CommentsService", () => {
           commentId: "comment-1",
           body: "삭제분 수정 시도",
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.comment.update).not.toHaveBeenCalled();
@@ -619,6 +640,7 @@ describe("CommentsService", () => {
           commentId: "comment-1",
           body: "   ",
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.contract.findFirst).not.toHaveBeenCalled();
@@ -666,6 +688,7 @@ describe("CommentsService", () => {
         body: "본문 갱신",
         viewerId: "counsel-1",
         attachmentIds: ["file-b", "file-c"],
+        tenantContext: makeCtx(),
       });
 
       // delete: 빠진 file-a 만 DB 에서 hard delete.
@@ -722,6 +745,7 @@ describe("CommentsService", () => {
         body: "본문 갱신",
         viewerId: "counsel-1",
         // attachmentIds 생략.
+        tenantContext: makeCtx(),
       });
 
       expect(fileFindManyMock).not.toHaveBeenCalled();
@@ -744,6 +768,7 @@ describe("CommentsService", () => {
           body: "본문",
           viewerId: "counsel-1",
           attachmentIds: ["f1", "f2", "f3", "f4", "f5", "f6"],
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.$transaction).not.toHaveBeenCalled();
@@ -786,6 +811,7 @@ describe("CommentsService", () => {
           body: "본문",
           viewerId: "counsel-1",
           attachmentIds: ["file-other-contract"],
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
     });
@@ -861,6 +887,7 @@ describe("CommentsService", () => {
         viewerId: "requester-1",
         // requester-1(자기멘션) 포함 → 발송/조회 대상에서 제외.
         mentions: ["owner-1", "cc-1", "requester-1"],
+        tenantContext: makeCtx(),
       });
 
       // 수신자 조회는 자기멘션 제외된 owner-1, cc-1 만.
@@ -932,6 +959,7 @@ describe("CommentsService", () => {
         body: "수정된 본문",
         viewerId: "counsel-1",
         mentions: ["owner-1", "cc-1"],
+        tenantContext: makeCtx(),
       });
 
       // 수신자 조회는 신규 추가분(cc-1)만 — 기존 owner-1 은 재발송 안 함.
@@ -968,6 +996,7 @@ describe("CommentsService", () => {
         body: "멘션 포함 의견",
         viewerId: "requester-1",
         mentions: ["owner-1", "cc-1"],
+        tenantContext: makeCtx(),
       });
 
       // 이메일 실패와 무관하게 코멘트 정상 반환 + 인앱 알림 createMany 호출.
@@ -999,6 +1028,7 @@ describe("CommentsService", () => {
         body: "멘션 포함 의견",
         viewerId: "requester-1",
         mentions: ["owner-1", "cc-1"],
+        tenantContext: makeCtx(),
       });
 
       expect(result.comment.id).toBe("comment-1");
@@ -1043,6 +1073,7 @@ describe("CommentsService", () => {
         contractId: "contract-1",
         commentId: "comment-1",
         viewerId: "counsel-1",
+        tenantContext: makeCtx(),
       });
 
       expect(prismaMock.comment.update).toHaveBeenCalledWith(
@@ -1072,6 +1103,7 @@ describe("CommentsService", () => {
           contractId: "contract-1",
           commentId: "comment-1",
           viewerId: "owner-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
 
@@ -1118,6 +1150,7 @@ describe("CommentsService", () => {
       const result = await service.list({
         contractId: "contract-1",
         viewerId: "owner-1",
+        tenantContext: makeCtx(),
       });
 
       expect(prismaMock.comment.findMany).toHaveBeenCalledWith(
@@ -1186,6 +1219,7 @@ describe("CommentsService", () => {
       const result = await service.list({
         contractId: "contract-1",
         viewerId: "owner-1",
+        tenantContext: makeCtx(),
       });
 
       // where 에 deletedAt 필터 없음(삭제분 포함).
@@ -1215,7 +1249,7 @@ describe("CommentsService", () => {
       );
 
       await expect(
-        service.list({ contractId: "contract-1", viewerId: "stranger" }),
+        service.list({ contractId: "contract-1", viewerId: "stranger", tenantContext: makeCtx() }),
       ).rejects.toBeInstanceOf(RpcException);
       expect(prismaMock.comment.findMany).not.toHaveBeenCalled();
     });
@@ -1223,8 +1257,52 @@ describe("CommentsService", () => {
     it("계약 미존재면 404", async () => {
       prismaMock.contract.findFirst.mockResolvedValue(null);
       await expect(
-        service.list({ contractId: "missing", viewerId: "owner-1" }),
+        service.list({ contractId: "missing", viewerId: "owner-1", tenantContext: makeCtx() }),
       ).rejects.toBeInstanceOf(RpcException);
+    });
+  });
+
+  describe("tenant isolation", () => {
+    it("타 테넌트 계약의 코멘트 접근은 404(contract not found)", async () => {
+      // 타 테넌트(tenant-2) 컨텍스트 → loadContract 에서 tenantScope({ tenantId: 'tenant-2' })
+      // 가 적용되어 tenant-1 의 contract-1 은 찾을 수 없어야 한다(null 반환).
+      prismaMock.contract.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.list({
+          contractId: "contract-1",
+          viewerId: "counsel-1",
+          tenantContext: { tenantId: "tenant-2", isSystemAdmin: false },
+        }),
+      ).rejects.toBeInstanceOf(RpcException);
+
+      // tenantScope 가 where 에 포함됐는지 — findFirst 에 tenantId: 'tenant-2' 가 전달.
+      expect(prismaMock.contract.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenantId: "tenant-2" }),
+        }),
+      );
+    });
+
+    it("admin(isSystemAdmin=true)은 전 테넌트 계약에 접근 가능(tenantScope 비어 있음)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.user.findUnique.mockResolvedValue(
+        makeUser("admin-1", "inHouseCounsel"),
+      );
+      prismaMock.comment.findMany.mockResolvedValue([]);
+
+      await service.list({
+        contractId: "contract-1",
+        viewerId: "admin-1",
+        tenantContext: { isSystemAdmin: true },
+      });
+
+      // admin → tenantScope = {} → findFirst where 에 tenantId 없음.
+      expect(prismaMock.contract.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ tenantId: expect.anything() }),
+        }),
+      );
     });
   });
 });
