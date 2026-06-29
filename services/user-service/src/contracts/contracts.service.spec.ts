@@ -637,18 +637,14 @@ describe("ContractsService", () => {
       expect(prismaMock.contractCategory.findMany).not.toHaveBeenCalled();
     });
 
-    it("create: 존재하지 않는 categoryId 면 label null (미존재 방어)", async () => {
-      prismaMock.contract.create.mockResolvedValue({
-        ...fullRow("unassigned"),
-        id: "ct-bad",
-        categoryId: "no-such-id",
-        categoryLabel: null,
-      });
-      await service.create({ ...createReq, categoryId: "no-such-id", ...makeCtx() });
-      const data = prismaMock.contract.create.mock.calls[0][0].data;
-      expect(data.categoryId).toBe("no-such-id");
-      // 트리에 없는 id → 체인 0건 → null.
-      expect(data.categoryLabel).toBeNull();
+    it("create: 존재하지 않는 categoryId(트리에 없음)면 400 RpcException (소유 검증 실패)", async () => {
+      // findMany 가 빈 배열 반환 → 체인 0건 → label null → 400 throw.
+      prismaMock.contractCategory.findMany.mockResolvedValueOnce([]);
+      await expect(
+        service.create({ ...createReq, categoryId: "no-such-id", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "유효하지 않은 카테고리" } });
+      // contract.create 는 호출되지 않아야 한다 (검증 실패로 조기 종료).
+      expect(prismaMock.contract.create).not.toHaveBeenCalled();
     });
 
     it("create: 순환 참조 트리에서도 무한루프 없이 라벨 산출(seen 가드)", async () => {
@@ -714,6 +710,41 @@ describe("ContractsService", () => {
       const res = await service.get({ id: "ct-1", viewerId: "admin-1", ...makeCtx() });
       expect(res.categoryId).toBe("cat-saas");
       expect(res.categoryLabel).toBe("개발/공급 > 소프트웨어 > SaaS 이용");
+    });
+
+    // --- FR-1: C1 — resolveCategoryLabel tenantScope 격리 + categoryId 소유 검증 ---
+
+    it("create: 타 테넌트 categoryId 로 create 시 400 RpcException (tenantScope 필터로 빈 결과)", async () => {
+      // tenantScope(ctx) 로 필터된 findMany 가 빈 배열 반환 → label null → 400 throw.
+      prismaMock.contractCategory.findMany.mockResolvedValueOnce([]);
+      await expect(
+        service.create({ ...createReq, categoryId: "cat-other-tenant", ...makeCtx("t1") }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "유효하지 않은 카테고리" } });
+      // DB 저장 전에 예외가 발생해야 한다.
+      expect(prismaMock.contract.create).not.toHaveBeenCalled();
+      // tenantScope 가 where 에 적용되었는지 검증.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const findArg = (prismaMock.contractCategory.findMany.mock.calls as unknown[][])[0]?.[0];
+      expect(findArg).toMatchObject({ where: { tenantId: "t1" } });
+    });
+
+    it("create: 본인 테넌트 categoryId 면 categoryLabel 정상 산출 후 저장 성공", async () => {
+      // 본인 테넌트(t1) 카테고리 트리 반환 → label 산출 → create 성공.
+      prismaMock.contractCategory.findMany.mockResolvedValueOnce([
+        { id: "cat-own", name: "서비스계약", parentId: null },
+      ]);
+      prismaMock.contract.create.mockResolvedValue({
+        ...fullRow("unassigned"),
+        id: "ct-own",
+        categoryId: "cat-own",
+        categoryLabel: "서비스계약",
+      });
+      const result = await service.create({ ...createReq, categoryId: "cat-own", ...makeCtx("t1") });
+      const data = prismaMock.contract.create.mock.calls[0][0].data;
+      expect(data.categoryId).toBe("cat-own");
+      // label 이 null 이 아님 → 400 없이 저장.
+      expect(data.categoryLabel).toBe("서비스계약");
+      expect(result.categoryLabel).toBe("서비스계약");
     });
   });
 

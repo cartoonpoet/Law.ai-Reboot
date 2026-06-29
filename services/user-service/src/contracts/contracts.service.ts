@@ -140,11 +140,14 @@ export class ContractsService {
 
   // categoryId → 조상 체인을 따라 루트까지 올라가 전체 경로 라벨("대 > 중 > 소") 산출.
   // 트리가 작으므로(28노드) findMany 한 번으로 전체 로드 후 메모리에서 부모를 추적해 N+1 회피.
+  // tenantScope(ctx) 를 where 에 합쳐 타 테넌트 카테고리를 조회하지 않도록 격리한다.
   private async resolveCategoryLabel(
     categoryId: string | null,
+    ctx: TenantContext,
   ): Promise<string | null> {
     if (!categoryId) return null;
     const rows = await this.prisma.contractCategory.findMany({
+      where: { ...tenantScope(ctx) },
       select: { id: true, name: true, parentId: true },
     });
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -167,6 +170,16 @@ export class ContractsService {
       where: { id: req.createdById },
       select: { departmentId: true },
     });
+
+    // categoryId 소유 검증: 해당 테넌트의 카테고리인지 확인(tenantScope 적용).
+    let categoryLabel: string | null = null;
+    if (req.categoryId) {
+      categoryLabel = await this.resolveCategoryLabel(req.categoryId, ctx);
+      if (!categoryLabel) {
+        throw new RpcException({ status: 400, message: "유효하지 않은 카테고리" });
+      }
+    }
+
     try {
       const row = await this.prisma.contract.create({
         data: {
@@ -178,7 +191,7 @@ export class ContractsService {
           reviewType: req.reviewType,
           party: req.party ?? null,
           categoryId: req.categoryId ?? null,
-          categoryLabel: await this.resolveCategoryLabel(req.categoryId ?? null),
+          categoryLabel,
           requesterId: req.requesterId ?? null,
           ownerId: req.ownerId ?? null,
           createdById: req.createdById,
@@ -400,7 +413,11 @@ export class ContractsService {
     if (req.party !== undefined) data.party = req.party;
     if (req.categoryId !== undefined) {
       data.categoryId = req.categoryId;
-      data.categoryLabel = await this.resolveCategoryLabel(req.categoryId);
+      const resolvedLabel = await this.resolveCategoryLabel(req.categoryId, ctx);
+      if (req.categoryId && !resolvedLabel) {
+        throw new RpcException({ status: 400, message: "유효하지 않은 카테고리" });
+      }
+      data.categoryLabel = resolvedLabel;
     }
     if (req.requesterId !== undefined) data.requesterId = req.requesterId;
     if (req.ownerId !== undefined) data.ownerId = req.ownerId;
