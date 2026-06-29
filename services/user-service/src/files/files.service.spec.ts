@@ -55,6 +55,12 @@ describe("FilesService", () => {
     ...over,
   });
 
+  // 테넌트 컨텍스트 헬퍼.
+  const makeCtx = (tenantId = "tenant-1") => ({
+    tenantId,
+    isSystemAdmin: false,
+  });
+
   // 감사 기록은 best-effort — 검증 시점엔 호출 여부만 보면 됨.
   const auditMock = { record: jest.fn().mockResolvedValue(undefined) };
 
@@ -96,6 +102,7 @@ describe("FilesService", () => {
           mimeType: VALID_MIME,
           sha256: VALID_SHA,
           viewerId: "u1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
     });
@@ -115,6 +122,7 @@ describe("FilesService", () => {
         mimeType: VALID_MIME,
         sha256: VALID_SHA,
         viewerId: "counsel-1",
+        tenantContext: makeCtx(),
       });
       expect(res.uploadUrl).toBe("https://r2.example/signed-url");
       expect(res.uploadToken).toEqual(expect.any(String));
@@ -137,6 +145,7 @@ describe("FilesService", () => {
           mimeType: VALID_MIME,
           sha256: VALID_SHA,
           viewerId: "stranger",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
     });
@@ -156,6 +165,7 @@ describe("FilesService", () => {
           mimeType: "application/x-msdownload",
           sha256: VALID_SHA,
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
     });
@@ -175,6 +185,7 @@ describe("FilesService", () => {
           mimeType: VALID_MIME,
           sha256: VALID_SHA,
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
     });
@@ -196,6 +207,7 @@ describe("FilesService", () => {
           mimeType: VALID_MIME,
           sha256: VALID_SHA,
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
     });
@@ -222,6 +234,7 @@ describe("FilesService", () => {
           uploadToken: token,
           etag: "abc",
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
     });
@@ -247,6 +260,7 @@ describe("FilesService", () => {
           uploadToken: token,
           etag: "abc",
           viewerId: "counsel-1",
+          tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
     });
@@ -281,10 +295,12 @@ describe("FilesService", () => {
         uploadToken: token,
         etag: "etag-xyz",
         viewerId: "counsel-1",
+        tenantContext: makeCtx(),
       });
       expect(prismaMock.file.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           contractId: "contract-1",
+          tenantId: "tenant-1",
           role: "attach",
           checksum: "etag-xyz",
           sortOrder: 3,
@@ -312,6 +328,7 @@ describe("FilesService", () => {
       const res = await service.getDownloadUrl({
         fileId: "file-1",
         viewerId: "counsel-1",
+        tenantContext: makeCtx(),
       });
       expect(res.url).toBe("https://r2.example/signed-url");
     });
@@ -330,7 +347,7 @@ describe("FilesService", () => {
         departmentId: "dept-1",
       });
       await expect(
-        service.getDownloadUrl({ fileId: "file-1", viewerId: "counsel-1" }),
+        service.getDownloadUrl({ fileId: "file-1", viewerId: "counsel-1", tenantContext: makeCtx() }),
       ).rejects.toBeInstanceOf(RpcException);
     });
 
@@ -348,8 +365,28 @@ describe("FilesService", () => {
         departmentId: "dept-9",
       });
       await expect(
-        service.getDownloadUrl({ fileId: "file-1", viewerId: "stranger" }),
+        service.getDownloadUrl({ fileId: "file-1", viewerId: "stranger", tenantContext: makeCtx() }),
       ).rejects.toBeInstanceOf(RpcException);
+    });
+
+    it("타 테넌트 파일 다운로드 404 — File.tenantId 직접 검증(tenantScope)", async () => {
+      // 타 테넌트(tenant-2) 컨텍스트. File.tenantId 가 tenant-1 이라 findFirst 가 null 을 반환한다.
+      prismaMock.file.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getDownloadUrl({
+          fileId: "file-1",
+          viewerId: "counsel-1",
+          tenantContext: { tenantId: "tenant-2", isSystemAdmin: false },
+        }),
+      ).rejects.toBeInstanceOf(RpcException);
+
+      // tenantScope 가 where 에 포함됐는지 — findFirst 에 tenantId: 'tenant-2' 전달.
+      expect(prismaMock.file.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenantId: "tenant-2" }),
+        }),
+      );
     });
   });
 });

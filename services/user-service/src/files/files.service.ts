@@ -29,6 +29,7 @@ import type {
   AuthzContract,
   AuthzViewer,
 } from "../contracts/contracts.authz";
+import { tenantScope, resolveTenantId } from "../common/tenant-scope";
 import { R2Client } from "./r2.client";
 import { signUploadToken, verifyUploadToken } from "./uploadToken";
 
@@ -102,12 +103,21 @@ export class FilesService {
       where: { id: viewerId },
     });
     if (!user) return null;
-    return { id: user.id, role: user.role, departmentId: user.departmentId };
+    return {
+      id: user.id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      role: (user as any).role ?? "general",
+      departmentId: user.departmentId,
+    };
   }
 
-  private async loadContract(contractId: string): Promise<ContractForAuthz> {
+  // tenantScope 를 where 에 합쳐 타 테넌트 계약 ID 위조를 차단한다.
+  private async loadContract(
+    contractId: string,
+    ctx: import("@lawai/contracts").TenantContext,
+  ): Promise<ContractForAuthz> {
     const row = await this.prisma.contract.findFirst({
-      where: { id: contractId, deletedAt: null },
+      where: { id: contractId, deletedAt: null, ...tenantScope(ctx) },
       include: contractAuthzInclude,
     });
     if (!row) {
@@ -184,8 +194,9 @@ export class FilesService {
   }
 
   async presign(req: PresignUploadRequest): Promise<PresignUploadResponse> {
+    const ctx = req.tenantContext!;
     this.ensureEnabled();
-    const contract = await this.loadContract(req.contractId);
+    const contract = await this.loadContract(req.contractId, ctx);
     const viewer = await this.authorizeCanView(contract, req.viewerId);
     this.validateFileMeta({
       fileName: req.fileName,
@@ -245,6 +256,7 @@ export class FilesService {
   }
 
   async confirm(req: ConfirmUploadRequest): Promise<FileAttachmentDto> {
+    const ctx = req.tenantContext!;
     this.ensureEnabled();
     let claims;
     try {
@@ -290,6 +302,7 @@ export class FilesService {
       data: {
         contractId: claims.contractId,
         commentId: claims.commentId ?? null,
+        tenantId: resolveTenantId(ctx),
         role: claims.role,
         name: claims.fileName,
         mimeType: claims.mimeType as AllowedMimeType,
@@ -306,9 +319,11 @@ export class FilesService {
   async getDownloadUrl(
     req: GetDownloadUrlRequest,
   ): Promise<GetDownloadUrlResponse> {
+    const ctx = req.tenantContext!;
     this.ensureEnabled();
+    // File.tenantId 직접 검증: tenantScope 를 where 에 합쳐 타 테넌트 파일 ID 위조를 차단한다.
     const file = await this.prisma.file.findFirst({
-      where: { id: req.fileId },
+      where: { id: req.fileId, ...tenantScope(ctx) },
       include: {
         contract: { include: { references: true } },
         comment: true,
@@ -362,7 +377,8 @@ export class FilesService {
    * - AuditService.record 자체도 best-effort 라 DB 쓰기 실패는 swallow → 응답 빈 객체.
    */
   async auditCompareReport(req: AuditCompareReportRequest): Promise<{ ok: true }> {
-    const contract = await this.loadContract(req.contractId);
+    const ctx = req.tenantContext!;
+    const contract = await this.loadContract(req.contractId, ctx);
     const viewer = await this.authorizeCanView(contract, req.viewerId);
     const files = await this.prisma.file.findMany({
       where: {
