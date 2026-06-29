@@ -13,6 +13,7 @@ import {
   type AuthTokens,
   type UserWithHash,
   type JwtPayload,
+  type TenantRole,
   type PasswordResetRequestRequest,
   type PasswordResetConfirmRequest,
   type PasswordResetResult,
@@ -201,7 +202,7 @@ export class AuthService {
         tenantId: m.tenantId,
         name: m.tenantName,
         role: m.role,
-        isActive: false,
+        isActive: m.tenantId === req.activeTenantId,
       })),
     };
   }
@@ -248,7 +249,7 @@ export class AuthService {
       ),
     );
 
-    let active: { tenantId: string; role: string } | undefined;
+    let active: { tenantId: string; role: TenantRole } | undefined;
 
     if (activeTenantId) {
       const m = memberships.memberships.find((x) => x.tenantId === activeTenantId);
@@ -270,7 +271,7 @@ export class AuthService {
       email: user.email,
       isSystemAdmin: memberships.isSystemAdmin,
       activeTenantId: active?.tenantId,
-      activeRole: active?.role as JwtPayload["activeRole"],
+      activeRole: active?.role,
     };
 
     const tokens = await this.signTokens(payload);

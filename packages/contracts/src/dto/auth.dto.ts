@@ -39,6 +39,7 @@ export interface SwitchTenantRequest {
 
 export interface MyTenantsRequest {
   userId?: string; // gateway 가 JWT sub 주입
+  activeTenantId?: string; // gateway 가 JWT activeTenantId 주입(어느 테넌트가 현재 활성인지 표시용)
 }
 
 export interface MyTenantsResponse {

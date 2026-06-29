@@ -382,6 +382,26 @@ describe("AuthService", () => {
     });
   });
 
+  it("refresh는 activeTenantId/activeRole 클레임을 그대로 전파한다", async () => {
+    jwtMock.verifyAsync.mockResolvedValue({
+      sub: "u1",
+      email: "a@b.com",
+      isSystemAdmin: false,
+      activeTenantId: "t1",
+      activeRole: "inHouseCounsel",
+    });
+    jwtMock.signAsync
+      .mockResolvedValueOnce("newAccess")
+      .mockResolvedValueOnce("newRefresh");
+
+    await service.refresh({ refreshToken: "validRefresh" });
+
+    expect(jwtMock.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ activeTenantId: "t1", activeRole: "inHouseCounsel" }),
+      expect.anything(),
+    );
+  });
+
   it("refresh는 위조/만료 refreshToken이면 RpcException(401)", async () => {
     jwtMock.verifyAsync.mockRejectedValue(new Error("invalid signature"));
 
