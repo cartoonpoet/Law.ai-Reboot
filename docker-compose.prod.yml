@@ -71,7 +71,9 @@ services:
       AUTH_SERVICE_PORT: "4001"
       USER_SERVICE_HOST: user-service
       USER_SERVICE_PORT: "4002"
-      CORS_ORIGINS: ${APP_WEB_URL}
+      # 어드민 서브도메인도 같은 게이트웨이를 호출 → CORS 허용 origin 에 함께 등록.
+      # APP_ADMIN_URL 이 .env 에 없으면 admin.lawai-reboot.kro.kr 기본값.
+      CORS_ORIGINS: ${APP_WEB_URL},${APP_ADMIN_URL:-https://admin.lawai-reboot.kro.kr}
 
   admin:
     image: ghcr.io/cartoonpoet/lawai-admin:latest
