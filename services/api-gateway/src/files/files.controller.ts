@@ -24,6 +24,7 @@ import {
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
+import { extractTenantContext } from "../common/tenant-context";
 import { AuditCompareReportDto, ConfirmDto, PresignDto } from "./dto";
 
 /**
@@ -50,7 +51,11 @@ export class FilesController {
     @Req() req: Request,
   ): Promise<PresignUploadResponse> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: PresignUploadRequest = { ...dto, viewerId: sub };
+    const payload: PresignUploadRequest = {
+      ...dto,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<PresignUploadResponse>(FILE_PATTERNS.PRESIGN, payload)
@@ -65,7 +70,11 @@ export class FilesController {
     @Req() req: Request,
   ): Promise<FileAttachmentDto> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: ConfirmUploadRequest = { ...dto, viewerId: sub };
+    const payload: ConfirmUploadRequest = {
+      ...dto,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<FileAttachmentDto>(FILE_PATTERNS.CONFIRM, payload)
@@ -88,6 +97,7 @@ export class FilesController {
         .send<GetDownloadUrlResponse>(FILE_PATTERNS.GET_DOWNLOAD_URL, {
           fileId: id,
           viewerId: sub,
+          tenantContext: extractTenantContext(req),
         })
         .pipe(rpcToHttp()),
     );
@@ -104,7 +114,11 @@ export class FilesController {
     @Req() req: Request,
   ): Promise<{ ok: true }> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: AuditCompareReportRequest = { ...dto, viewerId: sub };
+    const payload: AuditCompareReportRequest = {
+      ...dto,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<{ ok: true }>(FILE_PATTERNS.AUDIT_COMPARE_REPORT, payload)

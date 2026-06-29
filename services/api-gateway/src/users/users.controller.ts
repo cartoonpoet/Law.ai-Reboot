@@ -45,7 +45,7 @@ export class UsersController {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      isSystemAdmin: user.isSystemAdmin,
       departmentId: user.departmentId,
       departmentName: user.departmentName,
       createdAt: user.createdAt,

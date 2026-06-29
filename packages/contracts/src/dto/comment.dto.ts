@@ -1,3 +1,4 @@
+import type { TenantContext } from "./tenant.dto";
 import type { NotificationDto } from "./notification.dto";
 import type { FileAttachmentDto } from "./file.dto";
 
@@ -39,12 +40,16 @@ export interface CreateCommentRequest {
   // 트랜잭션 내에서 File.commentId 연결(소유 검증: contractId 일치 + commentId NULL).
   attachmentIds?: string[];
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // 코멘트 목록 조회. viewerId 는 관련자 가드용(gateway 가 JWT sub 주입).
 export interface ListCommentsRequest {
   contractId: string;
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // 코멘트 수정. 작성자 본인만 가능(서버가 viewerId 로 판정).
@@ -58,6 +63,8 @@ export interface UpdateCommentRequest {
   // 같은 트랜잭션에서 적용한다. undefined 면 기존 첨부 유지(변경 없음). 코멘트당 ≤5.
   attachmentIds?: string[];
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // 코멘트 삭제(소프트). 작성자 본인만 가능(서버가 viewerId 로 판정).
@@ -65,6 +72,8 @@ export interface DeleteCommentRequest {
   contractId: string;
   commentId: string;
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // gateway 가 SSE 허브로 push 할 단위. recipientId 별 NotificationDto(수신자 1명당 1건).

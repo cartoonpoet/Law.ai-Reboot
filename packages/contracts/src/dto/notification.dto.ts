@@ -1,3 +1,5 @@
+import type { TenantContext } from "./tenant.dto";
+
 // 인앱 알림 조회 응답. 폴리모픽(targetType/targetId)이며 detail 은 JSON(nullable).
 export interface NotificationDto {
   id: string;
@@ -28,15 +30,21 @@ export interface ListNotificationsResponse {
 export interface ListNotificationsRequest {
   viewerId?: string;
   limit?: number;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // 단건 읽음 처리. 본인 알림만 가능(서버가 viewerId 로 판정).
 export interface MarkNotificationReadRequest {
   id: string;
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // 전체 읽음 처리. 본인 알림 전체(서버가 viewerId 로 판정).
 export interface MarkAllNotificationsReadRequest {
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }

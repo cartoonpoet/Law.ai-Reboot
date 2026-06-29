@@ -1,3 +1,10 @@
+import type { TenantContext } from "./tenant.dto";
+
+export interface ListDepartmentsRequest {
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
+}
+
 export interface CreateUserRequest {
   email: string;
   name: string;

@@ -1,4 +1,5 @@
 // 첨부 파일(R2 업로드 + 코멘트 첨부) DTO 및 화이트리스트 상수.
+import type { TenantContext } from "./tenant.dto";
 // 클라이언트(즉시 거절)·gateway(class-validator)·user-service(서버 가드) 모두 단일 출처로 import.
 
 // 허용 MIME 타입(법무팀 워크플로 — Office/HWP/PDF/PNG/JPG).
@@ -55,6 +56,8 @@ export interface PresignUploadRequest {
   sha256: string; // 64자 hex
   // gateway 가 JWT sub 주입.
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // presign 응답 — uploadToken 으로 confirm 단계 위변조 방지.
@@ -72,6 +75,8 @@ export interface ConfirmUploadRequest {
   // R2 PUT 응답의 ETag(checksum 컬럼에 보관 — 단일 PUT 시 sha256 hex 동치).
   etag: string;
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // 코멘트 첨부 표시용(목록/상세 응답에 포함). 다운로드는 /files/:id/download 로.
@@ -88,6 +93,8 @@ export interface FileAttachmentDto {
 export interface GetDownloadUrlRequest {
   fileId: string;
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 export interface GetDownloadUrlResponse {
@@ -106,4 +113,6 @@ export interface AuditCompareReportRequest {
   addedLines: number;
   removedLines: number;
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }

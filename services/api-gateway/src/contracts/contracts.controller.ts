@@ -35,6 +35,7 @@ import {
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
+import { extractTenantContext } from "../common/tenant-context";
 import { NotificationHubService } from "../notifications/notification-hub.service";
 import {
   CreateCommentDto,
@@ -61,7 +62,11 @@ export class ContractsController {
     @Req() req: Request,
   ): Promise<ContractResponse> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: CreateContractRequest = { ...dto, createdById: sub };
+    const payload: CreateContractRequest = {
+      ...dto,
+      createdById: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.CREATE, payload)
@@ -90,6 +95,7 @@ export class ContractsController {
       mineOf: mine === "true" ? sub : undefined,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
+      tenantContext: extractTenantContext(req),
     };
     return firstValueFrom(
       this.userClient
@@ -104,7 +110,11 @@ export class ContractsController {
     const { sub } = (req as Request & { user: JwtPayload }).user;
     return firstValueFrom(
       this.userClient
-        .send<ContractResponse>(CONTRACT_PATTERNS.GET, { id, viewerId: sub })
+        .send<ContractResponse>(CONTRACT_PATTERNS.GET, {
+          id,
+          viewerId: sub,
+          tenantContext: extractTenantContext(req),
+        })
         .pipe(rpcToHttp()),
     );
   }
@@ -117,7 +127,12 @@ export class ContractsController {
     @Req() req: Request,
   ): Promise<ContractResponse> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: UpdateContractRequest = { ...dto, id, viewerId: sub };
+    const payload: UpdateContractRequest = {
+      ...dto,
+      id,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.UPDATE, payload)
@@ -133,7 +148,12 @@ export class ContractsController {
     @Req() req: Request,
   ): Promise<ContractResponse> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: UpdateContractStatusRequest = { ...dto, id, viewerId: sub };
+    const payload: UpdateContractStatusRequest = {
+      ...dto,
+      id,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.UPDATE_STATUS, payload)
@@ -155,6 +175,7 @@ export class ContractsController {
       mentions: dto.mentions,
       attachmentIds: dto.attachmentIds,
       viewerId: sub,
+      tenantContext: extractTenantContext(req),
     };
     return firstValueFrom(
       this.userClient
@@ -178,7 +199,11 @@ export class ContractsController {
     @Req() req: Request,
   ): Promise<CommentDto[]> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: ListCommentsRequest = { contractId: id, viewerId: sub };
+    const payload: ListCommentsRequest = {
+      contractId: id,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<CommentDto[]>(COMMENT_PATTERNS.LIST, payload)
@@ -202,6 +227,7 @@ export class ContractsController {
       mentions: dto.mentions,
       attachmentIds: dto.attachmentIds,
       viewerId: sub,
+      tenantContext: extractTenantContext(req),
     };
     return firstValueFrom(
       this.userClient
@@ -230,6 +256,7 @@ export class ContractsController {
       contractId: id,
       commentId,
       viewerId: sub,
+      tenantContext: extractTenantContext(req),
     };
     return firstValueFrom(
       this.userClient

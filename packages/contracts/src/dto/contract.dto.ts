@@ -1,3 +1,4 @@
+import type { TenantContext } from "./tenant.dto";
 import type { Company } from "./company.dto";
 
 export type SecurityLevel = "top" | "secure" | "normal";
@@ -146,12 +147,16 @@ export interface CreateContractRequest {
   files: FileInput[];
   // 참조수신자(cc). 폼 ccUsers/ccDepts/ccSecret 을 ccType+isSecret 으로 통합.
   references: CcRecipientInput[];
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 export interface GetContractRequest {
   id: string;
   // 조회자 id(gateway가 JWT sub 주입). 권한 없으면 비밀 참조자 숨김 + 상대회사 PII 마스킹.
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // 계약 필드 수정(부분). 관계(상대계약자/결재선/파일/참조)는 변경하지 않는다.
@@ -176,6 +181,8 @@ export interface UpdateContractRequest {
   references?: CcRecipientInput[];
   // 조회자 id(gateway가 JWT sub 주입). user-service에서 수정 권한(canEdit) 평가에 사용.
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 // 상태 전이. ownerId 지정 시 함께 배정.
@@ -185,6 +192,8 @@ export interface UpdateContractStatusRequest {
   ownerId?: string | null;
   // 조회자 id(gateway가 JWT sub 주입). user-service에서 전이/배정 권한 평가에 사용.
   viewerId?: string;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 export interface CounterpartyResponse {
@@ -286,6 +295,8 @@ export interface ListContractsRequest {
   mineOf?: string;
   page?: number;
   pageSize?: number;
+  // gateway 가 JWT 에서 추출해 주입(테넌트 격리).
+  tenantContext?: TenantContext;
 }
 
 export interface ListContractsResponse {

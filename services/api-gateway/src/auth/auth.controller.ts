@@ -1,8 +1,15 @@
-import { Body, Controller, HttpCode, Inject, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Post, Req, UseGuards } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { firstValueFrom } from "rxjs";
-import { AUTH_PATTERNS } from "@lawai/contracts";
+import type { Request } from "express";
+import {
+  AUTH_PATTERNS,
+  type JwtPayload,
+  type MyTenantsRequest,
+  type SwitchTenantRequest,
+} from "@lawai/contracts";
+import { JwtAuthGuard } from "./jwt-auth.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
 import {
   SignupDto,
@@ -74,6 +81,35 @@ export class AuthController {
       this.authClient
         .send(AUTH_PATTERNS.PASSWORD_RESET_CONFIRM, dto)
         .pipe(rpcToHttp()),
+    );
+  }
+
+  @Post("switch-tenant")
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "활성 테넌트 전환",
+    description: "로그인된 사용자가 소속된 다른 테넌트로 전환하고 새 토큰을 발급한다.",
+  })
+  switchTenant(@Body() dto: { tenantId: string }, @Req() req: Request) {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: SwitchTenantRequest = { userId: sub, tenantId: dto.tenantId };
+    return firstValueFrom(
+      this.authClient.send(AUTH_PATTERNS.SWITCH_TENANT, payload).pipe(rpcToHttp()),
+    );
+  }
+
+  @Get("me/tenants")
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "내 소속 테넌트 목록",
+    description: "JWT 사용자가 소속된 전체 테넌트 목록을 반환한다. isActive 로 현재 활성 테넌트를 표시.",
+  })
+  myTenants(@Req() req: Request) {
+    const { sub, activeTenantId } = (req as Request & { user: JwtPayload }).user;
+    const payload: MyTenantsRequest = { userId: sub, activeTenantId };
+    return firstValueFrom(
+      this.authClient.send(AUTH_PATTERNS.MY_TENANTS, payload).pipe(rpcToHttp()),
     );
   }
 }

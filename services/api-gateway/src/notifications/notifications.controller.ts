@@ -26,6 +26,7 @@ import {
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { SseJwtGuard } from "../auth/sse-jwt.guard";
 import { rpcToHttp } from "../common/rpc-to-http";
+import { extractTenantContext } from "../common/tenant-context";
 import { NotificationHubService } from "./notification-hub.service";
 
 // 가드 배치: 헤더(Bearer) 검증 JwtAuthGuard 를 클래스 레벨에 두면
@@ -69,6 +70,7 @@ export class NotificationsController {
     const payload: ListNotificationsRequest = {
       viewerId: sub,
       limit: limit ? Number(limit) : undefined,
+      tenantContext: extractTenantContext(req),
     };
     return firstValueFrom(
       this.userClient
@@ -85,7 +87,10 @@ export class NotificationsController {
   @UseGuards(JwtAuthGuard)
   markAllRead(@Req() req: Request): Promise<void> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: MarkAllNotificationsReadRequest = { viewerId: sub };
+    const payload: MarkAllNotificationsReadRequest = {
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<void>(NOTIFICATION_PATTERNS.MARK_ALL_READ, payload)
@@ -101,7 +106,11 @@ export class NotificationsController {
   @UseGuards(JwtAuthGuard)
   markRead(@Param("id") id: string, @Req() req: Request): Promise<void> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
-    const payload: MarkNotificationReadRequest = { id, viewerId: sub };
+    const payload: MarkNotificationReadRequest = {
+      id,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
     return firstValueFrom(
       this.userClient
         .send<void>(NOTIFICATION_PATTERNS.MARK_READ, payload)
