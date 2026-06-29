@@ -132,3 +132,88 @@ body {
     animation: none !important;
   }
 }
+
+/* === 대시보드 모션 (멀티컴퍼니 운영 콘솔) === */
+
+/* 활동 피드 — 위에서 슬라이드 + 페이드 인 */
+@keyframes feed-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.lawai-feed-item {
+  animation: feed-in 0.4s ease both;
+}
+
+/* 상태 dot — 라이브 펄스 (active 회사 표시) */
+@keyframes status-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(34,197,94,.5); }
+  70%  { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+.lawai-status-live {
+  animation: status-pulse 2.2s ease-in-out infinite;
+}
+
+/* KPI 카드 강조 — 미세한 shimmer 라인 */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.lawai-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(59,130,246,.08) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 4s linear infinite;
+}
+
+/* 차트 막대 — 아래에서 자라기 */
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+.lawai-bar {
+  transform-origin: bottom;
+  animation: bar-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 스파크라인 — 라인이 좌→우로 그려짐 */
+@keyframes spark-draw {
+  from { stroke-dashoffset: var(--spark-len); }
+  to   { stroke-dashoffset: 0; }
+}
+.lawai-spark {
+  stroke-dasharray: var(--spark-len);
+  animation: spark-draw 1.1s ease-out both;
+}
+
+/* 카운트업 카드 등장 — 스케일 + 페이드 */
+@keyframes kpi-pop {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.lawai-kpi-pop {
+  animation: kpi-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 행 hover 시 살짝 떠오름 */
+.lawai-row-hover {
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+.lawai-row-hover:hover {
+  background: rgba(59,130,246,.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lawai-feed-item,
+  .lawai-status-live,
+  .lawai-shimmer,
+  .lawai-bar,
+  .lawai-spark,
+  .lawai-kpi-pop {
+    animation: none !important;
+  }
+}
