@@ -13,7 +13,6 @@ import type {
   UpdatePasswordRequest,
   SearchUsersRequest,
   PublicUser,
-  Role,
 } from "@lawai/contracts";
 
 // department 관계를 include 한 User 행
@@ -22,7 +21,7 @@ type UserRow = {
   email: string;
   name: string;
   passwordHash: string;
-  role: Role;
+  isSystemAdmin: boolean;
   departmentId: string | null;
   createdAt: Date;
   department?: { name: string } | null;
@@ -97,7 +96,6 @@ export class UsersService {
       id: u.id,
       email: u.email,
       name: u.name,
-      role: u.role,
       departmentId: u.departmentId,
       departmentName: u.department?.name ?? null,
       createdAt: u.createdAt.toISOString(),
@@ -147,7 +145,7 @@ export class UsersService {
       email: u.email,
       name: u.name,
       passwordHash: u.passwordHash,
-      role: u.role,
+      isSystemAdmin: u.isSystemAdmin,
       departmentId: u.departmentId,
       departmentName: u.department?.name ?? null,
       createdAt: u.createdAt.toISOString(),

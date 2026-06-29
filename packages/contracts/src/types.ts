@@ -10,7 +10,6 @@ export interface PublicUser {
   id: string;
   email: string;
   name: string;
-  role: Role;
   departmentId: string | null;
   departmentName: string | null;
   createdAt: string;
