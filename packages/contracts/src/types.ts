@@ -10,6 +10,7 @@ export interface PublicUser {
   id: string;
   email: string;
   name: string;
+  isSystemAdmin: boolean;
   departmentId: string | null;
   departmentName: string | null;
   createdAt: string;

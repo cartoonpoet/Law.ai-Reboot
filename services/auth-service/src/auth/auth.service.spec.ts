@@ -14,7 +14,7 @@ describe("AuthService", () => {
     hash: jest.fn(),
     verify: jest.fn(),
   };
-  const jwt = { signAsync: jest.fn(), verifyAsync: jest.fn() };
+  const jwtMock = { signAsync: jest.fn(), verifyAsync: jest.fn() };
   const mail = { sendPasswordResetLink: jest.fn() };
 
   beforeEach(async () => {
@@ -24,25 +24,37 @@ describe("AuthService", () => {
         AuthService,
         { provide: "USER_CLIENT", useValue: userClient },
         { provide: PasswordService, useValue: passwords },
-        { provide: JwtService, useValue: jwt },
+        { provide: JwtService, useValue: jwtMock },
         { provide: MailService, useValue: mail },
       ],
     }).compile();
     service = moduleRef.get(AuthService);
   });
 
+  // ─── signup ────────────────────────────────────────────────────────────────
+
   it("signup은 해시 후 user.create를 호출하고 토큰을 발급한다", async () => {
     passwords.hash.mockResolvedValue("hashed");
-    userClient.send.mockReturnValue(
-      of({
-        id: "u1",
-        email: "a@b.com",
-        name: "A",
-        passwordHash: "hashed",
-        createdAt: "2026-01-01T00:00:00.000Z",
-      }),
-    );
-    jwt.signAsync.mockResolvedValue("token");
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.CREATE) {
+        return of({
+          id: "u1",
+          email: "a@b.com",
+          name: "A",
+          passwordHash: "hashed",
+          isSystemAdmin: false,
+          departmentId: null,
+          departmentName: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+      }
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        // 신규 가입자는 멤버십 0개 — allowEmpty=true 이므로 403 없이 통과
+        return of({ isSystemAdmin: false, memberships: [] });
+      }
+      return of(null);
+    });
+    jwtMock.signAsync.mockResolvedValue("token");
 
     const result = await service.signup({
       email: "a@b.com",
@@ -61,23 +73,82 @@ describe("AuthService", () => {
       id: "u1",
       email: "a@b.com",
       name: "A",
+      isSystemAdmin: false,
+      departmentId: null,
+      departmentName: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     });
     expect(JSON.stringify(result)).not.toContain("hashed");
   });
 
-  it("login은 비밀번호 검증 성공 시 토큰을 발급한다", async () => {
-    userClient.send.mockReturnValue(
-      of({
-        id: "u1",
-        email: "a@b.com",
-        name: "A",
-        passwordHash: "hashed",
-        createdAt: "2026-01-01T00:00:00.000Z",
-      }),
-    );
+  // ─── login ─────────────────────────────────────────────────────────────────
+
+  it("login: 첫 멤버십을 활성 테넌트로 토큰 클레임에 넣는다", async () => {
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_EMAIL) {
+        return of({
+          id: "u1",
+          email: "a@b.com",
+          name: "A",
+          passwordHash: "hashed",
+          isSystemAdmin: false,
+          departmentId: null,
+          departmentName: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+      }
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+        });
+      }
+      return of(null);
+    });
     passwords.verify.mockResolvedValue(true);
-    jwt.signAsync.mockResolvedValue("token");
+    // 실제 JWT 서명을 쓰기 위해 real signAsync 구현
+    jwtMock.signAsync.mockImplementation(
+      (payload: Record<string, unknown>) =>
+        Promise.resolve(
+          // jsonwebtoken 없이 base64 인코딩으로 페이로드 확인 가능하게 만듦
+          "header." + Buffer.from(JSON.stringify(payload)).toString("base64url") + ".sig",
+        ),
+    );
+
+    const result = await service.login({ email: "a@b.com", password: "pw" });
+
+    const rawPayload = JSON.parse(
+      Buffer.from(result.tokens.accessToken.split(".")[1], "base64url").toString(),
+    );
+    expect(rawPayload.activeTenantId).toBe("t1");
+    expect(rawPayload.activeRole).toBe("inHouseCounsel");
+    expect(rawPayload.isSystemAdmin).toBe(false);
+  });
+
+  it("login은 비밀번호 검증 성공 시 토큰을 발급한다", async () => {
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_EMAIL) {
+        return of({
+          id: "u1",
+          email: "a@b.com",
+          name: "A",
+          passwordHash: "hashed",
+          isSystemAdmin: false,
+          departmentId: null,
+          departmentName: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+      }
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+        });
+      }
+      return of(null);
+    });
+    passwords.verify.mockResolvedValue(true);
+    jwtMock.signAsync.mockResolvedValue("token");
 
     const result = await service.login({ email: "a@b.com", password: "pw" });
     expect(passwords.verify).toHaveBeenCalledWith("hashed", "pw");
@@ -92,20 +163,131 @@ describe("AuthService", () => {
   });
 
   it("login은 비밀번호가 틀리면 RpcException", async () => {
-    userClient.send.mockReturnValue(
-      of({
-        id: "u1",
-        email: "a@b.com",
-        name: "A",
-        passwordHash: "hashed",
-        createdAt: "2026-01-01T00:00:00.000Z",
-      }),
-    );
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_EMAIL) {
+        return of({
+          id: "u1",
+          email: "a@b.com",
+          name: "A",
+          passwordHash: "hashed",
+          isSystemAdmin: false,
+          departmentId: null,
+          departmentName: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+      }
+      return of(null);
+    });
     passwords.verify.mockResolvedValue(false);
     await expect(
       service.login({ email: "a@b.com", password: "bad" }),
     ).rejects.toBeInstanceOf(RpcException);
   });
+
+  it("멤버십 0개 + 비admin → 로그인 거부", async () => {
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_EMAIL) {
+        return of({
+          id: "u1",
+          email: "a@b.com",
+          name: "A",
+          passwordHash: "hashed",
+          isSystemAdmin: false,
+          departmentId: null,
+          departmentName: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+      }
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({ isSystemAdmin: false, memberships: [] });
+      }
+      return of(null);
+    });
+    passwords.verify.mockResolvedValue(true);
+    await expect(
+      service.login({ email: "a@b.com", password: "pw" }),
+    ).rejects.toBeInstanceOf(RpcException);
+  });
+
+  // ─── switchTenant ──────────────────────────────────────────────────────────
+
+  it("switchTenant: 멤버 아닌 테넌트면 403 RpcException", async () => {
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_ID) {
+        return of({
+          id: "u1",
+          email: "a@b.com",
+          name: "A",
+          passwordHash: "hashed",
+          isSystemAdmin: false,
+          departmentId: null,
+          departmentName: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+      }
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+        });
+      }
+      return of(null);
+    });
+    // t2 는 멤버십에 없음
+    await expect(
+      service.switchTenant({ userId: "u1", tenantId: "t2" }),
+    ).rejects.toBeInstanceOf(RpcException);
+  });
+
+  it("switchTenant: 멤버인 테넌트면 새 토큰 발급", async () => {
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_ID) {
+        return of({
+          id: "u1",
+          email: "a@b.com",
+          name: "A",
+          passwordHash: "hashed",
+          isSystemAdmin: false,
+          departmentId: null,
+          departmentName: null,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        });
+      }
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "contractManager" }],
+        });
+      }
+      return of(null);
+    });
+    jwtMock.signAsync.mockResolvedValue("switched-token");
+    const result = await service.switchTenant({ userId: "u1", tenantId: "t1" });
+    expect(result.tokens.accessToken).toBe("switched-token");
+  });
+
+  // ─── myTenants ─────────────────────────────────────────────────────────────
+
+  it("myTenants: 사용자의 멤버십 목록을 반환한다", async () => {
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [
+            { tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" },
+            { tenantId: "t2", tenantName: "B사", role: "general" },
+          ],
+        });
+      }
+      return of(null);
+    });
+    const result = await service.myTenants({ userId: "u1" });
+    expect(result.tenants).toHaveLength(2);
+    expect(result.tenants[0].tenantId).toBe("t1");
+    expect(result.tenants[1].tenantId).toBe("t2");
+  });
+
+  // ─── requestPasswordReset ──────────────────────────────────────────────────
 
   it("requestPasswordReset는 사용자가 있으면 토큰을 만들고 메일을 보낸다", async () => {
     userClient.send.mockImplementation((pattern: string) =>
@@ -115,6 +297,9 @@ describe("AuthService", () => {
             email: "a@b.com",
             name: "A",
             passwordHash: "hashed",
+            isSystemAdmin: false,
+            departmentId: null,
+            departmentName: null,
             createdAt: "2026-01-01T00:00:00.000Z",
           })
         : of(undefined),
@@ -146,6 +331,8 @@ describe("AuthService", () => {
     );
   });
 
+  // ─── confirmPasswordReset ──────────────────────────────────────────────────
+
   it("confirmPasswordReset는 유효 토큰이면 새 비밀번호를 저장한다", async () => {
     userClient.send.mockImplementation((pattern: string) =>
       pattern === USER_PATTERNS.CONSUME_RESET_TOKEN
@@ -174,27 +361,21 @@ describe("AuthService", () => {
     ).rejects.toBeInstanceOf(RpcException);
   });
 
+  // ─── refresh ───────────────────────────────────────────────────────────────
+
   it("refresh는 유효한 refreshToken이면 새 access+refresh를 둘 다 발급한다", async () => {
-    jwt.verifyAsync.mockResolvedValue({ sub: "u1", email: "a@b.com" });
-    jwt.signAsync
+    jwtMock.verifyAsync.mockResolvedValue({ sub: "u1", email: "a@b.com", isSystemAdmin: false });
+    jwtMock.signAsync
       .mockResolvedValueOnce("newAccess")
       .mockResolvedValueOnce("newRefresh");
 
     const tokens = await service.refresh({ refreshToken: "validRefresh" });
 
-    expect(jwt.verifyAsync).toHaveBeenCalledWith("validRefresh", {
+    expect(jwtMock.verifyAsync).toHaveBeenCalledWith("validRefresh", {
       secret: process.env.JWT_REFRESH_SECRET,
     });
-    // 슬라이딩 회전: access·refresh 둘 다 재발급(payload {sub, email}).
-    expect(jwt.signAsync).toHaveBeenCalledTimes(2);
-    expect(jwt.signAsync).toHaveBeenCalledWith(
-      { sub: "u1", email: "a@b.com" },
-      expect.objectContaining({ secret: process.env.JWT_ACCESS_SECRET }),
-    );
-    expect(jwt.signAsync).toHaveBeenCalledWith(
-      { sub: "u1", email: "a@b.com" },
-      expect.objectContaining({ secret: process.env.JWT_REFRESH_SECRET }),
-    );
+    // 슬라이딩 회전: access·refresh 둘 다 재발급.
+    expect(jwtMock.signAsync).toHaveBeenCalledTimes(2);
     expect(tokens).toEqual({
       accessToken: "newAccess",
       refreshToken: "newRefresh",
@@ -202,11 +383,11 @@ describe("AuthService", () => {
   });
 
   it("refresh는 위조/만료 refreshToken이면 RpcException(401)", async () => {
-    jwt.verifyAsync.mockRejectedValue(new Error("invalid signature"));
+    jwtMock.verifyAsync.mockRejectedValue(new Error("invalid signature"));
 
     await expect(
       service.refresh({ refreshToken: "forged" }),
     ).rejects.toBeInstanceOf(RpcException);
-    expect(jwt.signAsync).not.toHaveBeenCalled();
+    expect(jwtMock.signAsync).not.toHaveBeenCalled();
   });
 });

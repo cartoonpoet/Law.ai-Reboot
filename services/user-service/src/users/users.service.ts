@@ -96,6 +96,7 @@ export class UsersService {
       id: u.id,
       email: u.email,
       name: u.name,
+      isSystemAdmin: u.isSystemAdmin,
       departmentId: u.departmentId,
       departmentName: u.department?.name ?? null,
       createdAt: u.createdAt.toISOString(),
