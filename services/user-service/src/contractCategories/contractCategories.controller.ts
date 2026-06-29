@@ -1,6 +1,9 @@
 import { Controller } from "@nestjs/common";
-import { MessagePattern } from "@nestjs/microservices";
-import { CONTRACT_CATEGORY_PATTERNS } from "@lawai/contracts";
+import { MessagePattern, Payload } from "@nestjs/microservices";
+import {
+  CONTRACT_CATEGORY_PATTERNS,
+  type ListContractCategoriesRequest,
+} from "@lawai/contracts";
 import { ContractCategoriesService } from "./contractCategories.service";
 
 @Controller()
@@ -10,7 +13,7 @@ export class ContractCategoriesController {
   ) {}
 
   @MessagePattern(CONTRACT_CATEGORY_PATTERNS.LIST)
-  list() {
-    return this.contractCategories.list();
+  list(@Payload() req: ListContractCategoriesRequest = {}) {
+    return this.contractCategories.list(req);
   }
 }

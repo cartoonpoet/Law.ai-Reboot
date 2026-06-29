@@ -48,9 +48,12 @@ describe("ContractCategoriesService", () => {
     ];
     prismaMock.contractCategory.findMany.mockResolvedValue(rows);
 
-    const result = await service.list();
+    const result = await service.list({
+      tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+    });
 
     expect(prismaMock.contractCategory.findMany).toHaveBeenCalledWith({
+      where: { tenantId: "tenant-1" },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
     expect(result).toEqual([
@@ -64,7 +67,27 @@ describe("ContractCategoriesService", () => {
 
   it("list는 행이 없으면 빈 배열을 반환한다", async () => {
     prismaMock.contractCategory.findMany.mockResolvedValue([]);
-    const result = await service.list();
+    const result = await service.list({
+      tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+    });
     expect(result).toEqual([]);
+  });
+
+  it("admin(isSystemAdmin=true)은 tenantScope 비어 있어 where 없이 전체 조회한다", async () => {
+    prismaMock.contractCategory.findMany.mockResolvedValue([]);
+    await service.list({ tenantContext: { isSystemAdmin: true } });
+    expect(prismaMock.contractCategory.findMany).toHaveBeenCalledWith({
+      where: undefined,
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+  });
+
+  it("tenantContext 없으면 where 없이 전체 조회(하위 호환)", async () => {
+    prismaMock.contractCategory.findMany.mockResolvedValue([]);
+    await service.list();
+    expect(prismaMock.contractCategory.findMany).toHaveBeenCalledWith({
+      where: undefined,
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
   });
 });
