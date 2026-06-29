@@ -6,6 +6,7 @@ import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
 import { evaluate } from "./contracts.authz";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
+import { tenantScope, resolveTenantId } from "../common/tenant-scope";
 import { CATEGORY_LABEL_SEPARATOR } from "@lawai/contracts";
 import type {
   CreateContractRequest,
@@ -19,6 +20,7 @@ import type {
   UpdateContractRequest,
   UpdateContractStatusRequest,
   ContractStatus,
+  TenantContext,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -105,6 +107,8 @@ export class ContractsService {
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
+  // TODO(Task 10): user.role 이 User 모델에서 제거됐으므로 UserTenant.role 로 교체 필요.
+  //               현재는 타입 캐스트로 빌드만 통과시키고 Task 10 에서 완성한다.
   private async loadViewer(viewerId?: string): Promise<AuthzViewer | null> {
     if (!viewerId) return null;
     const user = await this.prisma.user.findUnique({
@@ -112,7 +116,12 @@ export class ContractsService {
       include: { department: true },
     });
     if (!user) return null;
-    return { id: user.id, role: user.role, departmentId: user.departmentId };
+    return {
+      id: user.id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      role: (user as any).role ?? "general",
+      departmentId: user.departmentId,
+    };
   }
 
   // contractInclude row → 권한 평가용 AuthzContract.
@@ -151,6 +160,7 @@ export class ContractsService {
   }
 
   async create(req: CreateContractRequest): Promise<ContractResponse> {
+    const ctx = req.tenantContext!;
     // 작성 부서: 생성자(createdById)의 소속 부서를 계약 부서로 스냅
     const creator = await this.prisma.user.findUnique({
       where: { id: req.createdById },
@@ -161,6 +171,7 @@ export class ContractsService {
         data: {
           code: generateCode(),
           title: req.title,
+          tenantId: resolveTenantId(ctx),
           departmentId: creator?.departmentId ?? null,
           securityLevel: req.securityLevel,
           reviewType: req.reviewType,
@@ -201,6 +212,7 @@ export class ContractsService {
           // 첨부 파일 메타데이터(계약서/첨부/참고).
           files: {
             create: req.files.map((f) => ({
+              tenantId: resolveTenantId(ctx),
               role: f.role,
               name: f.name,
               meta: f.meta,
@@ -244,8 +256,9 @@ export class ContractsService {
   }
 
   async get(req: GetContractRequest): Promise<ContractResponse> {
+    const ctx = req.tenantContext!;
     const row = await this.prisma.contract.findFirst({
-      where: { id: req.id, deletedAt: null },
+      where: { id: req.id, deletedAt: null, ...tenantScope(ctx) },
       include: contractInclude,
     });
     if (!row) {
@@ -295,12 +308,14 @@ export class ContractsService {
   }
 
   async list(req: ListContractsRequest): Promise<ListContractsResponse> {
+    const ctx = req.tenantContext!;
     const page = Math.max(1, req.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, req.pageSize ?? 20));
     const q = req.q?.trim();
 
     const where: Prisma.ContractWhereInput = {
       deletedAt: null,
+      ...tenantScope(ctx),
       ...(req.status ? { status: req.status } : {}),
       ...(req.party ? { party: req.party } : {}),
       ...(req.categoryId ? { categoryId: req.categoryId } : {}),
@@ -365,7 +380,8 @@ export class ContractsService {
   }
 
   async update(req: UpdateContractRequest): Promise<ContractResponse> {
-    const current = await this.ensureExists(req.id);
+    const ctx = req.tenantContext!;
+    const current = await this.ensureExists(req.id, ctx);
 
     // 수정 권한(canEdit) 가드 — 중앙 authz 결과만 사용.
     const viewer = await this.loadViewer(req.viewerId);
@@ -438,6 +454,7 @@ export class ContractsService {
           data: { role: f.role, sortOrder: f.sortOrder, name: f.name, meta: f.meta },
         })),
         create: creates.map((f) => ({
+          tenantId: resolveTenantId(ctx),
           role: f.role,
           name: f.name,
           meta: f.meta,
@@ -504,7 +521,8 @@ export class ContractsService {
   async updateStatus(
     req: UpdateContractStatusRequest,
   ): Promise<ContractResponse> {
-    const current = await this.ensureExists(req.id);
+    const ctx = req.tenantContext!;
+    const current = await this.ensureExists(req.id, ctx);
     const viewer = await this.loadViewer(req.viewerId);
     const authz = evaluate(viewer, this.toAuthzContract(current));
 
@@ -557,9 +575,13 @@ export class ContractsService {
 
   // 삭제되지 않은 계약 존재 확인 후 현재 행(관계 포함) 반환(없으면 404).
   // 권한 평가(evaluate)에 references/createdById/ownerId 가 필요하므로 contractInclude 로 로드.
-  private async ensureExists(id: string): Promise<ContractWithRelations> {
+  // tenantScope 를 where 에 합쳐 타 테넌트 id 위조를 차단한다.
+  private async ensureExists(
+    id: string,
+    ctx: TenantContext,
+  ): Promise<ContractWithRelations> {
     const row = await this.prisma.contract.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, ...tenantScope(ctx) },
       include: contractInclude,
     });
     if (!row) {

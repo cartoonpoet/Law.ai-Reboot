@@ -74,6 +74,11 @@ const createReq: CreateContractRequest = {
   ],
 };
 
+// 헬퍼: tenantContext 를 포함한 최소 컨텍스트 생성 (Task 8: 테넌트 격리)
+const makeCtx = (tenantId = "t1") => ({
+  tenantContext: { tenantId, isSystemAdmin: false } as const,
+});
+
 describe("ContractsService", () => {
   let service: ContractsService;
   // resolveCategoryLabel 이 메모리에서 부모 체인을 추적하는 데 쓰는 시드 트리(대>중>소).
@@ -187,7 +192,7 @@ describe("ContractsService", () => {
       ],
     });
 
-    const result = await service.create(createReq);
+    const result = await service.create({ ...createReq, ...makeCtx() });
 
     const arg = prismaMock.contract.create.mock.calls[0][0];
     expect(arg.data.code).toMatch(/^C\d{8}-\d{4}$/); // 관리번호 생성
@@ -206,10 +211,10 @@ describe("ContractsService", () => {
     expect(result.counterparties[0].snapshot.name).toBe("삼성전자(주)");
     expect(result.approvalLine?.steps).toHaveLength(2);
     expect(result.approvalLine?.steps[1].type).toBe("approve");
-    // 첨부: role+name+sortOrder 로 생성, size/mimeType/storageKey 는 미전송(메타 행)
+    // 첨부: role+name+sortOrder+tenantId 로 생성, size/mimeType/storageKey 는 미전송(메타 행)
     expect(arg.data.files.create).toEqual([
-      { role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", sortOrder: 0 },
-      { role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", sortOrder: 0 },
+      { tenantId: "t1", role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", sortOrder: 0 },
+      { tenantId: "t1", role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", sortOrder: 0 },
     ]);
     expect(result.files).toHaveLength(2);
     expect(result.files[0].role).toBe("contract");
@@ -226,11 +231,11 @@ describe("ContractsService", () => {
 
   it("get은 deletedAt null 조건으로 조회하고 없으면 404 RpcException", async () => {
     prismaMock.contract.findFirst.mockResolvedValue(null);
-    await expect(service.get({ id: "missing" })).rejects.toBeInstanceOf(
+    await expect(service.get({ id: "missing", ...makeCtx() })).rejects.toBeInstanceOf(
       RpcException,
     );
     expect(prismaMock.contract.findFirst).toHaveBeenCalledWith({
-      where: { id: "missing", deletedAt: null },
+      where: { id: "missing", deletedAt: null, tenantId: "t1" },
       include: {
         requester: { select: { name: true } },
         owner: { select: { name: true } },
@@ -267,7 +272,7 @@ describe("ContractsService", () => {
     ]);
     prismaMock.contract.count.mockResolvedValue(1);
 
-    const res = await service.list({ q: "계약", status: "legalReview", page: 1, pageSize: 20 });
+    const res = await service.list({ q: "계약", status: "legalReview", page: 1, pageSize: 20, ...makeCtx() });
 
     const findArg = prismaMock.contract.findMany.mock.calls[0][0];
     expect(findArg.where.deletedAt).toBeNull();
@@ -290,7 +295,7 @@ describe("ContractsService", () => {
     prismaMock.contract.findMany.mockResolvedValue([]);
     prismaMock.contract.count.mockResolvedValue(0);
 
-    await service.list({ categoryId: "cat-saas", page: 1, pageSize: 20 });
+    await service.list({ categoryId: "cat-saas", page: 1, pageSize: 20, ...makeCtx() });
 
     const findArg = prismaMock.contract.findMany.mock.calls[0][0];
     expect(findArg.where.categoryId).toBe("cat-saas");
@@ -302,7 +307,7 @@ describe("ContractsService", () => {
     prismaMock.contract.findMany.mockResolvedValue([]);
     prismaMock.contract.count.mockResolvedValue(0);
 
-    await service.list({ page: 1, pageSize: 20 });
+    await service.list({ page: 1, pageSize: 20, ...makeCtx() });
 
     const findArg = prismaMock.contract.findMany.mock.calls[0][0];
     expect(findArg.where.categoryId).toBeUndefined();
@@ -341,7 +346,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview" });
     prismaMock.contract.update.mockResolvedValue(fullRow("reviewDone"));
-    const res = await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1" });
+    const res = await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1", ...makeCtx() });
     expect(prismaMock.contract.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "ct-1" }, data: expect.objectContaining({ status: "reviewDone" }) }),
     );
@@ -353,7 +358,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned" });
     await expect(
-      service.updateStatus({ id: "ct-1", status: "signed", viewerId: "admin-1" }),
+      service.updateStatus({ id: "ct-1", status: "signed", viewerId: "admin-1", ...makeCtx() }),
     ).rejects.toBeInstanceOf(RpcException);
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
@@ -363,7 +368,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
     prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
-    await service.update({ id: "ct-1", title: "수정됨", dueDate: "2026-08-01", viewerId: "admin-1" });
+    await service.update({ id: "ct-1", title: "수정됨", dueDate: "2026-08-01", viewerId: "admin-1", ...makeCtx() });
     const arg = prismaMock.contract.update.mock.calls[0][0];
     expect(arg.data.title).toBe("수정됨");
     expect(arg.data.dueDate).toEqual(new Date("2026-08-01"));
@@ -373,7 +378,7 @@ describe("ContractsService", () => {
   it("update는 없는 계약이면 404", async () => {
     prismaMock.contract.findFirst.mockResolvedValue(null);
     await expect(
-      service.update({ id: "missing", title: "x", viewerId: "admin-1" }),
+      service.update({ id: "missing", title: "x", viewerId: "admin-1", ...makeCtx() }),
     ).rejects.toBeInstanceOf(RpcException);
   });
 
@@ -384,6 +389,7 @@ describe("ContractsService", () => {
     await service.update({
       id: "ct-1",
       viewerId: "admin-1",
+      ...makeCtx(),
       files: [{ role: "contract", name: "new.docx", meta: "DOCX", sortOrder: 0 }],
       references: [{ ccType: "dept", isSecret: false, refId: "d2", name: "운영팀" }],
       approvers: [],
@@ -421,7 +427,7 @@ describe("ContractsService", () => {
 
   it("get: 생성자는 비밀참조·PII 원문을 본다", async () => {
     prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
-    const res = await service.get({ id: "ct-1", viewerId: "creator-1" });
+    const res = await service.get({ id: "ct-1", viewerId: "creator-1", ...makeCtx() });
     expect(res.references).toHaveLength(2);
     expect(res.counterparties[0].snapshot.bizNo).toBe("124-81-00998");
     expect(res.counterparties[0].snapshot.managerEmail).toBe("a@law.ai");
@@ -431,7 +437,7 @@ describe("ContractsService", () => {
     // cc(refId:"u1") 에 든 general → canView=true, 비특권 → maskSecret=true.
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "u1", role: "general", departmentId: "dept-9" });
     prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
-    const res = await service.get({ id: "ct-1", viewerId: "u1" });
+    const res = await service.get({ id: "ct-1", viewerId: "u1", ...makeCtx() });
     expect(res.references).toHaveLength(1);
     expect(res.references[0].isSecret).toBe(false);
     expect(res.counterparties[0].snapshot.bizNo).toBe("124-**-*****");
@@ -443,7 +449,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "stranger", role: "general", departmentId: "dept-9" });
     prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
     await expect(
-      service.get({ id: "ct-1", viewerId: "stranger" }),
+      service.get({ id: "ct-1", viewerId: "stranger", ...makeCtx() }),
     ).rejects.toBeInstanceOf(RpcException);
   });
 
@@ -451,7 +457,7 @@ describe("ContractsService", () => {
     // admin → 전체 권한.
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
-    const res = await service.get({ id: "ct-1", viewerId: "admin-1" });
+    const res = await service.get({ id: "ct-1", viewerId: "admin-1", ...makeCtx() });
     expect(res.can).toEqual({ edit: true, assign: true, transition: true, delete: true });
   });
 
@@ -461,7 +467,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "g-1", role: "general", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
     await expect(
-      service.update({ id: "ct-1", title: "x", viewerId: "g-1" }),
+      service.update({ id: "ct-1", title: "x", viewerId: "g-1", ...makeCtx() }),
     ).rejects.toMatchObject({ error: { status: 403 } });
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
@@ -470,7 +476,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "g-1", role: "general", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview" });
     await expect(
-      service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "g-1" }),
+      service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "g-1", ...makeCtx() }),
     ).rejects.toMatchObject({ error: { status: 403 } });
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
@@ -479,7 +485,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview" });
     await expect(
-      service.updateStatus({ id: "ct-1", status: "signed", viewerId: "admin-1" }),
+      service.updateStatus({ id: "ct-1", status: "signed", viewerId: "admin-1", ...makeCtx() }),
     ).rejects.toMatchObject({ error: { status: 400 } });
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
@@ -488,7 +494,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
     // securityLevel: "secure" (fullRow 기본)
     prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
-    await service.get({ id: "ct-1", viewerId: "admin-1" });
+    await service.get({ id: "ct-1", viewerId: "admin-1", ...makeCtx() });
     expect(auditMock.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "view",
@@ -506,7 +512,7 @@ describe("ContractsService", () => {
       ...rowWithSecrets(),
       securityLevel: "normal",
     });
-    await service.get({ id: "ct-1", viewerId: "admin-1" });
+    await service.get({ id: "ct-1", viewerId: "admin-1", ...makeCtx() });
     const viewCalls = auditMock.record.mock.calls.filter(
       (c) => c[0]?.action === "view",
     );
@@ -519,7 +525,7 @@ describe("ContractsService", () => {
       id: "ct-new",
       createdById: "user-uuid-1",
     });
-    await service.create(createReq);
+    await service.create({ ...createReq, ...makeCtx() });
     expect(auditMock.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "create",
@@ -534,7 +540,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
     prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
-    await service.update({ id: "ct-1", title: "수정됨", viewerId: "admin-1" });
+    await service.update({ id: "ct-1", title: "수정됨", viewerId: "admin-1", ...makeCtx() });
     expect(auditMock.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "update",
@@ -549,7 +555,7 @@ describe("ContractsService", () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview" });
     prismaMock.contract.update.mockResolvedValue(fullRow("reviewDone"));
-    await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1" });
+    await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1", ...makeCtx() });
     expect(auditMock.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "transition",
@@ -572,7 +578,7 @@ describe("ContractsService", () => {
         categoryLabel: "개발/공급 > 소프트웨어 > SaaS 이용",
       });
 
-      const result = await service.create({ ...createReq, categoryId: "cat-saas" });
+      const result = await service.create({ ...createReq, categoryId: "cat-saas", ...makeCtx() });
 
       const data = prismaMock.contract.create.mock.calls[0][0].data;
       expect(data.categoryId).toBe("cat-saas");
@@ -591,7 +597,7 @@ describe("ContractsService", () => {
         categoryId: "cat-major",
         categoryLabel: "개발/공급",
       });
-      await service.create({ ...createReq, categoryId: "cat-major" });
+      await service.create({ ...createReq, categoryId: "cat-major", ...makeCtx() });
       const data = prismaMock.contract.create.mock.calls[0][0].data;
       expect(data.categoryId).toBe("cat-major");
       expect(data.categoryLabel).toBe("개발/공급");
@@ -604,7 +610,7 @@ describe("ContractsService", () => {
         categoryId: null,
         categoryLabel: null,
       });
-      await service.create({ ...createReq, categoryId: null });
+      await service.create({ ...createReq, categoryId: null, ...makeCtx() });
       const data = prismaMock.contract.create.mock.calls[0][0].data;
       expect(data.categoryId).toBeNull();
       expect(data.categoryLabel).toBeNull();
@@ -618,7 +624,7 @@ describe("ContractsService", () => {
         categoryId: "no-such-id",
         categoryLabel: null,
       });
-      await service.create({ ...createReq, categoryId: "no-such-id" });
+      await service.create({ ...createReq, categoryId: "no-such-id", ...makeCtx() });
       const data = prismaMock.contract.create.mock.calls[0][0].data;
       expect(data.categoryId).toBe("no-such-id");
       // 트리에 없는 id → 체인 0건 → null.
@@ -636,7 +642,7 @@ describe("ContractsService", () => {
         categoryId: "a",
         categoryLabel: "B > A",
       });
-      await service.create({ ...createReq, categoryId: "a" });
+      await service.create({ ...createReq, categoryId: "a", ...makeCtx() });
       const data = prismaMock.contract.create.mock.calls[0][0].data;
       // 순환이라도 각 노드 1회만 방문 → 유한 경로.
       expect(data.categoryLabel).toBe("B > A");
@@ -647,7 +653,7 @@ describe("ContractsService", () => {
       prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
       prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
 
-      await service.update({ id: "ct-1", categoryId: "cat-minor", viewerId: "admin-1" });
+      await service.update({ id: "ct-1", categoryId: "cat-minor", viewerId: "admin-1", ...makeCtx() });
 
       const data = prismaMock.contract.update.mock.calls[0][0].data;
       expect(data.categoryId).toBe("cat-minor");
@@ -659,7 +665,7 @@ describe("ContractsService", () => {
       prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
       prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
 
-      await service.update({ id: "ct-1", categoryId: null, viewerId: "admin-1" });
+      await service.update({ id: "ct-1", categoryId: null, viewerId: "admin-1", ...makeCtx() });
 
       const data = prismaMock.contract.update.mock.calls[0][0].data;
       expect(data.categoryId).toBeNull();
@@ -671,7 +677,7 @@ describe("ContractsService", () => {
       prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
       prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
 
-      await service.update({ id: "ct-1", title: "제목만", viewerId: "admin-1" });
+      await service.update({ id: "ct-1", title: "제목만", viewerId: "admin-1", ...makeCtx() });
 
       const data = prismaMock.contract.update.mock.calls[0][0].data;
       expect(data.categoryId).toBeUndefined();
@@ -685,9 +691,64 @@ describe("ContractsService", () => {
         categoryId: "cat-saas",
         categoryLabel: "개발/공급 > 소프트웨어 > SaaS 이용",
       });
-      const res = await service.get({ id: "ct-1", viewerId: "admin-1" });
+      const res = await service.get({ id: "ct-1", viewerId: "admin-1", ...makeCtx() });
       expect(res.categoryId).toBe("cat-saas");
       expect(res.categoryLabel).toBe("개발/공급 > 소프트웨어 > SaaS 이용");
     });
+  });
+
+  // --- Task 8: 테넌트 격리(tenantScope) ---
+
+  it("get: 타 테넌트 계약은 404 (tenantScope 적용)", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue(null); // scope 로 안 잡힘
+    await expect(
+      service.get({ id: "ct-other", ...makeCtx("t1") }),
+    ).rejects.toBeInstanceOf(RpcException);
+    const arg = prismaMock.contract.findFirst.mock.calls[0][0];
+    expect(arg.where).toMatchObject({ tenantId: "t1" });
+  });
+
+  it("create: 행에 활성 tenantId 를 박는다", async () => {
+    prismaMock.contract.create.mockResolvedValue({ ...fullRow("unassigned"), id: "ct-new" });
+    await service.create({ ...createReq, ...makeCtx("t1") });
+    const arg = prismaMock.contract.create.mock.calls[0][0];
+    expect(arg.data.tenantId).toBe("t1");
+  });
+
+  it("시스템 admin 은 tenantScope 없이 전 테넌트 조회", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: "admin-1", role: "admin", departmentId: "dept-1" });
+    prismaMock.contract.findFirst.mockResolvedValue(rowWithSecrets());
+    await service.get({ id: "ct1", viewerId: "admin-1", tenantContext: { isSystemAdmin: true } });
+    const arg = prismaMock.contract.findFirst.mock.calls[0][0];
+    expect(arg.where.tenantId).toBeUndefined();
+  });
+
+  it("list: tenantScope 가 where 에 포함된다", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+    await service.list({ page: 1, pageSize: 20, ...makeCtx("t1") });
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    expect(findArg.where.tenantId).toBe("t1");
+    const countArg = prismaMock.contract.count.mock.calls[0][0];
+    expect(countArg.where.tenantId).toBe("t1");
+  });
+
+  it("update: tenantScope 소유 검증 후 수정 (타 테넌트면 404)", async () => {
+    // 소유 검증(findFirst) 에서 null → 404 (타 테넌트 id 위조)
+    prismaMock.contract.findFirst.mockResolvedValue(null);
+    await expect(
+      service.update({ id: "ct-other", title: "x", ...makeCtx("t1") }),
+    ).rejects.toBeInstanceOf(RpcException);
+    const arg = prismaMock.contract.findFirst.mock.calls[0][0];
+    expect(arg.where).toMatchObject({ tenantId: "t1" });
+  });
+
+  it("updateStatus: tenantScope 소유 검증 후 상태 전이 (타 테넌트면 404)", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue(null);
+    await expect(
+      service.updateStatus({ id: "ct-other", status: "legalReview", ...makeCtx("t1") }),
+    ).rejects.toBeInstanceOf(RpcException);
+    const arg = prismaMock.contract.findFirst.mock.calls[0][0];
+    expect(arg.where).toMatchObject({ tenantId: "t1" });
   });
 });
