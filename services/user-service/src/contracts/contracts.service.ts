@@ -413,11 +413,16 @@ export class ContractsService {
     if (req.party !== undefined) data.party = req.party;
     if (req.categoryId !== undefined) {
       data.categoryId = req.categoryId;
-      const resolvedLabel = await this.resolveCategoryLabel(req.categoryId, ctx);
-      if (req.categoryId && !resolvedLabel) {
-        throw new RpcException({ status: 400, message: "유효하지 않은 카테고리" });
+      if (req.categoryId) {
+        const resolvedLabel = await this.resolveCategoryLabel(req.categoryId, ctx);
+        if (!resolvedLabel) {
+          throw new RpcException({ status: 400, message: "유효하지 않은 카테고리" });
+        }
+        data.categoryLabel = resolvedLabel;
+      } else {
+        // null means unset the category
+        data.categoryLabel = null;
       }
-      data.categoryLabel = resolvedLabel;
     }
     if (req.requesterId !== undefined) data.requesterId = req.requesterId;
     if (req.ownerId !== undefined) data.ownerId = req.ownerId;
