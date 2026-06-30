@@ -58,7 +58,11 @@ describe("SseJwtGuard", () => {
   });
 
   it("VALIDATE 성공 시 payload 를 req.user 에 주입하고 true 를 반환한다", async () => {
-    const payload: JwtPayload = { sub: "u-1", email: "u1@law.ai" };
+    const payload: JwtPayload = {
+      sub: "u-1",
+      email: "u1@law.ai",
+      isSystemAdmin: false,
+    };
     sendMock.mockReturnValue(of(payload));
 
     const { context, req } = makeContext({ token: "valid-token" });
