@@ -3,6 +3,7 @@ import { RpcException } from "@nestjs/microservices";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { tenantScope, resolveTenantId } from "../common/tenant-scope";
 import type {
   SearchCompaniesRequest,
   CreateCompanyRequest,
@@ -31,8 +32,14 @@ export class CompaniesService {
   async search(req: SearchCompaniesRequest): Promise<Company[]> {
     const q = req.q.trim();
     if (!q) return [];
+    const ctx = req.tenantContext;
+    if (!ctx) {
+      throw new RpcException({ status: 400, message: "테넌트 컨텍스트가 없습니다" });
+    }
+    const tScope = tenantScope(ctx);
     const rows = (await this.prisma.company.findMany({
       where: {
+        ...tScope,
         OR: [
           { name: { contains: q, mode: "insensitive" } },
           { bizNo: { contains: q, mode: "insensitive" } },
@@ -46,6 +53,7 @@ export class CompaniesService {
   }
 
   async create(req: CreateCompanyRequest): Promise<Company> {
+    const ctx = req.tenantContext!;
     // 사업자번호: 입력 시 그대로, 미입력 시 개인(individual)만 임시번호 자동생성. 회사는 필수.
     const trimmed = req.bizNo?.trim();
     let bizNo: string;
@@ -65,6 +73,7 @@ export class CompaniesService {
           type: req.type,
           name: req.name,
           bizNo,
+          tenantId: resolveTenantId(ctx),
           ceo: req.ceo ?? null,
           phone: req.phone ?? null,
           address: req.address ?? null,

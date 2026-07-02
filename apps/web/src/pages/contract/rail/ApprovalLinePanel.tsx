@@ -1,28 +1,35 @@
-import { useFieldArray, useFormContext } from "react-hook-form";
-import { Card, Avatar, Button, Icon, themeVars } from "@lawkit/ui";
+import { useState } from "react";
+import { useFormContext, useWatch } from "react-hook-form";
+import { Card, Avatar, Button, Icon } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
+import { ApprovalLineModal } from "../sections/ApprovalLineModal";
+import { APPROVER_TYPE_LABEL, APPROVER_TYPE_AVATAR } from "../sections/approverMeta";
+import * as appr from "../sections/approvalLineModal.css";
+import * as css from "../contractRequest.css";
 
 export function ApprovalLinePanel() {
-  const { control } = useFormContext<ContractRequestForm>();
-  const { fields, append } = useFieldArray({ control, name: "approvers" });
+  const { control, setValue } = useFormContext<ContractRequestForm>();
+  const approvers = useWatch({ control, name: "approvers" }) ?? [];
+  const [open, setOpen] = useState(false);
+
   const header = (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <Icon name="factCheck" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />
+    <span className={css.railHead}>
+      <Icon name="factCheck" size="sm" className={css.railHeadIcon} />
       결재선
     </span>
   );
 
   return (
     <Card bordered header={header}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {fields.map((f, i) => (
-          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ width: 16, fontSize: 11, fontWeight: 800, color: themeVars.color.textMuted, textAlign: "center" }}>{i + 1}</span>
-            <Avatar initials={f.name[0]} color="primary" size="sm" />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: themeVars.color.textHeading }}>{f.name}</div>
-              <div style={{ fontSize: 11, color: themeVars.color.textMuted }}>{f.role}</div>
+      <div className={css.apprList}>
+        {approvers.map((a, i) => (
+          <div key={`${a.name}-${i}`} className={css.apprRow}>
+            <Avatar size="sm" color={APPROVER_TYPE_AVATAR[a.type]} initials={a.name[0]} />
+            <div className={css.apprMain}>
+              <div className={css.apprName}>{a.name}</div>
+              <div className={css.apprDept}>{a.dept}</div>
             </div>
+            <span className={appr.typeBadge[a.type]}>{APPROVER_TYPE_LABEL[a.type]}</span>
           </div>
         ))}
         <Button
@@ -30,12 +37,23 @@ export function ApprovalLinePanel() {
           variant="outline"
           color="secondary"
           size="small"
-          onClick={() => append({ name: "신규", role: "결재 · 미지정" })}
-          style={{ width: "100%", justifyContent: "center", borderStyle: "dashed", borderColor: themeVars.color.neutralBorderStrong, color: themeVars.color.textMuted }}
+          iconLeft={<Icon name="factCheck" size="sm" />}
+          onClick={() => setOpen(true)}
         >
-          + 결재자 추가
+          결재선 설정
         </Button>
       </div>
+
+      {open && (
+        <ApprovalLineModal
+          initial={approvers}
+          onClose={() => setOpen(false)}
+          onApply={(next) => {
+            setValue("approvers", next, { shouldDirty: true });
+            setOpen(false);
+          }}
+        />
+      )}
     </Card>
   );
 }

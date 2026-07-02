@@ -1,5 +1,6 @@
 export interface ContractRow {
   id: string;
+  code?: string;
   name: string;
   party: string;
   sub: string;
@@ -27,13 +28,30 @@ export interface Risk {
   suggest: string;
 }
 
-export interface Comment {
-  who: string;
-  role: string;
-  time: string;
-  text: string;
-  attach: string | null;
-  system: boolean;
+// 결재선 단계 뷰모델(approvalLine.steps[] 에서 파생).
+export interface ApprovalStepView {
+  order: number;
+  name: string;
+  dept: string;
+  type: string; // 기안/합의/결재/참조
+  typeKind: "draft" | "approve" | "agree" | "refer";
+  status: string; // 완료/진행중/대기
+  statusKind: "done" | "now" | "wait";
+}
+
+// 관련문서 행 뷰모델(details.relatedDocs[] 에서 파생).
+export interface RelatedDocView {
+  id: string;
+  name: string;
+  sub: string;
+  date: string;
+}
+
+// 참조수신자 뷰모델(references 에서 파생).
+export interface CcRecipientView {
+  id: string;
+  name: string;
+  isSecret: boolean;
 }
 
 export interface ContractDetail {
@@ -47,7 +65,16 @@ export interface ContractDetail {
   catPath: string[];
   period: string;
   type: string;
-  files: { name: string; meta: string; kind: string }[];
+  // id/mimeType/hasStorage 는 미리보기 모달 활성 조건에 사용. 신규 업로드는 R2 storageKey
+  // 가 채워져 미리보기/비교 활성, 레거시(메타데이터만)는 hasStorage=false 라 버튼 비활성.
+  files: {
+    id: string | null;
+    name: string;
+    meta: string;
+    kind: string;
+    mimeType: string | null;
+    hasStorage: boolean;
+  }[];
   ccDept: string[];
   counter: string;
   lang: string;
@@ -57,6 +84,20 @@ export interface ContractDetail {
   payTerms: string;
   purpose: string;
   notes: string;
+  // --- detail v3 확장(시안 정합) ---
+  createdAt: string | null; // 등록일(코어 createdAt, ISO)
+  dueDate: string | null; // 계약예정일(코어 dueDate, null→빈값)
+  moneyNote: string | null; // 금액 메모(details.moneyNote, 빈문자열→null)
+  keyPoints: string | null; // 주요 협의사항(details.keyPoints, 빈문자열→null)
+  urls: string[]; // 기타 URL(details.urls)
+  project: { id: string; name: string } | null; // 관련 프로젝트(details.project)
+  relatedDocs: RelatedDocView[]; // 관련문서(details.relatedDocs)
+  detailsOwner: { id: string; name: string } | null; // 업무담당자(details.owner = 상대측, 코어 owner와 다름)
+  counterpartyBizNo: string | null; // 상대 사업자번호(counterparties[0].snapshot.bizNo)
+  counterpartyRep: string | null; // 상대 대표(counterparties[0].snapshot.ceo)
+  ccUser: CcRecipientView[]; // 참조수신자(사용자, !isSecret)
+  ccSecret: CcRecipientView[]; // 참조수신자(비밀, 백엔드가 권한 따라 마스킹)
+  approvalLine: ApprovalStepView[] | null; // 결재선(approvalLine.steps, null→빈 상태)
 }
 
 export const CONTRACTS_FULL: ContractRow[] = [
@@ -94,20 +135,35 @@ export const RISKS: Risk[] = [
   { level: "low", clause: "준거법·관할", finding: "관할 법원이 상대방 소재지 기준입니다.", suggest: "당사 소재지(서울중앙) 변경 검토" },
 ];
 
-export const COMMENTS: Comment[] = [
-  { who: "관리자1", role: "요청자", time: "2026-06-09 16:08", text: "계약 검토를 요청 드립니다. 첨부한 계약서 기준으로 검토 부탁드립니다.", attach: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx", system: false },
-  { who: "관리자1", role: "시스템", time: "2026-06-09 16:08", text: "[배정 중] 상태로 변경되었습니다.", attach: null, system: true },
-  { who: "손준호", role: "법무팀", time: "2026-06-09 16:32", text: "배정받았습니다. 손해배상 한도와 지체상금 조항 위주로 검토 진행하겠습니다.", attach: null, system: false },
-];
-
 const SAMPLE_DETAIL: ContractDetail = {
   id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", status: "법무 검토 중", secure: true, stage: "신규계약",
   requester: "관리자1", owner: "김기찬", catPath: ["본사계약", "개발/공급", "용역"],
   period: "2026-06-12 ~ 2027-06-11", type: "일반 검토요청",
   files: [
-    { name: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx", meta: "1.8 MB", kind: "계약서" },
-    { name: "별첨1_물품명세_단가표.xlsx", meta: "248 KB", kind: "첨부" },
-    { name: "사업제안_검토참고.pdf", meta: "3.1 MB", kind: "참고" },
+    {
+      id: null,
+      name: "(D013) 한라산EV_충전기_공급계약서_v2.0.docx",
+      meta: "1.8 MB",
+      kind: "계약서",
+      mimeType: null,
+      hasStorage: false,
+    },
+    {
+      id: null,
+      name: "별첨1_물품명세_단가표.xlsx",
+      meta: "248 KB",
+      kind: "첨부",
+      mimeType: null,
+      hasStorage: false,
+    },
+    {
+      id: null,
+      name: "사업제안_검토참고.pdf",
+      meta: "3.1 MB",
+      kind: "참고",
+      mimeType: null,
+      hasStorage: false,
+    },
   ],
   ccDept: ["개발팀", "운영팀", "인프라팀"], counter: "AAA (사업자 110-81-xxxxx)", lang: "국문", legalCat: "국내 법무",
   negotiation: 60,
@@ -115,6 +171,19 @@ const SAMPLE_DETAIL: ContractDetail = {
   payTerms: "선급금 30% / 중도금 40% / 잔금 30%, 검수 완료 후 30일 이내 지급",
   purpose: "EV 충전 인프라 확충을 위한 충전기 하드웨어 공급 및 설치 용역 계약. 공급사 AAA로부터 급속/완속 충전기 일괄 공급받아 전국 12개 거점에 설치.",
   notes: "지체상금·하자보수 조항 및 손해배상 한도 협의 필요. 표준 공급계약 대비 검수 기준 강화 요청.",
+  createdAt: "2026-06-09",
+  dueDate: "2026-06-11",
+  moneyNote: "부가세 별도, 검수 완료 기준",
+  keyPoints: "납기·검수 기준 및 하자보수 범위 명확화. 지체상금율 협의.",
+  urls: [],
+  project: null,
+  relatedDocs: [],
+  detailsOwner: null,
+  counterpartyBizNo: "110-81-xxxxx",
+  counterpartyRep: null,
+  ccUser: [],
+  ccSecret: [],
+  approvalLine: null,
 };
 
 export function getContractDetail(id: string): ContractDetail {

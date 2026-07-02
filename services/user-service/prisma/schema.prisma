@@ -5,16 +5,98 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["users", "companies", "contracts", "shared"]
+}
+
+enum TenantPlan {
+  enterprise
+  pro
+  starter
+
+  @@schema("users")
+}
+
+enum TenantStatus {
+  active
+  trial
+  suspended
+
+  @@schema("users")
+}
+
+enum TenantRole {
+  general
+  contractManager
+  inHouseCounsel
+  outsideCounsel
+  sealManager
+
+  @@schema("users")
+}
+
+model Tenant {
+  id        String       @id @default(uuid())
+  name      String
+  plan      TenantPlan   @default(starter)
+  status    TenantStatus @default(active)
+  createdAt DateTime     @default(now())
+
+  memberships UserTenant[]
+
+  @@schema("users")
+}
+
+model UserTenant {
+  id       String     @id @default(uuid())
+  userId   String
+  tenantId String
+  role     TenantRole @default(general)
+  joinedAt DateTime   @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([tenantId])
+  @@schema("users")
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  users     User[]
+  contracts Contract[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@schema("users")
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  createdAt    DateTime @default(now())
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  isSystemAdmin Boolean  @default(false)
+  departmentId  String?
+  emailNotify   Boolean  @default(true)
+  createdAt     DateTime @default(now())
 
+  department          Department?          @relation(fields: [departmentId], references: [id])
   passwordResetTokens PasswordResetToken[]
+  tenantMemberships   UserTenant[]
+  createdContracts    Contract[]           @relation("ContractCreatedBy")
+  requestedContracts  Contract[]           @relation("ContractRequester")
+  ownedContracts      Contract[]           @relation("ContractOwner")
+  authoredComments    Comment[]            @relation("CommentAuthor")
+  commentMentions     CommentMention[]     @relation("MentionedUser")
+
+  @@index([departmentId])
+  @@schema("users")
 }
 
 model PasswordResetToken {
@@ -28,18 +110,22 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@schema("users")
 }
 
 enum CompanyType {
   company
   individual
+
+  @@schema("companies")
 }
 
 model Company {
   id            String      @id @default(uuid())
   type          CompanyType @default(company)
   name          String
-  bizNo         String      @unique
+  bizNo         String
+  tenantId      String
   ceo           String?
   phone         String?
   address       String?
@@ -49,5 +135,332 @@ model Company {
   managerEmail  String?
   createdAt     DateTime    @default(now())
 
+  counterparties Counterparty[]
+
+  @@unique([tenantId, bizNo])
   @@index([name])
+  @@index([tenantId])
+  @@schema("companies")
+}
+
+enum SecurityLevel {
+  top
+  secure
+  normal
+
+  @@schema("contracts")
+}
+
+enum ReviewType {
+  normal
+  std
+
+  @@schema("contracts")
+}
+
+enum ContractStatus {
+  draft // 임시 저장
+  unassigned // 미배정
+  assigning // 배정 중
+  legalReview // 법무 검토 중
+  requesterReview // 요청자 검토 중
+  reviewDone // 검토 완료
+  signing // 체결 진행
+  signed // 체결 완료
+  fulfilling // 계약 이행
+  closed // 계약 종료
+
+  @@schema("contracts")
+}
+
+// 계약 분류 트리(자기참조). 루트=parentId NULL. slug=계층 경로 dot-notation 영문 안정 식별자(전역 unique).
+model ContractCategory {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  parentId  String?
+  tenantId  String
+  sortOrder Int?
+  createdAt DateTime @default(now())
+
+  parent    ContractCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  ContractCategory[] @relation("CategoryTree")
+  contracts Contract[]
+
+  @@unique([parentId, name])
+  @@index([parentId])
+  @@index([tenantId])
+  @@schema("contracts")
+}
+
+model Contract {
+  id            String         @id @default(uuid())
+  code          String         @unique
+  title         String
+  status        ContractStatus @default(unassigned)
+  securityLevel SecurityLevel  @default(secure)
+  reviewType    ReviewType     @default(normal)
+
+  // 분류: ContractCategory 트리 FK + 라벨 스냅샷(전체 경로 "대 > 중 > 소"). party 는 본사/법인계약 구분(현행 유지).
+  party         String?
+  categoryId    String?
+  categoryLabel String?
+
+  // requester/owner/createdBy 모두 실제 User FK. department는 작성 부서.
+  requesterId  String?
+  ownerId      String?
+  createdById  String
+  departmentId String?
+
+  tenantId String
+
+  periodStart DateTime?
+  periodEnd   DateTime?
+  dueDate     DateTime?
+
+  schemaVersion Int  @default(1)
+  details       Json
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  createdBy      User                @relation("ContractCreatedBy", fields: [createdById], references: [id])
+  requester      User?               @relation("ContractRequester", fields: [requesterId], references: [id])
+  owner          User?               @relation("ContractOwner", fields: [ownerId], references: [id])
+  department     Department?         @relation(fields: [departmentId], references: [id])
+  category       ContractCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  counterparties Counterparty[]
+  approvalLines  ApprovalLine[]
+  files          File[]
+  references     ContractReference[]
+  comments       Comment[]
+
+  @@index([tenantId])
+  @@index([createdById])
+  @@index([requesterId])
+  @@index([ownerId])
+  @@index([departmentId])
+  @@index([categoryId])
+  @@index([deletedAt])
+  @@schema("contracts")
+}
+
+// 계약 검토 코멘트(평면 스레드). 계약 1:N 종속(contractId 직접 FK Cascade).
+// authorId → users.User(cross-schema, NO ACTION — 작성자 삭제 정책은 보수적). role 은 작성 시점 작성자 role 스냅(표시용).
+model Comment {
+  id         String    @id @default(uuid())
+  contractId String
+  authorId   String
+  role       String
+  body       String    @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  contract    Contract         @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  author      User             @relation("CommentAuthor", fields: [authorId], references: [id])
+  mentions    CommentMention[]
+  attachments File[]           @relation("CommentFiles")
+
+  @@index([contractId])
+  @@index([deletedAt])
+  @@schema("contracts")
+}
+
+// 코멘트 멘션(정규 소유). 후보=계약 관련자 한정. commentId FK Cascade(하드삭제 정리),
+// userId → users.User(cross-schema, NO ACTION — Comment.author 선례). (commentId,userId) unique 로 중복 멘션 방지.
+model CommentMention {
+  id        String   @id @default(uuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation("MentionedUser", fields: [userId], references: [id])
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+  @@schema("contracts")
+}
+
+model Counterparty {
+  id         String   @id @default(uuid())
+  contractId String
+  companyId  String
+  partyType  String?
+  snapshot   Json
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  company  Company  @relation(fields: [companyId], references: [id])
+
+  @@index([contractId])
+  @@index([companyId])
+  @@schema("shared")
+}
+
+enum ApproverType {
+  draft
+  approve
+  agree
+  refer
+
+  @@schema("shared")
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+
+  @@schema("shared")
+}
+
+enum StepStatus {
+  pending
+  approved
+  rejected
+
+  @@schema("shared")
+}
+
+// 결재선: 계약 1건당 1개(현재). 폼 approvers 스냅샷을 단계로 정규화.
+// ERD 는 폴리모픽(ownerType/ownerId)이나, MVP 는 Counterparty 와 동일하게 contractId 직접 FK 로 둔다(§9 수렴 항목).
+model ApprovalLine {
+  id         String         @id @default(uuid())
+  contractId String
+  status     ApprovalStatus @default(pending)
+  createdAt  DateTime       @default(now())
+
+  contract Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  steps    ApprovalStep[]
+
+  @@index([contractId])
+  @@schema("shared")
+}
+
+model ApprovalStep {
+  id        String       @id @default(uuid())
+  lineId    String
+  stepOrder Int
+  name      String
+  dept      String
+  type      ApproverType
+  status    StepStatus   @default(pending)
+
+  line ApprovalLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+
+  @@index([lineId])
+  @@schema("shared")
+}
+
+enum FileRole {
+  contract // 계약서
+  attach // 첨부/별첨
+  ref // 참고서류
+
+  @@schema("shared")
+}
+
+// 첨부 파일 메타데이터. MVP 는 메타 행만(실제 업로드 전까지 size/mimeType/storageKey 는 null, meta 표시문자열 보존).
+// ERD 는 폴리모픽(ownerType/ownerId)이나 MVP 는 Counterparty/ApprovalLine 과 동일하게 contractId 직접 FK(§9 수렴 항목).
+model File {
+  id         String   @id @default(uuid())
+  contractId String
+  commentId  String?
+  tenantId   String
+  role       FileRole
+  name       String
+  meta       String?
+  size       Int?
+  mimeType   String?
+  storageKey String?
+  checksum   String?
+  sortOrder  Int
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  comment  Comment? @relation("CommentFiles", fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@index([commentId])
+  @@index([tenantId])
+  @@schema("shared")
+}
+
+enum CcType {
+  user
+  dept
+
+  @@schema("shared")
+}
+
+// 참조수신자(cc). ccType(user/dept) + isSecret 두 축으로 폼 3개 배열을 통합.
+// refId 는 현재 디렉토리 mock id, name 은 표시 스냅샷. 비밀 참조자 읽기 마스킹/ACL 은 후속(§6).
+model ContractReference {
+  id         String   @id @default(uuid())
+  contractId String
+  ccType     CcType
+  isSecret   Boolean  @default(false)
+  refId      String
+  name       String
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@schema("shared")
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+  transition
+  view
+  compare_report_download
+
+  @@schema("shared")
+}
+
+// 폴리모픽 공용 감사 로그(§3.4). targetType/targetId 로 대상 엔티티를 지칭(MVP 는 "Contract").
+// DB FK 없음 — 앱 레벨 무결성(cross-schema FK 회피, 향후 Company/File/User 감사 시 재마이그레이션 불필요).
+// detail 에 securityLevel·from→to·변경 필드 등 가변 메타를 흡수(별도 컬럼 없음).
+model AuditLog {
+  id         String      @id @default(uuid())
+  action     AuditAction
+  actorId    String
+  targetType String
+  targetId   String
+  tenantId   String
+  detail     Json?
+  at         DateTime    @default(now())
+
+  @@index([targetType, targetId])
+  @@index([actorId])
+  @@index([tenantId])
+  @@schema("shared")
+}
+
+// 폴리모픽 인앱 알림(멘션 알림 등). AuditLog 선례 동일: targetType/targetId 로 대상 지칭, detail 에 가변 메타(contractId·preview 등).
+// DB FK 없음 — 앱 레벨 무결성(cross-schema FK 회피, recipientId/actorId/targetId 는 String 만).
+// readAt 으로 읽음 상태(null=안읽음). 인덱스: 안읽음 카운트([recipientId, readAt]) + 목록 정렬([recipientId, createdAt]).
+model Notification {
+  id          String    @id @default(uuid())
+  recipientId String
+  type        String
+  actorId     String
+  targetType  String
+  targetId    String
+  tenantId    String
+  detail      Json?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([recipientId, readAt])
+  @@index([recipientId, createdAt])
+  @@index([tenantId])
+  @@schema("shared")
 }

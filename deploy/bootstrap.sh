@@ -7,6 +7,11 @@ set -euo pipefail
 DOMAIN="${DOMAIN:-lawai-reboot.kro.kr}"
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/lawai}"
 
+echo "==> 기본 패키지(rsync 등) 확인"
+if ! command -v rsync >/dev/null 2>&1; then
+  sudo apt-get update -qq && sudo apt-get install -y rsync
+fi
+
 echo "==> Docker 설치 확인"
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sudo sh

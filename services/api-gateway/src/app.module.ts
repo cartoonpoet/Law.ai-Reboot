@@ -6,15 +6,29 @@ import { GatewayClientsModule } from "./clients/clients.module";
 import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { CompaniesModule } from "./companies/companies.module";
+import { ContractsModule } from "./contracts/contracts.module";
+import { FilesModule } from "./files/files.module";
+import { DepartmentsModule } from "./departments/departments.module";
+import { ContractCategoriesModule } from "./contractCategories/contractCategories.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { NotificationHubModule } from "./notifications/notification-hub.module";
+import { AdminModule } from "./admin/admin.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     GatewayClientsModule,
+    NotificationHubModule,
     AuthModule,
     UsersModule,
     CompaniesModule,
+    ContractsModule,
+    FilesModule,
+    DepartmentsModule,
+    ContractCategoriesModule,
+    NotificationsModule,
+    AdminModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

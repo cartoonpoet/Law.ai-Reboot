@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import { AuthLayout } from "./pages/login/AuthLayout";
 import { LoginPage } from "./pages/login/LoginPage";
 import { ForgotPasswordPage } from "./pages/login/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/login/ResetPasswordPage";
@@ -8,7 +9,15 @@ import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { ContractPlaceholderPage } from "./pages/contract/ContractPlaceholderPage";
 import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
-import { ContractRequestPage } from "./pages/contract/ContractRequestPage";
+import { ContractCreatePage } from "./pages/contract/ContractCreatePage";
+import { ContractEditPage } from "./pages/contract/ContractEditPage";
+import { MockupsIndex } from "./pages/mockups/MockupsIndex";
+import { PreviewModalMock } from "./pages/mockups/PreviewModalMock";
+import { PreviewDrawerMock } from "./pages/mockups/PreviewDrawerMock";
+import { PreviewPageMock } from "./pages/mockups/PreviewPageMock";
+import { CompareDirectMock } from "./pages/mockups/CompareDirectMock";
+import { CompareSwapMock } from "./pages/mockups/CompareSwapMock";
+import { ComparePickerMock } from "./pages/mockups/ComparePickerMock";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!localStorage.getItem("accessToken")) {
@@ -20,10 +29,22 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/signup" element={<SignupPage />} />
+      {/* 시안 — AppShell 안에서 렌더(실제 사이드바/탑바), 인증은 우회 (mockup 평가용, 채택 후 삭제) */}
+      <Route element={<AppShell />}>
+        <Route path="/mockups" element={<MockupsIndex />} />
+        <Route path="/mockups/preview-modal" element={<PreviewModalMock />} />
+        <Route path="/mockups/preview-drawer" element={<PreviewDrawerMock />} />
+        <Route path="/mockups/preview-page" element={<PreviewPageMock />} />
+        <Route path="/mockups/compare-direct" element={<CompareDirectMock />} />
+        <Route path="/mockups/compare-swap" element={<CompareSwapMock />} />
+        <Route path="/mockups/compare-picker" element={<ComparePickerMock />} />
+      </Route>
+      <Route element={<AuthLayout />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+      </Route>
       <Route
         element={
           <RequireAuth>
@@ -33,9 +54,10 @@ export function AppRoutes() {
       >
         <Route path="/" element={<DashboardPage />} />
         <Route path="/contract/list" element={<ContractListPage />} />
-        <Route path="/contract/request" element={<ContractRequestPage />} />
+        <Route path="/contract/request" element={<ContractCreatePage />} />
         <Route path="/contract/signed" element={<ContractPlaceholderPage title="체결 계약 조회" />} />
         <Route path="/contract/expire" element={<ContractPlaceholderPage title="체결계약 만료 현황" />} />
+        <Route path="/contract/:id/edit" element={<ContractEditPage />} />
         <Route path="/contract/:id" element={<ContractDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,10 @@
-import { IsEmail, IsString, MinLength, MaxLength } from "class-validator";
+import {
+  IsEmail,
+  IsString,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+} from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class SignupDto {
@@ -39,6 +45,13 @@ export class PasswordResetRequestDto {
   })
   @IsEmail()
   email!: string;
+}
+
+export class RefreshDto {
+  @ApiProperty({ description: "발급받은 refresh token", example: "eyJhbGci..." })
+  @IsString()
+  @IsNotEmpty()
+  refreshToken!: string;
 }
 
 export class PasswordResetConfirmDto {

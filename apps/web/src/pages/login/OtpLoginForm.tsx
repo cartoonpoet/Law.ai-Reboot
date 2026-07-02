@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Icon, Button, Input, InputGroup } from "@lawkit/ui";
 import type { CSSProperties } from "react";
 import { requestOtp, verifyOtp } from "../../api/auth";
+import { setTokens } from "../../api/tokens";
 import { T } from "../../design/tokens";
 
 const OTP_TTL = 180;
@@ -67,8 +68,7 @@ export function OtpLoginForm() {
     async (_prev: string | null, _formData: FormData) => {
       try {
         const data = await verifyOtp({ phone, code });
-        localStorage.setItem("accessToken", data.tokens.accessToken);
-        localStorage.setItem("refreshToken", data.tokens.refreshToken);
+        setTokens(data.tokens.accessToken, data.tokens.refreshToken);
         navigate("/");
         return null;
       } catch (e) {

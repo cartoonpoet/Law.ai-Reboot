@@ -37,6 +37,29 @@ pnpm dev                              # turbo 병렬 기동
 - pnpm test — 전체 테스트
 - pnpm lint — 린트
 
+## 파일 업로드 (Cloudflare R2)
+
+P3 부터 코멘트 첨부는 Cloudflare R2 presigned URL 흐름으로 동작한다.
+
+1. Cloudflare 대시보드 → R2 → 버킷 생성(예: `legal`).
+2. "Manage R2 API Tokens" → Object Read & Write 토큰 발급.
+3. `.env` 에 R2 키 5종(`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, `R2_BUCKET`) + `FILE_UPLOAD_SECRET` 채우기.
+4. 버킷 CORS 정책: 웹 origin(`http://localhost:5173` 등) PUT/GET 허용, 헤더 `Content-Type` 허용. 예시:
+
+```json
+[
+  {
+    "AllowedOrigins": ["http://localhost:5173", "https://your-domain"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedHeaders": ["Content-Type"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+키가 비어 있으면 user-service 는 disabled 모드로 동작하며 presign/confirm/download 호출은 503 으로 응답한다(코멘트 본문 흐름은 영향 없음).
+
 ## 보안
 
 - 비밀번호 argon2id 해싱, 평문/해시 응답 노출 금지

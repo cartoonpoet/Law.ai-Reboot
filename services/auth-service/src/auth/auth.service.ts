@@ -8,14 +8,20 @@ import {
   type SignupRequest,
   type LoginRequest,
   type ValidateTokenRequest,
+  type RefreshRequest,
   type PublicUser,
   type AuthTokens,
   type UserWithHash,
   type JwtPayload,
+  type TenantRole,
   type PasswordResetRequestRequest,
   type PasswordResetConfirmRequest,
   type PasswordResetResult,
   type ConsumeResetTokenResult,
+  type FindMembershipsResponse,
+  type SwitchTenantRequest,
+  type MyTenantsRequest,
+  type MyTenantsResponse,
 } from "@lawai/contracts";
 import { PasswordService } from "./password.service";
 import { MailService } from "./mail.service";
@@ -23,6 +29,11 @@ import { MailService } from "./mail.service";
 interface AuthResult {
   user: PublicUser;
   tokens: AuthTokens;
+}
+
+interface BuildResultOptions {
+  /** true이면 멤버십 0개 + 비admin 이어도 403을 던지지 않는다 (signup 신규 가입자용). */
+  allowEmpty?: boolean;
 }
 
 @Injectable()
@@ -105,7 +116,9 @@ export class AuthService {
         passwordHash,
       }),
     );
-    return this.buildResult(created);
+    // 신규 가입자는 아직 어느 테넌트에도 속하지 않으므로 allowEmpty=true.
+    // 온보딩 플로우(Spec 4)에서 테넌트 합류 후 switchTenant 호출.
+    return this.buildResult(created, undefined, { allowEmpty: true });
   }
 
   async login(req: LoginRequest): Promise<AuthResult> {
@@ -121,6 +134,7 @@ export class AuthService {
     if (!ok) {
       throw new RpcException({ status: 401, message: "이메일 또는 비밀번호가 올바르지 않습니다" });
     }
+    // login은 멤버십 0개 + 비admin → 403 (allowEmpty=false, 기본값)
     return this.buildResult(user);
   }
 
@@ -134,8 +148,66 @@ export class AuthService {
     }
   }
 
-  private async buildResult(user: UserWithHash): Promise<AuthResult> {
-    const payload: JwtPayload = { sub: user.id, email: user.email };
+  // 슬라이딩 회전: refresh token을 검증하고 새 access+refresh를 둘 다 재발급한다.
+  async refresh(req: RefreshRequest): Promise<AuthTokens> {
+    let payload: JwtPayload;
+    try {
+      payload = await this.jwt.verifyAsync<JwtPayload>(req.refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+    } catch {
+      throw new RpcException({ status: 401, message: "세션이 만료되었습니다" });
+    }
+    return this.signTokens({
+      sub: payload.sub,
+      email: payload.email,
+      isSystemAdmin: payload.isSystemAdmin,
+      activeTenantId: payload.activeTenantId,
+      activeRole: payload.activeRole,
+    });
+  }
+
+  /**
+   * 요청한 tenantId로 활성 테넌트를 전환하고 새 토큰을 발급한다.
+   * userId 가 해당 테넌트 멤버가 아니면 403 을 던진다.
+   */
+  async switchTenant(req: SwitchTenantRequest): Promise<AuthResult> {
+    if (!req.userId) {
+      throw new RpcException({ status: 400, message: "userId가 필요합니다" });
+    }
+    const user = await firstValueFrom(
+      this.userClient.send<UserWithHash | null>(USER_PATTERNS.FIND_BY_ID, { id: req.userId }),
+    );
+    if (!user) {
+      throw new RpcException({ status: 404, message: "사용자를 찾을 수 없습니다" });
+    }
+    // 멤버 검증은 buildResult 내부에서 수행 (명시적 activeTenantId가 멤버십에 없으면 403)
+    return this.buildResult(user, req.tenantId);
+  }
+
+  /**
+   * 사용자가 속한 테넌트(회사) 목록을 반환한다.
+   */
+  async myTenants(req: MyTenantsRequest): Promise<MyTenantsResponse> {
+    if (!req.userId) {
+      throw new RpcException({ status: 400, message: "userId가 필요합니다" });
+    }
+    const memberships = await firstValueFrom(
+      this.userClient.send<FindMembershipsResponse>(USER_PATTERNS.FIND_MEMBERSHIPS, {
+        userId: req.userId,
+      }),
+    );
+    return {
+      tenants: memberships.memberships.map((m) => ({
+        tenantId: m.tenantId,
+        name: m.tenantName,
+        role: m.role,
+        isActive: m.tenantId === req.activeTenantId,
+      })),
+    };
+  }
+
+  private async signTokens(payload: JwtPayload): Promise<AuthTokens> {
     const accessOptions: JwtSignOptions = {
       secret: process.env.JWT_ACCESS_SECRET,
       expiresIn: (process.env.JWT_ACCESS_TTL ??
@@ -150,12 +222,70 @@ export class AuthService {
       this.jwt.signAsync(payload, accessOptions),
       this.jwt.signAsync(payload, refreshOptions),
     ]);
+    return { accessToken, refreshToken };
+  }
+
+  /**
+   * 멤버십을 조회해 활성 테넌트를 결정하고 JWT 페이로드 + publicUser 를 조합한다.
+   *
+   * 활성 테넌트 결정 규칙:
+   *   1. activeTenantId 명시 → 멤버십에 없으면 403
+   *   2. 첫 번째 멤버십 자동 선택
+   *   3. 멤버십 없음 + isSystemAdmin → activeTenantId/activeRole 없이 토큰 발급
+   *   4. 멤버십 없음 + 비admin + allowEmpty=false → 403
+   *   5. 멤버십 없음 + 비admin + allowEmpty=true → 토큰 발급(온보딩 임시 허용)
+   */
+  private async buildResult(
+    user: UserWithHash,
+    activeTenantId?: string,
+    opts: BuildResultOptions = {},
+  ): Promise<AuthResult> {
+    const { allowEmpty = false } = opts;
+
+    const memberships = await firstValueFrom(
+      this.userClient.send<FindMembershipsResponse>(
+        USER_PATTERNS.FIND_MEMBERSHIPS,
+        { userId: user.id },
+      ),
+    );
+
+    let active: { tenantId: string; role: TenantRole } | undefined;
+
+    if (activeTenantId) {
+      const m = memberships.memberships.find((x) => x.tenantId === activeTenantId);
+      if (!m) {
+        throw new RpcException({ status: 403, message: "해당 회사 멤버가 아닙니다" });
+      }
+      active = { tenantId: m.tenantId, role: m.role };
+    } else if (memberships.memberships.length > 0) {
+      const m = memberships.memberships[0];
+      active = { tenantId: m.tenantId, role: m.role };
+    }
+
+    if (!active && !memberships.isSystemAdmin && !allowEmpty) {
+      throw new RpcException({ status: 403, message: "소속된 회사가 없습니다" });
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      isSystemAdmin: memberships.isSystemAdmin,
+      activeTenantId: active?.tenantId,
+      activeRole: active?.role,
+    };
+
+    const tokens = await this.signTokens(payload);
+
     const publicUser: PublicUser = {
       id: user.id,
       email: user.email,
       name: user.name,
+      isSystemAdmin: memberships.isSystemAdmin,
+      departmentId: user.departmentId,
+      departmentName: user.departmentName,
       createdAt: user.createdAt,
     };
-    return { user: publicUser, tokens: { accessToken, refreshToken } };
+
+    return { user: publicUser, tokens };
   }
 }

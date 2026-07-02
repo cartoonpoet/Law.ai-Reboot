@@ -11,7 +11,21 @@ import type {
   ConsumeResetTokenRequest,
   ConsumeResetTokenResult,
   UpdatePasswordRequest,
+  SearchUsersRequest,
+  PublicUser,
 } from "@lawai/contracts";
+
+// department 관계를 include 한 User 행
+type UserRow = {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+  isSystemAdmin: boolean;
+  departmentId: string | null;
+  createdAt: Date;
+  department?: { name: string } | null;
+};
 
 @Injectable()
 export class UsersService {
@@ -46,6 +60,7 @@ export class UsersService {
   ): Promise<UserWithHash | null> {
     const user = await this.prisma.user.findUnique({
       where: { email: req.email },
+      include: { department: true },
     });
     return user ? this.toWithHash(user) : null;
   }
@@ -53,8 +68,55 @@ export class UsersService {
   async findById(req: FindUserByIdRequest): Promise<UserWithHash | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: req.id },
+      include: { department: true },
     });
     return user ? this.toWithHash(user) : null;
+  }
+
+  async search(req: SearchUsersRequest): Promise<PublicUser[]> {
+    const q = req.q?.trim();
+    const ctx = req.tenantContext;
+
+    // 테넌트 격리: admin 이 아닌 경우 같은 테넌트 멤버만 반환한다.
+    // UserTenant 조인으로 tenantId 에 속한 사용자만 필터.
+    const tenantFilter =
+      ctx && !ctx.isSystemAdmin && ctx.tenantId
+        ? {
+            tenantMemberships: {
+              some: { tenantId: ctx.tenantId },
+            },
+          }
+        : {};
+
+    const rows = (await this.prisma.user.findMany({
+      where: {
+        ...tenantFilter,
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { email: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      include: { department: true },
+      take: req.limit ?? 20,
+      orderBy: { name: "asc" },
+    })) as UserRow[];
+    return rows.map((r) => this.toPublic(r));
+  }
+
+  private toPublic(u: UserRow): PublicUser {
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      isSystemAdmin: u.isSystemAdmin,
+      departmentId: u.departmentId,
+      departmentName: u.department?.name ?? null,
+      createdAt: u.createdAt.toISOString(),
+    };
   }
 
   async createResetToken(req: CreateResetTokenRequest): Promise<void> {
@@ -94,18 +156,15 @@ export class UsersService {
     });
   }
 
-  private toWithHash(u: {
-    id: string;
-    email: string;
-    name: string;
-    passwordHash: string;
-    createdAt: Date;
-  }): UserWithHash {
+  private toWithHash(u: UserRow): UserWithHash {
     return {
       id: u.id,
       email: u.email,
       name: u.name,
       passwordHash: u.passwordHash,
+      isSystemAdmin: u.isSystemAdmin,
+      departmentId: u.departmentId,
+      departmentName: u.department?.name ?? null,
       createdAt: u.createdAt.toISOString(),
     };
   }

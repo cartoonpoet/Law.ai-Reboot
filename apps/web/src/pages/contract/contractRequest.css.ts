@@ -23,6 +23,28 @@ export const docsBody = style({ display: "flex", flexDirection: "column", gap: 1
 export const fileList = style({ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 });
 export const btnRow = style({ display: "flex", gap: 10, flexWrap: "wrap" });
 
+/* 계약 규모(대가) 행 */
+export const moneyRow = style({ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 8 });
+export const moneyVat = style({ flex: "0 0 200px", maxWidth: 200 });
+export const moneyAmount = style({ flex: 1, minWidth: 160 });
+export const moneyCurrency = style({ flex: "0 0 160px", maxWidth: 160 });
+export const moneyDelete = style({ flexShrink: 0 });
+export const fieldBlock = style({ marginTop: 10 });
+
+/* 레일 결재선 패널 */
+export const railHead = style({ display: "inline-flex", alignItems: "center", gap: 8 });
+export const railHeadIcon = style({ width: 15, height: 15, color: themeVars.color.textMuted });
+export const apprList = style({ display: "flex", flexDirection: "column", gap: 10 });
+export const apprRow = style({ display: "flex", alignItems: "center", gap: 10 });
+export const apprMain = style({ flex: 1, minWidth: 0 });
+export const apprName = style({ fontSize: 13, fontWeight: 600, color: themeVars.color.textHeading });
+export const apprDept = style({ fontSize: 11, color: themeVars.color.textMuted });
+
+/* 기타 URL 목록 */
+export const urlList = style({ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 });
+export const urlRow = style({ display: "flex", gap: 10, alignItems: "center" });
+export const urlInput = style({ flex: 1, minWidth: 0 });
+
 export const prgRow = style({
   display: "flex",
   alignItems: "center",
@@ -37,3 +59,16 @@ export const prgLabel = style({ flex: 1, fontSize: 12.5, fontWeight: 700, color:
 
 export const drisk = style({ background: themeVars.color.neutralSurface, border: `1px solid ${themeVars.color.neutralBorder}`, borderRadius: 8, padding: "11px 12px" });
 export const errText = style({ marginTop: 5, fontSize: 12, color: themeVars.color.accentDanger });
+
+export const submitIcon = style({ width: 14, height: 14 });
+
+export const submitError = style({
+  marginTop: 12,
+  padding: "10px 12px",
+  borderRadius: 8,
+  fontSize: 13,
+  fontWeight: 600,
+  color: themeVars.color.accentDanger,
+  background: themeVars.color.neutralSurface,
+  border: `1px solid ${themeVars.color.accentDanger}`,
+});

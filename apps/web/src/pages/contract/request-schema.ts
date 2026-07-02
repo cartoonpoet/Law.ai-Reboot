@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { Company } from "@lawai/contracts";
 import type { DirectoryEntry } from "../../api/directory";
 import type { RelatedDoc } from "../../api/relatedDocs";
-import { CURRENT_USER_ID } from "./contractOptions";
 
 // 관계자·참조 선택값(사용자/부서/프로젝트) — 라벨 유지를 위해 id+name 보관
 export const entityRefSchema = z.object({
@@ -18,6 +17,15 @@ export const relatedDocSchema = z.object({
   sub: z.string(),
   date: z.string(),
 }) satisfies z.ZodType<RelatedDoc>;
+
+// 결재선 항목 — 기안/결재/합의/참조 + 순서(배열 순서)
+export const APPROVER_TYPES = ["draft", "approve", "agree", "refer"] as const;
+export const approverSchema = z.object({
+  name: z.string(),
+  dept: z.string(),
+  type: z.enum(APPROVER_TYPES),
+});
+export type Approver = z.infer<typeof approverSchema>;
 
 // 선택된 상대 계약자(회사) — 검색/등록 응답을 그대로 보관
 export const companyRefSchema = z.object({
@@ -54,10 +62,16 @@ export const moneyRowSchema = z.object({
   currency: z.string(),
 });
 
-// 첨부 파일 — 파일명 + 메타("DOCX · 1.2MB") 표기용
+// 첨부 파일 — 파일명/메타 + R2 업로드 식별자(있으면 미리보기/비교 활성).
+// id/mimeType 은 presign/confirm 으로 업로드된 후 채워지고, 메타데이터-only 레거시는 둘 다 null.
+// blob 은 신규 작성 흐름 전용 — contractId 가 없어 즉시 업로드 못 하므로 submit 시점까지 보관.
+// submit 흐름이 createContract → 각 blob 업로드 → PATCH 로 사용. zod 검증은 unknown 으로 무시.
 export const uploadedFileSchema = z.object({
+  id: z.string().nullable(),
   name: z.string(),
   meta: z.string(),
+  mimeType: z.string().nullable(),
+  blob: z.unknown().optional(),
 });
 
 export const contractRequestSchema = z.object({
@@ -68,9 +82,7 @@ export const contractRequestSchema = z.object({
   requester: z.string().min(1, "검토 요청자를 선택하세요"),
   ctype: z.enum(["normal", "std"]),
   party: z.string().min(1, "계약 당사자를 선택하세요"),
-  catMajor: z.string().min(1, "계약 대분류를 선택하세요"),
-  catMinor: z.string().min(1, "계약 중분류를 선택하세요"),
-  catSub: z.string().min(1, "계약 소분류를 선택하세요"),
+  categoryId: z.string().min(1, "계약 분류를 선택하세요"),
   periodStart: z.string(),
   periodEnd: z.string(),
   periodText: z.string(),
@@ -102,9 +114,9 @@ export const contractRequestSchema = z.object({
   purpose: z.string().min(1, "계약의 배경 및 목적을 입력하세요"),
   keyPoints: z.string(),
   concerns: z.string(),
-  urls: z.array(z.string()),
+  urls: z.array(z.object({ value: z.string() })),
   // 결재선
-  approvers: z.array(z.object({ name: z.string(), role: z.string() })),
+  approvers: z.array(approverSchema),
 });
 
 export type ContractRequestForm = z.infer<typeof contractRequestSchema>;
@@ -113,12 +125,10 @@ export const contractRequestDefaults: ContractRequestForm = {
   stage: "new",
   secure: "secure",
   name: "",
-  requester: CURRENT_USER_ID,
+  requester: "",
   ctype: "normal",
   party: "",
-  catMajor: "",
-  catMinor: "",
-  catSub: "",
+  categoryId: "",
   periodStart: "",
   periodEnd: "",
   periodText: "",
@@ -145,5 +155,5 @@ export const contractRequestDefaults: ContractRequestForm = {
   keyPoints: "",
   concerns: "",
   urls: [],
-  approvers: [{ name: "손준호", role: "기안 · 법무팀" }],
+  approvers: [{ name: "손준호", dept: "법무팀", type: "draft" }],
 };

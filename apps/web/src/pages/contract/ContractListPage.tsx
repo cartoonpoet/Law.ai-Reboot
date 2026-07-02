@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Icon,
@@ -11,26 +10,38 @@ import {
   Pagination,
   PaginationCount,
 } from "@lawkit/ui";
+import type { ContractStatus } from "@lawai/contracts";
 import { T } from "../../design/tokens";
 import { Panel } from "../../components/ui/Panel";
-import { CONTRACTS_FULL, LIST_FILTERS } from "./mock-data";
+import { LIST_FILTERS } from "./mock-data";
 import { listColumns } from "./listColumns";
+import { CONTRACT_STATUS_FILTERS, getStatusLabel } from "./contractStatus";
+import { useContractsList } from "./hooks/useContractsList";
+import { useContractCategories } from "./hooks/useContractCategories";
+import { toOptions, type SelectOption } from "./contractOptions";
 import { Eyebrow } from "../../components/ui/Eyebrow";
+import * as listCss from "./contractList.css";
+
+const ALL_OPTION: SelectOption = { value: "", label: "전체" };
 
 function FilterSelect({
   label,
   options,
+  value,
+  onChange,
 }: {
   label: string;
-  options: string[];
+  options: SelectOption[];
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
-    <div style={{ width: 150 }}>
+    <div className={listCss.filterSelect}>
       <Dropdown
-        options={options.map((o) => ({ value: o, label: o }))}
-        value={options[0]}
+        options={[ALL_OPTION, ...options]}
+        value={value}
         placeholder={label}
-        onChange={() => {}}
+        onChange={(v) => onChange(Array.isArray(v) ? v[0] ?? "" : v)}
       />
     </div>
   );
@@ -38,13 +49,33 @@ function FilterSelect({
 
 export function ContractListPage() {
   const navigate = useNavigate();
-  const [status, setStatus] = useState<string | string[]>("");
-  const [mine, setMine] = useState(false);
-  const matchesStatus = (c: { status: string }) => {
-    if (!status || status.length === 0) return true;
-    return Array.isArray(status) ? status.includes(c.status) : c.status === status;
+  const {
+    rows,
+    total,
+    totalPages,
+    page,
+    setPage,
+    q,
+    changeQ,
+    status,
+    changeStatus,
+    party,
+    changeParty,
+    categoryId,
+    changeCategoryId,
+    mine,
+    changeMine,
+    isFetching,
+  } = useContractsList();
+  const { getFlatOptions } = useContractCategories();
+
+  const categoryOptions = getFlatOptions();
+  const partyOptions = toOptions(LIST_FILTERS.party.slice(1));
+
+  const handleStatusChange = (value: string | string[]) => {
+    const next = Array.isArray(value) ? value[0] ?? "" : value;
+    changeStatus(next as ContractStatus | "");
   };
-  const data = CONTRACTS_FULL.filter((c) => matchesStatus(c) && (!mine || c.mine));
 
   return (
     <div>
@@ -111,13 +142,14 @@ export function ContractListPage() {
           flexWrap: "wrap",
         }}
       >
-        <FilterSelect label="계약 당사자" options={LIST_FILTERS.party} />
-        <FilterSelect label="계약 대분류" options={LIST_FILTERS.cat} />
-        <FilterSelect label="계약 분류" options={LIST_FILTERS.sub} />
+        <FilterSelect label="계약 당사자" options={partyOptions} value={party} onChange={changeParty} />
+        <FilterSelect label="계약 분류" options={categoryOptions} value={categoryId} onChange={changeCategoryId} />
         <div style={{ flex: 1, minWidth: 220, maxWidth: 360 }}>
           <Input
             inputSize="medium"
-            placeholder="계약명·관리번호·상대계약자·요청자 검색"
+            placeholder="계약명·관리번호·상대계약자 검색"
+            value={q}
+            onChange={(e) => changeQ(e.target.value)}
             leftIcon={
               <Icon
                 name="search"
@@ -127,7 +159,7 @@ export function ContractListPage() {
             }
           />
         </div>
-        <Switch label="내 업무만" checked={mine} onCheckedChange={setMine} />
+        <Switch label="내 업무만" checked={mine} onCheckedChange={changeMine} />
       </div>
 
       <Panel flush>
@@ -144,13 +176,11 @@ export function ContractListPage() {
           <ChipsNavigation
             allLabel="전체"
             value={status}
-            onChange={setStatus}
-            items={[
-              { value: "미배정", label: "미배정" },
-              { value: "법무 검토 중", label: "법무 검토 중" },
-              { value: "요청자 검토 중", label: "요청자 검토 중" },
-              { value: "검토 완료", label: "검토 완료" },
-            ]}
+            onChange={handleStatusChange}
+            items={CONTRACT_STATUS_FILTERS.map((s) => ({
+              value: s,
+              label: getStatusLabel(s),
+            }))}
           />
           <div style={{ flex: 1 }} />
           <span style={{ fontSize: 12.5, color: T.muted }}>
@@ -161,18 +191,18 @@ export function ContractListPage() {
                 fontVariantNumeric: "tabular-nums",
               }}
             >
-              {data.length}
+              {total}
             </b>
             건
           </span>
         </div>
         <div style={{ padding: 6 }}>
           <DataTable
-            data={data}
+            data={rows}
             columns={listColumns()}
             getRowId={(r) => r.id}
             onRowClick={(r) => navigate(`/contract/${r.id}`)}
-            emptyText="조회된 계약이 없습니다."
+            emptyText={isFetching ? "불러오는 중…" : "조회된 계약이 없습니다."}
           />
         </div>
         <div
@@ -183,8 +213,8 @@ export function ContractListPage() {
             padding: "10px 16px 14px",
           }}
         >
-          <PaginationCount totalCount={data.length} />
-          <Pagination page={1} totalPages={1} onPageChange={() => {}} />
+          <PaginationCount totalCount={total} />
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       </Panel>
     </div>

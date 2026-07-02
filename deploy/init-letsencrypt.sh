@@ -16,8 +16,10 @@ rm -rf "deploy/certbot/conf/live/$DOMAIN" \
        "deploy/certbot/conf/renewal/$DOMAIN.conf"
 
 echo "==> Let's Encrypt 인증서 발급 (webroot)"
-$COMPOSE run --rm --entrypoint "certbot certonly --webroot -w /var/www/certbot \
-  -d $DOMAIN --email $EMAIL --agree-tos --no-eff-email --non-interactive" certbot
+# certbot 이미지의 기본 entrypoint는 certbot이지만, compose에서 renew 루프로 덮어써서 명시적으로 되돌린다.
+$COMPOSE run --rm --entrypoint certbot certbot \
+  certonly --webroot -w /var/www/certbot \
+  -d "$DOMAIN" --email "$EMAIL" --agree-tos --no-eff-email --non-interactive
 
 echo "==> nginx reload"
 $COMPOSE exec web nginx -s reload || $COMPOSE restart web

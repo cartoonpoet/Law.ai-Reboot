@@ -8,6 +8,7 @@ import type {
   CreateResetTokenRequest,
   ConsumeResetTokenRequest,
   UpdatePasswordRequest,
+  SearchUsersRequest,
 } from "@lawai/contracts";
 import { UsersService } from "./users.service";
 
@@ -28,6 +29,11 @@ export class UsersController {
   @MessagePattern(USER_PATTERNS.FIND_BY_ID)
   findById(@Payload() req: FindUserByIdRequest) {
     return this.users.findById(req);
+  }
+
+  @MessagePattern(USER_PATTERNS.SEARCH)
+  search(@Payload() req: SearchUsersRequest) {
+    return this.users.search(req);
   }
 
   @MessagePattern(USER_PATTERNS.CREATE_RESET_TOKEN)

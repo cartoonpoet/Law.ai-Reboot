@@ -37,7 +37,7 @@ export function listColumns(): ColumnDef<ContractRow>[] {
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          {String(i.getValue())}
+          {i.row.original.code ?? String(i.getValue())}
         </span>
       ),
     },

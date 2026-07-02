@@ -10,6 +10,7 @@ describe("UsersService", () => {
     user: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
   };
 
@@ -75,5 +76,79 @@ describe("UsersService", () => {
     await expect(
       service.create({ email: "a@b.com", name: "A", passwordHash: "h" }),
     ).rejects.toBeInstanceOf(RpcException);
+  });
+
+  describe("search", () => {
+    const userRow = {
+      id: "u1",
+      email: "a@b.com",
+      name: "홍길동",
+      passwordHash: "h",
+      isSystemAdmin: false,
+      departmentId: "d1",
+      createdAt: new Date("2026-01-01"),
+      department: { name: "법무팀" },
+    };
+
+    it("tenantContext(일반 사용자)면 tenantMemberships 조인으로 같은 테넌트 사용자만 반환", async () => {
+      prismaMock.user.findMany.mockResolvedValue([userRow]);
+
+      const result = await service.search({
+        q: "홍",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenantMemberships: { some: { tenantId: "tenant-1" } },
+            OR: expect.any(Array),
+          }),
+        }),
+      );
+      expect(result[0].name).toBe("홍길동");
+      expect(result[0].departmentName).toBe("법무팀");
+    });
+
+    it("admin(isSystemAdmin=true)은 tenantMemberships 조인 없이 전체 사용자 검색", async () => {
+      prismaMock.user.findMany.mockResolvedValue([]);
+
+      await service.search({
+        q: "홍",
+        tenantContext: { isSystemAdmin: true },
+      });
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ tenantMemberships: expect.anything() }),
+        }),
+      );
+    });
+
+    it("tenantContext 없으면 tenantMemberships 조인 없이 전체 검색(하위 호환)", async () => {
+      prismaMock.user.findMany.mockResolvedValue([]);
+
+      await service.search({ q: "홍" });
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ tenantMemberships: expect.anything() }),
+        }),
+      );
+    });
+
+    it("q 없으면 전체 조회(tenantScope 포함)", async () => {
+      prismaMock.user.findMany.mockResolvedValue([userRow]);
+
+      await service.search({
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
+
+      expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenantMemberships: { some: { tenantId: "tenant-1" } } },
+        }),
+      );
+    });
   });
 });

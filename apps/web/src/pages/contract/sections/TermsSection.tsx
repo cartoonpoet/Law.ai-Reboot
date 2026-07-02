@@ -1,11 +1,9 @@
-import { useState } from "react";
 import { Controller, useFormContext, useFieldArray } from "react-hook-form";
 import {
   Card,
   RadioGroup,
   Radio,
-  DatePicker,
-  Modal,
+  InputDatePicker,
   Slider,
   Dropdown,
   NumberInput,
@@ -13,7 +11,6 @@ import {
   Alert,
   Input,
   Icon,
-  themeVars,
 } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 import { VAT_OPTIONS, CURRENCY_OPTIONS } from "../request-schema";
@@ -30,8 +27,7 @@ export function TermsSection() {
     control,
     formState: { errors },
   } = useFormContext<ContractRequestForm>();
-  const { fields, append } = useFieldArray({ control, name: "money" });
-  const [expectedOpen, setExpectedOpen] = useState(false);
+  const { fields, append, remove } = useFieldArray({ control, name: "money" });
 
   return (
     <Card bordered header={<CardTitle num={4}>상세 조건</CardTitle>}>
@@ -69,28 +65,11 @@ export function TermsSection() {
             name="expectedDate"
             control={control}
             render={({ field }) => (
-              <>
-                <div onClick={() => setExpectedOpen(true)} style={{ cursor: "pointer" }}>
-                  <Input
-                    readOnly
-                    value={field.value}
-                    placeholder="YYYY-MM-DD"
-                    leftIcon={<Icon name="calendar" size="sm" style={{ width: 15, height: 15, color: themeVars.color.textMuted }} />}
-                  />
-                </div>
-                <Modal
-                  open={expectedOpen}
-                  onClose={() => setExpectedOpen(false)}
-                  size="medium"
-                  title="계약예정일 선택"
-                  footer={<Button type="button" onClick={() => setExpectedOpen(false)}>확인</Button>}
-                >
-                  <DatePicker
-                    value={isoToDate(field.value)}
-                    onChange={(d: Date) => field.onChange(dateToIso(d))}
-                  />
-                </Modal>
-              </>
+              <InputDatePicker
+                value={isoToDate(field.value)}
+                placeholder="YYYY-MM-DD"
+                onChange={(d) => field.onChange(d ? dateToIso(d) : "")}
+              />
             )}
           />
         </Field>
@@ -114,17 +93,8 @@ export function TermsSection() {
 
         <Field label="계약 규모(대가)" info="총액이 정해지지 않은 경우 항목을 추가해 입력하세요." required className={css.full}>
           {fields.map((row, i) => (
-            <div
-              key={row.id}
-              style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                alignItems: "center",
-                marginBottom: 8,
-              }}
-            >
-              <div style={{ maxWidth: 200, flex: "0 0 200px" }}>
+            <div key={row.id} className={css.moneyRow}>
+              <div className={css.moneyVat}>
                 <Controller
                   name={`money.${i}.vat`}
                   control={control}
@@ -137,7 +107,7 @@ export function TermsSection() {
                   )}
                 />
               </div>
-              <div style={{ flex: 1, minWidth: 160 }}>
+              <div className={css.moneyAmount}>
                 <Controller
                   name={`money.${i}.amount`}
                   control={control}
@@ -150,7 +120,7 @@ export function TermsSection() {
                   )}
                 />
               </div>
-              <div style={{ maxWidth: 160, flex: "0 0 160px" }}>
+              <div className={css.moneyCurrency}>
                 <Controller
                   name={`money.${i}.currency`}
                   control={control}
@@ -163,24 +133,39 @@ export function TermsSection() {
                   )}
                 />
               </div>
+              {fields.length > 1 && (
+                <div className={css.moneyDelete}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    color="secondary"
+                    size="small"
+                    iconLeft={<Icon name="trash" size="sm" />}
+                    onClick={() => remove(i)}
+                    aria-label="이 항목 삭제"
+                  />
+                </div>
+              )}
             </div>
           ))}
-          <Button
-            type="button"
-            variant="outline"
-            color="secondary"
-            size="small"
-            onClick={() => append({ vat: "excluded", amount: null, currency: "KRW" })}
-          >
-            추가하기
-          </Button>
-          <div style={{ marginTop: 10 }}>
+          <div className={css.btnRow}>
+            <Button
+              type="button"
+              variant="outline"
+              color="secondary"
+              size="small"
+              onClick={() => append({ vat: "excluded", amount: null, currency: "KRW" })}
+            >
+              추가하기
+            </Button>
+          </div>
+          <div className={css.fieldBlock}>
             <Alert type="info" size="small">
               계약금액 총액이 정해진 게 아닌 품목단가 / Time Charge / Service 청구 등에 해당될
               경우 본 항목을 사용하세요.
             </Alert>
           </div>
-          <div style={{ marginTop: 10 }}>
+          <div className={css.fieldBlock}>
             <Controller
               name="moneyNote"
               control={control}

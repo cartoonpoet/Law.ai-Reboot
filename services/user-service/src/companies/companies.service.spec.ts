@@ -17,6 +17,11 @@ describe("CompaniesService", () => {
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
   };
 
+  const makeCtx = (tenantId = "tenant-1") => ({
+    tenantId,
+    isSystemAdmin: false,
+  });
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const moduleRef = await Test.createTestingModule({
@@ -30,9 +35,10 @@ describe("CompaniesService", () => {
 
   it("search는 name/bizNo/ceo OR contains로 조회하고 ISO 문자열로 변환한다", async () => {
     prismaMock.company.findMany.mockResolvedValue([row]);
-    const result = await service.search({ q: "삼성", limit: 5 });
+    const result = await service.search({ q: "삼성", limit: 5, tenantContext: makeCtx() });
     expect(prismaMock.company.findMany).toHaveBeenCalledWith({
       where: {
+        tenantId: "tenant-1",
         OR: [
           { name: { contains: "삼성", mode: "insensitive" } },
           { bizNo: { contains: "삼성", mode: "insensitive" } },
@@ -46,43 +52,60 @@ describe("CompaniesService", () => {
   });
 
   it("search는 빈 쿼리면 DB 조회 없이 빈 배열을 반환한다", async () => {
-    const result = await service.search({ q: "   " });
+    const result = await service.search({ q: "   ", tenantContext: makeCtx() });
     expect(result).toEqual([]);
     expect(prismaMock.company.findMany).not.toHaveBeenCalled();
   });
 
   it("search는 limit 미지정 시 기본 10건으로 조회한다", async () => {
     prismaMock.company.findMany.mockResolvedValue([]);
-    await service.search({ q: "삼성" });
+    await service.search({ q: "삼성", tenantContext: makeCtx() });
     expect(prismaMock.company.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ take: 10 }),
     );
   });
 
   it("create는 개인(individual)이고 bizNo 미지정 시 TEMP- 임시번호를 생성한다", async () => {
-    prismaMock.company.create.mockImplementation(({ data }: any) =>
+    prismaMock.company.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
       Promise.resolve({ ...row, ...data }),
     );
-    const result = await service.create({ type: "individual", name: "삼성기획" });
+    const result = await service.create({
+      type: "individual",
+      name: "삼성기획",
+      tenantContext: makeCtx(),
+    });
     const arg = prismaMock.company.create.mock.calls[0][0].data;
     expect(arg.bizNo).toMatch(/^TEMP-[0-9A-F]{8}$/);
+    expect(arg.tenantId).toBe("tenant-1");
     expect(result.name).toBe("삼성기획");
     expect(result.type).toBe("individual");
   });
 
   it("create는 회사(company)이고 bizNo 미지정 시 400 RpcException을 던진다", async () => {
     await expect(
-      service.create({ type: "company", name: "삼성전자(주)" }),
+      service.create({ type: "company", name: "삼성전자(주)", tenantContext: makeCtx() }),
     ).rejects.toBeInstanceOf(RpcException);
     expect(prismaMock.company.create).not.toHaveBeenCalled();
   });
 
-  it("create는 bizNo 중복 시 409 RpcException을 던진다", async () => {
+  it("create는 bizNo 중복(@@unique([tenantId,bizNo])) 시 409 RpcException을 던진다", async () => {
     prismaMock.company.create.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "6" }),
     );
     await expect(
-      service.create({ type: "company", name: "삼성전자(주)", bizNo: "124-81-00998" }),
+      service.create({
+        type: "company",
+        name: "삼성전자(주)",
+        bizNo: "124-81-00998",
+        tenantContext: makeCtx(),
+      }),
     ).rejects.toBeInstanceOf(RpcException);
+  });
+
+  it("search: tenantContext 없이 호출하면 RpcException(400) — fail-closed", async () => {
+    await expect(service.search({ q: "삼성" })).rejects.toMatchObject({
+      error: { status: 400 },
+    });
+    expect(prismaMock.company.findMany).not.toHaveBeenCalled();
   });
 });
