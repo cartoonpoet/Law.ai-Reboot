@@ -26,21 +26,16 @@ describe("Sidebar", () => {
   it("주요 메뉴 라벨을 렌더한다", () => {
     renderSidebar();
     expect(screen.getByText("홈")).toBeInTheDocument();
-    expect(screen.getByText("계약")).toBeInTheDocument();
+    expect(screen.getByText("계약서 검토 요청")).toBeInTheDocument();
     expect(screen.getByText("시스템 관리")).toBeInTheDocument();
   });
 
-  it("초기엔 하위 메뉴가 접혀 있다", () => {
+  it("계약 하위 메뉴를 접힘 없이 바로 노출한다", () => {
     renderSidebar();
-    expect(screen.getByRole("button", { name: "계약" })).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("부모 메뉴 클릭 시 하위 메뉴를 펼친다", async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-    await user.click(screen.getByRole("button", { name: "계약" }));
-    expect(screen.getByRole("button", { name: "계약" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("계약서 검토 요청")).toBeInTheDocument();
+    expect(screen.getByText("계약서 검토 조회")).toBeInTheDocument();
+    expect(screen.getByText("체결 계약 조회")).toBeInTheDocument();
+    expect(screen.getByText("체결계약 만료 현황")).toBeInTheDocument();
   });
 
   it("리프 메뉴 클릭 시 해당 경로로 이동한다", async () => {
@@ -50,11 +45,10 @@ describe("Sidebar", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/advice");
   });
 
-  it("하위 메뉴 클릭 시 그 경로로 이동한다", async () => {
+  it("계약 메뉴 클릭 시 그 경로로 이동한다", async () => {
     const user = userEvent.setup();
     renderSidebar();
-    await user.click(screen.getByRole("button", { name: "계약" }));
-    await user.click(screen.getByText("계약서 검토 조회"));
+    await user.click(screen.getByRole("button", { name: /계약서 검토 조회/ }));
     expect(screen.getByTestId("location")).toHaveTextContent("/contract/list");
   });
 
