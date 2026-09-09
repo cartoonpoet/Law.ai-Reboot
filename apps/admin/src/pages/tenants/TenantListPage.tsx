@@ -1,9 +1,20 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Avatar, Icon, Spinner, themeVars } from "@lawkit/ui";
-import type { AdminTenantListItem } from "@lawai/contracts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Avatar,
+  Button,
+  Dropdown,
+  Icon,
+  Input,
+  InputGroup,
+  Modal,
+  Spinner,
+  themeVars,
+} from "@lawkit/ui";
+import type { AdminTenantListItem, TenantPlan } from "@lawai/contracts";
 import { AdminShell } from "../../components/AdminShell";
-import { listAdminTenants } from "../../api/adminTenants";
+import { createAdminTenant, listAdminTenants } from "../../api/adminTenants";
 import {
   PLAN_LABELS,
   STATUS_LABELS,
@@ -56,9 +67,50 @@ const td: React.CSSProperties = {
   color: themeVars.color.textPrimary,
 };
 
+const DEFAULT_TRIAL_DAYS = 30;
+
 export function TenantListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["adminTenants"], queryFn: listAdminTenants });
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [planDraft, setPlanDraft] = useState<TenantPlan>("starter");
+  const [statusDraft, setStatusDraft] = useState<"trial" | "active">("trial");
+  const [trialEndsDraft, setTrialEndsDraft] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createAdminTenant({
+        name: nameDraft.trim(),
+        plan: planDraft,
+        status: statusDraft,
+        trialEndsAt:
+          statusDraft === "trial"
+            ? new Date(`${trialEndsDraft}T23:59:59Z`).toISOString()
+            : null,
+        managerEmail: emailDraft.trim(),
+      }),
+    onSuccess: () => {
+      setIsCreateOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["adminTenants"] });
+    },
+  });
+
+  const handleOpenCreate = () => {
+    setNameDraft("");
+    setPlanDraft("starter");
+    setStatusDraft("trial");
+    setTrialEndsDraft(
+      new Date(Date.now() + DEFAULT_TRIAL_DAYS * 86_400_000).toISOString().slice(0, 10),
+    );
+    setEmailDraft("");
+    setIsCreateOpen(true);
+  };
+
+  const isCreateValid = nameDraft.trim().length > 0 && emailDraft.includes("@");
 
   if (query.isLoading) {
     return (
@@ -83,7 +135,10 @@ export function TenantListPage() {
     .sort((a, b) => a.trialEndsAt!.localeCompare(b.trialEndsAt!))[0];
 
   return (
-    <AdminShell breadcrumbLabel="고객사">
+    <AdminShell
+      breadcrumbLabel="고객사"
+      topbarExtra={<Button onClick={handleOpenCreate}>+ 고객사 추가</Button>}
+    >
       <div style={kpiGrid}>
         <div style={kpiCard}>
           <div style={kpiLabel}>전체 고객사</div>
@@ -160,6 +215,78 @@ export function TenantListPage() {
           </tbody>
         </table>
       </div>
+
+      {/* 고객사 생성 다이얼로그 (온보딩 1단계) */}
+      <Modal
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="새 고객사 추가"
+        footer={
+          <>
+            <Button variant="outline" color="secondary" onClick={() => setIsCreateOpen(false)}>
+              취소
+            </Button>
+            <Button
+              disabled={createMutation.isPending || !isCreateValid}
+              onClick={() => createMutation.mutate()}
+            >
+              회사 생성 + 초대 메일 발송
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <InputGroup label="회사 이름" required>
+            <Input
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="D물산"
+            />
+          </InputGroup>
+          <InputGroup label="요금제" required>
+            <Dropdown
+              options={[
+                { value: "starter", label: "Starter" },
+                { value: "pro", label: "Pro" },
+                { value: "enterprise", label: "Enterprise" },
+              ]}
+              value={planDraft}
+              onChange={(v) => setPlanDraft(v as TenantPlan)}
+            />
+          </InputGroup>
+          <InputGroup label="시작 상태" required>
+            <Dropdown
+              options={[
+                { value: "trial", label: "체험판", description: "만료일까지 무료 이용" },
+                { value: "active", label: "바로 사용", description: "계약 완료 시" },
+              ]}
+              value={statusDraft}
+              onChange={(v) => setStatusDraft(v as "trial" | "active")}
+            />
+          </InputGroup>
+          {statusDraft === "trial" ? (
+            <InputGroup label="체험판 만료일" helperText="YYYY-MM-DD">
+              <Input
+                value={trialEndsDraft}
+                onChange={(e) => setTrialEndsDraft(e.target.value)}
+                placeholder="2026-10-10"
+              />
+            </InputGroup>
+          ) : null}
+          <InputGroup label="첫 담당자 이메일" required helperText="계약담당자 역할로 초대 메일이 발송됩니다">
+            <Input
+              value={emailDraft}
+              onChange={(e) => setEmailDraft(e.target.value)}
+              placeholder="legal-lead@example.com"
+            />
+          </InputGroup>
+          {createMutation.isError ? (
+            <div style={{ fontSize: 12, color: themeVars.color.accentDanger }}>
+              생성에 실패했습니다. 다시 시도해주세요.
+            </div>
+          ) : null}
+        </div>
+      </Modal>
     </AdminShell>
   );
 }
