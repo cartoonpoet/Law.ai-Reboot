@@ -44,7 +44,29 @@ model Tenant {
   createdAt   DateTime     @default(now())
 
   memberships UserTenant[]
+  invitations Invitation[]
 
+  @@schema("users")
+}
+
+// 고객사 초대 (Spec 4). tokenHash = sha256(raw) — PasswordResetToken 과 동일 방식.
+// 유효 초대 = acceptedAt null && canceledAt null && expiresAt > now.
+model Invitation {
+  id          String     @id @default(uuid())
+  tenantId    String
+  email       String
+  role        TenantRole @default(general)
+  tokenHash   String     @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  canceledAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
   @@schema("users")
 }
 
