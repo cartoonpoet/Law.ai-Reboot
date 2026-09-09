@@ -100,7 +100,7 @@ describe("AuthService", () => {
       if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
         return of({
           isSystemAdmin: false,
-          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" }],
         });
       }
       return of(null);
@@ -142,7 +142,7 @@ describe("AuthService", () => {
       if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
         return of({
           isSystemAdmin: false,
-          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" }],
         });
       }
       return of(null);
@@ -228,7 +228,7 @@ describe("AuthService", () => {
       if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
         return of({
           isSystemAdmin: false,
-          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" }],
         });
       }
       return of(null);
@@ -256,7 +256,7 @@ describe("AuthService", () => {
       if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
         return of({
           isSystemAdmin: false,
-          memberships: [{ tenantId: "t1", tenantName: "A사", role: "contractManager" }],
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "contractManager", tenantStatus: "active" }],
         });
       }
       return of(null);
@@ -274,8 +274,8 @@ describe("AuthService", () => {
         return of({
           isSystemAdmin: false,
           memberships: [
-            { tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" },
-            { tenantId: "t2", tenantName: "B사", role: "general" },
+            { tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" },
+            { tenantId: "t2", tenantName: "B사", role: "general", tenantStatus: "active" },
           ],
         });
       }
@@ -409,5 +409,85 @@ describe("AuthService", () => {
       service.refresh({ refreshToken: "forged" }),
     ).rejects.toBeInstanceOf(RpcException);
     expect(jwtMock.signAsync).not.toHaveBeenCalled();
+  });
+
+  // ─── suspended 차단 (Spec 3) ──────────────────────────────────────────────
+
+  const suspendedUser = {
+    id: "u9",
+    email: "s@b.com",
+    name: "S",
+    passwordHash: "hashed",
+    isSystemAdmin: false,
+    departmentId: null,
+    departmentName: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  it("모든 멤버십이 suspended 면 로그인이 403으로 거부된다", async () => {
+    passwords.verify.mockResolvedValue(true);
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_EMAIL) return of(suspendedUser);
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [
+            { tenantId: "t1", tenantName: "정지사", role: "general", tenantStatus: "suspended" },
+          ],
+        });
+      }
+      return of(null);
+    });
+    const err = await service
+      .login({ email: "s@b.com", password: "pw" })
+      .catch((e: RpcException) => e);
+    expect(err).toBeInstanceOf(RpcException);
+    expect((err as RpcException).getError()).toMatchObject({
+      status: 403,
+      message: "이용이 정지된 회사입니다. 관리자에게 문의하세요.",
+    });
+  });
+
+  it("suspended 와 active 가 섞이면 active 쪽을 활성 테넌트로 선택한다", async () => {
+    passwords.verify.mockResolvedValue(true);
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_EMAIL) return of(suspendedUser);
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [
+            { tenantId: "t1", tenantName: "정지사", role: "general", tenantStatus: "suspended" },
+            { tenantId: "t2", tenantName: "정상사", role: "general", tenantStatus: "active" },
+          ],
+        });
+      }
+      return of(null);
+    });
+    jwtMock.signAsync.mockResolvedValue("token");
+
+    await service.login({ email: "s@b.com", password: "pw" });
+
+    expect(jwtMock.signAsync.mock.calls[0][0]).toMatchObject({ activeTenantId: "t2" });
+  });
+
+  it("suspended 테넌트로 switch-tenant 하면 403", async () => {
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_ID) return of(suspendedUser);
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [
+            { tenantId: "t1", tenantName: "정지사", role: "general", tenantStatus: "suspended" },
+            { tenantId: "t2", tenantName: "정상사", role: "general", tenantStatus: "active" },
+          ],
+        });
+      }
+      return of(null);
+    });
+    const err = await service
+      .switchTenant({ userId: "u9", tenantId: "t1" })
+      .catch((e: RpcException) => e);
+    expect(err).toBeInstanceOf(RpcException);
+    expect((err as RpcException).getError()).toMatchObject({ status: 403 });
   });
 });

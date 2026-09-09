@@ -26,6 +26,8 @@ import {
 import { PasswordService } from "./password.service";
 import { MailService } from "./mail.service";
 
+const SUSPENDED_MESSAGE = "이용이 정지된 회사입니다. 관리자에게 문의하세요.";
+
 interface AuthResult {
   user: PublicUser;
   tokens: AuthTokens;
@@ -256,10 +258,22 @@ export class AuthService {
       if (!m) {
         throw new RpcException({ status: 403, message: "해당 회사 멤버가 아닙니다" });
       }
+      if (m.tenantStatus === "suspended") {
+        throw new RpcException({ status: 403, message: SUSPENDED_MESSAGE });
+      }
       active = { tenantId: m.tenantId, role: m.role };
-    } else if (memberships.memberships.length > 0) {
-      const m = memberships.memberships[0];
-      active = { tenantId: m.tenantId, role: m.role };
+    } else {
+      // 로그인: suspended 가 아닌 첫 멤버십을 활성으로. 전부 suspended 면 403 (Spec 3).
+      const m = memberships.memberships.find((x) => x.tenantStatus !== "suspended");
+      if (m) {
+        active = { tenantId: m.tenantId, role: m.role };
+      } else if (
+        memberships.memberships.length > 0 &&
+        !memberships.isSystemAdmin &&
+        !allowEmpty
+      ) {
+        throw new RpcException({ status: 403, message: SUSPENDED_MESSAGE });
+      }
     }
 
     if (!active && !memberships.isSystemAdmin && !allowEmpty) {
