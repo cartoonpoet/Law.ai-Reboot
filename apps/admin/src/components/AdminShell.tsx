@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Avatar, Icon, themeVars } from "@lawkit/ui";
 import { getEmail, getName } from "../api/tokens";
 
@@ -136,15 +137,22 @@ const content: React.CSSProperties = {
 };
 
 interface NavItem {
-  icon: "home" | "users" | "fileText" | "folder" | "tag" | "shield" | "monitor";
+  icon: "home" | "users" | "fileText" | "folder" | "tag" | "shield" | "monitor" | "briefcase";
   label: string;
-  active?: boolean;
+  path?: string; // 있으면 클릭 이동 + 현재 경로 매칭으로 active
 }
+
+const isNavActive = (item: NavItem, pathname: string) =>
+  item.path !== undefined &&
+  (item.path === "/" ? pathname === "/" : pathname.startsWith(item.path));
 
 const NAV: { section: string; items: NavItem[] }[] = [
   {
     section: "개요",
-    items: [{ icon: "home", label: "대시보드", active: true }],
+    items: [
+      { icon: "home", label: "대시보드", path: "/" },
+      { icon: "briefcase", label: "고객사", path: "/tenants" },
+    ],
   },
   {
     section: "관리",
@@ -175,6 +183,8 @@ export function AdminShell({
   topbarExtra,
   children,
 }: AdminShellProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const name = getName();
   const email = getEmail();
 
@@ -195,7 +205,11 @@ export function AdminShell({
             {group.items.map((item) => (
               <div
                 key={item.label}
-                style={item.active ? navItemActive : navItemBase}
+                onClick={item.path ? () => navigate(item.path!) : undefined}
+                style={{
+                  ...(isNavActive(item, location.pathname) ? navItemActive : navItemBase),
+                  ...(item.path ? { cursor: "pointer" } : {}),
+                }}
               >
                 <Icon name={item.icon} size="sm" />
                 {item.label}

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
+import { TenantListPage } from "./pages/tenants/TenantListPage";
 import { DashboardMock } from "./pages/mockups/DashboardMock";
 import { RequireAdmin } from "./components/RequireAdmin";
 
@@ -15,6 +16,14 @@ export function App() {
         element={
           <RequireAdmin>
             <DashboardPage />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/tenants"
+        element={
+          <RequireAdmin>
+            <TenantListPage />
           </RequireAdmin>
         }
       />
