@@ -3,6 +3,10 @@ import { Icon } from "@lawkit/ui";
 import type { IconName } from "@lawkit/ui";
 import { clearTokens } from "../../api/tokens";
 import { Logo } from "../ui/Logo";
+import { TenantSwitcher } from "./TenantSwitcher";
+import { useTenantSwitcher } from "./hooks/useTenantSwitcher";
+import { useMe } from "./hooks/useMe";
+import { getTenantRoleLabel } from "../../utils/tenantRoleLabel";
 import * as css from "./sidebar.css";
 
 // 메뉴를 섹션으로 그룹핑(admin 콘솔 스타일).
@@ -49,6 +53,8 @@ type NavItem = (typeof SECTIONS)[number]["items"][number];
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { activeMembership } = useTenantSwitcher();
+  const { me } = useMe();
 
   return (
     <aside className={css.aside}>
@@ -83,11 +89,15 @@ export function Sidebar() {
         ))}
       </nav>
 
+      <TenantSwitcher />
+
       <div className={css.foot}>
-        <div className={css.footAvatar}>손</div>
+        <div className={css.footAvatar}>{me?.name.charAt(0) ?? ""}</div>
         <div className={css.footMain}>
-          <div className={css.footName}>손준호</div>
-          <div className={css.footRole}>법무팀</div>
+          <div className={css.footName}>{me?.name ?? ""}</div>
+          <div className={css.footRole}>
+            {activeMembership ? getTenantRoleLabel(activeMembership.role) : ""}
+          </div>
         </div>
         <button
           onClick={() => {
