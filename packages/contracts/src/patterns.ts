@@ -7,6 +7,12 @@ export const AUTH_PATTERNS = {
   REFRESH: "auth.refresh",
   SWITCH_TENANT: "auth.switchTenant",
   MY_TENANTS: "auth.myTenants",
+  // 온보딩 (Spec 4) — 토큰 발급·메일·권한 검사는 auth-service 소유.
+  ADMIN_CREATE_TENANT: "auth.adminCreateTenant",
+  INVITE_MEMBERS: "auth.inviteMembers",
+  RESEND_INVITE: "auth.resendInvite",
+  GET_INVITE: "auth.getInvite",
+  ACCEPT_INVITE: "auth.acceptInvite",
 } as const;
 
 export const USER_PATTERNS = {
@@ -18,6 +24,14 @@ export const USER_PATTERNS = {
   CONSUME_RESET_TOKEN: "user.resetToken.consume",
   UPDATE_PASSWORD: "user.updatePassword",
   FIND_MEMBERSHIPS: "user.findMemberships",
+  // 온보딩 (Spec 4) — 초대 저장·소비/멤버 목록/테넌트 생성.
+  CREATE_TENANT: "user.tenant.create",
+  LIST_TENANT_MEMBERS: "user.tenant.listMembers",
+  CREATE_INVITATION: "user.invitation.create",
+  ROTATE_INVITATION: "user.invitation.rotate",
+  CANCEL_INVITATION: "user.invitation.cancel",
+  FIND_INVITATION: "user.invitation.find",
+  ACCEPT_INVITATION: "user.invitation.accept",
 } as const;
 
 export const DEPARTMENT_PATTERNS = {
