@@ -61,6 +61,12 @@ export const ADMIN_PATTERNS = {
   GET_STATS: "admin.getStats",
   // 최근 감사 로그(actor 이름 포함). limit 로 페이지네이션.
   GET_AUDIT: "admin.getAudit",
+  // 고객사 목록 + 전체 KPI (Spec 3).
+  LIST_TENANTS: "admin.listTenants",
+  // 고객사 상세 집계 (Spec 3).
+  GET_TENANT: "admin.getTenant",
+  // 고객사 요금제/상태/체험판만료 변경 + 감사 기록 (Spec 3).
+  UPDATE_TENANT: "admin.updateTenant",
 } as const;
 
 export const NOTIFICATION_PATTERNS = {

@@ -72,6 +72,8 @@ export interface MembershipRow {
   tenantId: string;
   tenantName: string;
   role: import("../types").TenantRole;
+  // 테넌트 상태 — auth-service 가 suspended 로그인/전환 차단에 사용 (Spec 3).
+  tenantStatus: import("./tenant.dto").TenantStatus;
 }
 export interface FindMembershipsResponse {
   isSystemAdmin: boolean;
