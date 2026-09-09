@@ -15,7 +15,7 @@ export class TenantsService {
     if (!user) throw new RpcException({ status: 404, message: "사용자를 찾을 수 없습니다" });
     const rows = await this.prisma.userTenant.findMany({
       where: { userId: req.userId },
-      include: { tenant: { select: { name: true } } },
+      include: { tenant: { select: { name: true, status: true } } },
       orderBy: { joinedAt: "asc" },
     });
     return {
@@ -24,6 +24,7 @@ export class TenantsService {
         tenantId: r.tenantId,
         tenantName: r.tenant.name,
         role: r.role,
+        tenantStatus: r.tenant.status,
       })),
     };
   }

@@ -24,11 +24,13 @@ describe("TenantsService", () => {
   it("사용자의 멤버십 목록 + isSystemAdmin 을 반환한다", async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: "u1", isSystemAdmin: false });
     prismaMock.userTenant.findMany.mockResolvedValue([
-      { tenantId: "t1", role: "inHouseCounsel", tenant: { name: "A사" } },
+      { tenantId: "t1", role: "inHouseCounsel", tenant: { name: "A사", status: "active" } },
     ]);
     const res = await service.findMemberships({ userId: "u1" });
     expect(res.isSystemAdmin).toBe(false);
-    expect(res.memberships).toEqual([{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }]);
+    expect(res.memberships).toEqual([
+      { tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" },
+    ]);
   });
 
   it("사용자가 없으면 404 RpcException 을 던진다", async () => {
