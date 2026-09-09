@@ -78,3 +78,22 @@ export function confirmPasswordReset(
     body: JSON.stringify(req),
   });
 }
+
+// ─── 온보딩 초대 수락 (Spec 4) ────────────────────────────────────────
+
+export function getInviteInfo(
+  token: string,
+): Promise<import("@lawai/contracts").InviteInfoResponse> {
+  return apiFetch<import("@lawai/contracts").InviteInfoResponse>(
+    `/auth/invites/${token}`,
+  );
+}
+
+export function acceptInvite(
+  req: import("@lawai/contracts").AcceptInviteRequest,
+): Promise<import("@lawai/contracts").AcceptInviteResponse> {
+  return apiFetch<import("@lawai/contracts").AcceptInviteResponse>(
+    "/auth/invites/accept",
+    { method: "POST", body: JSON.stringify(req) },
+  );
+}
