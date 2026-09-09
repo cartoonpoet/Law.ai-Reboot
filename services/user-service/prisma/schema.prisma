@@ -35,11 +35,13 @@ enum TenantRole {
 }
 
 model Tenant {
-  id        String       @id @default(uuid())
-  name      String
-  plan      TenantPlan   @default(starter)
-  status    TenantStatus @default(active)
-  createdAt DateTime     @default(now())
+  id          String       @id @default(uuid())
+  name        String
+  plan        TenantPlan   @default(starter)
+  status      TenantStatus @default(active)
+  // status=trial 일 때 체험판 만료 시각. active/suspended 면 null 권장(앱 레벨 관리, DB 강제 없음).
+  trialEndsAt DateTime?
+  createdAt   DateTime     @default(now())
 
   memberships UserTenant[]
 
