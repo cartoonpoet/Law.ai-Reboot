@@ -8,6 +8,8 @@ describe("TenantsService", () => {
   const prismaMock = {
     user: { findUnique: jest.fn() },
     userTenant: { findMany: jest.fn() },
+    tenant: { create: jest.fn() },
+    invitation: { findMany: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -44,5 +46,44 @@ describe("TenantsService", () => {
     const res = await service.findMemberships({ userId: "u2" });
     expect(res.isSystemAdmin).toBe(true);
     expect(res.memberships).toEqual([]);
+  });
+
+  it("createTenant 는 Tenant 를 만들고 DTO 로 반환한다", async () => {
+    prismaMock.tenant.create.mockResolvedValue({
+      id: "t9", name: "D물산", plan: "pro", status: "trial",
+      trialEndsAt: new Date("2026-10-10T00:00:00Z"), createdAt: new Date("2026-09-10T00:00:00Z"),
+    });
+    const res = await service.createTenant({
+      name: "D물산", plan: "pro", status: "trial", trialEndsAt: "2026-10-10T00:00:00.000Z",
+    });
+    expect(prismaMock.tenant.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ name: "D물산", plan: "pro", status: "trial" }),
+    });
+    expect(res).toMatchObject({ id: "t9", name: "D물산", plan: "pro", status: "trial" });
+  });
+
+  it("listMembers 는 활성 테넌트의 멤버와 유효 초대를 반환한다", async () => {
+    prismaMock.userTenant.findMany.mockResolvedValue([
+      {
+        role: "contractManager",
+        joinedAt: new Date("2026-09-01T00:00:00Z"),
+        user: { id: "u1", name: "김담당", email: "lead@d.com" },
+      },
+    ]);
+    prismaMock.invitation.findMany.mockResolvedValue([
+      {
+        id: "i1", email: "p@d.com", role: "general",
+        expiresAt: new Date("2026-09-17T00:00:00Z"), createdAt: new Date("2026-09-10T00:00:00Z"),
+      },
+    ]);
+    const res = await service.listMembers({ tenantContext: { tenantId: "t1", isSystemAdmin: false } });
+    expect(res.members).toEqual([
+      { userId: "u1", name: "김담당", email: "lead@d.com", role: "contractManager", joinedAt: "2026-09-01T00:00:00.000Z" },
+    ]);
+    expect(res.invites[0]).toMatchObject({ id: "i1", email: "p@d.com" });
+  });
+
+  it("listMembers 는 tenantContext 없으면 403", async () => {
+    await expect(service.listMembers({})).rejects.toBeInstanceOf(RpcException);
   });
 });
