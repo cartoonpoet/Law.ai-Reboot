@@ -1,8 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Sidebar } from "./Sidebar";
+import { useTenantSwitcher } from "./hooks/useTenantSwitcher";
+import { useMe } from "./hooks/useMe";
+
+vi.mock("./hooks/useTenantSwitcher");
+vi.mock("./hooks/useMe");
+
+const membership = { tenantId: "t-1", name: "A상사", role: "inHouseCounsel" as const, isActive: true };
 
 function LocationDisplay() {
   const location = useLocation();
@@ -21,7 +28,20 @@ function renderSidebar(initial = "/") {
 }
 
 describe("Sidebar", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(useTenantSwitcher).mockReturnValue({
+      memberships: [membership],
+      activeMembership: membership,
+      isLoading: false,
+      switchTo: vi.fn(),
+      switchingTenantId: null,
+      isSwitchError: false,
+    });
+    vi.mocked(useMe).mockReturnValue({
+      me: { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x" },
+    });
+  });
 
   it("주요 메뉴 라벨을 렌더한다", () => {
     renderSidebar();
@@ -59,5 +79,30 @@ describe("Sidebar", () => {
     await user.click(screen.getByRole("button", { name: "로그아웃" }));
     expect(localStorage.getItem("accessToken")).toBeNull();
     expect(screen.getByTestId("location")).toHaveTextContent("/login");
+  });
+
+  it("foot에 실사용자 이름과 활성 테넌트 역할 라벨을 표시한다", () => {
+    renderSidebar();
+    expect(screen.getByText("김지원")).toBeInTheDocument();
+    expect(screen.getByText("사내변호사")).toBeInTheDocument();
+  });
+
+  it("사용자 정보 로딩 전에는 foot 텍스트 없이 렌더가 깨지지 않는다", () => {
+    vi.mocked(useMe).mockReturnValue({ me: null });
+    vi.mocked(useTenantSwitcher).mockReturnValue({
+      memberships: [],
+      activeMembership: null,
+      isLoading: true,
+      switchTo: vi.fn(),
+      switchingTenantId: null,
+      isSwitchError: false,
+    });
+    renderSidebar();
+    expect(screen.getByText("홈")).toBeInTheDocument();
+  });
+
+  it("스위처(현재 회사명)를 foot 위에 렌더한다", () => {
+    renderSidebar();
+    expect(screen.getByText("A상사")).toBeInTheDocument();
   });
 });
