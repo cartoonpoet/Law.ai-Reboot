@@ -82,7 +82,7 @@ export interface AdminTenantUpdateRequest {
 - **getTenant**: 위 상세 집계 4종 + `userTenant.groupBy(role)` + 기존 `getRecentAudit` 로직에 `tenantId` where 추가
   (actorName 조인 방식 재사용 — 중복 구현 대신 내부 헬퍼로 추출).
 - **updateTenant**: `tenant.update` 후 `AuditLog` 기록
-  (`action: "admin_tenant_update"`, actorId=요청 admin, targetType "Tenant", detail 에 변경 전/후).
+  (action: 기존 enum `update` 재사용 — AuditAction enum 확장(스키마 변경) 회피. targetType "Tenant", detail 에 변경 전/후).
   admin 행위라 tenantId 는 대상 테넌트 id 로 기록.
 
 ## 3. suspended 효력 (auth-service) — 승인됨
