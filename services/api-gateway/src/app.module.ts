@@ -13,6 +13,7 @@ import { ContractCategoriesModule } from "./contractCategories/contractCategorie
 import { NotificationsModule } from "./notifications/notifications.module";
 import { NotificationHubModule } from "./notifications/notification-hub.module";
 import { AdminModule } from "./admin/admin.module";
+import { TenantsGatewayModule } from "./tenants/tenants.module";
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AdminModule } from "./admin/admin.module";
     ContractCategoriesModule,
     NotificationsModule,
     AdminModule,
+    TenantsGatewayModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

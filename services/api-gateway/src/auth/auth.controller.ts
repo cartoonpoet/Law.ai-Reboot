@@ -1,10 +1,13 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { firstValueFrom } from "rxjs";
 import type { Request } from "express";
 import {
   AUTH_PATTERNS,
+  type AcceptInviteRequest,
+  type AcceptInviteResponse,
+  type InviteInfoResponse,
   type JwtPayload,
   type MyTenantsRequest,
   type SwitchTenantRequest,
@@ -110,6 +113,34 @@ export class AuthController {
     const payload: MyTenantsRequest = { userId: sub, activeTenantId };
     return firstValueFrom(
       this.authClient.send(AUTH_PATTERNS.MY_TENANTS, payload).pipe(rpcToHttp()),
+    );
+  }
+
+  @Get("invites/:token")
+  @ApiOperation({
+    summary: "초대 정보 조회 (공개)",
+    description: "초대 링크 토큰으로 회사명/이메일/역할을 조회한다. 무효·만료 시 400.",
+  })
+  getInvite(@Param("token") token: string): Promise<InviteInfoResponse> {
+    return firstValueFrom(
+      this.authClient
+        .send<InviteInfoResponse>(AUTH_PATTERNS.GET_INVITE, { token })
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @Post("invites/accept")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "초대 수락 (공개)",
+    description:
+      "신규 이메일이면 가입+자동 로그인 토큰 발급, 기존 계정이면 멤버십만 추가(existingUser=true).",
+  })
+  acceptInvite(@Body() dto: AcceptInviteRequest): Promise<AcceptInviteResponse> {
+    return firstValueFrom(
+      this.authClient
+        .send<AcceptInviteResponse>(AUTH_PATTERNS.ACCEPT_INVITE, dto)
+        .pipe(rpcToHttp()),
     );
   }
 }

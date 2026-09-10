@@ -23,8 +23,25 @@ import {
   type MyTenantsRequest,
   type MyTenantsResponse,
 } from "@lawai/contracts";
+import type {
+  AcceptInviteRequest,
+  AcceptInviteResponse,
+  AcceptInvitationRpcResult,
+  AdminCreateTenantRequest,
+  AdminCreateTenantResponse,
+  CreateInvitationResult,
+  FindInvitationResult,
+  InviteInfoResponse,
+  InviteMembersRequest,
+  InviteMembersResponse,
+  ResendInviteRequest,
+  RotateInvitationResult,
+  TenantDto,
+} from "@lawai/contracts";
 import { PasswordService } from "./password.service";
 import { MailService } from "./mail.service";
+
+const SUSPENDED_MESSAGE = "이용이 정지된 회사입니다. 관리자에게 문의하세요.";
 
 interface AuthResult {
   user: PublicUser;
@@ -256,10 +273,22 @@ export class AuthService {
       if (!m) {
         throw new RpcException({ status: 403, message: "해당 회사 멤버가 아닙니다" });
       }
+      if (m.tenantStatus === "suspended") {
+        throw new RpcException({ status: 403, message: SUSPENDED_MESSAGE });
+      }
       active = { tenantId: m.tenantId, role: m.role };
-    } else if (memberships.memberships.length > 0) {
-      const m = memberships.memberships[0];
-      active = { tenantId: m.tenantId, role: m.role };
+    } else {
+      // 로그인: suspended 가 아닌 첫 멤버십을 활성으로. 전부 suspended 면 403 (Spec 3).
+      const m = memberships.memberships.find((x) => x.tenantStatus !== "suspended");
+      if (m) {
+        active = { tenantId: m.tenantId, role: m.role };
+      } else if (
+        memberships.memberships.length > 0 &&
+        !memberships.isSystemAdmin &&
+        !allowEmpty
+      ) {
+        throw new RpcException({ status: 403, message: SUSPENDED_MESSAGE });
+      }
     }
 
     if (!active && !memberships.isSystemAdmin && !allowEmpty) {
@@ -288,4 +317,177 @@ export class AuthService {
 
     return { user: publicUser, tokens };
   }
+
+  // ─── 온보딩 초대 (Spec 4) ──────────────────────────────────────────────
+
+  private static readonly INVITER_ROLES: TenantRole[] = [
+    "contractManager",
+    "inHouseCounsel",
+  ];
+
+  private assertInvitePermission(req: {
+    inviterRole?: TenantRole;
+    isSystemAdmin?: boolean;
+  }): void {
+    if (req.isSystemAdmin) return;
+    if (!req.inviterRole || !AuthService.INVITER_ROLES.includes(req.inviterRole)) {
+      throw new RpcException({ status: 403, message: "멤버 초대 권한이 없습니다" });
+    }
+  }
+
+  /** raw 토큰 생성 + user-service 저장 + 메일. created=false(스킵)면 메일 없음. */
+  private async issueInvite(params: {
+    tenantId: string;
+    tenantName: string;
+    email: string;
+    role: TenantRole;
+    invitedById: string;
+  }): Promise<boolean> {
+    const rawToken = randomBytes(32).toString("hex");
+    const ttlDays = Number(process.env.INVITE_TTL_DAYS ?? 7);
+    const expiresAt = new Date(Date.now() + ttlDays * 86_400_000).toISOString();
+    const result = await firstValueFrom(
+      this.userClient.send<CreateInvitationResult>(USER_PATTERNS.CREATE_INVITATION, {
+        tenantId: params.tenantId,
+        email: params.email,
+        role: params.role,
+        tokenHash: this.hashResetToken(rawToken),
+        invitedById: params.invitedById,
+        expiresAt,
+      }),
+    );
+    if (!result.created) return false;
+    const webUrl = process.env.APP_WEB_URL ?? "http://localhost:5173";
+    this.mail.sendInviteLink(
+      params.email,
+      `${webUrl}/invite?token=${rawToken}`,
+      params.tenantName,
+    );
+    return true;
+  }
+
+  /** admin 온보딩 1단계 — 회사 생성 + 첫 담당자(contractManager) 초대. */
+  async adminCreateTenant(
+    req: AdminCreateTenantRequest,
+  ): Promise<AdminCreateTenantResponse> {
+    if (!req.actorId) {
+      throw new RpcException({ status: 400, message: "actorId가 필요합니다" });
+    }
+    const tenant = await firstValueFrom(
+      this.userClient.send<TenantDto>(USER_PATTERNS.CREATE_TENANT, {
+        name: req.name,
+        plan: req.plan,
+        status: req.status,
+        trialEndsAt: req.trialEndsAt ?? null,
+      }),
+    );
+    await this.issueInvite({
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      email: req.managerEmail,
+      role: "contractManager",
+      invitedById: req.actorId,
+    });
+    return { tenant, invited: true };
+  }
+
+  /** 온보딩 2단계 — 담당자의 다건 초대. 스킵(중복) 이메일은 집계해 반환. */
+  async inviteMembers(req: InviteMembersRequest): Promise<InviteMembersResponse> {
+    this.assertInvitePermission(req);
+    if (!req.tenantId || !req.invitedById) {
+      throw new RpcException({ status: 400, message: "활성 회사가 없습니다" });
+    }
+    // 테넌트명은 멤버십에서 — 초대자는 항상 해당 테넌트 멤버(또는 admin).
+    const memberships = await firstValueFrom(
+      this.userClient.send<FindMembershipsResponse>(USER_PATTERNS.FIND_MEMBERSHIPS, {
+        userId: req.invitedById,
+      }),
+    );
+    const tenantName =
+      memberships.memberships.find((m) => m.tenantId === req.tenantId)?.tenantName ??
+      "고객사";
+
+    let sent = 0;
+    const skipped: string[] = [];
+    for (const email of req.emails) {
+      const created = await this.issueInvite({
+        tenantId: req.tenantId,
+        tenantName,
+        email,
+        role: req.role,
+        invitedById: req.invitedById,
+      });
+      if (created) sent += 1;
+      else skipped.push(email);
+    }
+    return { sent, skipped };
+  }
+
+  /** 초대 재발송 — 토큰 회전 후 재메일. */
+  async resendInvite(req: ResendInviteRequest): Promise<{ ok: true }> {
+    this.assertInvitePermission(req);
+    if (!req.tenantId) {
+      throw new RpcException({ status: 400, message: "활성 회사가 없습니다" });
+    }
+    const rawToken = randomBytes(32).toString("hex");
+    const ttlDays = Number(process.env.INVITE_TTL_DAYS ?? 7);
+    const rotated = await firstValueFrom(
+      this.userClient.send<RotateInvitationResult>(USER_PATTERNS.ROTATE_INVITATION, {
+        inviteId: req.inviteId,
+        tenantId: req.tenantId,
+        tokenHash: this.hashResetToken(rawToken),
+        expiresAt: new Date(Date.now() + ttlDays * 86_400_000).toISOString(),
+      }),
+    );
+    const webUrl = process.env.APP_WEB_URL ?? "http://localhost:5173";
+    this.mail.sendInviteLink(
+      rotated.email,
+      `${webUrl}/invite?token=${rawToken}`,
+      rotated.tenantName,
+    );
+    return { ok: true };
+  }
+
+  /** 온보딩 3단계 — 초대 정보 조회(수락 페이지). */
+  async getInvite(req: { token: string }): Promise<InviteInfoResponse> {
+    const invite = await firstValueFrom(
+      this.userClient.send<FindInvitationResult | null>(USER_PATTERNS.FIND_INVITATION, {
+        tokenHash: this.hashResetToken(req.token),
+      }),
+    );
+    if (!invite) {
+      throw new RpcException({
+        status: 400,
+        message: "유효하지 않거나 만료된 초대 링크입니다",
+      });
+    }
+    return { tenantName: invite.tenantName, email: invite.email, role: invite.role };
+  }
+
+  /** 온보딩 3단계 — 수락. 신규는 자동 로그인 토큰까지, 기존은 멤버십 추가만. */
+  async acceptInvite(req: AcceptInviteRequest): Promise<AcceptInviteResponse> {
+    const passwordHash = await this.passwords.hash(req.password);
+    const accepted = await firstValueFrom(
+      this.userClient.send<AcceptInvitationRpcResult>(USER_PATTERNS.ACCEPT_INVITATION, {
+        tokenHash: this.hashResetToken(req.token),
+        name: req.name,
+        passwordHash,
+      }),
+    );
+    if (accepted.existingUser) {
+      // 기존 계정: 멤버십만 추가됨 — 로그인 유도(다음 로그인부터 반영).
+      return { existingUser: true };
+    }
+    const user = await firstValueFrom(
+      this.userClient.send<UserWithHash | null>(USER_PATTERNS.FIND_BY_ID, {
+        id: accepted.userId,
+      }),
+    );
+    if (!user) {
+      throw new RpcException({ status: 500, message: "가입 처리에 실패했습니다" });
+    }
+    const result = await this.buildResult(user, accepted.tenantId);
+    return { existingUser: false, user: result.user, tokens: result.tokens };
+  }
+
 }

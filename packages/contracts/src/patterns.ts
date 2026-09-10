@@ -7,6 +7,12 @@ export const AUTH_PATTERNS = {
   REFRESH: "auth.refresh",
   SWITCH_TENANT: "auth.switchTenant",
   MY_TENANTS: "auth.myTenants",
+  // 온보딩 (Spec 4) — 토큰 발급·메일·권한 검사는 auth-service 소유.
+  ADMIN_CREATE_TENANT: "auth.adminCreateTenant",
+  INVITE_MEMBERS: "auth.inviteMembers",
+  RESEND_INVITE: "auth.resendInvite",
+  GET_INVITE: "auth.getInvite",
+  ACCEPT_INVITE: "auth.acceptInvite",
 } as const;
 
 export const USER_PATTERNS = {
@@ -18,6 +24,14 @@ export const USER_PATTERNS = {
   CONSUME_RESET_TOKEN: "user.resetToken.consume",
   UPDATE_PASSWORD: "user.updatePassword",
   FIND_MEMBERSHIPS: "user.findMemberships",
+  // 온보딩 (Spec 4) — 초대 저장·소비/멤버 목록/테넌트 생성.
+  CREATE_TENANT: "user.tenant.create",
+  LIST_TENANT_MEMBERS: "user.tenant.listMembers",
+  CREATE_INVITATION: "user.invitation.create",
+  ROTATE_INVITATION: "user.invitation.rotate",
+  CANCEL_INVITATION: "user.invitation.cancel",
+  FIND_INVITATION: "user.invitation.find",
+  ACCEPT_INVITATION: "user.invitation.accept",
 } as const;
 
 export const DEPARTMENT_PATTERNS = {
@@ -61,6 +75,12 @@ export const ADMIN_PATTERNS = {
   GET_STATS: "admin.getStats",
   // 최근 감사 로그(actor 이름 포함). limit 로 페이지네이션.
   GET_AUDIT: "admin.getAudit",
+  // 고객사 목록 + 전체 KPI (Spec 3).
+  LIST_TENANTS: "admin.listTenants",
+  // 고객사 상세 집계 (Spec 3).
+  GET_TENANT: "admin.getTenant",
+  // 고객사 요금제/상태/체험판만료 변경 + 감사 기록 (Spec 3).
+  UPDATE_TENANT: "admin.updateTenant",
 } as const;
 
 export const NOTIFICATION_PATTERNS = {

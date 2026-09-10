@@ -5,8 +5,10 @@ import { LoginPage } from "./pages/login/LoginPage";
 import { ForgotPasswordPage } from "./pages/login/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/login/ResetPasswordPage";
 import { SignupPage } from "./pages/login/SignupPage";
+import { InviteAcceptPage } from "./pages/login/InviteAcceptPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { ContractPlaceholderPage } from "./pages/contract/ContractPlaceholderPage";
+import { MembersPage } from "./pages/members/MembersPage";
 import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
 import { ContractCreatePage } from "./pages/contract/ContractCreatePage";
@@ -44,6 +46,7 @@ export function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/invite" element={<InviteAcceptPage />} />
       </Route>
       <Route
         element={
@@ -57,6 +60,7 @@ export function AppRoutes() {
         <Route path="/contract/request" element={<ContractCreatePage />} />
         <Route path="/contract/signed" element={<ContractPlaceholderPage title="체결 계약 조회" />} />
         <Route path="/contract/expire" element={<ContractPlaceholderPage title="체결계약 만료 현황" />} />
+        <Route path="/members" element={<MembersPage />} />
         <Route path="/contract/:id/edit" element={<ContractEditPage />} />
         <Route path="/contract/:id" element={<ContractDetailPage />} />
       </Route>

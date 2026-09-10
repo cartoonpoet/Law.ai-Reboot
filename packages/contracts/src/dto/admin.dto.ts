@@ -36,3 +36,45 @@ export interface AdminAuditListRequest {
 export interface AdminAuditListResponse {
   items: AdminAuditEntry[];
 }
+
+// ─── Spec 3: 고객사 관리 ─────────────────────────────────────────────
+
+export interface AdminTenantListItem {
+  id: string;
+  name: string;
+  plan: import("./tenant.dto").TenantPlan;
+  status: import("./tenant.dto").TenantStatus;
+  trialEndsAt: string | null; // status=trial 일 때 체험판 만료 ISO. 아니면 null
+  createdAt: string;
+  memberCount: number;
+  contractCount: number; // deletedAt null 기준
+  lastActivityAt: string | null; // 해당 테넌트 AuditLog 최신 at
+}
+
+export interface AdminTenantListResponse {
+  tenants: AdminTenantListItem[];
+  totals: { tenants: number; users: number; contracts: number; trials: number };
+}
+
+export interface AdminTenantDetailRequest {
+  tenantId: string;
+}
+
+export interface AdminTenantDetailResponse {
+  tenant: AdminTenantListItem;
+  stats: {
+    memberCount: number;
+    activeContracts: number; // signed 이전 상태(진행 중)
+    signedContracts: number; // signed/fulfilling/closed
+    storageBytes: number; // storageKey != null 파일 size 합
+  };
+  roleBreakdown: { role: import("../types").TenantRole; count: number }[];
+  recentAudit: AdminAuditEntry[]; // 최근 10건, 이 테넌트만
+}
+
+export interface AdminTenantUpdateRequest {
+  tenantId?: string; // gateway 가 path param 으로 주입
+  plan?: import("./tenant.dto").TenantPlan;
+  status?: import("./tenant.dto").TenantStatus;
+  trialEndsAt?: string | null; // trial 전환 시 설정, null 로 해제
+}

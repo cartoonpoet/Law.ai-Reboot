@@ -11,6 +11,12 @@ import {
   type SwitchTenantRequest,
   type MyTenantsRequest,
 } from "@lawai/contracts";
+import type {
+  AcceptInviteRequest,
+  AdminCreateTenantRequest,
+  InviteMembersRequest,
+  ResendInviteRequest,
+} from "@lawai/contracts";
 import { AuthService } from "./auth.service";
 
 @Controller()
@@ -55,5 +61,30 @@ export class AuthController {
   @MessagePattern(AUTH_PATTERNS.MY_TENANTS)
   myTenants(@Payload() req: MyTenantsRequest) {
     return this.auth.myTenants(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.ADMIN_CREATE_TENANT)
+  adminCreateTenant(@Payload() req: AdminCreateTenantRequest) {
+    return this.auth.adminCreateTenant(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.INVITE_MEMBERS)
+  inviteMembers(@Payload() req: InviteMembersRequest) {
+    return this.auth.inviteMembers(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.RESEND_INVITE)
+  resendInvite(@Payload() req: ResendInviteRequest) {
+    return this.auth.resendInvite(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.GET_INVITE)
+  getInvite(@Payload() req: { token: string }) {
+    return this.auth.getInvite(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.ACCEPT_INVITE)
+  acceptInvite(@Payload() req: AcceptInviteRequest) {
+    return this.auth.acceptInvite(req);
   }
 }

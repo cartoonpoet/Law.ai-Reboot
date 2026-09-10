@@ -15,7 +15,7 @@ describe("AuthService", () => {
     verify: jest.fn(),
   };
   const jwtMock = { signAsync: jest.fn(), verifyAsync: jest.fn() };
-  const mail = { sendPasswordResetLink: jest.fn() };
+  const mail = { sendPasswordResetLink: jest.fn(), sendInviteLink: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -100,7 +100,7 @@ describe("AuthService", () => {
       if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
         return of({
           isSystemAdmin: false,
-          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" }],
         });
       }
       return of(null);
@@ -142,7 +142,7 @@ describe("AuthService", () => {
       if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
         return of({
           isSystemAdmin: false,
-          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" }],
         });
       }
       return of(null);
@@ -228,7 +228,7 @@ describe("AuthService", () => {
       if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
         return of({
           isSystemAdmin: false,
-          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" }],
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" }],
         });
       }
       return of(null);
@@ -256,7 +256,7 @@ describe("AuthService", () => {
       if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
         return of({
           isSystemAdmin: false,
-          memberships: [{ tenantId: "t1", tenantName: "A사", role: "contractManager" }],
+          memberships: [{ tenantId: "t1", tenantName: "A사", role: "contractManager", tenantStatus: "active" }],
         });
       }
       return of(null);
@@ -274,8 +274,8 @@ describe("AuthService", () => {
         return of({
           isSystemAdmin: false,
           memberships: [
-            { tenantId: "t1", tenantName: "A사", role: "inHouseCounsel" },
-            { tenantId: "t2", tenantName: "B사", role: "general" },
+            { tenantId: "t1", tenantName: "A사", role: "inHouseCounsel", tenantStatus: "active" },
+            { tenantId: "t2", tenantName: "B사", role: "general", tenantStatus: "active" },
           ],
         });
       }
@@ -410,4 +410,192 @@ describe("AuthService", () => {
     ).rejects.toBeInstanceOf(RpcException);
     expect(jwtMock.signAsync).not.toHaveBeenCalled();
   });
+
+  // ─── suspended 차단 (Spec 3) ──────────────────────────────────────────────
+
+  const suspendedUser = {
+    id: "u9",
+    email: "s@b.com",
+    name: "S",
+    passwordHash: "hashed",
+    isSystemAdmin: false,
+    departmentId: null,
+    departmentName: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  it("모든 멤버십이 suspended 면 로그인이 403으로 거부된다", async () => {
+    passwords.verify.mockResolvedValue(true);
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_EMAIL) return of(suspendedUser);
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [
+            { tenantId: "t1", tenantName: "정지사", role: "general", tenantStatus: "suspended" },
+          ],
+        });
+      }
+      return of(null);
+    });
+    const err = await service
+      .login({ email: "s@b.com", password: "pw" })
+      .catch((e: RpcException) => e);
+    expect(err).toBeInstanceOf(RpcException);
+    expect((err as RpcException).getError()).toMatchObject({
+      status: 403,
+      message: "이용이 정지된 회사입니다. 관리자에게 문의하세요.",
+    });
+  });
+
+  it("suspended 와 active 가 섞이면 active 쪽을 활성 테넌트로 선택한다", async () => {
+    passwords.verify.mockResolvedValue(true);
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_EMAIL) return of(suspendedUser);
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [
+            { tenantId: "t1", tenantName: "정지사", role: "general", tenantStatus: "suspended" },
+            { tenantId: "t2", tenantName: "정상사", role: "general", tenantStatus: "active" },
+          ],
+        });
+      }
+      return of(null);
+    });
+    jwtMock.signAsync.mockResolvedValue("token");
+
+    await service.login({ email: "s@b.com", password: "pw" });
+
+    expect(jwtMock.signAsync.mock.calls[0][0]).toMatchObject({ activeTenantId: "t2" });
+  });
+
+  it("suspended 테넌트로 switch-tenant 하면 403", async () => {
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.FIND_BY_ID) return of(suspendedUser);
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [
+            { tenantId: "t1", tenantName: "정지사", role: "general", tenantStatus: "suspended" },
+            { tenantId: "t2", tenantName: "정상사", role: "general", tenantStatus: "active" },
+          ],
+        });
+      }
+      return of(null);
+    });
+    const err = await service
+      .switchTenant({ userId: "u9", tenantId: "t1" })
+      .catch((e: RpcException) => e);
+    expect(err).toBeInstanceOf(RpcException);
+    expect((err as RpcException).getError()).toMatchObject({ status: 403 });
+  });
+
+  // ─── 온보딩 초대 (Spec 4) ─────────────────────────────────────────────────
+
+  it("inviteMembers: 권한 없는 역할이면 403", async () => {
+    const err = await service
+      .inviteMembers({
+        tenantId: "t1", invitedById: "u1", inviterRole: "general", isSystemAdmin: false,
+        emails: ["a@x.com"], role: "general",
+      })
+      .catch((e: RpcException) => e);
+    expect(err).toBeInstanceOf(RpcException);
+    expect((err as RpcException).getError()).toMatchObject({ status: 403 });
+  });
+
+  it("inviteMembers: 담당자는 초대를 발급하고 스킵을 집계한다", async () => {
+    userClient.send.mockImplementation((pattern: string, payload: { email?: string }) => {
+      if (pattern === USER_PATTERNS.CREATE_INVITATION) {
+        return of({ created: payload.email !== "dup@x.com" });
+      }
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [{ tenantId: "t1", tenantName: "D물산", role: "contractManager", tenantStatus: "active" }],
+        });
+      }
+      return of(null);
+    });
+    const res = await service.inviteMembers({
+      tenantId: "t1", invitedById: "u1", inviterRole: "contractManager", isSystemAdmin: false,
+      emails: ["new@x.com", "dup@x.com"], role: "general",
+    });
+    expect(res).toEqual({ sent: 1, skipped: ["dup@x.com"] });
+    expect(mail.sendInviteLink).toHaveBeenCalledTimes(1);
+  });
+
+  it("getInvite: 무효 토큰이면 400", async () => {
+    userClient.send.mockImplementation((pattern: string) =>
+      pattern === USER_PATTERNS.FIND_INVITATION ? of(null) : of(null),
+    );
+    const err = await service.getInvite({ token: "bad" }).catch((e: RpcException) => e);
+    expect(err).toBeInstanceOf(RpcException);
+    expect((err as RpcException).getError()).toMatchObject({ status: 400 });
+  });
+
+  it("acceptInvite: 신규 사용자는 토큰까지 발급된다", async () => {
+    passwords.hash.mockResolvedValue("ph");
+    jwtMock.signAsync.mockResolvedValue("token");
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.ACCEPT_INVITATION) {
+        return of({ tenantId: "t1", existingUser: false, userId: "nu1" });
+      }
+      if (pattern === USER_PATTERNS.FIND_BY_ID) {
+        return of({
+          id: "nu1", email: "new@x.com", name: "박준영", passwordHash: "ph",
+          isSystemAdmin: false, departmentId: null, departmentName: null,
+          createdAt: "2026-09-10T00:00:00.000Z",
+        });
+      }
+      if (pattern === USER_PATTERNS.FIND_MEMBERSHIPS) {
+        return of({
+          isSystemAdmin: false,
+          memberships: [{ tenantId: "t1", tenantName: "D물산", role: "general", tenantStatus: "active" }],
+        });
+      }
+      return of(null);
+    });
+    const res = await service.acceptInvite({ token: "raw", name: "박준영", password: "pw12345678" });
+    expect(res.existingUser).toBe(false);
+    expect(res.tokens?.accessToken).toBe("token");
+    expect(jwtMock.signAsync.mock.calls[0][0]).toMatchObject({ activeTenantId: "t1" });
+  });
+
+  it("acceptInvite: 기존 사용자는 existingUser=true 만 반환한다", async () => {
+    passwords.hash.mockResolvedValue("ph");
+    userClient.send.mockImplementation((pattern: string) => {
+      if (pattern === USER_PATTERNS.ACCEPT_INVITATION) {
+        return of({ tenantId: "t1", existingUser: true, userId: "eu1" });
+      }
+      return of(null);
+    });
+    const res = await service.acceptInvite({ token: "raw", name: "무시", password: "pw12345678" });
+    expect(res).toEqual({ existingUser: true });
+    expect(jwtMock.signAsync).not.toHaveBeenCalled();
+  });
+
+  it("adminCreateTenant: 테넌트 생성 후 담당자를 contractManager 로 초대한다", async () => {
+    const calls: string[] = [];
+    userClient.send.mockImplementation((pattern: string) => {
+      calls.push(pattern);
+      if (pattern === USER_PATTERNS.CREATE_TENANT) {
+        return of({ id: "t9", name: "D물산", plan: "pro", status: "trial", createdAt: "x" });
+      }
+      if (pattern === USER_PATTERNS.CREATE_INVITATION) return of({ created: true });
+      return of(null);
+    });
+    const res = await service.adminCreateTenant({
+      actorId: "admin1", name: "D물산", plan: "pro", status: "trial",
+      trialEndsAt: "2026-10-10T00:00:00.000Z", managerEmail: "lead@d.com",
+    });
+    expect(res.tenant.id).toBe("t9");
+    expect(calls).toContain(USER_PATTERNS.CREATE_INVITATION);
+    expect(mail.sendInviteLink).toHaveBeenCalledWith(
+      "lead@d.com",
+      expect.stringContaining("/invite?token="),
+      "D물산",
+    );
+  });
+
 });
