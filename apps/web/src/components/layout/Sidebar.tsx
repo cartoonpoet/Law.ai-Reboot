@@ -43,6 +43,7 @@ const SECTIONS = [
   {
     label: "관리",
     items: [
+      { id: "members", label: "멤버 관리", icon: "users", path: "/members" },
       { id: "system", label: "시스템 관리", icon: "settings", path: "/system" },
     ],
   },

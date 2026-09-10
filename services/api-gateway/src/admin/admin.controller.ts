@@ -5,6 +5,7 @@ import {
   Inject,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -15,6 +16,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { firstValueFrom } from "rxjs";
 import {
   ADMIN_PATTERNS,
+  AUTH_PATTERNS,
   type AdminAuditListRequest,
   type AdminAuditListResponse,
   type AdminStatsResponse,
@@ -22,6 +24,8 @@ import {
   type AdminTenantListItem,
   type AdminTenantListResponse,
   type AdminTenantUpdateRequest,
+  type AdminCreateTenantRequest,
+  type AdminCreateTenantResponse,
   type JwtPayload,
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -39,6 +43,7 @@ import { rpcToHttp } from "../common/rpc-to-http";
 export class AdminController {
   constructor(
     @Inject("USER_CLIENT") private readonly userClient: ClientProxy,
+    @Inject("AUTH_CLIENT") private readonly authClient: ClientProxy,
   ) {}
 
   @ApiOperation({ summary: "대시보드 통계" })
@@ -63,6 +68,21 @@ export class AdminController {
     return firstValueFrom(
       this.userClient
         .send<AdminAuditListResponse>(ADMIN_PATTERNS.GET_AUDIT, payload)
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "고객사 생성 + 첫 담당자 초대 (온보딩 1단계)" })
+  @Post("tenants")
+  createTenant(
+    @Body() dto: Pick<AdminCreateTenantRequest, "name" | "plan" | "status" | "trialEndsAt" | "managerEmail">,
+    @Req() req: Request,
+  ): Promise<AdminCreateTenantResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: AdminCreateTenantRequest = { ...dto, actorId: sub };
+    return firstValueFrom(
+      this.authClient
+        .send<AdminCreateTenantResponse>(AUTH_PATTERNS.ADMIN_CREATE_TENANT, payload)
         .pipe(rpcToHttp()),
     );
   }

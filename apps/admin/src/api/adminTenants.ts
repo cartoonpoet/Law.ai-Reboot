@@ -20,3 +20,14 @@ export const updateAdminTenant = (
     method: "PATCH",
     body: JSON.stringify(body),
   });
+
+export const createAdminTenant = (
+  body: Pick<
+    import("@lawai/contracts").AdminCreateTenantRequest,
+    "name" | "plan" | "status" | "trialEndsAt" | "managerEmail"
+  >,
+): Promise<import("@lawai/contracts").AdminCreateTenantResponse> =>
+  apiFetch<import("@lawai/contracts").AdminCreateTenantResponse>("/admin/tenants", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });

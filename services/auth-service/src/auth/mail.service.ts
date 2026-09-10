@@ -12,4 +12,9 @@ export class MailService {
     // TODO: 실제 메일 발송기로 교체 (현재는 dev 로그 스텁)
     this.logger.log(`[비밀번호 재설정] ${email} → ${resetLink}`);
   }
+
+  sendInviteLink(email: string, inviteLink: string, tenantName: string): void {
+    // TODO: 실제 메일 발송기로 교체 (현재는 dev 로그 스텁)
+    this.logger.log(`[고객사 초대] ${tenantName} → ${email} → ${inviteLink}`);
+  }
 }
