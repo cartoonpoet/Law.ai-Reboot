@@ -63,10 +63,14 @@ const response: ContractResponse = {
     id: "l-1",
     status: "pending",
     steps: [
-      { id: "s-1", stepOrder: 0, name: "손준호", dept: "법무팀", type: "draft", status: "pending" },
-      { id: "s-2", stepOrder: 1, name: "이법무", dept: "법무팀", type: "approve", status: "pending" },
+      { id: "s-1", stepOrder: 0, userId: "u-son", name: "손준호", dept: "법무팀", type: "draft", status: "pending", comment: null, decidedAt: null },
+      { id: "s-2", stepOrder: 1, userId: "u-lee", name: "이법무", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
     ],
+    currentStepId: "s-2",
+    submittedById: "u-son",
+    submittedAt: "2026-06-01T00:00:00.000Z",
   },
+  plannedApprovers: [],
   files: [
     { id: "f-1", role: "contract", name: "계약서.docx", meta: "DOCX", size: null, mimeType: null, storageKey: null, sortOrder: 0 },
     { id: "f-2", role: "attach", name: "별첨.pdf", meta: "PDF", size: null, mimeType: null, storageKey: null, sortOrder: 0 },

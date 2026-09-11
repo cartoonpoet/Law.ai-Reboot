@@ -70,3 +70,9 @@ export function listContracts(
   const qs = search.toString();
   return apiFetch<ListContractsResponse>(`/contracts${qs ? `?${qs}` : ""}`);
 }
+
+// 체결 품의 상신 — 요청자 본인 + 검토 완료(reviewDone) 상태에서만.
+export const submitContractApproval = (id: string): Promise<ContractResponse> =>
+  apiFetch<ContractResponse>(`/contracts/${id}/approval/submit`, {
+    method: "POST",
+  });

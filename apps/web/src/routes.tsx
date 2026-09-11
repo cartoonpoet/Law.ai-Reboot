@@ -13,6 +13,7 @@ import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
 import { ContractCreatePage } from "./pages/contract/ContractCreatePage";
 import { ContractEditPage } from "./pages/contract/ContractEditPage";
+import { ApprovalInboxPage } from "./pages/approval/ApprovalInboxPage";
 import { MockupsIndex } from "./pages/mockups/MockupsIndex";
 import { PreviewModalMock } from "./pages/mockups/PreviewModalMock";
 import { PreviewDrawerMock } from "./pages/mockups/PreviewDrawerMock";
@@ -61,6 +62,7 @@ export function AppRoutes() {
         <Route path="/contract/signed" element={<ContractPlaceholderPage title="체결 계약 조회" />} />
         <Route path="/contract/expire" element={<ContractPlaceholderPage title="체결계약 만료 현황" />} />
         <Route path="/members" element={<MembersPage />} />
+        <Route path="/approvals/inbox" element={<ApprovalInboxPage />} />
         <Route path="/contract/:id/edit" element={<ContractEditPage />} />
         <Route path="/contract/:id" element={<ContractDetailPage />} />
       </Route>
