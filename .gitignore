@@ -34,3 +34,4 @@ Law.ai Reboot/
 
 # superpowers brainstorm (local visual companion)
 .superpowers/
+docker-compose.override.yml

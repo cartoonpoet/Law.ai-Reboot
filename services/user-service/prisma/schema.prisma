@@ -118,6 +118,8 @@ model User {
   ownedContracts      Contract[]           @relation("ContractOwner")
   authoredComments    Comment[]            @relation("CommentAuthor")
   commentMentions     CommentMention[]     @relation("MentionedUser")
+  submittedApprovalLines ApprovalLine[]    @relation("SubmittedApprovalLines")
+  approvalSteps       ApprovalStep[]       @relation("UserApprovalSteps")
 
   @@index([departmentId])
   @@schema("users")
@@ -255,7 +257,6 @@ model Contract {
   department     Department?         @relation(fields: [departmentId], references: [id])
   category       ContractCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   counterparties Counterparty[]
-  approvalLines  ApprovalLine[]
   files          File[]
   references     ContractReference[]
   comments       Comment[]
@@ -350,33 +351,48 @@ enum StepStatus {
   @@schema("shared")
 }
 
-// 결재선: 계약 1건당 1개(현재). 폼 approvers 스냅샷을 단계로 정규화.
-// ERD 는 폴리모픽(ownerType/ownerId)이나, MVP 는 Counterparty 와 동일하게 contractId 직접 FK 로 둔다(§9 수렴 항목).
+// 결재 라인(범용): 폴리모픽 (targetType, targetId) — "contract" 외 도메인도 재사용.
+// 상신 시점에만 생성되며(상신 전 결재선은 대상 도메인 데이터), 반려 후 재상신 시 새 라인(이전 = 이력).
+// tenantId 는 상신 시점 스냅샷 — 대기함 테넌트 격리 + 알림 생성용.
 model ApprovalLine {
-  id         String         @id @default(uuid())
-  contractId String
-  status     ApprovalStatus @default(pending)
-  createdAt  DateTime       @default(now())
+  id            String         @id @default(uuid())
+  targetType    String
+  targetId      String
+  title         String
+  status        ApprovalStatus @default(pending)
+  tenantId      String
+  submittedById String
+  submittedAt   DateTime       @default(now())
+  decidedAt     DateTime?
+  createdAt     DateTime       @default(now())
 
-  contract Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  steps    ApprovalStep[]
+  submittedBy User           @relation("SubmittedApprovalLines", fields: [submittedById], references: [id])
+  steps       ApprovalStep[]
 
-  @@index([contractId])
+  @@index([targetType, targetId])
+  @@index([status])
   @@schema("shared")
 }
 
+// 결재 스텝: userId = 실제 결재자(기안/참조 포함, null = 사용자 미연결 스냅샷).
+// draft 는 상신 시 approved 로 생성, refer 는 승인 대상 아님(알림 전용).
 model ApprovalStep {
   id        String       @id @default(uuid())
   lineId    String
   stepOrder Int
+  userId    String?
   name      String
   dept      String
   type      ApproverType
   status    StepStatus   @default(pending)
+  comment   String?
+  decidedAt DateTime?
 
   line ApprovalLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  user User?        @relation("UserApprovalSteps", fields: [userId], references: [id])
 
   @@index([lineId])
+  @@index([userId, status])
   @@schema("shared")
 }
 
