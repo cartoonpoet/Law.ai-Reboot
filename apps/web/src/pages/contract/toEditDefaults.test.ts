@@ -115,6 +115,25 @@ describe("toEditDefaults", () => {
     expect(f.approvers[1].type).toBe("approve");
   });
 
+  it("plannedApprovers 가 있으면 활성 라인 대신 그걸 우선 사용한다(userId 포함)", () => {
+    const withPlanned = {
+      ...response,
+      plannedApprovers: [
+        { userId: "u-planned", name: "박기획", dept: "기획팀", type: "approve" as const },
+      ],
+    };
+    const f = toEditDefaults(withPlanned);
+    expect(f.approvers).toEqual([
+      { userId: "u-planned", name: "박기획", dept: "기획팀", type: "approve" },
+    ]);
+  });
+
+  it("plannedApprovers 가 없으면 활성 라인 스텝의 userId 를 보존한다", () => {
+    const f = toEditDefaults(response);
+    expect(f.approvers[0].userId).toBe("u-son");
+    expect(f.approvers[1].userId).toBe("u-lee");
+  });
+
   it("역매핑→toCreateRequest 라운드트립이 안정적이다", () => {
     const req = toCreateRequest(toEditDefaults(response));
     expect(req.title).toBe("수정대상");
