@@ -88,3 +88,38 @@ export async function apiFetchVoid(
     throw new Error(body.message ?? `요청 실패 (${res.status})`);
   }
 }
+
+// apiFetch<T>와 동일한 인증/401-refresh 처리를 거치되, 빈 바디를 null로 처리한다.
+// 백엔드가 값이 없을 때 null을 반환하는 엔드포인트(예: /ai/my-credential, /ai/analysis)는
+// NestJS 관례상 컨트롤러가 null을 리턴하면 빈 HTTP 바디(Content-Length: 0)로 응답한다 —
+// apiFetch로 호출하면 res.json()이 빈 바디에서 파싱 에러를 던진다.
+export async function apiFetchNullable<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T | null> {
+  let res = await doFetch(path, options);
+
+  const isUnauthorized = res.status === 401;
+  const canRefresh = !!getRefreshToken() && path !== AUTH_REFRESH_PATH;
+  if (isUnauthorized && canRefresh) {
+    try {
+      await refreshAccessToken();
+      res = await doFetch(path, options);
+    } catch {
+      clearTokens();
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = SESSION_EXPIRED_REDIRECT;
+      }
+      throw new Error("세션이 만료되었습니다. 다시 로그인해 주세요");
+    }
+  }
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(body.message ?? `요청 실패 (${res.status})`);
+  }
+
+  const text = await res.text();
+  if (text.trim() === "") return null;
+  return JSON.parse(text) as T;
+}

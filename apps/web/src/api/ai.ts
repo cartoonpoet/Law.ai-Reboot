@@ -4,10 +4,13 @@ import type {
   MyAiCredentialDto,
   SaveMyAiCredentialRequest,
 } from "@lawai/contracts";
-import { apiFetch, apiFetchVoid } from "./client";
+import { apiFetch, apiFetchVoid, apiFetchNullable } from "./client";
 
+// 게이트웨이 GET /ai/my-credential은 자격증명이 없으면 null을 반환한다(AiController.getMyCredential).
+// NestJS는 null 리턴 시 빈 HTTP 바디로 응답하므로 apiFetch<T>(항상 res.json() 호출)는
+// 파싱 에러를 던진다 — apiFetchNullable 사용.
 export const getMyAiCredential = (): Promise<MyAiCredentialDto | null> =>
-  apiFetch<MyAiCredentialDto | null>("/ai/my-credential");
+  apiFetchNullable<MyAiCredentialDto>("/ai/my-credential");
 
 export const saveMyAiCredential = (
   body: Pick<SaveMyAiCredentialRequest, "provider" | "model" | "apiKey">,
@@ -23,12 +26,14 @@ export const getAiModels = (provider: string): Promise<AiListModelsResult> =>
   );
 
 // 게이트웨이 GET /ai/analysis는 분석 행이 없으면 null을 반환한다(AiController.getAnalysis).
+// NestJS는 null 리턴 시 빈 HTTP 바디로 응답하므로 apiFetch<T>(항상 res.json() 호출)는
+// 파싱 에러를 던진다 — apiFetchNullable 사용.
 export const getAiAnalysis = (
   targetType: string,
   targetId: string,
   kind: string,
 ): Promise<AiAnalysisDto | null> =>
-  apiFetch<AiAnalysisDto | null>(
+  apiFetchNullable<AiAnalysisDto>(
     `/ai/analysis?${new URLSearchParams({ targetType, targetId, kind }).toString()}`,
   );
 
