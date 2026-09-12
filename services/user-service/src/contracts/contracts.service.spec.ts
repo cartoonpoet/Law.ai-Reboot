@@ -1246,6 +1246,13 @@ describe("ContractsService", () => {
         role: "inHouseCounsel",
         user: { departmentId: null },
       });
+      // 결재선이 approved 라도(=결재 게이트만 보면 통과할 상황) 상태 게이트가 먼저
+      // 막아야 한다는 것을 명시하기 위한 셋업 — 아래 not.toHaveBeenCalled() 로 이
+      // mock 이 애초에 조회조차 안 됨(상태 게이트에서 조기 종료)을 증명한다.
+      approvalsMock.getActive.mockResolvedValueOnce({
+        line: { id: "l1", status: "approved", steps: [] },
+        historyCount: 0,
+      });
       await expect(
         service.completeSigning({
           contractId: "c1",
