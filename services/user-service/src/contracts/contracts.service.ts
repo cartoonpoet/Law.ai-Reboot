@@ -699,6 +699,14 @@ export class ContractsService {
       throw new RpcException({ status: 400, message: "체결 진행 상태가 아닙니다" });
     }
 
+    // signedAt 검증 — parseDate 는 빈 문자열/잘못된 형식을 조용히 null 로 반환한다.
+    // 여기서 걸러내지 않으면 계약이 signed 로 확정되면서 서명일이 없는 상태가 된다.
+    // 게이트웨이의 형식 검증(@IsISO8601)에만 기대지 않고 서비스에서 다시 확인한다.
+    const signedAt = parseDate(req.signedAt);
+    if (!signedAt) {
+      throw new RpcException({ status: 400, message: "체결일이 올바르지 않습니다" });
+    }
+
     // 결재 완료 게이트 — 라인이 없거나 approved 가 아니면 체결할 수 없다.
     const active = await this.approvals.getActive("contract", row.id);
     if (!active.line || active.line.status !== "approved") {
@@ -731,7 +739,7 @@ export class ContractsService {
       : null;
     const contractUpdate = this.prisma.contract.update({
       where: { id: row.id, status: "signing", ...tenantScope(ctx) },
-      data: { status: "signed", signedAt: parseDate(req.signedAt) },
+      data: { status: "signed", signedAt },
       include: contractInclude,
     });
 
@@ -776,7 +784,7 @@ export class ContractsService {
         note: req.note ?? null,
       },
     });
-    return { contract: this.toResponse(updated) };
+    return { contract: this.toResponse(updated, active.line) };
   }
 
   async updateStatus(

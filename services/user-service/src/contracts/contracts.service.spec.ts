@@ -1298,12 +1298,36 @@ describe("ContractsService", () => {
         }),
       );
       expect(result.contract.status).toBe("signed");
+      // 결재 완료 게이트에서 이미 로드한 라인을 응답에 그대로 전달해야 한다
+      // (재조회 없이) — 그렇지 않으면 응답의 approvalLine 이 null 로 비어 보인다.
+      expect(result.contract.approvalLine?.id).toBe("l1");
       expect(auditMock.record).toHaveBeenCalledWith(
         expect.objectContaining({
           action: "transition",
           detail: expect.objectContaining({ kind: "completeSigning" }),
         }),
       );
+    });
+
+    // signedAt 파싱 실패(빈 문자열/잘못된 형식)는 parseDate 가 조용히 null 을 반환하므로,
+    // 여기서 걸러내지 않으면 계약이 signed 로 확정되면서 서명일이 없는 상태가 된다.
+    it("signedAt 이 올바르지 않으면 400 (파싱 실패를 조용히 넘기지 않는다)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
+        role: "sealManager",
+        user: { departmentId: null },
+      });
+      await expect(
+        service.completeSigning({
+          contractId: "c1",
+          viewerId: "u-seal",
+          signedAt: "",
+          tenantContext: { tenantId: "t1", isSystemAdmin: false },
+        }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "체결일이 올바르지 않습니다" } });
+      expect(approvalsMock.getActive).not.toHaveBeenCalled();
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
     });
 
     // 동시 체결 처리 방어(CAS): where 에 status:"signing" 을 넣었으므로, 그 사이 다른
