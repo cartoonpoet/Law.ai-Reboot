@@ -410,6 +410,14 @@ describe("ContractsService", () => {
     );
   });
 
+  it("updateStatus: legalReview 진입해도 ownerId 가 없으면 AI 분석을 트리거하지 않는다", async () => {
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: "admin-1" });
+    prismaMock.contract.update.mockResolvedValue({ ...fullRow("legalReview"), ownerId: null });
+    await service.updateStatus({ id: "ct-1", status: "legalReview", viewerId: "admin-1", ...makeCtx() });
+    expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+  });
+
   it("updateStatus: reviewDone 진입 시 submitBriefing AI 분석을 트리거한다", async () => {
     prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview", ownerId: "admin-1" });

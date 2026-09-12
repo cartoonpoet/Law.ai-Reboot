@@ -38,6 +38,23 @@ describe("AiAnalysisService", () => {
     }));
   });
 
+  it("trigger: 자격증명 조회가 실패해도 reject 하지 않는다(fire-and-forget 안전성)", async () => {
+    credentials.getDecryptedKeyFor.mockRejectedValue(new Error("decrypt failed"));
+    await expect(
+      svc.trigger({ targetType: "contract", targetId: "c1", kind: "risk", tenantId: "t1", triggeredByUserId: "u1", payload: {} }),
+    ).resolves.toBeUndefined();
+    expect(prisma.aiAnalysis.upsert).not.toHaveBeenCalled();
+  });
+
+  it("trigger: upsert(pending 생성)가 실패해도 reject 하지 않는다(fire-and-forget 안전성)", async () => {
+    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-mini", apiKey: "sk-x" });
+    prisma.aiAnalysis.upsert.mockRejectedValue(new Error("db down"));
+    await expect(
+      svc.trigger({ targetType: "contract", targetId: "c1", kind: "risk", tenantId: "t1", triggeredByUserId: "u1", payload: {} }),
+    ).resolves.toBeUndefined();
+    expect(aiClient.analyze).not.toHaveBeenCalled();
+  });
+
   it("get: 없으면 null, 있으면 DTO 매핑", async () => {
     prisma.aiAnalysis.findUnique.mockResolvedValue(null);
     expect(await svc.get("contract", "c1", "risk")).toBeNull();
