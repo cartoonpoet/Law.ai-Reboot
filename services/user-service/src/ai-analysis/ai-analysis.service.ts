@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
-import type { AiAnalysisDto } from "@lawai/contracts";
+import type { AiAnalysisDto, TenantContext } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+import { tenantScope } from "../common/tenant-scope";
 import { AiCredentialsService } from "../ai-credentials/ai-credentials.service";
 import { AiServiceClient } from "../ai-credentials/ai-service.client";
 
@@ -104,19 +106,45 @@ export class AiAnalysisService {
     }
   }
 
-  async get(targetType: string, targetId: string, kind: string): Promise<AiAnalysisDto | null> {
-    const row: AiAnalysisRow | null = await this.prisma.aiAnalysis.findUnique({
-      where: { targetType_targetId_kind: { targetType, targetId, kind } },
+  // (targetType, targetId, kind) 는 복합 유니크지만 findUnique 로는 tenantId 를 where 에
+  // 합칠 수 없다 — 타 테넌트 targetId 위조를 막기 위해 findFirst + tenantScope 로 조회한다.
+  private findScoped(
+    targetType: string,
+    targetId: string,
+    kind: string,
+    ctx: TenantContext,
+  ): Promise<AiAnalysisRow | null> {
+    return this.prisma.aiAnalysis.findFirst({
+      where: { targetType, targetId, kind, ...tenantScope(ctx) },
     });
+  }
+
+  async get(
+    targetType: string,
+    targetId: string,
+    kind: string,
+    ctx: TenantContext,
+  ): Promise<AiAnalysisDto | null> {
+    const row = await this.findScoped(targetType, targetId, kind, ctx);
     if (!row) return null;
     return this.toDto(row);
   }
 
-  async retry(targetType: string, targetId: string, kind: string): Promise<void> {
-    const row: AiAnalysisRow | null = await this.prisma.aiAnalysis.findUnique({
-      where: { targetType_targetId_kind: { targetType, targetId, kind } },
-    });
+  async retry(
+    targetType: string,
+    targetId: string,
+    kind: string,
+    viewerId: string | undefined,
+    ctx: TenantContext,
+  ): Promise<void> {
+    const row = await this.findScoped(targetType, targetId, kind, ctx);
     if (!row) return;
+    // 재시도는 row.triggeredByUserId 의 복호화된 API 키(= 타인의 유료 계정)로 실행된다.
+    // 따라서 최초 트리거 주체 본인 또는 시스템 관리자만 허용한다.
+    // (대상 도메인의 세부 권한 판정은 ai-analysis 가 도메인 비의존이어야 하므로 여기서 하지 않는다.)
+    if (!ctx.isSystemAdmin && viewerId !== row.triggeredByUserId) {
+      throw new RpcException({ status: 403, message: "이 분석을 재시도할 권한이 없습니다" });
+    }
     await this.trigger({
       targetType: row.targetType,
       targetId: row.targetId,
