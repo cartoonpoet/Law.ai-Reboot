@@ -34,6 +34,8 @@ import type {
   SubmitContractApprovalRequest,
   SubmitContractApprovalResult,
   FileInput,
+  CompleteSigningRequest,
+  CompleteSigningResult,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -679,6 +681,66 @@ export class ContractsService {
     return { contract: response, notifications };
   }
 
+  /** 체결 처리 — 결재가 전원 승인된 signing 계약을 signed 로 확정한다.
+   *  권한·상태·결재 게이트를 모두 통과하기 전에는 어떤 쓰기도 하지 않는다. */
+  async completeSigning(
+    req: CompleteSigningRequest,
+  ): Promise<CompleteSigningResult> {
+    const ctx = req.tenantContext!;
+    const row = await this.ensureExists(req.contractId, ctx);
+
+    // sealManager 는 status === "signing" 일 때만 canTransition 이 true 다(authz 특수 처리).
+    const viewer = await this.loadViewer(req.viewerId, ctx);
+    const authz = evaluate(viewer, this.toAuthzContract(row));
+    if (!authz.canTransition) {
+      throw new RpcException({ status: 403, message: "체결 처리 권한이 없습니다" });
+    }
+    if (row.status !== "signing") {
+      throw new RpcException({ status: 400, message: "체결 진행 상태가 아닙니다" });
+    }
+
+    // 결재 완료 게이트 — 라인이 없거나 approved 가 아니면 체결할 수 없다.
+    const active = await this.approvals.getActive("contract", row.id);
+    if (!active.line || active.line.status !== "approved") {
+      throw new RpcException({ status: 400, message: "결재가 완료되지 않았습니다" });
+    }
+
+    // 서명본 파일은 반드시 이 계약 소유여야 한다.
+    if (req.fileId) {
+      const file = await this.prisma.file.findFirst({
+        where: { id: req.fileId, contractId: row.id },
+        select: { id: true },
+      });
+      if (!file) {
+        throw new RpcException({ status: 400, message: "잘못된 파일입니다" });
+      }
+      await this.prisma.file.update({
+        where: { id: req.fileId },
+        data: { role: "signed" },
+      });
+    }
+
+    const updated = await this.prisma.contract.update({
+      where: { id: row.id, ...tenantScope(ctx) },
+      data: { status: "signed", signedAt: parseDate(req.signedAt) },
+      include: contractInclude,
+    });
+    await this.audit.record({
+      action: "transition",
+      targetType: "Contract",
+      targetId: row.id,
+      actorId: req.viewerId,
+      tenantId: row.tenantId,
+      detail: {
+        kind: "completeSigning",
+        from: "signing",
+        to: "signed",
+        note: req.note ?? null,
+      },
+    });
+    return { contract: this.toResponse(updated) };
+  }
+
   async updateStatus(
     req: UpdateContractStatusRequest,
   ): Promise<ContractResponse> {
@@ -799,6 +861,7 @@ export class ContractsService {
       periodStart: row.periodStart?.toISOString() ?? null,
       periodEnd: row.periodEnd?.toISOString() ?? null,
       dueDate: row.dueDate?.toISOString() ?? null,
+      signedAt: row.signedAt ? row.signedAt.toISOString() : null,
       schemaVersion: row.schemaVersion,
       details: row.details as unknown as ContractDetailsV1,
       counterparties: row.counterparties.map((cp) => ({
