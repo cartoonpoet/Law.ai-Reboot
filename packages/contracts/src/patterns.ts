@@ -54,6 +54,7 @@ export const CONTRACT_PATTERNS = {
   UPDATE: "contract.update",
   UPDATE_STATUS: "contract.updateStatus",
   SUBMIT_APPROVAL: "contract.submitApproval",
+  COMPLETE_SIGNING: "contract.completeSigning",
 } as const;
 
 export const APPROVAL_PATTERNS = {

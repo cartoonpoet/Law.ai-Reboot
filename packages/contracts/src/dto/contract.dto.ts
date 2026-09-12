@@ -142,6 +142,11 @@ export interface CreateContractRequest {
   periodEnd?: string | null;
   dueDate?: string | null;
   schemaVersion: number;
+  /** 등록 유형. "signed" 면 검토·결재를 건너뛰고 곧바로 체결 완료(signed)로 생성한다.
+   *  미지정/"review" 는 기존 동작과 완전히 동일. */
+  registerAs?: "review" | "signed";
+  /** 실제 서명 완료일(ISO 8601). registerAs="signed" 일 때 필수. */
+  signedAt?: string | null;
   details: ContractDetailsV1;
   counterparties: CounterpartyInput[];
   // 결재선: 폼 approvers 스냅샷을 배열 순서대로 단계로 정규화한다(빈 배열이면 결재선 미생성).
@@ -201,6 +206,25 @@ export interface SubmitContractApprovalResult {
   contract: ContractResponse;
   // gateway 가 SSE 허브로 push.
   notifications: PushNotification[];
+}
+
+/** 체결 처리 — sealManager 가 결재 완료된 계약을 signing → signed 로 확정한다.
+ *  서명본 파일 승격 + signedAt 확정을 한 번에 처리한다. */
+export interface CompleteSigningRequest {
+  contractId: string;
+  /** gateway 가 JWT sub 를 주입. */
+  viewerId: string;
+  /** 실제 서명 완료일(ISO 8601). */
+  signedAt: string;
+  /** 사전 업로드된 서명본 File.id. 주어지면 role 을 signed 로 승격한다. */
+  fileId?: string | null;
+  /** 비고 — 감사 로그에만 남는다. */
+  note?: string | null;
+  tenantContext?: TenantContext;
+}
+
+export interface CompleteSigningResult {
+  contract: ContractResponse;
 }
 
 export interface UpdateContractStatusRequest {
@@ -279,6 +303,7 @@ export interface ContractResponse {
   periodStart: string | null;
   periodEnd: string | null;
   dueDate: string | null;
+  signedAt: string | null;
   schemaVersion: number;
   details: ContractDetailsV1;
   counterparties: CounterpartyResponse[];
