@@ -752,6 +752,15 @@ it("계약서 파일 없으면 canSubmit=false", () => {
 
 ### Task 9: 수동 검증 + 마무리
 
-- [ ] **Step 1: 로컬 기동** — docker compose(Postgres) + user-service + api-gateway + apps/web 기동, 시나리오: 요청자 계정으로 계약 reviewDone 만들기 → 결재선(실사용자 2명) 설정 → 상신 → 결재자 계정 대기함 확인 → 승인 → 다음 결재자 알림/승인 → 완료 알림. 반려 경로: 반려 → 계약 reviewDone 복귀 → 결재선 수정 → 재상신(새 라인).
-- [ ] **Step 2: erdify ERD 동기화 확인** (Task 1 에서 보류됐다면 여기서 재시도)
-- [ ] **Step 3: 남은 체크박스 플랜에 반영 후 Commit** — `git commit -m "docs: 결재 모듈 플랜 체크박스 갱신"`
+- [x] **Step 1: 로컬 기동** — Postgres(5433 오버라이드) + auth-service + user-service + api-gateway + apps/web 기동. Prisma 로 테넌트/요청자/결재자/reviewDone 계약(결재선 2단계) 시드 후 실 HTTP로 시나리오 전체 검증:
+  - 상신(`POST /contracts/:id/approval/submit`) → `signing` 전이 + 라인 생성(draft 즉시 approved, currentStepId 가 결재자 스텝) 확인
+  - 결재자 대기함(`GET /approvals/inbox`) 에 pending 노출 확인
+  - 반려(`decide reject`) → 라인 `rejected` + **계약 reviewDone 복귀** 확인 + `approval_rejected` 알림 확인
+  - 재상신 → **새 라인 생성**(라인 id 상이) 확인
+  - 승인(`decide approve`) → 라인 `approved`(currentStepId null) + 계약은 `signing` 유지(날인 전) + `approval_completed` 알림 확인
+  - 대기함 processed 목록에 승인/반려 이력 2건 정상 노출
+  - 재상신 시도(이미 reviewDone 아님) → 400 가드 확인
+  - **브라우저 실 UI**(Chrome 자동화)로 요청자/결재자 시점 계약 상세 렌더링·상신 버튼 클릭·승인 버튼 클릭까지 실제 클릭으로 재현 — 사전점검 체크리스트, 결재선(예정/진행) 카드, 결재 대기함 페이지(내 차례/처리한 결재 탭) 모두 시안대로 렌더링 확인
+  - 검증 후 시드 데이터 정리(테넌트·유저·계약·결재 행 삭제), 백그라운드 프로세스 종료
+- [ ] **Step 2: erdify ERD 동기화 확인** — 이번 세션에 erdify MCP 가 연결되어 있지 않아 **미실행**. 사용자에게 보고됨 — Claude Code 재시작으로 MCP 연결 후 "Law.ai Reboot" ERD 에 ApprovalLine/ApprovalStep 폴리모픽 변경(target 참조, tenantId, userId/comment/decidedAt 추가) 반영 필요.
+- [x] **Step 3: 남은 체크박스 플랜에 반영 후 Commit** — `git commit -m "docs: 결재 모듈 플랜 체크박스 갱신"`
