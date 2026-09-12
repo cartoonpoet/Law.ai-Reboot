@@ -185,6 +185,10 @@
   body:not([data-mode="signed"]) .onlySigned{display:none !important;}
   body[data-mode="signed"] .onlyReview,
   body[data-mode="signed"] .onlyReviewInline{display:none !important;}
+  /* 계약 단계 분기: 변경·해지 일 때만 원 계약 연결이 뜬다 */
+  body:not([data-stage="change"]) .onlyChange{display:none !important;}
+  /* 체결 모드 + 변경·해지 = 원 계약 필수(강조) */
+  body[data-mode="signed"][data-stage="change"] #origRow{background:var(--warningTint);border:1px solid color-mix(in srgb,var(--warning) 26%,#fff);border-radius:6px;padding:12px 13px;}
 
   /* 우측 레일 — 작성 현황 */
   .prgTop{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:9px;}
@@ -342,7 +346,7 @@
   @media(max-width:1200px){.glance{grid-template-columns:repeat(3,1fr);}.railGrid{grid-template-columns:1fr;}.formLayout{grid-template-columns:1fr;}}
 </style>
 </head>
-<body data-mode="review">
+<body data-mode="review" data-stage="new">
 
 <div class="tabbar">
   <button class="tab on" data-v="v1">1 · 검토 요청 폼 — 등록 유형 분기</button>
@@ -359,8 +363,18 @@
       <li>새 화면·새 라우트 없음 — 같은 폼에서 분기</li>
       <li>새 테이블 없음 — 같은 <code>Contract</code> 레코드, 상태만 <code>signed</code> 로 시작</li>
       <li>스키마 추가는 <code>Contract.signedAt</code> + <code>FileRole.signed</code> 둘뿐</li>
-      <li>아래 <b>등록 유형</b> 토글을 눌러 두 모드를 비교해보세요</li>
     </ul>
+    <div style="margin-top:9px;padding-top:9px;border-top:1px solid color-mix(in srgb,#2151ec 22%,transparent)">
+      <b>등록 유형 × 계약 단계</b> — 네 조합 모두 유효해서 <b>잠그지 않았습니다.</b>
+      이미 체결된 <b>변경계약</b>을 등록하는 건 실제로 있는 경우라서요. 대신 <b>원 계약 연결</b>의 강제 여부만 달라집니다.
+      <ul>
+        <li>신규 + 검토 · 신규 + 체결 → 원 계약 <b>없음</b></li>
+        <li>변경·해지 + 검토 → 원 계약 <b>권장</b> (검토 과정에서 확인 가능)</li>
+        <li>변경·해지 + 체결 → 원 계약 <b>필수</b> (검토 단계가 없어 여기서 못 잡으면 영영 못 잡음 · 노란 배경으로 강조)</li>
+      </ul>
+      <b>원 계약 필드는 새로 만들지 않았습니다</b> — 기존 <code>관련문서(relatedDocs)</code>를 재사용하므로 스키마 추가 없음.
+      <br /><b>아래 등록 유형 토글 + 계약 단계 라디오를 조합해 눌러보세요.</b>
+    </div>
   </div></div>
 
   <div class="shell">
@@ -448,9 +462,9 @@
                 <div class="grid2">
                   <div class="fld">
                     <div class="flb">계약 단계<span class="req">*</span></div>
-                    <div class="radios">
-                      <span class="rd on"><span class="rdm"></span>신규계약</span>
-                      <span class="rd"><span class="rdm"></span>변경·해지</span>
+                    <div class="radios" id="stageRadios">
+                      <span class="rd on" data-stage="new"><span class="rdm"></span>신규계약</span>
+                      <span class="rd" data-stage="change"><span class="rdm"></span>변경·해지</span>
                     </div>
                   </div>
                   <div class="fld">
@@ -460,6 +474,20 @@
                       <button type="button" class="segbtn on"><svg class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>보안</button>
                       <button type="button" class="segbtn">일반</button>
                     </div>
+                  </div>
+
+                  <!-- ★ 신규: 변경·해지 선택 시에만 나타나는 원 계약 연결 -->
+                  <div class="fld full onlyChange" id="origRow">
+                    <div class="flb">
+                      원 계약<span class="req" id="origReq">*</span>
+                      <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                      <span class="new">NEW</span>
+                    </div>
+                    <div style="display:flex;gap:8px">
+                      <input class="inp" placeholder="변경·해지 대상 계약을 검색하세요" value="C20250412-0118 · 클라우드 인프라 이용 계약 (2025)" />
+                      <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0;height:38px">찾아보기</button>
+                    </div>
+                    <p class="fhelp" id="origHelp">기존 <code>관련문서(relatedDocs)</code> 필드를 재사용합니다 — 새 컬럼 없음.</p>
                   </div>
 
                   <div class="fld full">
@@ -1131,28 +1159,60 @@
     review: "법무 검토 → 요청자 검토 → 검토 완료 → 체결 품의(결재) → 체결 순서로 진행됩니다.",
     signed: "검토·결재를 건너뛰고 곧바로 체결 완료 상태로 등록합니다."
   };
+
+  // 등록 유형 × 계약 단계 = 네 조합 모두 유효하다. 달라지는 건 "원 계약 연결"의 강제 여부뿐.
+  //   신규 + 검토   : 원 계약 없음
+  //   변경 + 검토   : 원 계약 권장 (검토 과정에서 확인 가능)
+  //   신규 + 체결   : 원 계약 없음
+  //   변경 + 체결   : 원 계약 필수 (검토 단계가 없어 여기서 못 잡으면 영영 못 잡음)
+  var sync = function () {
+    var signed = document.body.dataset.mode === "signed";
+    var change = document.body.dataset.stage === "change";
+
+    document.getElementById("modehelp").textContent = HELP[signed ? "signed" : "review"];
+    document.getElementById("v1title").textContent = signed
+      ? (change ? "체결 변경계약 등록" : "체결 계약 등록")
+      : "계약서 검토 요청";
+    document.querySelector("#v1submit span").textContent = signed ? "체결 계약 등록" : "검토요청 등록";
+
+    // 원 계약: 체결 모드에서만 필수
+    document.getElementById("origReq").style.display = signed ? "" : "none";
+    document.getElementById("origHelp").innerHTML = signed
+      ? "<b>필수</b> — 검토 단계가 없으므로 어떤 계약을 변경·해지하는지 등록 시점에 확정해야 합니다. 기존 <code>관련문서(relatedDocs)</code> 재사용 — 새 컬럼 없음."
+      : "권장 — 검토 과정에서 확인할 수 있어 필수는 아닙니다. 기존 <code>관련문서(relatedDocs)</code> 재사용.";
+
+    // 작성 현황: 필수 항목 수가 (등록 유형 × 계약 단계) 로 달라진다
+    var required = signed ? 6 : 8;
+    if (change && signed) required += 1;        // 원 계약 필수 추가
+    var done = 1;
+    var pct = Math.round((done / required) * 100);
+    document.getElementById("prgPct").innerHTML = pct + "<em>%</em>";
+    document.getElementById("prgReq").textContent = "필수 " + done + " / " + required;
+    document.getElementById("prgFill").style.width = pct + "%";
+    document.getElementById("pl1").textContent = (signed ? (change ? 4 : 3) : (change ? 5 : 4)) + "남음";
+    document.getElementById("pl5").textContent = signed ? "선택" : "1남음";
+    document.getElementById("pl5").className = signed ? "prgLeft opt" : "prgLeft";
+  };
+
   document.querySelectorAll("#modeseg .segbtn").forEach(function (b) {
     b.addEventListener("click", function () {
-      var mode = b.dataset.mode;
       document.querySelectorAll("#modeseg .segbtn").forEach(function (x) { x.classList.remove("on"); });
       b.classList.add("on");
-
-      var signed = mode === "signed";
-      document.body.dataset.mode = mode;
-
-      document.getElementById("modehelp").textContent = HELP[mode];
-      document.getElementById("v1title").textContent = signed ? "체결 계약 등록" : "계약서 검토 요청";
-      document.querySelector("#v1submit span").textContent = signed ? "체결 계약 등록" : "검토요청 등록";
-
-      // 작성 현황: 체결 모드는 필수 항목 수가 달라진다
-      document.getElementById("prgPct").innerHTML = signed ? '17<em>%</em>' : '13<em>%</em>';
-      document.getElementById("prgReq").textContent = signed ? "필수 1 / 6" : "필수 1 / 8";
-      document.getElementById("prgFill").style.width = signed ? "17%" : "13%";
-      document.getElementById("pl1").textContent = signed ? "3남음" : "4남음";
-      document.getElementById("pl5").textContent = signed ? "선택" : "1남음";
-      document.getElementById("pl5").className = signed ? "prgLeft opt" : "prgLeft";
+      document.body.dataset.mode = b.dataset.mode;
+      sync();
     });
   });
+
+  document.querySelectorAll("#stageRadios .rd").forEach(function (r) {
+    r.addEventListener("click", function () {
+      document.querySelectorAll("#stageRadios .rd").forEach(function (x) { x.classList.remove("on"); });
+      r.classList.add("on");
+      document.body.dataset.stage = r.dataset.stage;
+      sync();
+    });
+  });
+
+  sync();
 
   document.getElementById("openSign").addEventListener("click", function () {
     document.getElementById("signModal").hidden = false;
