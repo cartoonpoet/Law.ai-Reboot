@@ -223,6 +223,27 @@ export class ContractsService {
       }
     }
 
+    // 체결 완료 등록: 검토·결재를 건너뛰므로 여기서 못 잡으면 영영 못 잡는다.
+    const isDirectSigned = req.registerAs === "signed";
+    if (isDirectSigned) {
+      if (!req.signedAt) {
+        throw new RpcException({ status: 400, message: "체결일을 입력하세요" });
+      }
+      if (!req.files.some((f) => f.role === "signed")) {
+        throw new RpcException({ status: 400, message: "최종 서명본을 첨부하세요" });
+      }
+      const details = req.details as unknown as {
+        stage?: string;
+        relatedDocs?: unknown[];
+      };
+      if (details.stage === "change" && !details.relatedDocs?.length) {
+        throw new RpcException({
+          status: 400,
+          message: "변경·해지 계약은 원 계약을 연결해야 합니다",
+        });
+      }
+    }
+
     try {
       const row = await this.prisma.contract.create({
         data: {
@@ -241,6 +262,9 @@ export class ContractsService {
           periodStart: parseDate(req.periodStart),
           periodEnd: parseDate(req.periodEnd),
           dueDate: parseDate(req.dueDate),
+          ...(isDirectSigned
+            ? { status: "signed" as const, signedAt: parseDate(req.signedAt) }
+            : {}),
           schemaVersion: req.schemaVersion,
           // 상신 전 결재선(approvers)은 details JSONB 로만 보관 — 라인은 상신 시 생성.
           details: {
@@ -284,8 +308,20 @@ export class ContractsService {
         tenantId: row.tenantId,
       });
       const response = this.toResponse(row);
-      // 계약서 원본(role=contract) 파일이 있으면 사전 위험 점검(precheck)을 백그라운드로 트리거.
-      if (req.files.some((f) => f.role === "contract")) {
+      // 검토 경로는 계약서 원본(role=contract) 기준 사전 점검(precheck),
+      // 체결 완료 등록은 서명본(role=signed) 기준 위험 분석(risk) 을 백그라운드로 돌린다.
+      if (isDirectSigned) {
+        if (req.files.some((f) => f.role === "signed")) {
+          void this.aiAnalysis.trigger({
+            targetType: "contract",
+            targetId: row.id,
+            kind: "risk",
+            tenantId: row.tenantId,
+            triggeredByUserId: req.createdById,
+            payload: buildRiskPayload(response, null),
+          });
+        }
+      } else if (req.files.some((f) => f.role === "contract")) {
         void this.aiAnalysis.trigger({
           targetType: "contract",
           targetId: row.id,

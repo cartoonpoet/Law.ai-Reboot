@@ -1366,4 +1366,115 @@ describe("ContractsService", () => {
       ).rejects.toMatchObject({ error: { status: 409 } });
     });
   });
+
+  describe("create - 체결 완료 등록", () => {
+    const baseReq = {
+      title: "이미 체결된 계약",
+      securityLevel: "normal" as const,
+      reviewType: "normal" as const,
+      createdById: "u1",
+      schemaVersion: 1,
+      counterparties: [],
+      approvers: [],
+      references: [],
+      tenantContext: { tenantId: "t1", isSystemAdmin: false },
+    };
+
+    it("signedAt 이 없으면 400", async () => {
+      await expect(
+        service.create({
+          ...baseReq,
+          registerAs: "signed",
+          details: { stage: "new" } as never,
+          files: [{ role: "signed", name: "a.pdf", meta: "", sortOrder: 0 }],
+        }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+    });
+
+    it("서명본 파일이 없으면 400", async () => {
+      await expect(
+        service.create({
+          ...baseReq,
+          registerAs: "signed",
+          signedAt: "2025-12-18",
+          details: { stage: "new" } as never,
+          files: [{ role: "contract", name: "a.docx", meta: "", sortOrder: 0 }],
+        }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+    });
+
+    it("변경·해지인데 원 계약이 없으면 400", async () => {
+      await expect(
+        service.create({
+          ...baseReq,
+          registerAs: "signed",
+          signedAt: "2025-12-18",
+          details: { stage: "change", relatedDocs: [] } as never,
+          files: [{ role: "signed", name: "a.pdf", meta: "", sortOrder: 0 }],
+        }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+    });
+
+    it("정상이면 signed 상태로 생성하고 risk 분석을 트리거한다", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ departmentId: null });
+      prismaMock.contract.create.mockResolvedValueOnce({
+        id: "c1",
+        tenantId: "t1",
+        status: "signed",
+        signedAt: new Date("2025-12-18"),
+        details: { stage: "new" },
+        createdAt: new Date("2025-12-18"),
+        updatedAt: new Date("2025-12-18"),
+        counterparties: [],
+        files: [],
+        references: [],
+      });
+
+      const res = await service.create({
+        ...baseReq,
+        registerAs: "signed",
+        signedAt: "2025-12-18",
+        details: { stage: "new" } as never,
+        files: [{ role: "signed", name: "a.pdf", meta: "", sortOrder: 0 }],
+      });
+
+      expect(prismaMock.contract.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "signed" }),
+        }),
+      );
+      expect(res.status).toBe("signed");
+      expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "risk" }),
+      );
+    });
+
+    it("registerAs 미지정이면 기존 동작 그대로 - status 를 지정하지 않고 precheck 를 트리거한다", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ departmentId: null });
+      prismaMock.contract.create.mockResolvedValueOnce({
+        id: "c2",
+        tenantId: "t1",
+        status: "unassigned",
+        signedAt: null,
+        details: { stage: "new" },
+        createdAt: new Date("2025-12-18"),
+        updatedAt: new Date("2025-12-18"),
+        counterparties: [],
+        files: [],
+        references: [],
+      });
+
+      await service.create({
+        ...baseReq,
+        details: { stage: "new" } as never,
+        files: [{ role: "contract", name: "a.docx", meta: "", sortOrder: 0 }],
+      });
+
+      const createArg = prismaMock.contract.create.mock.calls[0][0];
+      expect(createArg.data.status).toBeUndefined();
+      expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "precheck" }),
+      );
+    });
+  });
 });
