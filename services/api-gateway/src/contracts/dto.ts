@@ -2,6 +2,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsISO8601,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -76,6 +77,19 @@ export class CreateContractDto {
   @ApiPropertyOptional()
   @IsOptional() @IsString() @MaxLength(40)
   dueDate?: string | null;
+
+  @ApiPropertyOptional({
+    enum: ["review", "signed"],
+    description:
+      "등록 유형. signed 면 검토·결재를 건너뛰고 곧바로 체결 완료로 등록한다(미지정 시 review).",
+  })
+  @IsOptional()
+  @IsIn(["review", "signed"])
+  registerAs?: "review" | "signed";
+
+  @ApiPropertyOptional({ description: "실제 서명 완료일(ISO 8601). registerAs=signed 일 때 필수." })
+  @IsOptional() @IsString() @MaxLength(40)
+  signedAt?: string | null;
 
   @ApiProperty({ example: 1 })
   @IsInt()
@@ -208,4 +222,22 @@ export class UpdateCommentDto {
   })
   @IsOptional() @IsArray() @IsString({ each: true })
   attachmentIds?: string[];
+}
+
+// 체결 처리. contractId 는 @Param, viewerId(=처리자)는 JWT sub 라 body 로는 signedAt/fileId/note 만 받는다.
+export class CompleteSigningDto {
+  @ApiProperty({ description: "실제 서명 완료일(ISO 8601)", example: "2026-09-12" })
+  @IsISO8601()
+  signedAt!: string;
+
+  @ApiPropertyOptional({ description: "사전 업로드된 서명본 File.id" })
+  @IsOptional()
+  @IsString()
+  fileId?: string;
+
+  @ApiPropertyOptional({ description: "비고 - 감사 로그에만 남는다" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
 }

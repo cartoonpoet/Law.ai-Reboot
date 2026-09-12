@@ -19,6 +19,8 @@ import {
   COMMENT_PATTERNS,
   CONTRACT_PATTERNS,
   type CommentDto,
+  type CompleteSigningRequest,
+  type CompleteSigningResult,
   type ContractResponse,
   type ContractStatus,
   type CreateCommentRequest,
@@ -40,6 +42,7 @@ import { rpcToHttp } from "../common/rpc-to-http";
 import { extractTenantContext } from "../common/tenant-context";
 import { NotificationHubService } from "../notifications/notification-hub.service";
 import {
+  CompleteSigningDto,
   CreateCommentDto,
   CreateContractDto,
   UpdateCommentDto,
@@ -189,6 +192,36 @@ export class ContractsController {
             );
             return result.contract;
           }),
+        ),
+    );
+  }
+
+  @ApiOperation({
+    summary: "체결 처리",
+    description:
+      "인감 담당(sealManager) + 체결 진행(signing) + 결재 전원 승인 상태에서만. 서명본 파일 승격 + signedAt 확정 + signed 전이.",
+  })
+  @Post(":id/complete-signing")
+  completeSigning(
+    @Param("id") id: string,
+    @Body() body: CompleteSigningDto,
+    @Req() req: Request,
+  ): Promise<ContractResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: CompleteSigningRequest = {
+      contractId: id,
+      viewerId: sub,
+      signedAt: body.signedAt,
+      fileId: body.fileId ?? null,
+      note: body.note ?? null,
+      tenantContext: extractTenantContext(req),
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<CompleteSigningResult>(CONTRACT_PATTERNS.COMPLETE_SIGNING, payload)
+        .pipe(
+          rpcToHttp(),
+          map((result: CompleteSigningResult) => result.contract),
         ),
     );
   }
