@@ -705,26 +705,64 @@ export class ContractsService {
       throw new RpcException({ status: 400, message: "결재가 완료되지 않았습니다" });
     }
 
-    // 서명본 파일은 반드시 이 계약 소유여야 한다.
+    // 서명본 파일은 반드시 이 계약의 "본문" 파일이어야 한다. commentId:null 이 없으면
+    // 코멘트 첨부(File.commentId != null)도 통과해 signed 로 승격될 수 있다 — 코멘트
+    // 첨부는 contractInclude.files 에서 걸러지므로(commentId:null 필터) 그렇게 승격된
+    // 파일은 계약의 files 목록에 다시는 나타나지 않는, 눈에 보이지 않는 서명본이 된다.
     if (req.fileId) {
       const file = await this.prisma.file.findFirst({
-        where: { id: req.fileId, contractId: row.id },
+        where: { id: req.fileId, contractId: row.id, commentId: null },
         select: { id: true },
       });
       if (!file) {
         throw new RpcException({ status: 400, message: "잘못된 파일입니다" });
       }
-      await this.prisma.file.update({
-        where: { id: req.fileId },
-        data: { role: "signed" },
-      });
     }
 
-    const updated = await this.prisma.contract.update({
-      where: { id: row.id, ...tenantScope(ctx) },
+    // 파일 승격 + 상태 확정을 한 트랜잭션으로 묶는다 — 도중에 실패하면 파일만 signed 로
+    // 남고 계약은 signing 에 머무는 절반 반영을 막는다(signing→reviewDone 은 허용된 역방향
+    // 전이라 그 상태로 검토에 돌아가면 유령 서명본이 남는다).
+    // where 에 status:"signing" 을 넣어 동시 요청 중 하나만 성공하도록(CAS) 방어한다.
+    const fileUpdate = req.fileId
+      ? this.prisma.file.update({
+          where: { id: req.fileId, contractId: row.id, commentId: null },
+          data: { role: "signed" },
+        })
+      : null;
+    const contractUpdate = this.prisma.contract.update({
+      where: { id: row.id, status: "signing", ...tenantScope(ctx) },
       data: { status: "signed", signedAt: parseDate(req.signedAt) },
       include: contractInclude,
     });
+
+    let updated: ContractWithRelations;
+    try {
+      if (fileUpdate) {
+        const [, updatedRow] = await this.prisma.$transaction([
+          fileUpdate,
+          contractUpdate,
+        ]);
+        updated = updatedRow;
+      } else {
+        const [updatedRow] = await this.prisma.$transaction([contractUpdate]);
+        updated = updatedRow;
+      }
+    } catch (error) {
+      // 동시 요청 등으로 그 사이 signing 상태가 아니게 된 경우(CAS 실패) — P2025: 대상 행 없음.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        throw new RpcException({
+          status: 409,
+          message: "이미 처리되었거나 상태가 변경된 계약입니다",
+        });
+      }
+      throw error;
+    }
+
+    // audit 는 트랜잭션 커밋 후 best-effort 로 기록한다(AuditService.record 는 실패를
+    // 삼키도록 설계돼 있으므로, 감사 기록 실패가 이미 커밋된 체결 처리를 되돌리지 않는다).
     await this.audit.record({
       action: "transition",
       targetType: "Contract",
@@ -748,6 +786,16 @@ export class ContractsService {
     const current = await this.ensureExists(req.id, ctx);
     const viewer = await this.loadViewer(req.viewerId, ctx);
     const authz = evaluate(viewer, this.toAuthzContract(current));
+
+    // signed 로의 전이는 completeSigning 전용 — 이 경로엔 결재 완료 게이트가 없으므로
+    // (sealManager 는 status==="signing" 이기만 하면 canTransition=true) 역할과 무관하게
+    // 여기서 차단해 결재 완료 검증 우회를 막는다.
+    if (req.status === "signed") {
+      throw new RpcException({
+        status: 400,
+        message: "체결 처리는 체결 처리 기능을 사용하세요",
+      });
+    }
 
     const isTransition = current.status !== req.status;
     const isAssign = req.ownerId !== undefined;

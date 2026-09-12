@@ -1,5 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { RpcException } from "@nestjs/microservices";
+import { Prisma } from "@prisma/client";
 import { ContractsService } from "./contracts.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
@@ -649,6 +650,21 @@ describe("ContractsService", () => {
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
 
+  // Task 3 fix round(I4): updateStatus 는 결재 완료를 검증하지 않으므로, sealManager 가
+  // signing 상태에서 이 경로로 곧장 "signed" 를 요청하면 completeSigning 의 결재 완료
+  // 게이트를 완전히 우회할 수 있었다(canTransition 이 signing 에서 항상 true 이기 때문).
+  // status==="signed" 는 역할/전이맵과 무관하게 여기서 차단되어야 한다.
+  it("updateStatus: sealManager 라도 signed 로의 직접 전이는 차단된다 (completeSigning 우회 방지, 400)", async () => {
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "sealManager", user: { departmentId: null } });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signing"), status: "signing" });
+    await expect(
+      service.updateStatus({ id: "ct-1", status: "signed", viewerId: "u-seal", ...makeCtx() }),
+    ).rejects.toMatchObject({
+      error: { status: 400, message: "체결 처리는 체결 처리 기능을 사용하세요" },
+    });
+    expect(prismaMock.contract.update).not.toHaveBeenCalled();
+  });
+
   it("get: top/secure 등급 조회 시 audit.record(view) 호출", async () => {
     prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
     // securityLevel: "secure" (fullRow 기본) — inHouseCounsel: view="all" → canView=true.
@@ -1102,7 +1118,7 @@ describe("ContractsService", () => {
     };
 
     it("권한이 없으면 403", async () => {
-      prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
       prismaMock.userTenant.findFirst.mockResolvedValueOnce({
         role: "general",
         user: { departmentId: null },
@@ -1115,15 +1131,17 @@ describe("ContractsService", () => {
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 403 } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
     });
 
     it("결재가 완료되지 않았으면 400", async () => {
-      prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
       prismaMock.userTenant.findFirst.mockResolvedValueOnce({
         role: "sealManager",
         user: { departmentId: null },
       });
-      approvalsMock.getActive.mockResolvedValue({
+      approvalsMock.getActive.mockResolvedValueOnce({
         line: { id: "l1", status: "pending", steps: [] },
         historyCount: 0,
       });
@@ -1135,15 +1153,17 @@ describe("ContractsService", () => {
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
     });
 
     it("결재선이 아예 없어도 400", async () => {
-      prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
       prismaMock.userTenant.findFirst.mockResolvedValueOnce({
         role: "sealManager",
         user: { departmentId: null },
       });
-      approvalsMock.getActive.mockResolvedValue({ line: null, historyCount: 0 });
+      approvalsMock.getActive.mockResolvedValueOnce({ line: null, historyCount: 0 });
       await expect(
         service.completeSigning({
           contractId: "c1",
@@ -1152,19 +1172,21 @@ describe("ContractsService", () => {
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
     });
 
     it("남의 계약 파일을 주면 400", async () => {
-      prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
       prismaMock.userTenant.findFirst.mockResolvedValueOnce({
         role: "sealManager",
         user: { departmentId: null },
       });
-      approvalsMock.getActive.mockResolvedValue({
+      approvalsMock.getActive.mockResolvedValueOnce({
         line: { id: "l1", status: "approved", steps: [] },
         historyCount: 0,
       });
-      prismaMock.file.findFirst.mockResolvedValue(null);
+      prismaMock.file.findFirst.mockResolvedValueOnce(null);
       await expect(
         service.completeSigning({
           contractId: "c1",
@@ -1174,20 +1196,81 @@ describe("ContractsService", () => {
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
     });
 
-    it("정상 처리 시 signed 로 전이하고 signedAt 과 파일 role 을 갱신한다", async () => {
-      prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+    // 코멘트 첨부(File.commentId != null)는 같은 contractId 를 가지므로 findFirst 가
+    // commentId:null 도 함께 걸러야 한다 — 아니면 코멘트 첨부가 서명본으로 승격될 수 있다.
+    it("코멘트 첨부 파일은 서명본으로 지정할 수 없다 (commentId 가드)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
       prismaMock.userTenant.findFirst.mockResolvedValueOnce({
         role: "sealManager",
         user: { departmentId: null },
       });
-      approvalsMock.getActive.mockResolvedValue({
+      approvalsMock.getActive.mockResolvedValueOnce({
         line: { id: "l1", status: "approved", steps: [] },
         historyCount: 0,
       });
-      prismaMock.file.findFirst.mockResolvedValue({ id: "f1", contractId: "c1" });
-      prismaMock.contract.update.mockResolvedValue({
+      // commentId:null 필터로 걸러진다고 가정 — mock 은 findFirst where 조건 평가를 하지
+      // 않으므로, 서비스가 실제로 commentId:null 을 where 에 넘기는지는 아래에서 검증한다.
+      prismaMock.file.findFirst.mockResolvedValueOnce(null);
+      await expect(
+        service.completeSigning({
+          contractId: "c1",
+          viewerId: "u-seal",
+          signedAt: "2026-09-12",
+          fileId: "f-comment-1",
+          tenantContext: { tenantId: "t1", isSystemAdmin: false },
+        }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "잘못된 파일입니다" } });
+      expect(prismaMock.file.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "f-comment-1", contractId: "c1", commentId: null },
+        }),
+      );
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
+    });
+
+    // 재서명 방지: 이미 signed 인 계약은 승인 라인 상태와 무관하게 상태 게이트에서 막힌다.
+    // sealManager 는 canTransition 자체가 status==="signing" 에서만 true 라 이 분기에
+    // 도달하지 못하므로, 담당(owner) 역할로 도달 가능함을 증명한다.
+    it("이미 signed 인 계약은 다시 체결 처리할 수 없다 (400, 재서명 방지)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce({
+        ...baseRow,
+        status: "signed",
+        ownerId: "u-legal",
+      });
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
+        role: "inHouseCounsel",
+        user: { departmentId: null },
+      });
+      await expect(
+        service.completeSigning({
+          contractId: "c1",
+          viewerId: "u-legal",
+          signedAt: "2026-09-12",
+          tenantContext: { tenantId: "t1", isSystemAdmin: false },
+        }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "체결 진행 상태가 아닙니다" } });
+      expect(approvalsMock.getActive).not.toHaveBeenCalled();
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
+    });
+
+    it("정상 처리 시 signed 로 전이하고 signedAt 과 파일 role 을 갱신한다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
+        role: "sealManager",
+        user: { departmentId: null },
+      });
+      approvalsMock.getActive.mockResolvedValueOnce({
+        line: { id: "l1", status: "approved", steps: [] },
+        historyCount: 0,
+      });
+      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f1", contractId: "c1" });
+      prismaMock.contract.update.mockResolvedValueOnce({
         ...baseRow,
         status: "signed",
         signedAt: new Date("2026-09-12"),
@@ -1204,12 +1287,13 @@ describe("ContractsService", () => {
 
       expect(prismaMock.file.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "f1" },
+          where: { id: "f1", contractId: "c1", commentId: null },
           data: { role: "signed" },
         }),
       );
       expect(prismaMock.contract.update).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ id: "c1", status: "signing" }),
           data: expect.objectContaining({ status: "signed" }),
         }),
       );
@@ -1220,6 +1304,35 @@ describe("ContractsService", () => {
           detail: expect.objectContaining({ kind: "completeSigning" }),
         }),
       );
+    });
+
+    // 동시 체결 처리 방어(CAS): where 에 status:"signing" 을 넣었으므로, 그 사이 다른
+    // 요청이 먼저 커밋되면 대상 행이 없어 Prisma 가 P2025 를 던진다. 이를 그대로
+    // 흘리지 않고 409 로 변환해야 한다.
+    it("동시 요청으로 이미 처리된 경우 P2025 를 409 로 변환한다 (CAS 실패)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
+        role: "sealManager",
+        user: { departmentId: null },
+      });
+      approvalsMock.getActive.mockResolvedValueOnce({
+        line: { id: "l1", status: "approved", steps: [] },
+        historyCount: 0,
+      });
+      const notFound = new Prisma.PrismaClientKnownRequestError(
+        "An operation failed because it depends on one or more records that were required but not found.",
+        { code: "P2025", clientVersion: "6.19.3" },
+      );
+      prismaMock.$transaction.mockRejectedValueOnce(notFound);
+
+      await expect(
+        service.completeSigning({
+          contractId: "c1",
+          viewerId: "u-seal",
+          signedAt: "2026-09-12",
+          tenantContext: { tenantId: "t1", isSystemAdmin: false },
+        }),
+      ).rejects.toMatchObject({ error: { status: 409 } });
     });
   });
 });
