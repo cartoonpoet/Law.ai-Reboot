@@ -70,7 +70,7 @@ export interface UploadedFileMeta {
   meta: string;
 }
 
-export type FileRole = "contract" | "attach" | "ref";
+export type FileRole = "contract" | "attach" | "ref" | "signed";
 
 // 첨부 파일 입력.
 // - id 가 있으면 이미 presign/confirm 으로 R2 업로드된 File row → 서버는 role/sortOrder 만 갱신, R2 객체 보존.
