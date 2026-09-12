@@ -274,10 +274,13 @@ describe("contracts.authz evaluate", () => {
       expect(r.canEdit).toBe(true);
     });
 
-    it("생성자라도 이미 타인에게 배정된 건 → canEdit=false (완화는 미배정 한정)", () => {
+    // 담당자가 배정되는 즉시(생성자 본인이라도) 완화가 사라지고 원래 규칙(담당자만)으로
+    // 돌아간다는 것을 두 가지 표현으로 검증 — "타인에게 배정" 과 "배정됨" 은 같은 조건
+    // (ownerId != null)이라 실질적으로 같은 케이스이므로 하나로 합쳤다(중복 테스트 제거).
+    it("담당자가 배정되면 생성자 본인이라도 canEdit=false (완화는 미배정 한정)", () => {
       const r = evaluate(
         makeViewer("inHouseCounsel", CREATOR_ID),
-        makeContract({ createdById: CREATOR_ID, ownerId: "someone-else" }),
+        makeContract({ createdById: CREATOR_ID, ownerId: "the-assigned-owner" }),
       );
       expect(r.canEdit).toBe(false);
     });
@@ -290,10 +293,21 @@ describe("contracts.authz evaluate", () => {
       expect(r.canEdit).toBe(false);
     });
 
-    it("담당자가 배정되는 순간 생성자 본인이라도 원래 규칙(담당자만)으로 돌아간다", () => {
+    // status 한정(draft/unassigned) 검증 — ownerId 는 signed/closed 이후에도 PATCH 나 상태
+    // 전이로 다시 null 이 될 수 있으므로, status 를 안 보면 "생성 직후의 짧은 구간"이라는
+    // 이 완화의 전제가 계약 생애주기 후반에도 재부팅되어 버린다. 이 케이스가 그 방어선이다.
+    it("ownerId 가 null 로 되돌아가도 status 가 signed 면 생성자라도 canEdit=false", () => {
       const r = evaluate(
         makeViewer("inHouseCounsel", CREATOR_ID),
-        makeContract({ createdById: CREATOR_ID, ownerId: "the-assigned-owner" }),
+        unassigned({ createdById: CREATOR_ID, status: "signed" }),
+      );
+      expect(r.canEdit).toBe(false);
+    });
+
+    it("ownerId 가 null 로 되돌아가도 status 가 closed 면 생성자라도 canEdit=false", () => {
+      const r = evaluate(
+        makeViewer("inHouseCounsel", CREATOR_ID),
+        unassigned({ createdById: CREATOR_ID, status: "closed" }),
       );
       expect(r.canEdit).toBe(false);
     });

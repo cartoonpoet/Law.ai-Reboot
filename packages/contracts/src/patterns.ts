@@ -55,6 +55,9 @@ export const CONTRACT_PATTERNS = {
   UPDATE_STATUS: "contract.updateStatus",
   SUBMIT_APPROVAL: "contract.submitApproval",
   COMPLETE_SIGNING: "contract.completeSigning",
+  // 체결 완료 등록(registerAs=signed) 확정 — completeSigning 과 별개(결재 라인 없음, 미배정
+  // 생성자 권한으로 게이트).
+  FINALIZE_REGISTRATION: "contract.finalizeRegistration",
 } as const;
 
 export const APPROVAL_PATTERNS = {

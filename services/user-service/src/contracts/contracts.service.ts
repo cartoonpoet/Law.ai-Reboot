@@ -36,6 +36,8 @@ import type {
   FileInput,
   CompleteSigningRequest,
   CompleteSigningResult,
+  FinalizeRegistrationRequest,
+  FinalizeRegistrationResult,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -223,22 +225,28 @@ export class ContractsService {
       }
     }
 
-    // 체결 완료 등록: 검토·결재를 건너뛰므로 여기서 못 잡으면 영영 못 잡는다.
+    // 체결 완료 등록(registerAs=signed): 검토·결재를 전부 건너뛰는 경로라 여기서 입력 형식을
+    // 못 잡으면 나중엔 못 잡는다. 단, 실제로 계약을 signed 로 확정하는 건 이 메서드가 아니라
+    // finalizeRegistration() 이다 — create() 는 항상 미배정(unassigned)으로 만들고, signedAt 도
+    // 여기서는 저장하지 않는다(형식만 검증). 이유:
+    // 1) ownerId 를 생성자로 채워 "담당"으로 만들면 legalReview AI 트리거·알림·"내 담당" 큐가
+    //    실제로 검토한 적 없는 사람을 오검색시킨다 — ownerId 는 그런 용도의 필드가 아니다.
+    // 2) 서명본이 실제로 업로드되기 전에 status=signed 를 먼저 확정해버리면(예전 방식),
+    //    업로드가 실패해도 계약은 이미 "체결 완료" 상태라 영구적으로 서명본 없는 signed 계약이
+    //    남는다. unassigned 에 머물게 하면 크래시/실패해도 복구 가능한 상태로 남는다.
+    // "최종 서명본 첨부" 게이트는 여기서 제거했다 — finalizeRegistration() 이 실제 바이트가
+    // 있는(storageKey not null) role=signed 파일을 요구하는 게 진짜 게이트이고, create() 시점엔
+    // presign 이 contractId 를 필요로 해서 아직 실제 파일이 있을 수가 없다(메타데이터-only 로
+    // "있는 척"하게 만드는 우회를 더는 쓰지 않는다).
     const isDirectSigned = req.registerAs === "signed";
-    // parseDate 는 빈 문자열/잘못된 형식을 조용히 null 로 반환하므로, 원본 문자열이 아니라
-    // 파싱 결과를 검증해야 한다(completeSigning 과 동일한 패턴) — 그렇지 않으면
-    // signedAt: "garbage" 같은 값이 게이트를 통과해 signedAt=null 인 영구 signed 행이 생긴다.
-    let signedAt: Date | null = null;
     if (isDirectSigned) {
+      // parseDate 는 빈 문자열/잘못된 형식을 조용히 null 로 반환하므로, 원본 문자열이 아니라
+      // 파싱 결과를 검증해야 한다(completeSigning 과 동일한 패턴).
       if (!req.signedAt) {
         throw new RpcException({ status: 400, message: "체결일을 입력하세요" });
       }
-      signedAt = parseDate(req.signedAt);
-      if (!signedAt) {
+      if (!parseDate(req.signedAt)) {
         throw new RpcException({ status: 400, message: "체결일이 올바르지 않습니다" });
-      }
-      if (!req.files.some((f) => f.role === "signed")) {
-        throw new RpcException({ status: 400, message: "최종 서명본을 첨부하세요" });
       }
       if (req.details.stage === "change" && !req.details.relatedDocs?.length) {
         throw new RpcException({
@@ -266,7 +274,8 @@ export class ContractsService {
           periodStart: parseDate(req.periodStart),
           periodEnd: parseDate(req.periodEnd),
           dueDate: parseDate(req.dueDate),
-          ...(isDirectSigned ? { status: "signed" as const, signedAt } : {}),
+          // status 는 지정하지 않는다 — 체결 완료 등록이든 검토 요청이든 항상 스키마 기본값인
+          // unassigned 로 시작한다(위 주석 참고). signedAt 은 finalizeRegistration() 이 확정한다.
           schemaVersion: req.schemaVersion,
           // 상신 전 결재선(approvers)은 details JSONB 로만 보관 — 라인은 상신 시 생성.
           details: {
@@ -310,20 +319,10 @@ export class ContractsService {
         tenantId: row.tenantId,
       });
       const response = this.toResponse(row);
-      // 검토 경로는 계약서 원본(role=contract) 기준 사전 점검(precheck),
-      // 체결 완료 등록은 서명본(role=signed) 기준 위험 분석(risk) 을 백그라운드로 돌린다.
-      if (isDirectSigned) {
-        // 서명본(role=signed) 첨부는 위 검증 블록에서 이미 필수로 확인했고, req.files 는
-        // 그 사이 변형되지 않으므로 여기서 다시 확인할 필요가 없다.
-        void this.aiAnalysis.trigger({
-          targetType: "contract",
-          targetId: row.id,
-          kind: "risk",
-          tenantId: row.tenantId,
-          triggeredByUserId: req.createdById,
-          payload: buildRiskPayload(response, null),
-        });
-      } else if (req.files.some((f) => f.role === "contract")) {
+      // 검토 경로(계약서 원본, role=contract)만 create 시점에 사전 점검(precheck)을 돌린다.
+      // 체결 완료 등록(registerAs=signed)은 이 시점엔 실제 서명본이 없을 수 있으므로(위 주석
+      // 참고) risk 분석은 finalizeRegistration() 이 실제 파일 확인 후 트리거한다.
+      if (req.files.some((f) => f.role === "contract")) {
         void this.aiAnalysis.trigger({
           targetType: "contract",
           targetId: row.id,
@@ -552,6 +551,27 @@ export class ContractsService {
       const keepIds = req.files.map((f) => f.id).filter(Boolean) as string[];
       const updates = req.files.filter((f) => f.id);
       const creates = req.files.filter((f) => !f.id);
+
+      // 서명본(role=signed) 파일은 이 PATCH 로 암묵적으로 사라질 수 없다 — 클라이언트가
+      // 폼 상태를 잘못 복원해(예: toEditDefaults 가 signedFiles 를 빠뜨렸던 버그) role=signed
+      // 항목을 files 배열에서 누락한 채 저장해도, 이미 R2 에 올라간 서명 원본이 deleteMany +
+      // R2 객체 삭제로 조용히 사라지는 사고를 서버에서 원천 차단한다. 클라이언트 쪽 왕복
+      // 정합성만으로는 부족하다 — 다른 클라이언트나 직접 API 호출도 이 가드를 거쳐야 한다.
+      const droppedSignedFile = await this.prisma.file.findFirst({
+        where: {
+          contractId: req.id,
+          commentId: null,
+          role: "signed",
+          ...(keepIds.length > 0 ? { id: { notIn: keepIds } } : {}),
+        },
+        select: { id: true },
+      });
+      if (droppedSignedFile) {
+        throw new RpcException({
+          status: 400,
+          message: "서명본 파일은 이 요청으로 제거할 수 없습니다",
+        });
+      }
 
       const toDelete = await this.prisma.file.findMany({
         where: {
@@ -823,6 +843,95 @@ export class ContractsService {
       },
     });
     return { contract: this.toResponse(updated, active.line) };
+  }
+
+  /** 체결 완료 등록(registerAs=signed) 확정 — create() 는 항상 unassigned 로 만들고 signedAt 을
+   *  저장하지 않으므로, 생성자가 서명본 업로드를 마친 뒤 이 메서드를 호출해야 실제로 signed 가
+   *  된다. completeSigning 과 의도적으로 분리했다: completeSigning 은 결재 전원 승인을
+   *  요구하는데 이 경로엔 애초에 결재 라인이 없다(검토·결재를 건너뛰는 게 이 기능의 목적).
+   *  권한은 evaluate().canEdit 을 그대로 재사용한다 — "미배정 상태의 생성자 본인" 완화가
+   *  정확히 이 경로를 위해 추가된 것이라서다(contracts.authz.ts 참고). */
+  async finalizeRegistration(
+    req: FinalizeRegistrationRequest,
+  ): Promise<FinalizeRegistrationResult> {
+    const ctx = req.tenantContext!;
+    const row = await this.ensureExists(req.contractId, ctx);
+
+    const viewer = await this.loadViewer(req.viewerId, ctx);
+    const authz = evaluate(viewer, this.toAuthzContract(row));
+    if (!authz.canEdit) {
+      throw new RpcException({ status: 403, message: "등록 확정 권한이 없습니다" });
+    }
+    if (row.status !== "unassigned") {
+      throw new RpcException({ status: 400, message: "미배정 상태가 아닙니다" });
+    }
+
+    // parseDate 는 빈 문자열/잘못된 형식을 조용히 null 로 반환하므로, 원본 문자열이 아니라
+    // 파싱 결과를 검증해야 한다(completeSigning 과 동일한 패턴).
+    const signedAt = parseDate(req.signedAt);
+    if (!signedAt) {
+      throw new RpcException({ status: 400, message: "체결일이 올바르지 않습니다" });
+    }
+
+    // 진짜 게이트: 파일명만 있는 메타데이터-only 행이 아니라, 실제로 R2 에 올라간(storageKey
+    // not null) role=signed 파일이 있어야만 통과한다 — "서명본이 실은 빈 파일"인 상태를
+    // signed 로 확정할 수 없게 만드는 지점이 여기다.
+    const signedFile = await this.prisma.file.findFirst({
+      where: {
+        contractId: row.id,
+        commentId: null,
+        role: "signed",
+        storageKey: { not: null },
+      },
+      select: { id: true },
+    });
+    if (!signedFile) {
+      throw new RpcException({ status: 400, message: "최종 서명본을 첨부하세요" });
+    }
+
+    // where 에 status:"unassigned" 를 넣어 동시 요청 중 하나만 성공하도록(CAS) 방어한다
+    // (completeSigning 과 동일 패턴).
+    let updated: ContractWithRelations;
+    try {
+      updated = await this.prisma.contract.update({
+        where: { id: row.id, status: "unassigned", ...tenantScope(ctx) },
+        data: { status: "signed", signedAt },
+        include: contractInclude,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        throw new RpcException({
+          status: 409,
+          message: "이미 처리되었거나 상태가 변경된 계약입니다",
+        });
+      }
+      throw error;
+    }
+
+    await this.audit.record({
+      action: "transition",
+      targetType: "Contract",
+      targetId: row.id,
+      actorId: req.viewerId,
+      tenantId: row.tenantId,
+      detail: { kind: "finalizeRegistration", from: "unassigned", to: "signed" },
+    });
+
+    const response = this.toResponse(updated);
+    // create() 시점엔 미룬 risk 분석을 여기서 트리거한다 — 이제야 실제 서명본 내용이 있다.
+    void this.aiAnalysis.trigger({
+      targetType: "contract",
+      targetId: row.id,
+      kind: "risk",
+      tenantId: row.tenantId,
+      triggeredByUserId: req.viewerId,
+      payload: buildRiskPayload(response, null),
+    });
+
+    return { contract: response };
   }
 
   async updateStatus(

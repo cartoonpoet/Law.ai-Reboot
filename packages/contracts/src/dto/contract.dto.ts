@@ -227,6 +227,22 @@ export interface CompleteSigningResult {
   contract: ContractResponse;
 }
 
+/** 체결 완료 등록(registerAs=signed) 확정 — 생성자가 실제 서명본 업로드를 마친 뒤 호출한다.
+ *  completeSigning 과 달리 결재 라인이 없다(애초에 결재를 건너뛰는 경로). unassigned →
+ *  signed 로만 전이하며, role=signed + storageKey not null 인 File 이 있어야 통과한다. */
+export interface FinalizeRegistrationRequest {
+  contractId: string;
+  /** gateway 가 JWT sub 를 주입. */
+  viewerId: string;
+  /** 실제 서명 완료일(ISO 8601). */
+  signedAt: string;
+  tenantContext?: TenantContext;
+}
+
+export interface FinalizeRegistrationResult {
+  contract: ContractResponse;
+}
+
 export interface UpdateContractStatusRequest {
   id: string;
   status: ContractStatus;

@@ -140,6 +140,12 @@ const SECRET_PRIVILEGED_ROLES: ReadonlySet<TenantRole> = new Set<TenantRole>([
   "contractManager",
 ]);
 
+// canEditUnassigned 완화가 적용되는 status — "아직 생애주기 초반"만. 아래 evaluate() 참고.
+const EARLY_STATUSES: ReadonlySet<ContractStatus> = new Set<ContractStatus>([
+  "draft",
+  "unassigned",
+]);
+
 /**
  * 계약 "관련자" userId 집합을 산출하는 순수 함수.
  *
@@ -242,13 +248,24 @@ export const evaluate = (
     policy.assign && (contract.ownerId === null ? true : ownerOk);
 
   // 미배정(ownerId null) 계약은 생성자 본인만 편집 가능 — canAssign 과 같은 모양의 완화다.
-  // 신규 작성 2단계 제출 흐름(계약 생성 → 파일 업로드 → PATCH 로 반영)에서, 담당자가
-  // 아직 배정되지 않은 그 짧은 구간에도 생성자 본인은 자기가 막 만든 계약을 편집(파일 반영)
-  // 할 수 있어야 하기 때문이다. 담당자가 배정되는 순간부터는 이 완화가 사라지고 원래
-  // 규칙(ownerOk, 담당자만)으로 즉시 돌아간다 — "생성자면 언제나 편집 가능"이 아니다.
+  // 신규 작성 2단계 제출 흐름(계약 생성 → 파일 업로드 → PATCH 로 반영, 그리고 체결 완료
+  // 등록의 경우 그 뒤 finalizeRegistration 확정)에서, 담당자가 아직 배정되지 않은 동안에는
+  // 생성자 본인이 자기가 막 만든 계약을 편집(파일 반영)할 수 있어야 하기 때문이다.
+  // 담당자가 배정되는 순간부터는 이 완화가 사라지고 원래 규칙(ownerOk, 담당자만)으로
+  // 즉시 돌아간다 — "생성자면 언제나 편집 가능"이 아니다.
+  //
+  // status 를 draft/unassigned 로 한정한 이유(중요): ownerId 는 미배정 상태에서 영영 null 로
+  // 남을 수 있다(체결 완료 등록 경로는 애초에 법무 담당자를 배정하지 않는다 — 위 create()
+  // 주석 참고). status 로 한정하지 않으면, 이미 signed/closed 로 끝난 계약이라도 누군가
+  // status 전이나 PATCH 로 ownerId 를 다시 null 로 되돌리기만 하면 생성자의 편집 권한이
+  // 그 계약 생애주기와 무관한 시점에 재부팅된다 — "생성 직후의 짧은 구간"이라는 이 완화의
+  // 전제 자체가 깨진다. draft/unassigned 로 묶으면 실제로 아직 아무도 손대지 않은(또는
+  // 확정 전) 초기 구간에만 적용된다.
   // canAssign/canTransition/canDelete 는 이 완화의 영향을 받지 않는다(ownerOk 그대로 사용).
   const canEditUnassigned =
-    contract.ownerId === null && viewer.id === contract.createdById;
+    contract.ownerId === null &&
+    viewer.id === contract.createdById &&
+    EARLY_STATUSES.has(contract.status);
 
   // sealManager 특수: 역할상 transition=true 이지만 signing 단계에서만(→signed) 가능.
   const isSealManager = viewer.role === "sealManager";

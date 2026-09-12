@@ -9,6 +9,7 @@ import type {
   UpdateContractRequest,
   UpdateContractStatusRequest,
   CompleteSigningRequest,
+  FinalizeRegistrationRequest,
 } from "@lawai/contracts";
 import { ContractsService } from "./contracts.service";
 
@@ -49,5 +50,10 @@ export class ContractsController {
   @MessagePattern(CONTRACT_PATTERNS.COMPLETE_SIGNING)
   completeSigning(@Payload() req: CompleteSigningRequest) {
     return this.contracts.completeSigning(req);
+  }
+
+  @MessagePattern(CONTRACT_PATTERNS.FINALIZE_REGISTRATION)
+  finalizeRegistration(@Payload() req: FinalizeRegistrationRequest) {
+    return this.contracts.finalizeRegistration(req);
   }
 }

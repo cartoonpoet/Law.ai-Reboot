@@ -241,3 +241,10 @@ export class CompleteSigningDto {
   @MaxLength(500)
   note?: string;
 }
+
+// 체결 완료 등록 확정. contractId 는 @Param, viewerId(=생성자)는 JWT sub.
+export class FinalizeRegistrationDto {
+  @ApiProperty({ description: "실제 서명 완료일(ISO 8601)", example: "2026-09-12" })
+  @IsISO8601()
+  signedAt!: string;
+}
