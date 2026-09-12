@@ -22,7 +22,6 @@ export const getAiModels = (provider: string): Promise<AiListModelsResult> =>
     `/ai/my-credential/models?${new URLSearchParams({ provider }).toString()}`,
   );
 
-// Task 10(대상별 AI 분석 조회/재시도)에서 사용 — 이 화면에서는 호출하지 않는다.
 // 게이트웨이 GET /ai/analysis는 분석 행이 없으면 null을 반환한다(AiController.getAnalysis).
 export const getAiAnalysis = (
   targetType: string,

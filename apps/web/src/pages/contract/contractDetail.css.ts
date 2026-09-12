@@ -399,20 +399,6 @@ export const riskClause = style({ fontSize: 13, fontWeight: 700, color: HEADING 
 
 export const riskFinding = style({ fontSize: 12.5, color: BODY, lineHeight: 1.55 });
 
-export const rsuggest = style({
-  display: "flex",
-  gap: 6,
-  background: PRIMARY_TINT,
-  borderRadius: themeVars.radius.md,
-  padding: "8px 10px",
-  fontSize: 11.5,
-  color: PRIMARY_DARK,
-  fontWeight: 600,
-  marginTop: 8,
-});
-
-export const rsuggestIcon = style({ color: PRIMARY, width: 13, height: 13, marginTop: 1 });
-
 /* =========================================================================
  * 결재선(approval line)
  * ======================================================================= */
