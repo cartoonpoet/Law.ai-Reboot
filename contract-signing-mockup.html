@@ -6,814 +6,1117 @@
 <title>체결 흐름 시안</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <style>
+  /* =======================================================================
+     실측 기준: 로컬 실행 화면(localhost:5173) + 소스 토큰
+       - 목록/요청폼  : apps/web/src/design/tokens.ts  (T)
+       - 계약 상세    : @lawkit/ui themeVars (contractDetail.css.ts)
+     두 체계가 실제로 공존 중이라 시안도 화면별로 동일하게 분리해 적용.
+     ===================================================================== */
   :root{
-    --primary:#2151ec;--primaryDark:#1739a5;
-    --primarySoft:color-mix(in srgb,#2151ec 10%,#fff);--primaryTint:color-mix(in srgb,#2151ec 6%,#fff);
-    --success:#006d38;--successAccent:#28c76f;--successTint:color-mix(in srgb,#28c76f 14%,#fff);
-    --danger:#b12a30;--dangerAccent:#ea5455;--dangerTint:color-mix(in srgb,#ea5455 12%,#fff);
-    --warning:#f0af23;--warningDark:#7d5800;--warningTint:color-mix(in srgb,#f0af23 16%,#fff);
-    --info:#006876;--infoAccent:#00cfe8;--infoTint:color-mix(in srgb,#00cfe8 12%,#fff);
-    --heading:#11152a;--body:#4c5469;--muted:#626f86;--faint:#9ea7b8;
-    --pageBg:#f2f4f6;--surface:#fff;--surfaceAlt:#f1f4f9;--border:#cfd5e1;--borderSubtle:#eeeff2;--borderStrong:#cfd5e1;
-    --rSm:4px;--rMd:6px;--rLg:8px;
-    --shadow:0 6px 16px rgba(17,24,39,.08);
-    --shadowSoft:0 1px 2px rgba(17,24,39,.05);
-    --focusRing:0 0 0 3px rgba(47,91,255,.14);
+    /* --- T 토큰 (목록 · 요청폼) : design/tokens.ts 원문 --- */
+    --primary:#2151ec; --primaryDark:#1739a5; --primarySoft:#eaefff; --primaryTint:#2151ec0d;
+    --success:#1f8a52; --successTint:#1f8a5214;
+    --danger:#d23b3b;  --dangerTint:#d23b3b12;
+    --warning:#b8801a; --warningDark:#8a5a00; --warningTint:#b8801a14;
+    --info:#0e7c8c;    --infoTint:#0e7c8c12;
+    --heading:#161a26; --body:#3d4658; --muted:#6b7488; --faint:#9aa1b2;
+    --pageBg:#eef0f4;  --surface:#fff;  --surfaceAlt:#f4f5f8;
+    --border:#e4e6ec;  --borderStrong:#d3d7e0;
+    --radius:8px;
+    --shadowCard:0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04);
+    /* Badge(=StatusBadge) 색: components/ui/Badge.tsx DS 원문 */
+    --bgPrimaryTint:#2151ec14;   --bgPrimaryStrong:#1739a5;  --bgPrimaryBase:#2151ec;
+    --bgSuccessTint:#1f8a5214;   --bgSuccessStrong:#006d38;  --bgSuccessBase:#1f8a52;
+    --bgDangerTint:#d23b3b14;    --bgDangerStrong:#b12a30;   --bgDangerBase:#d23b3b;
+    --bgWarningTint:#b8801a1c;   --bgWarningStrong:#8a5a00;  --bgWarningBase:#b8801a;
+    --bgInfoTint:#0e7c8c14;      --bgInfoStrong:#006876;     --bgInfoBase:#0e7c8c;
+    --bgSecondaryTint:#6b748814; --bgSecondaryStrong:#3d4658;--bgSecondaryBase:#6b7488;
+    /* --- lawkit themeVars (계약 상세) --- */
+    --lkHeading:#11152a; --lkBody:#4c5469; --lkMuted:#626f86; --lkFaint:#9ea7b8;
+    --lkSurface:#fff; --lkSurfaceAlt:#f1f4f9; --lkBorder:#cfd5e1;
+    --lkBorderSubtle:color-mix(in srgb,#cfd5e1 50%,transparent);
+    --lkPrimary:#2151ec; --lkPrimaryDark:#1739a5;
+    --lkPrimarySoft:color-mix(in srgb,#2151ec 10%,#fff);
+    --lkSuccess:#006d38; --lkSuccessAccent:#28c76f;
+    --lkSuccessTint:color-mix(in srgb,#28c76f 14%,#fff);
+    --lkWarning:#f0af23; --lkWarningDark:#7d5800;
+    --lkWarningTint:color-mix(in srgb,#f0af23 16%,#fff);
+    --lkInfo:#006876; --lkInfoTint:color-mix(in srgb,#00cfe8 12%,#fff);
+    --lkInfoBorder:color-mix(in srgb,#00cfe8 28%,#fff);
+    --lkDanger:#b12a30; --lkDangerAccent:#ea5455;
+    --lkRaised:0 1px 2px rgba(17,24,39,.05);
+    --focusRing:0 0 0 3px rgba(33,81,236,.14);
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:Pretendard,system-ui,sans-serif;background:var(--pageBg);color:var(--body);font-size:13px;-webkit-font-smoothing:antialiased;}
+  body{margin:0;font-family:Pretendard,"Segoe UI",sans-serif;background:var(--pageBg);color:var(--body);-webkit-font-smoothing:antialiased;}
+  [hidden]{display:none !important;}
   .ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
 
-  /* ===== shell ===== */
-  .tabbar{position:sticky;top:0;z-index:30;display:flex;gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;}
-  .tab{font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);background:var(--surfaceAlt);border:1px solid var(--border);border-radius:99px;padding:8px 16px;cursor:pointer;transition:background .12s,color .12s,border-color .12s;}
+  /* ===================== 시안 전용 탭바 ===================== */
+  .tabbar{position:sticky;top:0;z-index:60;display:flex;gap:8px;padding:11px 16px;background:#fff;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;}
+  .tab{font-family:inherit;font-size:12.5px;font-weight:700;color:var(--muted);background:var(--surfaceAlt);border:1px solid var(--border);border-radius:99px;padding:7px 15px;cursor:pointer;}
   .tab:hover{border-color:var(--primary);color:var(--primaryDark);}
   .tab.on{background:var(--primary);color:#fff;border-color:var(--primary);}
   .tab:focus-visible{outline:none;box-shadow:var(--focusRing);}
-  .hint{font-size:12px;color:var(--faint);margin-left:auto;}
+  .hint{font-size:11.5px;color:var(--faint);margin-left:auto;}
   .view{display:none;}.view.on{display:block;}
-  .page{max-width:1240px;margin:0 auto;padding:24px 24px 72px;}
-  .eyebrow{font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.07em;text-transform:uppercase;}
-  h1.title{margin:7px 0 0;font-size:23px;font-weight:800;color:var(--heading);letter-spacing:-.025em;}
+
+  /* 주석 박스 */
+  .note{padding:16px 24px 0;}
+  .notebox{border-left:3px solid var(--primary);background:var(--primaryTint);border-radius:0 6px 6px 0;padding:11px 14px;font-size:12.5px;line-height:1.75;color:var(--primaryDark);}
+  .notebox b{font-weight:800;}
+  .notebox ul{margin:5px 0 0;padding-left:17px;}
+  .notebox li{margin:2px 0;}
+  .notebox code{font-size:11.5px;background:rgba(33,81,236,.09);padding:1px 5px;border-radius:3px;}
+  .del{text-decoration:line-through;opacity:.55;}
+  .new{background:var(--danger);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.02em;vertical-align:middle;margin-left:5px;}
+
+  /* ===================== 앱 셸 (AppShell + Sidebar + TopBar) ===================== */
+  .shell{display:flex;min-height:760px;background:var(--pageBg);}
+  .side{width:210px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 0 0;}
+  .brand{display:flex;align-items:center;gap:7px;padding:2px 18px 16px;font-size:15px;font-weight:800;color:var(--heading);}
+  .brandMark{width:17px;height:17px;border-radius:4px;background:var(--primary);color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;}
+  .brand span{font-weight:500;color:var(--muted);font-size:13px;}
+  .navGroup{font-size:10px;font-weight:700;color:var(--faint);letter-spacing:.04em;padding:12px 18px 5px;}
+  .navItem{display:flex;align-items:center;gap:9px;padding:7px 18px;font-size:12.5px;color:var(--body);cursor:pointer;border-left:2px solid transparent;}
+  .navItem:hover{background:var(--surfaceAlt);}
+  .navItem .ic{width:14px;height:14px;color:var(--muted);}
+  .navItem.on{background:var(--primary);color:#fff;font-weight:700;}
+  .navItem.on .ic{color:#fff;}
+  .navItem.gone{text-decoration:line-through;opacity:.42;}
+  .sideFoot{margin-top:auto;border-top:1px solid var(--border);padding:10px 14px 12px;display:flex;flex-direction:column;gap:9px;}
+  .tenantChip{display:flex;align-items:center;gap:8px;background:var(--surfaceAlt);border-radius:6px;padding:7px 9px;font-size:12px;font-weight:700;color:var(--heading);}
+  .avatar{width:18px;height:18px;border-radius:4px;background:var(--primary);color:#fff;font-size:9.5px;font-weight:800;display:grid;place-items:center;flex-shrink:0;}
+  .userRow{display:flex;align-items:center;gap:8px;padding:0 2px;}
+  .userName{font-size:12.5px;font-weight:700;color:var(--heading);line-height:1.25;}
+  .userRole{font-size:10.5px;color:var(--faint);}
+  .mainWrap{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .topbar{display:flex;align-items:center;gap:14px;padding:11px 22px;background:#fff;border-bottom:1px solid var(--border);}
+  .gsearch{position:relative;width:300px;}
+  .gsearch .ic{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--faint);}
+  .gsearch input{width:100%;height:30px;border:1px solid var(--border);border-radius:6px;padding:0 10px 0 30px;font-family:inherit;font-size:12px;color:var(--heading);background:#fff;}
+  .gsearch input::placeholder{color:var(--faint);}
+  .topActs{margin-left:auto;display:flex;align-items:center;gap:14px;color:var(--muted);}
+  main{flex:1;padding:22px 24px 48px;min-width:0;}
+
+  /* ===================== 페이지 헤더 ===================== */
+  .eyebrow{font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.02em;}
+  h1.title{margin:7px 0 0;font-size:22px;font-weight:800;color:var(--heading);letter-spacing:-.025em;}
   .phead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;}
   .pacts{display:flex;gap:8px;flex-shrink:0;}
 
-  /* ===== atoms ===== */
-  .btn{font-family:inherit;font-size:13px;font-weight:700;border-radius:var(--rLg);padding:0 16px;height:38px;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s;}
+  /* ===================== 버튼 (lawkit Button) ===================== */
+  .btn{font-family:inherit;font-size:13px;font-weight:700;border-radius:6px;padding:0 14px;height:36px;cursor:pointer;border:1px solid transparent;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
   .btn:focus-visible{outline:none;box-shadow:var(--focusRing);}
+  .btn .ic{width:14px;height:14px;}
   .btn-primary{background:var(--primary);color:#fff;}.btn-primary:hover{background:var(--primaryDark);}
-  .btn-outline{background:#fff;color:var(--body);border-color:var(--border);}.btn-outline:hover{border-color:var(--primary);color:var(--primaryDark);}
-  .btn-success{background:var(--success);color:#fff;}.btn-success:hover{background:#005a2e;}
-  .btn-sm{height:32px;padding:0 12px;font-size:12.5px;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rLg);box-shadow:var(--shadow);}
-  .chead{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--borderSubtle);font-size:14px;font-weight:700;color:var(--heading);}
-  .chead .ic{color:var(--muted);}
-  .cbody{padding:16px;}
-  .badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;line-height:1.5;}
-  .b-assign{background:var(--warningTint);color:var(--warningDark);}
-  .b-legal{background:var(--primarySoft);color:var(--primaryDark);}
-  .b-done{background:var(--successTint);color:var(--success);}
-  .b-draft{background:var(--surfaceAlt);color:var(--muted);}
-  .b-sign{background:var(--infoTint);color:var(--info);}
-  .b-danger{background:var(--dangerTint);color:var(--danger);}
-  .new{background:var(--dangerAccent);color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:99px;letter-spacing:.03em;vertical-align:middle;margin-left:6px;}
+  .btn-outline{background:#fff;color:var(--body);border-color:var(--borderStrong);}.btn-outline:hover{border-color:var(--primary);color:var(--primaryDark);}
+  .btn-success{background:var(--success);color:#fff;}.btn-success:hover{background:#176b3f;}
+  .btn-sm{height:31px;padding:0 11px;font-size:12.5px;border-radius:6px;}
 
-  /* callout (lawkit Callout 대응) */
-  .callout{display:flex;gap:10px;padding:12px 14px;border-radius:var(--rMd);border:1px solid;font-size:12.5px;line-height:1.65;}
-  .callout .ic{width:15px;height:15px;margin-top:1px;}
-  .co-info{background:var(--primaryTint);border-color:color-mix(in srgb,#2151ec 22%,#fff);color:var(--primaryDark);}
-  .co-success{background:var(--successTint);border-color:color-mix(in srgb,#28c76f 28%,#fff);color:var(--success);}
-  .co-warn{background:var(--warningTint);border-color:color-mix(in srgb,#f0af23 34%,#fff);color:var(--warningDark);}
-  .callout b{font-weight:800;}
+  /* ===================== StatusBadge (components/ui/Badge.tsx 원문 수치) ===================== */
+  .sb{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;font-size:12px;border-radius:5px;font-weight:600;white-space:nowrap;}
+  .sb.sm{padding:2px 8px;font-size:11.5px;}
+  .sb i{width:5px;height:5px;border-radius:1.5px;flex-shrink:0;display:block;}
+  .sb-primary  {background:var(--bgPrimaryTint);color:var(--bgPrimaryStrong);}    .sb-primary i  {background:var(--bgPrimaryBase);}
+  .sb-success  {background:var(--bgSuccessTint);color:var(--bgSuccessStrong);}    .sb-success i  {background:var(--bgSuccessBase);}
+  .sb-danger   {background:var(--bgDangerTint);color:var(--bgDangerStrong);}      .sb-danger i   {background:var(--bgDangerBase);}
+  .sb-warning  {background:var(--bgWarningTint);color:var(--bgWarningStrong);}    .sb-warning i  {background:var(--bgWarningBase);}
+  .sb-info     {background:var(--bgInfoTint);color:var(--bgInfoStrong);}          .sb-info i     {background:var(--bgInfoBase);}
+  .sb-secondary{background:var(--bgSecondaryTint);color:var(--bgSecondaryStrong);}.sb-secondary i{background:var(--bgSecondaryBase);}
 
-  /* form */
-  .frow{display:grid;grid-template-columns:118px 1fr;gap:12px;align-items:start;padding:11px 0;border-bottom:1px solid var(--borderSubtle);}
-  .frow:last-child{border-bottom:0;}
-  .flabel{font-size:12.5px;font-weight:700;color:var(--heading);padding-top:9px;}
-  .req{color:var(--dangerAccent);margin-left:2px;}
-  .fctl{min-width:0;}
-  .inp{width:100%;height:36px;border:1px solid var(--border);border-radius:var(--rMd);background:#fff;padding:0 11px;font-family:inherit;font-size:13px;color:var(--heading);}
+  /* Tag(분류 셀) */
+  .tag{display:inline-flex;align-items:center;font-size:11.5px;font-weight:600;background:var(--surfaceAlt);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:2px 7px;}
+
+  /* ===================== Panel (components/ui/Panel.tsx) ===================== */
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadowCard);}
+  .phd{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13.5px;font-weight:700;color:var(--heading);}
+  .pbd{padding:16px;}
+
+  /* ===================== 폼 (요청 폼) ===================== */
+  .formLayout{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;}
+  .formCol{display:flex;flex-direction:column;gap:18px;min-width:0;}
+  .rail{display:flex;flex-direction:column;gap:14px;}
+  .cardTitle{display:inline-flex;align-items:center;gap:8px;}
+  .numBadge{width:22px;height:22px;border-radius:6px;background:var(--primarySoft);color:var(--primary);font-size:12px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  .full{grid-column:1 / -1;}
+  .fld{min-width:0;}
+  .flb{display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--heading);margin-bottom:6px;}
+  .req{color:var(--danger);}
+  .flb .ic{width:13px;height:13px;color:var(--muted);}
+  .inp{width:100%;height:38px;border:1px solid var(--borderStrong);border-radius:6px;background:#fff;padding:0 11px;font-family:inherit;font-size:13px;color:var(--heading);}
   .inp:focus{outline:none;border-color:var(--primary);box-shadow:var(--focusRing);}
   .inp::placeholder{color:var(--faint);}
+  textarea.inp{height:auto;padding:9px 11px;resize:vertical;line-height:1.6;}
+  select.inp{appearance:none;padding-right:30px;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7488' stroke-width='2.5' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;}
   .fhelp{font-size:11.5px;color:var(--faint);margin-top:5px;line-height:1.6;}
-  .fgrid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-
-  /* segmented (등록 유형) */
-  .seg{display:inline-flex;background:var(--surfaceAlt);border:1px solid var(--border);border-radius:var(--rLg);padding:3px;gap:3px;}
-  .seg button{font-family:inherit;font-size:12.5px;font-weight:700;color:var(--muted);background:transparent;border:0;border-radius:var(--rMd);padding:7px 15px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .14s,color .14s,box-shadow .14s;}
-  .seg button:hover{color:var(--heading);}
-  .seg button.on{background:#fff;color:var(--primaryDark);box-shadow:var(--shadowSoft);}
-  .seg button.on.alt{color:var(--info);}
-  .seg button:focus-visible{outline:none;box-shadow:var(--focusRing);}
-
-  /* dimmed / hidden by mode */
-  .skip{opacity:.34;pointer-events:none;position:relative;}
-  .gone{display:none;}
-  .onlySigned{display:none;}
-  body[data-mode="signed"] .onlySigned{display:grid;}
-  body[data-mode="signed"] .onlyReview{display:none;}
-
-  /* upload */
-  .drop{border:1.5px dashed var(--border);border-radius:var(--rMd);background:var(--surfaceAlt);padding:18px;text-align:center;}
-  .drop .ic{width:22px;height:22px;color:var(--faint);}
-  .drop p{margin:7px 0 0;font-size:12.5px;color:var(--muted);}
-  .drop b{color:var(--primary);font-weight:700;}
-  .fileitem{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--rMd);background:#fff;margin-top:8px;}
+  .radios{display:flex;align-items:center;gap:16px;height:38px;}
+  .rd{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--body);cursor:pointer;}
+  .rdm{width:14px;height:14px;border-radius:99px;border:1.5px solid var(--borderStrong);background:#fff;flex-shrink:0;position:relative;}
+  .rd.on .rdm{border-color:var(--primary);border-width:4.5px;}
+  .rd.on{color:var(--heading);font-weight:600;}
+  .segbtns{display:inline-flex;gap:6px;height:38px;align-items:center;}
+  .segbtn{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--muted);background:#fff;border:1px solid var(--borderStrong);border-radius:6px;padding:0 13px;height:32px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
+  .segbtn.on{border-color:var(--primary);color:var(--primary);background:var(--primaryTint);font-weight:700;}
+  .segbtn .ic{width:13px;height:13px;}
+  .chk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--body);cursor:pointer;}
+  .chkm{width:14px;height:14px;border-radius:3px;border:1.5px solid var(--borderStrong);background:#fff;flex-shrink:0;}
+  .drop{border:1px solid var(--border);border-radius:6px;background:var(--surfaceAlt);padding:14px;}
+  .drop p{margin:8px 0 0;font-size:11.5px;color:var(--muted);}
+  .fileitem{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1px solid var(--border);border-radius:6px;background:#fff;margin-top:8px;}
   .fileitem .ic{width:15px;height:15px;color:var(--muted);}
   .fname{font-size:12.5px;font-weight:600;color:var(--heading);}
   .fmeta{font-size:11px;color:var(--faint);margin-left:auto;}
+  .infoBar{display:flex;gap:8px;align-items:flex-start;background:var(--primaryTint);border-radius:6px;padding:9px 12px;font-size:11.5px;color:var(--body);line-height:1.6;margin-bottom:14px;}
+  .infoBar .ic{width:13px;height:13px;color:var(--primary);margin-top:1px;}
 
-  /* ===== list ===== */
+  /* 등록 유형 분기 하이라이트 */
+  .modeRow{background:var(--primaryTint);border:1px solid color-mix(in srgb,var(--primary) 18%,#fff);border-radius:6px;padding:13px 14px;margin-bottom:18px;}
+  .signedRow{background:var(--successTint);border:1px solid color-mix(in srgb,var(--success) 22%,#fff);border-radius:6px;padding:13px 14px;}
+  .calloutBox{display:flex;gap:9px;border-radius:6px;padding:11px 13px;font-size:12px;line-height:1.65;align-items:flex-start;}
+  .calloutBox .ic{width:14px;height:14px;margin-top:1px;}
+  .co-success{background:var(--successTint);border:1px solid color-mix(in srgb,var(--success) 22%,#fff);color:#15683c;}
+  .co-info{background:var(--primaryTint);border:1px solid color-mix(in srgb,var(--primary) 18%,#fff);color:var(--primaryDark);}
+  .co-warn{background:var(--warningTint);border:1px solid color-mix(in srgb,var(--warning) 26%,#fff);color:var(--warningDark);}
+  /* 모드 분기: 기본(검토) 에서는 onlySigned 를 숨기고, 체결 모드에서는 onlyReview 를 숨긴다.
+     display 값을 JS 로 되돌리지 않고 규칙 자체를 끄는 방식이라 요소별 고유 display 가 유지된다. */
+  body:not([data-mode="signed"]) .onlySigned{display:none !important;}
+  body[data-mode="signed"] .onlyReview,
+  body[data-mode="signed"] .onlyReviewInline{display:none !important;}
+
+  /* 우측 레일 — 작성 현황 */
+  .prgTop{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:9px;}
+  .prgPct{font-size:22px;font-weight:800;color:var(--heading);letter-spacing:-.02em;}
+  .prgPct em{font-size:12px;font-weight:700;font-style:normal;color:var(--muted);margin-left:2px;}
+  .prgReq{font-size:11.5px;color:var(--muted);font-weight:600;}
+  .prgBar{height:4px;border-radius:99px;background:var(--surfaceAlt);overflow:hidden;margin-bottom:6px;}
+  .prgFill{height:100%;background:var(--primary);display:block;}
+  .prgRow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .prgRow:last-child{border-bottom:none;}
+  .prgDot{width:20px;height:20px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--borderStrong);}
+  .prgDot.cur{border-color:var(--warning);color:var(--warning);}
+  .prgDot.cur::after{content:"";width:7px;height:7px;border-radius:99px;background:var(--warning);}
+  .prgDot.ok{border-color:var(--success);background:var(--success);color:#fff;}
+  .prgDot .ic{width:11px;height:11px;stroke-width:3;}
+  .prgLabel{flex:1;font-size:12.5px;font-weight:700;color:var(--heading);}
+  .prgLeft{font-size:11px;font-weight:700;color:var(--warning);}
+  .prgLeft.opt{color:var(--faint);}
+  .apprRow{display:flex;align-items:center;gap:10px;}
+  .apprName{font-size:13px;font-weight:600;color:var(--heading);}
+  .apprDept{font-size:11px;color:var(--muted);}
+  .apprTag{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--muted);background:var(--surfaceAlt);border-radius:4px;padding:2px 6px;}
+
+  /* ===================== 목록 ===================== */
   .filters{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
-  .sel{height:36px;border:1px solid var(--border);border-radius:var(--rMd);background:#fff;padding:0 30px 0 11px;font-family:inherit;font-size:12.5px;color:var(--heading);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23626f86' stroke-width='2.5' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center;}
-  .search{position:relative;flex:1;min-width:220px;max-width:340px;}
-  .search .ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--faint);}
-  .search .inp{padding-left:33px;height:36px;}
-  .sw{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--body);cursor:pointer;}
-  .swt{width:34px;height:20px;border-radius:99px;background:var(--border);position:relative;transition:background .16s;flex-shrink:0;}
-  .swt::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:99px;background:#fff;box-shadow:var(--shadowSoft);transition:transform .16s;}
-  .sw input{display:none;}
-  .sw input:checked + .swt{background:var(--primary);}
-  .sw input:checked + .swt::after{transform:translateX(14px);}
-
-  .chipbar{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
-  .chips{display:flex;gap:6px;flex-wrap:wrap;}
-  .chip{font-family:inherit;font-size:12px;font-weight:700;color:var(--muted);background:var(--surfaceAlt);border:1px solid var(--border);border-radius:99px;padding:5px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background .12s,color .12s,border-color .12s;}
-  .chip:hover{border-color:var(--primary);color:var(--primaryDark);}
-  .chip.on{background:var(--primary);color:#fff;border-color:var(--primary);}
-  .chip .n{font-size:10.5px;font-weight:800;opacity:.72;font-variant-numeric:tabular-nums;}
-  .chip.grp{background:var(--infoTint);border-color:color-mix(in srgb,#00cfe8 30%,#fff);color:var(--info);}
-  .chip.grp.on{background:var(--info);color:#fff;border-color:var(--info);}
-  .chipdiv{width:1px;height:18px;background:var(--border);margin:0 2px;}
-  .cnt{font-size:12.5px;color:var(--muted);margin-left:auto;}
-  .cnt b{color:var(--heading);font-variant-numeric:tabular-nums;}
-
-  table{width:100%;border-collapse:collapse;}
-  th{font-size:11.5px;font-weight:700;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surfaceAlt);}
-  td{font-size:12.5px;padding:11px 12px;border-bottom:1px solid var(--borderSubtle);vertical-align:middle;}
-  tbody tr{cursor:pointer;transition:background .1s;}
+  .fsel{width:92px;}
+  .fsel.wide{width:104px;}
+  .fsearch{position:relative;flex:1;min-width:200px;max-width:300px;}
+  .fsearch .ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--faint);}
+  .fsearch .inp{padding-left:32px;height:34px;font-size:12.5px;}
+  .fsel .inp{height:34px;font-size:12.5px;}
+  .swLabel{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--heading);cursor:pointer;}
+  .swt{width:30px;height:17px;border-radius:99px;background:var(--borderStrong);position:relative;flex-shrink:0;}
+  .swt::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:99px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18);}
+  .chipbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .chips{display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
+  .chip{font-family:inherit;font-size:12px;font-weight:500;color:var(--body);background:rgba(52,52,52,.07);border:0;border-radius:30px;padding:5px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
+  .chip:hover{background:rgba(52,52,52,.13);}
+  .chip.on{background:var(--primary);color:#fff;font-weight:700;}
+  .chip .n{font-size:10.5px;font-weight:700;opacity:.72;font-variant-numeric:tabular-nums;}
+  .chip.grp{background:var(--successTint);color:#15683c;font-weight:600;}
+  .chip.grp.on{background:var(--success);color:#fff;font-weight:700;}
+  .chipsep{width:1px;height:16px;background:var(--border);margin:0 3px;}
+  .cnt{margin-left:auto;font-size:12px;color:var(--muted);}
+  .cnt b{color:var(--heading);font-variant-numeric:tabular-nums;font-weight:700;}
+  .tableWrap{overflow-x:auto;}
+  table{width:100%;min-width:1180px;border-collapse:collapse;}
+  th{font-size:11.5px;font-weight:700;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th .ic{width:9px;height:9px;color:var(--faint);margin-left:3px;vertical-align:middle;}
+  td{padding:10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tbody tr{cursor:pointer;}
   tbody tr:hover{background:var(--primaryTint);}
-  tbody tr.signedrow{background:color-mix(in srgb,#28c76f 4%,#fff);}
-  tbody tr.signedrow:hover{background:color-mix(in srgb,#28c76f 9%,#fff);}
-  .cname{font-size:13px;font-weight:600;color:var(--primary);display:flex;align-items:center;gap:6px;}
-  .ccode{font-size:12px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;}
-  .cdate{font-variant-numeric:tabular-nums;color:var(--body);}
-  .cnone{color:var(--faint);}
-  /* DdayBadge 대응 */
-  .dday{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:var(--rSm);font-variant-numeric:tabular-nums;white-space:nowrap;}
-  .dd-ok{background:var(--surfaceAlt);color:var(--muted);}
-  .dd-soon{background:var(--warningTint);color:var(--warningDark);}
-  .dd-urgent{background:var(--dangerTint);color:var(--danger);}
-  .pager{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 14px;}
-  .pnum{display:flex;gap:4px;}
-  .pnum button{font-family:inherit;width:30px;height:30px;border-radius:var(--rMd);border:1px solid var(--border);background:#fff;font-size:12.5px;font-weight:700;color:var(--muted);cursor:pointer;}
+  tbody tr:last-child td{border-bottom:none;}
+  .cCode{font-size:12px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums;}
+  .cName{font-size:13px;font-weight:600;color:var(--primary);display:flex;align-items:center;gap:5px;}
+  .cName .lock{width:11px;height:11px;color:var(--warning);flex-shrink:0;}
+  .cBody{font-size:12.5px;color:var(--body);}
+  .cBody13{font-size:13px;color:var(--body);}
+  .cDim{font-size:12.5px;color:var(--faint);}
+  .cDate{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .cUnassigned{font-size:12px;color:var(--danger);font-weight:700;}
+  .due{display:inline-flex;align-items:center;gap:6px;}
+  .dd{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .dd.ok{color:var(--muted);}.dd.warn{color:var(--warning);}.dd.urgent{color:var(--danger);}
+  .star{width:14px;height:14px;color:var(--borderStrong);}
+  .pager{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;}
+  .pgTotal{font-size:12px;color:var(--muted);}
+  .pnum{display:flex;gap:3px;align-items:center;}
+  .pnum button{font-family:inherit;width:27px;height:27px;border-radius:5px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;}
   .pnum button.on{background:var(--primary);border-color:var(--primary);color:#fff;}
 
-  /* ===== detail (체결 처리) ===== */
-  .backlink{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:12px;cursor:pointer;}
-  .backlink:hover{color:var(--primary);}
-  .backlink .ic{width:14px;height:14px;}
-  .hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
-  .hero h1{margin:8px 0 0;font-size:21px;font-weight:800;color:var(--heading);letter-spacing:-.02em;}
-  .glance{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:var(--rLg);background:#fff;box-shadow:var(--shadowSoft);margin-bottom:14px;overflow:hidden;}
-  .gi{padding:12px 14px;border-right:1px solid var(--borderSubtle);}
-  .gi:last-child{border-right:0;}
-  .gl{font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.04em;}
-  .gv{font-size:13.5px;font-weight:700;color:var(--heading);margin-top:4px;}
-  .stepbar{display:flex;align-items:center;gap:0;padding:13px 16px;background:#fff;border:1px solid var(--border);border-radius:var(--rLg);box-shadow:var(--shadowSoft);margin-bottom:16px;overflow-x:auto;}
-  .st{display:flex;align-items:center;gap:7px;flex-shrink:0;}
-  .stn{width:19px;height:19px;border-radius:99px;background:var(--surfaceAlt);color:var(--faint);font-size:10.5px;font-weight:800;display:grid;place-items:center;border:1px solid var(--border);}
-  .st.done .stn{background:var(--successAccent);border-color:var(--successAccent);color:#fff;}
-  .st.cur .stn{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 0 0 4px color-mix(in srgb,#2151ec 14%,#fff);}
-  .stl{font-size:11.5px;font-weight:700;color:var(--faint);white-space:nowrap;}
-  .st.done .stl{color:var(--body);}
-  .st.cur .stl{color:var(--primaryDark);}
-  .stsep{width:22px;height:1.5px;background:var(--border);margin:0 7px;flex-shrink:0;}
-  .st.done + .stsep{background:var(--successAccent);}
-  .dcols{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;}
-  @media(max-width:1020px){.dcols{grid-template-columns:1fr;}.glance{grid-template-columns:repeat(2,1fr);}}
-
-  /* approval line (lawkit ApprovalLine 대응) */
-  .aline{display:flex;flex-direction:column;gap:0;}
+  /* ===================== 계약 상세 (lawkit themeVars) ===================== */
+  .detail{color:var(--lkBody);}
+  .backlink{display:inline-flex;align-items:center;gap:4px;color:var(--lkMuted);font-size:12px;font-weight:600;margin-bottom:10px;cursor:pointer;}
+  .backlink:hover{color:var(--lkPrimaryDark);}
+  .backlink .ic{width:13px;height:13px;}
+  .hero{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;}
+  .heroTitleRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .heroTitle{margin:0;font-size:22px;font-weight:700;color:var(--lkHeading);letter-spacing:-.025em;line-height:1.3;}
+  .heroLock{width:15px;height:15px;color:var(--lkWarningDark);}
+  .hmeta{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12.5px;color:var(--lkMuted);flex-wrap:wrap;}
+  .hmeta .sep{color:var(--lkBorder);}
+  .hcode{font-variant-numeric:tabular-nums;}
+  .glance{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--lkBorderSubtle);border:1px solid var(--lkBorder);border-radius:8px;overflow:hidden;margin-bottom:16px;box-shadow:var(--lkRaised);}
+  .gcell{background:var(--lkSurface);padding:14px 16px;}
+  .gl{font-size:10.5px;color:var(--lkFaint);font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin-bottom:6px;}
+  .gv{font-size:14px;font-weight:700;color:var(--lkHeading);}
+  .gauge{display:flex;align-items:center;gap:8px;}
+  .gbar{flex:1;height:6px;border-radius:99px;background:var(--lkSurfaceAlt);overflow:hidden;}
+  .gbarFill{display:block;height:100%;background:var(--lkPrimary);}
+  .needchip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;background:var(--lkWarningTint);color:var(--lkWarningDark);border-radius:99px;padding:2px 9px;}
+  .needchip .ic{width:12px;height:12px;}
+  .lifebar{background:var(--lkSurface);border:1px solid var(--lkBorder);border-radius:8px;box-shadow:var(--lkRaised);padding:13px 16px 11px;margin-bottom:16px;}
+  .steps{display:flex;align-items:center;gap:0;overflow-x:auto;padding-bottom:3px;}
+  .step{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;padding:5px 11px 5px 6px;border-radius:99px;background:var(--lkSurfaceAlt);}
+  .step.cur{background:var(--lkPrimarySoft);}
+  .stepMark{width:19px;height:19px;border-radius:99px;display:grid;place-items:center;flex-shrink:0;background:#fff;border:1px solid var(--lkBorder);color:var(--lkMuted);}
+  .step.done .stepMark{background:#fff;border-color:var(--lkBorder);color:var(--lkPrimary);}
+  .step.cur .stepMark{background:var(--lkPrimary);border-color:var(--lkPrimary);color:#fff;}
+  .stepMark .ic{width:11px;height:11px;stroke-width:3;}
+  .stepMark .pip{width:6px;height:6px;border-radius:99px;background:#fff;}
+  .stepLabel{font-size:12px;font-weight:600;color:var(--lkMuted);white-space:nowrap;}
+  .step.done .stepLabel{color:var(--lkBody);}
+  .step.cur .stepLabel{color:var(--lkPrimaryDark);font-weight:700;}
+  .stepArrow{width:13px;height:13px;color:var(--lkBorder);flex-shrink:0;margin:0 2px;}
+  .lifeProg{height:3px;border-radius:99px;background:var(--lkSurfaceAlt);margin-top:9px;overflow:hidden;}
+  .lifeProgFill{display:block;height:100%;background:var(--lkPrimary);}
+  .railGrid{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;}
+  .stack{display:flex;flex-direction:column;gap:16px;min-width:0;}
+  .lkCard{background:var(--lkSurface);border:1px solid var(--lkBorder);border-radius:8px;box-shadow:var(--lkRaised);overflow:hidden;}
+  .lkHead{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--lkBorderSubtle);font-size:14px;font-weight:700;color:var(--lkHeading);}
+  .lkHead .ic{width:15px;height:15px;color:var(--lkMuted);}
+  .lkHeadActions{margin-left:auto;display:flex;gap:8px;}
+  .lkBody{padding:18px;}
+  .facts{display:grid;grid-template-columns:repeat(2,1fr);gap:20px 24px;}
+  .fl{font-size:11px;color:var(--lkFaint);font-weight:600;margin-bottom:5px;letter-spacing:.01em;}
+  .fv{font-size:13.5px;color:var(--lkHeading);font-weight:600;line-height:1.45;}
+  .kvRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--lkBorderSubtle);font-size:12.5px;}
+  .kvRow:last-child{border-bottom:none;}
+  .kvRow dt{color:var(--lkMuted);}
+  .kvRow dd{margin:0;color:var(--lkHeading);font-weight:600;}
+  .notice{background:var(--lkSurfaceAlt);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--lkBody);line-height:1.6;}
+  .lkCallout{display:flex;gap:9px;border-radius:6px;padding:11px 13px;font-size:12px;line-height:1.65;align-items:flex-start;}
+  .lkCallout .ic{width:14px;height:14px;margin-top:1px;}
+  .lkco-warn{background:var(--lkWarningTint);border:1px solid color-mix(in srgb,#f0af23 34%,#fff);color:var(--lkWarningDark);}
+  .lkco-info{background:var(--lkInfoTint);border:1px solid var(--lkInfoBorder);color:var(--lkInfo);}
+  /* 결재선(lawkit ApprovalLine 대응) */
+  .aline{display:flex;flex-direction:column;}
   .astep{display:flex;gap:10px;align-items:flex-start;position:relative;padding-bottom:14px;}
   .astep:last-child{padding-bottom:0;}
-  .astep::before{content:"";position:absolute;left:11px;top:24px;bottom:0;width:1.5px;background:var(--border);}
+  .astep::before{content:"";position:absolute;left:10px;top:23px;bottom:0;width:1.5px;background:var(--lkBorder);}
   .astep:last-child::before{display:none;}
-  .astep.done::before{background:var(--successAccent);}
-  .amark{width:23px;height:23px;border-radius:99px;display:grid;place-items:center;flex-shrink:0;background:var(--surfaceAlt);border:1px solid var(--border);color:var(--faint);font-size:10px;font-weight:800;z-index:1;}
-  .astep.done .amark{background:var(--successAccent);border-color:var(--successAccent);color:#fff;}
-  .amark .ic{width:12px;height:12px;stroke-width:3;}
-  .ainfo{min-width:0;flex:1;}
-  .aname{font-size:12.5px;font-weight:700;color:var(--heading);}
-  .adept{font-size:11.5px;color:var(--muted);margin-top:2px;}
-  .awhen{font-size:11px;color:var(--faint);margin-top:3px;font-variant-numeric:tabular-nums;}
-
-  .side{display:flex;flex-direction:column;gap:14px;}
-  .kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--borderSubtle);font-size:12.5px;}
-  .kv:last-child{border-bottom:0;}
-  .kv dt{color:var(--muted);}
-  .kv dd{margin:0;color:var(--heading);font-weight:600;text-align:right;}
-
-  /* action panel pulse — 내 차례 */
-  @keyframes glow{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,#28c76f 40%,transparent);}50%{box-shadow:0 0 0 7px color-mix(in srgb,#28c76f 0%,transparent);}}
-  .actpanel{border:1.5px solid var(--successAccent);border-radius:var(--rLg);background:color-mix(in srgb,#28c76f 5%,#fff);padding:14px;animation:glow 2.4s ease-in-out infinite;}
+  .astep.done::before{background:var(--lkSuccessAccent);}
+  .amark{width:21px;height:21px;border-radius:99px;display:grid;place-items:center;flex-shrink:0;background:var(--lkSurfaceAlt);border:1px solid var(--lkBorder);color:var(--lkMuted);font-size:9.5px;font-weight:800;z-index:1;}
+  .astep.done .amark{background:var(--lkSuccessAccent);border-color:var(--lkSuccessAccent);color:#fff;}
+  .amark .ic{width:11px;height:11px;stroke-width:3;}
+  .aname{font-size:12.5px;font-weight:700;color:var(--lkHeading);}
+  .adept{font-size:11.5px;color:var(--lkMuted);margin-top:2px;}
+  .awhen{font-size:11px;color:var(--lkFaint);margin-top:3px;font-variant-numeric:tabular-nums;}
+  /* 내 차례 액션 패널 */
+  @keyframes glow{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,#28c76f 38%,transparent);}50%{box-shadow:0 0 0 7px color-mix(in srgb,#28c76f 0%,transparent);}}
+  .actpanel{border:1.5px solid var(--lkSuccessAccent);border-radius:8px;background:color-mix(in srgb,#28c76f 5%,#fff);padding:14px;animation:glow 2.4s ease-in-out infinite;}
   @media(prefers-reduced-motion:reduce){.actpanel{animation:none;}}
-  .actpanel h3{margin:0 0 4px;font-size:13.5px;font-weight:800;color:var(--success);display:flex;align-items:center;gap:6px;}
-  .actpanel p{margin:0 0 11px;font-size:12px;color:var(--body);line-height:1.6;}
-
-  /* modal */
-  .scrim{position:fixed;inset:0;background:rgba(17,21,42,.46);display:grid;place-items:center;padding:24px;z-index:50;}
-  [hidden]{display:none !important;}
-  .modal{background:#fff;border-radius:var(--rLg);box-shadow:0 18px 48px rgba(17,24,39,.24);width:min(520px,100%);max-height:88vh;overflow:auto;}
-  .mhead{display:flex;align-items:center;gap:8px;padding:16px 18px;border-bottom:1px solid var(--borderSubtle);font-size:15px;font-weight:800;color:var(--heading);}
-  .mhead .ic{color:var(--success);}
+  .actpanel h3{margin:0 0 5px;font-size:13px;font-weight:800;color:var(--lkSuccess);display:flex;align-items:center;gap:6px;}
+  .actpanel h3 .ic{width:14px;height:14px;}
+  .actpanel p{margin:0 0 11px;font-size:11.5px;color:var(--lkBody);line-height:1.65;}
+  /* 모달 */
+  .scrim{position:fixed;inset:0;background:rgba(17,21,42,.46);display:grid;place-items:center;padding:24px;z-index:80;}
+  .modal{background:#fff;border-radius:8px;box-shadow:0 18px 48px rgba(17,24,39,.24);width:min(500px,100%);max-height:88vh;overflow:auto;}
+  .mhead{display:flex;align-items:center;gap:8px;padding:15px 18px;border-bottom:1px solid var(--lkBorderSubtle);font-size:14.5px;font-weight:800;color:var(--lkHeading);}
+  .mhead .ic{width:16px;height:16px;color:var(--lkSuccess);}
   .mbody{padding:18px;display:flex;flex-direction:column;gap:14px;}
-  .mfoot{display:flex;justify-content:flex-end;gap:8px;padding:14px 18px;border-top:1px solid var(--borderSubtle);background:var(--surfaceAlt);}
+  .mfoot{display:flex;justify-content:flex-end;gap:8px;padding:13px 18px;border-top:1px solid var(--lkBorderSubtle);background:var(--lkSurfaceAlt);}
 
-  /* notes */
-  .note{max-width:1240px;margin:0 auto 20px;padding:0 24px;}
-  .notebox{border-left:3px solid var(--primary);background:var(--primaryTint);border-radius:0 var(--rMd) var(--rMd) 0;padding:12px 15px;font-size:12.5px;line-height:1.75;color:var(--primaryDark);}
-  .notebox b{font-weight:800;}
-  .notebox ul{margin:6px 0 0;padding-left:17px;}
-  .notebox li{margin:3px 0;}
-  .del{text-decoration:line-through;opacity:.6;}
+  @media(max-width:1200px){.glance{grid-template-columns:repeat(3,1fr);}.railGrid{grid-template-columns:1fr;}.formLayout{grid-template-columns:1fr;}}
 </style>
 </head>
 <body data-mode="review">
 
 <div class="tabbar">
-  <button class="tab on" data-v="v1">1 · 검토 요청 폼 — 체결 완료 등록 분기</button>
-  <button class="tab" data-v="v2">2 · 계약 조회 개편 (체결/만료 흡수)</button>
-  <button class="tab" data-v="v3">3 · 체결 처리 (검토 거친 정상 경로)</button>
-  <span class="hint">체결 흐름 시안 — 별도 "체결 계약 조회/작성" 화면 없이</span>
+  <button class="tab on" data-v="v1">1 · 검토 요청 폼 — 등록 유형 분기</button>
+  <button class="tab" data-v="v2">2 · 계약 조회 (체결·만료 흡수)</button>
+  <button class="tab" data-v="v3">3 · 계약 상세 — 체결 처리</button>
+  <span class="hint">localhost:5173 실화면 기준 · T토큰(목록·폼) / lawkit themeVars(상세)</span>
 </div>
 
-<!-- ══════════════════ VIEW 1 : 검토 요청 폼 ══════════════════ -->
+<!-- ══════════════════════════ VIEW 1 ══════════════════════════ -->
 <section class="view on" id="v1">
-  <div class="note"><div class="notebox" style="margin-top:20px">
-    <b>제안</b> — 기존 <b>계약서 검토 요청</b> 폼 하나에 <b>등록 유형</b> 분기를 추가합니다.
-    이미 체결이 끝난 계약은 <b>검토·결재를 건너뛰고</b> 곧바로 <b>체결 완료</b> 상태로 등록됩니다.
+  <div class="note"><div class="notebox">
+    <b>제안</b> — 기존 <b>계약서 검토 요청</b> 폼 <code>/contract/request</code> 의 ① 계약 개요 맨 위에 <b>등록 유형</b> 한 줄을 추가합니다.
     <ul>
-      <li>새 화면·새 라우트 없음 — <code>/contract/request</code> 폼 한 곳에서 분기</li>
-      <li>새 테이블 없음 — 같은 <code>Contract</code> 레코드, 상태만 <code>signed</code>로 시작</li>
+      <li>새 화면·새 라우트 없음 — 같은 폼에서 분기</li>
+      <li>새 테이블 없음 — 같은 <code>Contract</code> 레코드, 상태만 <code>signed</code> 로 시작</li>
+      <li>스키마 추가는 <code>Contract.signedAt</code> + <code>FileRole.signed</code> 둘뿐</li>
       <li>아래 <b>등록 유형</b> 토글을 눌러 두 모드를 비교해보세요</li>
     </ul>
   </div></div>
 
-  <div class="page" style="padding-top:0">
-    <div class="phead">
-      <div>
-        <div class="eyebrow">계약</div>
-        <h1 class="title" id="v1title">계약서 검토 요청</h1>
+  <div class="shell">
+    <nav class="side">
+      <div class="brand"><span class="brandMark">L</span>Law<span>.ai</span></div>
+      <div class="navGroup">개요</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>홈</div>
+      <div class="navGroup">계약 관리</div>
+      <div class="navItem on"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>계약서 검토 요청</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>계약서 검토 조회</div>
+      <div class="navItem gone"><svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>체결 계약 조회</div>
+      <div class="navItem gone"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>체결계약 만료 현황</div>
+      <div class="navGroup">결재</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>결재 대기함</div>
+      <div class="navGroup">법무 업무</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/></svg>법률자문</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>송무</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>인감 사용 신청</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0118 0z"/></svg>지식재산권</div>
+      <div class="navGroup">도구</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l2 6.5h6.5l-5.3 4 2 6.5-5.2-4-5.2 4 2-6.5-5.3-4H10z"/></svg>AI 분석</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>문서관리</div>
+      <div class="navGroup">관리</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>멤버 관리</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 003.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>시스템 관리</div>
+      <div class="sideFoot">
+        <div class="tenantChip"><span class="avatar">휴</span>휴맥스아이티</div>
+        <div class="userRow"><span class="avatar">손</span><div><div class="userName">손준호</div><div class="userRole">사내변호사</div></div></div>
       </div>
-      <div class="pacts">
-        <button class="btn btn-outline">목록</button>
-        <button class="btn btn-outline">임시저장</button>
-        <button class="btn btn-primary" id="v1submit">
-          <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-          검토요청 등록
-        </button>
+    </nav>
+
+    <div class="mainWrap">
+      <div class="topbar">
+        <div class="gsearch"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="계약·자문·송무·문서를 통합 검색하세요" /></div>
+        <div class="topActs">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 003.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>
+        </div>
       </div>
-    </div>
 
-    <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start">
-      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-
-        <!-- ① 계약 개요 -->
-        <div class="card">
-          <div class="chead">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-            ① 계약 개요
+      <main>
+        <div class="phead">
+          <div><div class="eyebrow">계약</div><h1 class="title" id="v1title">계약서 검토 요청</h1></div>
+          <div class="pacts">
+            <button class="btn btn-outline">목록</button>
+            <button class="btn btn-outline">임시저장</button>
+            <button class="btn btn-primary" id="v1submit">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              <span>검토요청 등록</span>
+            </button>
           </div>
-          <div class="cbody" style="padding-top:6px">
+        </div>
 
-            <!-- ★ 신규: 등록 유형 -->
-            <div class="frow" style="background:var(--primaryTint);margin:0 -16px;padding:14px 16px;border-bottom:1px solid var(--border)">
-              <div class="flabel">등록 유형<span class="new">NEW</span></div>
-              <div class="fctl">
-                <div class="seg" id="modeseg">
-                  <button class="on" data-mode="review">
-                    <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
-                    법무 검토 요청
-                  </button>
-                  <button data-mode="signed">
-                    <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-                    체결 완료 등록
-                  </button>
+        <div class="formLayout">
+          <div class="formCol">
+
+            <!-- ① 계약 개요 -->
+            <div class="panel">
+              <div class="phd"><span class="cardTitle"><span class="numBadge">1</span>계약 개요</span></div>
+              <div class="pbd">
+
+                <!-- ★ 신규: 등록 유형 -->
+                <div class="modeRow">
+                  <div class="flb">등록 유형<span class="req">*</span><span class="new">NEW</span></div>
+                  <div class="segbtns" id="modeseg">
+                    <button type="button" class="segbtn on" data-mode="review">
+                      <svg class="ic" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>
+                      법무 검토 요청
+                    </button>
+                    <button type="button" class="segbtn" data-mode="signed">
+                      <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                      체결 완료 등록
+                    </button>
+                  </div>
+                  <p class="fhelp" id="modehelp">법무 검토 → 요청자 검토 → 검토 완료 → 체결 품의(결재) → 체결 순서로 진행됩니다.</p>
                 </div>
-                <p class="fhelp" id="modehelp">법무 검토 → 요청자 검토 → 체결 품의(결재) → 체결 순서로 진행됩니다.</p>
+
+                <div class="onlySigned" style="margin-bottom:18px">
+                  <div class="calloutBox co-success">
+                    <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    <div><b>검토·결재 절차 없이 등록됩니다.</b><br />이미 서명이 끝난 계약을 기록용으로 등록하는 모드입니다. 등록 즉시 <b>체결 완료</b> 상태가 되어 <b>계약 조회</b>에서 바로 확인할 수 있습니다.</div>
+                  </div>
+                </div>
+
+                <div class="grid2">
+                  <div class="fld">
+                    <div class="flb">계약 단계<span class="req">*</span></div>
+                    <div class="radios">
+                      <span class="rd on"><span class="rdm"></span>신규계약</span>
+                      <span class="rd"><span class="rdm"></span>변경·해지</span>
+                    </div>
+                  </div>
+                  <div class="fld">
+                    <div class="flb">보안여부<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+                    <div class="segbtns">
+                      <button type="button" class="segbtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>극비</button>
+                      <button type="button" class="segbtn on"><svg class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>보안</button>
+                      <button type="button" class="segbtn">일반</button>
+                    </div>
+                  </div>
+
+                  <div class="fld full">
+                    <div class="flb">계약명<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="req">*</span></div>
+                    <input class="inp" value="2026년 클라우드 인프라 이용 계약" />
+                  </div>
+
+                  <div class="fld onlyReview">
+                    <div class="flb">검토 요청자<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="req">*</span></div>
+                    <input class="inp" value="손준호" />
+                  </div>
+                  <div class="fld onlyReview">
+                    <div class="flb">계약서 유형<span class="req">*</span></div>
+                    <div class="radios">
+                      <span class="rd on"><span class="rdm"></span>일반 검토요청</span>
+                      <span class="rd"><span class="rdm"></span>표준약관 계약체결</span>
+                    </div>
+                  </div>
+
+                  <!-- ★ 체결 모드 전용: 체결일 -->
+                  <div class="fld onlySigned">
+                    <div class="flb">체결일<span class="req">*</span><span class="new">NEW</span></div>
+                    <input class="inp" value="2025-12-18" />
+                    <p class="fhelp">실제 서명이 완료된 날짜 — <code>Contract.signedAt</code></p>
+                  </div>
+                  <div class="fld onlySigned"></div>
+
+                  <div class="fld full">
+                    <div class="flb">계약 분류<span class="req">*</span></div>
+                    <div class="grid3">
+                      <select class="inp"><option>계약 당사자</option></select>
+                      <select class="inp"><option>계약 대분류</option></select>
+                      <select class="inp"><option>계약 중분류</option></select>
+                    </div>
+                  </div>
+
+                  <div class="fld">
+                    <div class="flb">계약 기간</div>
+                    <input class="inp" value="2026-01-01 ~ 2026-12-31" />
+                    <div style="display:flex;gap:14px;margin-top:9px">
+                      <span class="chk"><span class="chkm"></span>직접 입력</span>
+                      <span class="chk"><span class="chkm"></span>계약 종료일 없음</span>
+                    </div>
+                  </div>
+                  <div class="fld">
+                    <div class="flb">상대 계약자 정보<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="req">*</span></div>
+                    <div style="display:flex;gap:8px">
+                      <input class="inp" value="주식회사 로아이" />
+                      <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0;height:38px">＋ 신규 추가</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- 체결 완료 모드 안내 -->
-            <div class="onlySigned" style="margin:13px 0 3px">
-              <div class="callout co-success">
-                <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-                <div><b>검토·결재 절차 없이 등록됩니다.</b><br />
-                이미 서명이 끝난 계약을 기록용으로 등록하는 모드입니다. 등록 즉시 <b>체결 완료</b> 상태가 되며 <b>계약 조회</b>에서 바로 확인할 수 있습니다. 검토가 필요하면 위에서 <b>법무 검토 요청</b>을 선택하세요.</div>
+            <!-- ② 계약서 · 첨부 -->
+            <div class="panel">
+              <div class="phd"><span class="cardTitle"><span class="numBadge">2</span>계약서 · 첨부</span></div>
+              <div class="pbd">
+                <div class="infoBar onlyReview">
+                  <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  <div>검토 정확도를 위해 편집 가능한 워드(.docx) 파일 첨부를 권장합니다. 첨부 즉시 AI가 주요 리스크 조항을 사전 점검합니다.</div>
+                </div>
+                <div class="infoBar onlySigned">
+                  <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  <div>서명·날인이 완료된 최종본을 올려주세요. <code>FileRole.signed</code> 로 저장되어 검토본과 구분되고, 서명본 기준 AI 리스크 분석이 실행됩니다.</div>
+                </div>
+
+                <div class="fld onlyReview" style="margin-bottom:16px">
+                  <div class="flb">계약서<span class="req">*</span></div>
+                  <div class="drop">
+                    <button type="button" class="btn btn-outline btn-sm"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>파일 첨부</button>
+                    <p>파일을 여기에 드래그하거나 버튼을 클릭해 선택하세요 · 편집 가능한 워드(.docx) 권장</p>
+                  </div>
+                  <div class="fileitem">
+                    <svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                    <span class="fname">클라우드_인프라_계약서_v3.docx</span><span class="fmeta">248 KB</span>
+                  </div>
+                </div>
+
+                <div class="fld onlySigned" style="margin-bottom:16px">
+                  <div class="flb">최종 서명본<span class="req">*</span><span class="new">NEW</span></div>
+                  <div class="drop" style="border-color:color-mix(in srgb,var(--success) 32%,#fff);background:var(--successTint)">
+                    <button type="button" class="btn btn-outline btn-sm"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>파일 첨부</button>
+                    <p>서명·날인이 완료된 계약서 원본 (.pdf 권장)</p>
+                  </div>
+                  <div class="fileitem" style="border-color:color-mix(in srgb,var(--success) 32%,#fff)">
+                    <svg class="ic" viewBox="0 0 24 24" style="color:var(--success)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    <span class="fname">클라우드_인프라_계약서_최종서명본.pdf</span>
+                    <span class="sb sm sb-success"><i></i>서명본</span>
+                    <span class="fmeta">1.2 MB</span>
+                  </div>
+                </div>
+
+                <div class="grid2">
+                  <div class="fld">
+                    <div class="flb">첨부 / 별첨</div>
+                    <div class="drop"><button type="button" class="btn btn-outline btn-sm">파일 첨부</button><p>드래그 또는 클릭</p></div>
+                  </div>
+                  <div class="fld">
+                    <div class="flb">참고서류</div>
+                    <div class="drop"><button type="button" class="btn btn-outline btn-sm">파일 첨부</button><p>드래그 또는 클릭</p></div>
+                  </div>
+                </div>
+                <div class="onlyReview" style="margin-top:14px">
+                  <button type="button" class="btn btn-outline btn-sm">표준계약서 양식 보기</button>
+                </div>
               </div>
             </div>
 
-            <div class="frow"><div class="flabel">계약명<span class="req">*</span></div>
-              <div class="fctl"><input class="inp" value="2026년 클라우드 인프라 이용 계약" /></div></div>
+            <!-- ③ 관계자 · 참조 -->
+            <div class="panel">
+              <div class="phd"><span class="cardTitle"><span class="numBadge">3</span>관계자 · 참조</span></div>
+              <div class="pbd"><div class="grid2">
+                <div class="fld"><div class="flb">참조수신자<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div><input class="inp" placeholder="이름으로 검색" /></div>
+                <div class="fld"><div class="flb">참조수신자(부서)<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div><input class="inp" placeholder="부서명으로 검색" /></div>
+                <div class="fld"><div class="flb">참조수신자(비밀)</div><input class="inp" placeholder="이름으로 검색" /></div>
+                <div class="fld"><div class="flb">업무담당자<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div><input class="inp" value="김서연 · 인프라팀" /></div>
+              </div></div>
+            </div>
 
-            <div class="frow onlyReview"><div class="flabel">검토 요청자<span class="req">*</span></div>
-              <div class="fctl"><input class="inp" value="손준호 · 법무팀" /></div></div>
+            <!-- ④ 상세 조건 -->
+            <div class="panel">
+              <div class="phd"><span class="cardTitle"><span class="numBadge">4</span>상세 조건</span></div>
+              <div class="pbd"><div class="grid2">
+                <div class="fld">
+                  <div class="flb">계약 언어</div>
+                  <div class="radios"><span class="rd on"><span class="rdm"></span>국문</span><span class="rd"><span class="rdm"></span>영문</span><span class="rd"><span class="rdm"></span>국영</span><span class="rd"><span class="rdm"></span>기타</span></div>
+                </div>
+                <div class="fld">
+                  <div class="flb">법무 분류</div>
+                  <div class="radios"><span class="rd on"><span class="rdm"></span>국내 법무</span><span class="rd"><span class="rdm"></span>해외 법무</span></div>
+                </div>
+                <div class="fld onlyReview"><div class="flb">계약예정일</div><input class="inp" value="2026-09-24" /></div>
+                <div class="fld onlyReview">
+                  <div class="flb">계약상대방 협상력<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+                  <div style="display:flex;align-items:center;gap:10px;height:38px">
+                    <div style="flex:1;height:4px;border-radius:99px;background:var(--surfaceAlt)"><span style="display:block;width:50%;height:100%;border-radius:99px;background:var(--primary)"></span></div>
+                    <b style="font-size:12px;color:var(--heading)">50</b>
+                  </div>
+                </div>
+                <div class="fld full">
+                  <div class="flb">계약 규모(대가)<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="req">*</span></div>
+                  <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <select class="inp" style="flex:0 0 200px"><option>부가가치세(10%) 별도</option></select>
+                    <input class="inp" style="flex:1;min-width:160px" value="120,000,000" />
+                    <select class="inp" style="flex:0 0 160px"><option>[KRW] 한국</option></select>
+                  </div>
+                </div>
+              </div></div>
+            </div>
 
-            <div class="frow"><div class="flabel">계약 당사자<span class="req">*</span></div>
-              <div class="fctl"><input class="inp" value="주식회사 로아이" /></div></div>
-
-            <div class="frow"><div class="flabel">계약 분류<span class="req">*</span></div>
-              <div class="fctl"><input class="inp" value="용역 · IT 인프라" /></div></div>
-
-            <div class="frow"><div class="flabel">계약 기간<span class="req">*</span></div>
-              <div class="fctl"><div class="fgrid2"><input class="inp" value="2026-01-01" /><input class="inp" value="2026-12-31" /></div></div></div>
-
-            <!-- ★ 신규: 체결일 (체결 완료 모드 전용) -->
-            <div class="frow onlySigned" style="background:color-mix(in srgb,#28c76f 5%,#fff);margin:0 -16px;padding:11px 16px">
-              <div class="flabel">체결일<span class="req">*</span><span class="new">NEW</span></div>
-              <div class="fctl">
-                <div class="fgrid2"><input class="inp" value="2025-12-18" /><div></div></div>
-                <p class="fhelp">실제 서명이 완료된 날짜입니다. <code>Contract.signedAt</code>에 저장됩니다.</p>
+            <!-- ⑤ 상세 내용 -->
+            <div class="panel">
+              <div class="phd"><span class="cardTitle"><span class="numBadge">5</span>상세 내용</span></div>
+              <div class="pbd">
+                <div class="fld" style="margin-bottom:18px">
+                  <div class="flb">계약의 배경 및 목적<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span class="req onlyReviewInline">*</span></div>
+                  <textarea class="inp" rows="3">기존 온프레미스 인프라의 노후화에 따라 클라우드 전환이 필요함.</textarea>
+                  <p class="fhelp onlySigned">체결 완료 등록에서는 선택 입력입니다 — 기록용 메모로만 쓰입니다.</p>
+                </div>
+                <div class="fld">
+                  <div class="flb">주요 협의사항<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+                  <textarea class="inp" rows="2" placeholder="상대방과 합의한 핵심 사항을 적습니다."></textarea>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- ② 계약서·첨부 -->
-        <div class="card">
-          <div class="chead">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-            ② 계약서 · 첨부
-          </div>
-          <div class="cbody">
-            <!-- 검토 모드: 검토용 계약서(안) -->
-            <div class="onlyReview">
-              <div class="flabel" style="padding-top:0;margin-bottom:7px">검토 대상 계약서<span class="req">*</span></div>
-              <div class="drop">
-                <svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-                <p>파일을 끌어다 놓거나 <b>찾아보기</b></p>
-              </div>
-              <div class="fileitem">
-                <svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-                <span class="fname">클라우드_인프라_계약서_v3.docx</span>
-                <span class="fmeta">248 KB · 2026-09-10</span>
+          <!-- 우측 레일 -->
+          <aside class="rail">
+            <div class="panel">
+              <div class="phd"><svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px;color:var(--muted)"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10h8M8 14h5"/></svg>작성 현황</div>
+              <div class="pbd" style="padding:14px 16px">
+                <div class="prgTop">
+                  <div class="prgPct" id="prgPct">13<em>%</em></div>
+                  <div class="prgReq" id="prgReq">필수 1 / 8</div>
+                </div>
+                <div class="prgBar"><span class="prgFill" id="prgFill" style="width:13%"></span></div>
+                <div class="prgRow"><span class="prgDot cur"></span><span class="prgLabel">계약 개요</span><span class="prgLeft" id="pl1">4남음</span></div>
+                <div class="prgRow"><span class="prgDot"></span><span class="prgLabel">계약서 · 첨부</span><span class="prgLeft">1남음</span></div>
+                <div class="prgRow"><span class="prgDot"></span><span class="prgLabel">관계자 · 참조</span><span class="prgLeft opt">선택</span></div>
+                <div class="prgRow"><span class="prgDot"></span><span class="prgLabel">상세 조건</span><span class="prgLeft">1남음</span></div>
+                <div class="prgRow"><span class="prgDot"></span><span class="prgLabel">상세 내용</span><span class="prgLeft" id="pl5">1남음</span></div>
               </div>
             </div>
 
-            <!-- 체결 모드: 최종 서명본 -->
-            <div class="onlySigned" style="display:none">
-              <div class="flabel" style="padding-top:0;margin-bottom:7px">최종 서명본<span class="req">*</span><span class="new">NEW</span></div>
-              <div class="drop" style="border-color:var(--successAccent);background:color-mix(in srgb,#28c76f 5%,#fff)">
-                <svg class="ic" viewBox="0 0 24 24" style="color:var(--successAccent)"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-                <p>서명·날인이 완료된 계약서 원본을 올려주세요</p>
-              </div>
-              <div class="fileitem" style="border-color:var(--successAccent)">
-                <svg class="ic" viewBox="0 0 24 24" style="color:var(--success)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-                <span class="fname">클라우드_인프라_계약서_최종서명본.pdf</span>
-                <span class="badge b-done">서명본</span>
-                <span class="fmeta">1.2 MB</span>
-              </div>
-              <p class="fhelp">파일 역할 <code>FileRole.signed</code>로 저장되어 검토본과 구분됩니다.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- ③ 관계자 -->
-        <div class="card">
-          <div class="chead">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/></svg>
-            ③ 관계자 · 참조
-          </div>
-          <div class="cbody" style="padding-top:6px">
-            <div class="frow"><div class="flabel">계약 담당자</div><div class="fctl"><input class="inp" value="김서연 · 인프라팀" /></div></div>
-            <div class="frow"><div class="flabel">참조자</div><div class="fctl"><input class="inp" placeholder="이름·부서 검색" /></div></div>
-          </div>
-        </div>
-
-        <!-- ④ 상세 조건 -->
-        <div class="card">
-          <div class="chead">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.8L7 14"/></svg>
-            ④ 상세 조건
-          </div>
-          <div class="cbody" style="padding-top:6px">
-            <div class="frow"><div class="flabel">계약 규모<span class="req">*</span></div><div class="fctl"><div class="fgrid2"><input class="inp" value="120,000,000" /><input class="inp" value="[KRW] 한국" /></div></div></div>
-            <div class="frow onlyReview"><div class="flabel">검토 희망일</div><div class="fctl"><input class="inp" value="2026-09-24" /></div></div>
-            <div class="frow onlyReview"><div class="flabel">협상 여지</div><div class="fctl"><input class="inp" value="50%" /></div></div>
-          </div>
-        </div>
-
-        <!-- ⑤ 상세 내용 -->
-        <div class="card">
-          <div class="chead">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-            ⑤ 상세 내용
-          </div>
-          <div class="cbody" style="padding-top:6px">
-            <div class="frow">
-              <div class="flabel" id="purposelabel">배경 및 목적<span class="req" id="purposereq">*</span></div>
-              <div class="fctl">
-                <textarea class="inp" style="height:76px;padding:9px 11px;resize:vertical;line-height:1.6">기존 온프레미스 인프라의 노후화에 따라 클라우드 전환이 필요함.</textarea>
-                <p class="fhelp onlySigned" style="display:none">체결 완료 등록에서는 선택 입력입니다 — 기록용 메모로만 사용됩니다.</p>
+            <div class="panel">
+              <div class="phd"><svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px;color:var(--primary)"><path d="M12 2l2 6.5h6.5l-5.3 4 2 6.5-5.2-4-5.2 4 2-6.5-5.3-4H10z"/></svg>AI 사전 점검</div>
+              <div class="pbd" style="padding:14px 16px">
+                <p style="margin:0;font-size:12px;color:var(--muted);line-height:1.6" class="onlyReview">저장 후 AI가 자동으로 사전 점검합니다.</p>
+                <p style="margin:0;font-size:12px;color:var(--muted);line-height:1.6" class="onlySigned">저장 후 서명본 기준으로 리스크 분석이 실행됩니다. 이행 단계에서 주의할 조항을 짚어드립니다.</p>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- 결재선 — 검토 모드 전용 -->
-        <div class="card onlyReview">
-          <div class="chead">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-            체결 품의 결재선
-            <span class="badge b-draft" style="margin-left:auto">검토 완료 후 상신</span>
-          </div>
-          <div class="cbody">
-            <div class="aline">
-              <div class="astep done"><div class="amark">기안</div><div class="ainfo"><div class="aname">손준호</div><div class="adept">법무팀 · 기안</div></div></div>
-              <div class="astep"><div class="amark">1</div><div class="ainfo"><div class="aname">이정민</div><div class="adept">법무팀장 · 결재</div></div></div>
-              <div class="astep"><div class="amark">2</div><div class="ainfo"><div class="aname">박현우</div><div class="adept">경영지원본부장 · 결재</div></div></div>
+            <div class="panel onlyReview">
+              <div class="phd"><svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px;color:var(--muted)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>결재선</div>
+              <div class="pbd" style="padding:14px 16px">
+                <div class="apprRow" style="margin-bottom:12px">
+                  <span class="avatar" style="background:var(--surfaceAlt);color:var(--muted)">손</span>
+                  <div><div class="apprName">손준호</div><div class="apprDept">법무팀</div></div>
+                  <span class="apprTag">기안</span>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" style="width:100%;justify-content:center">
+                  <svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 10h8"/></svg>결재선 설정
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <!-- 체결 모드 안내: 결재선 불필요 -->
-        <div class="onlySigned" style="display:none">
-          <div class="callout co-info">
-            <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-            <div><b>결재선은 입력하지 않습니다.</b> 이미 체결이 끝난 계약이므로 체결 품의(결재) 단계가 없습니다. 사후 승인이 필요하다면 등록 후 상세 화면에서 별도 결재를 올릴 수 있습니다.</div>
-          </div>
+            <div class="panel onlySigned">
+              <div class="phd"><svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px;color:var(--muted)"><path d="M22 11.1V12a10 10 0 11-5.9-9.1"/><path d="M22 4L12 14l-3-3"/></svg>등록 후 상태</div>
+              <div class="pbd" style="padding:14px 16px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="sb sb-success"><i></i>체결 완료</span>
+                  <svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px;color:var(--faint)"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  <span style="font-size:11.5px;color:var(--muted)">계약 조회에서 확인</span>
+                </div>
+                <p style="margin:10px 0 0;font-size:11.5px;color:var(--muted);line-height:1.6">결재선은 입력하지 않습니다. 사후 승인이 필요하면 등록 후 상세 화면에서 별도로 올릴 수 있습니다.</p>
+              </div>
+            </div>
+          </aside>
         </div>
-      </div>
-
-      <!-- 우측 레일 -->
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="card">
-          <div class="chead" style="font-size:13px">
-            <svg class="ic" viewBox="0 0 24 24" style="color:var(--primary)"><path d="M12 2l2.2 6.8H21l-5.5 4 2.1 6.8L12 15.6 6.4 19.6l2.1-6.8L3 8.8h6.8z"/></svg>
-            AI 도우미
-          </div>
-          <div class="cbody">
-            <div class="onlyReview">
-              <p style="margin:0;font-size:12px;line-height:1.7;color:var(--body)">계약서를 올리면 <b>사전 점검</b>이 자동으로 실행됩니다. 누락 조항·위험 문구를 미리 알려드려요.</p>
-            </div>
-            <div class="onlySigned" style="display:none">
-              <p style="margin:0;font-size:12px;line-height:1.7;color:var(--body)">체결 완료 등록에서도 <b>서명본 기준 리스크 분석</b>이 실행됩니다. 이미 체결된 계약이라도 이행 단계에서 주의할 조항을 짚어드려요.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="chead" style="font-size:13px">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
-            등록 후 상태
-          </div>
-          <div class="cbody">
-            <div class="onlyReview">
-              <div style="display:flex;align-items:center;gap:8px"><span class="badge b-assign">미배정</span>
-                <svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px;color:var(--faint)"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                <span style="font-size:11.5px;color:var(--muted)">법무 담당자 배정 대기</span></div>
-            </div>
-            <div class="onlySigned" style="display:none">
-              <div style="display:flex;align-items:center;gap:8px"><span class="badge b-done">체결 완료</span>
-                <svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px;color:var(--faint)"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                <span style="font-size:11.5px;color:var(--muted)">계약 조회에서 바로 확인</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   </div>
 </section>
 
-<!-- ══════════════════ VIEW 2 : 계약 조회 개편 ══════════════════ -->
+<!-- ══════════════════════════ VIEW 2 ══════════════════════════ -->
 <section class="view" id="v2">
-  <div class="note"><div class="notebox" style="margin-top:20px">
-    <b>제안</b> — 기존 <b>계약서 검토 조회</b> 한 화면이 계약 전 생애주기를 담습니다.
-    사이드바의 <span class="del">체결 계약 조회</span> · <span class="del">체결계약 만료 현황</span> 두 메뉴를 없애고 여기로 흡수합니다.
+  <div class="note"><div class="notebox">
+    <b>제안</b> — 기존 <b>계약서 검토 조회</b> <code>/contract/list</code> 한 화면이 계약 전 생애주기를 담습니다.
+    사이드바의 <span class="del">체결 계약 조회</span> · <span class="del">체결계약 만료 현황</span>(둘 다 현재 빈 플레이스홀더)을 없애고 흡수합니다.
     <ul>
       <li>메뉴명 <b>계약서 검토 조회 → 계약 조회</b> (검토 전용이 아니게 되므로)</li>
-      <li><b>단계 그룹</b> 필터 추가 — 검토 중 / 체결 중 / <b>체결 완료</b> / 종료</li>
-      <li><b>체결일</b> · <b>만료 D-day</b> 컬럼 추가 → 만료 현황 메뉴를 칩 하나로 대체</li>
-      <li>체결 완료 행은 배경으로 구분, <b>서명본</b> 배지로 원본 접근</li>
+      <li>현재 칩은 <code>미배정 / 법무 검토 중 / 요청자 검토 중 / 검토 완료</code> 4개뿐 → <b>단계 그룹</b> 추가로 체결·종료까지 필터</li>
+      <li><b>체결일</b> 컬럼 추가, <b>검토기한</b> 컬럼은 체결 후 <b>만료</b> 로 전환 → 만료 현황 메뉴를 칩 하나로 대체</li>
     </ul>
   </div></div>
 
-  <div class="page" style="padding-top:0">
-    <div class="phead">
-      <div>
-        <div class="eyebrow">계약</div>
-        <h1 class="title">계약 조회 <span class="new">명칭 변경</span></h1>
+  <div class="shell">
+    <nav class="side">
+      <div class="brand"><span class="brandMark">L</span>Law<span>.ai</span></div>
+      <div class="navGroup">개요</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>홈</div>
+      <div class="navGroup">계약 관리</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>계약서 검토 요청</div>
+      <div class="navItem on"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>계약 조회<span class="new">개명</span></div>
+      <div class="navItem gone"><svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/></svg>체결 계약 조회</div>
+      <div class="navItem gone"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>체결계약 만료 현황</div>
+      <div class="navGroup">결재</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>결재 대기함</div>
+      <div class="navGroup">법무 업무</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/></svg>법률자문</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>송무</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>인감 사용 신청</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0118 0z"/></svg>지식재산권</div>
+      <div class="sideFoot">
+        <div class="tenantChip"><span class="avatar">휴</span>휴맥스아이티</div>
+        <div class="userRow"><span class="avatar">손</span><div><div class="userName">손준호</div><div class="userRole">사내변호사</div></div></div>
       </div>
-      <div class="pacts">
-        <button class="btn btn-outline">
-          <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg>
-          내보내기
-        </button>
-        <button class="btn btn-primary">
-          <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>
-          계약 등록
-        </button>
-      </div>
-    </div>
+    </nav>
 
-    <div class="filters">
-      <select class="sel"><option>계약 당사자</option></select>
-      <select class="sel"><option>계약 분류</option></select>
-      <div class="search">
-        <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input class="inp" placeholder="계약명·관리번호·상대계약자 검색" />
-      </div>
-      <label class="sw"><input type="checkbox" /><span class="swt"></span>내 업무만</label>
-    </div>
-
-    <div class="card">
-      <div class="chipbar">
-        <div class="chips">
-          <button class="chip on">전체 <span class="n">248</span></button>
-          <div class="chipdiv"></div>
-          <button class="chip grp">검토 중 <span class="n">31</span></button>
-          <button class="chip grp">체결 중 <span class="n">7</span></button>
-          <button class="chip grp">체결 완료 <span class="n">196</span></button>
-          <button class="chip grp">종료 <span class="n">14</span></button>
-          <div class="chipdiv"></div>
-          <button class="chip" style="background:var(--warningTint);border-color:color-mix(in srgb,#f0af23 34%,#fff);color:var(--warningDark)">
-            <svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            만료 임박 90일 <span class="n">12</span>
-          </button>
+    <div class="mainWrap">
+      <div class="topbar">
+        <div class="gsearch"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="계약·자문·송무·문서를 통합 검색하세요" /></div>
+        <div class="topActs">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8 2 2 0 11-2.8 2.8 1.6 1.6 0 00-2.8 1.1 2 2 0 11-4 0 1.6 1.6 0 00-2.8-1.1 2 2 0 11-2.8-2.8 1.6 1.6 0 00-1.1-2.8 2 2 0 110-4 1.6 1.6 0 001.1-2.8 2 2 0 112.8-2.8 1.6 1.6 0 002.8-1.1 2 2 0 114 0 1.6 1.6 0 002.8 1.1 2 2 0 112.8 2.8 1.6 1.6 0 001.1 2.8 2 2 0 110 4 1.6 1.6 0 00-1.1 1.7z"/></svg>
         </div>
-        <span class="cnt">총 <b>248</b>건</span>
       </div>
 
-      <div style="padding:6px">
-        <table>
-          <thead><tr>
-            <th style="width:34px"></th>
-            <th style="width:118px">관리번호</th>
-            <th>계약명</th>
-            <th style="width:130px">상대 계약자</th>
-            <th style="width:104px">진행 상태</th>
-            <th style="width:98px">체결일<span class="new">NEW</span></th>
-            <th style="width:112px">만료<span class="new">NEW</span></th>
-            <th style="width:78px">담당</th>
-          </tr></thead>
-          <tbody>
-            <tr class="signedrow">
-              <td><svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px;color:var(--warning);fill:currentColor;stroke:none"><path d="M12 2l3 6.5 7 .9-5 4.9 1.2 7L12 18l-6.2 3.3L7 14.3l-5-4.9 7-.9z"/></svg></td>
-              <td><span class="ccode">CT-2025-0412</span></td>
-              <td><div class="cname">
-                <svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px;color:var(--success)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-                클라우드 인프라 이용 계약</div></td>
-              <td>주식회사 로아이</td>
-              <td><span class="badge b-done">체결 완료</span></td>
-              <td class="cdate">2025-12-18</td>
-              <td><span class="dday dd-soon">D-47</span></td>
-              <td>김서연</td>
-            </tr>
-            <tr class="signedrow">
-              <td></td>
-              <td><span class="ccode">CT-2025-0388</span></td>
-              <td><div class="cname">
-                <svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px;color:var(--success)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-                사무실 임대차 계약 (본사 12F)</div></td>
-              <td>대성빌딩관리</td>
-              <td><span class="badge b-done">체결 완료</span></td>
-              <td class="cdate">2025-11-02</td>
-              <td><span class="dday dd-urgent">D-9</span></td>
-              <td>박지훈</td>
-            </tr>
-            <tr class="signedrow">
-              <td></td>
-              <td><span class="ccode">CT-2025-0301</span></td>
-              <td><div class="cname">
-                <svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px;color:var(--success)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-                <svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px;color:var(--warningDark)"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-                기술이전 및 라이선스 계약</div></td>
-              <td>넥스트바이오</td>
-              <td><span class="badge b-done">체결 완료</span></td>
-              <td class="cdate">2025-09-30</td>
-              <td><span class="dday dd-ok">D-383</span></td>
-              <td>이정민</td>
-            </tr>
-            <tr>
-              <td></td>
-              <td><span class="ccode">CT-2026-0037</span></td>
-              <td><div class="cname">공동연구개발 협약</div></td>
-              <td>한국과학기술원</td>
-              <td><span class="badge b-sign">체결 진행</span></td>
-              <td class="cnone">—</td>
-              <td class="cnone">—</td>
-              <td>이정민</td>
-            </tr>
-            <tr>
-              <td></td>
-              <td><span class="ccode">CT-2026-0041</span></td>
-              <td><div class="cname">마케팅 대행 용역 계약</div></td>
-              <td>크리에이티브랩</td>
-              <td><span class="badge b-legal">법무 검토 중</span></td>
-              <td class="cnone">—</td>
-              <td class="cnone">—</td>
-              <td>손준호</td>
-            </tr>
-            <tr>
-              <td></td>
-              <td><span class="ccode">CT-2026-0044</span></td>
-              <td><div class="cname">물품 공급 계약 (사무기기)</div></td>
-              <td>오피스플러스</td>
-              <td><span class="badge b-assign">미배정</span></td>
-              <td class="cnone">—</td>
-              <td class="cnone">—</td>
-              <td class="cnone">—</td>
-            </tr>
-            <tr style="opacity:.66">
-              <td></td>
-              <td><span class="ccode">CT-2024-0192</span></td>
-              <td><div class="cname" style="color:var(--muted)">구 홈페이지 유지보수 계약</div></td>
-              <td>웹메이커</td>
-              <td><span class="badge b-draft">계약 종료</span></td>
-              <td class="cdate">2024-03-11</td>
-              <td><span class="dday dd-ok">만료</span></td>
-              <td>박지훈</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <main>
+        <div class="phead">
+          <div><div class="eyebrow">계약</div><h1 class="title">계약 조회 <span class="new">명칭 변경</span></h1></div>
+          <div class="pacts">
+            <button class="btn btn-outline"><svg class="ic" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg>내보내기</button>
+            <button class="btn btn-primary"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg>계약 등록</button>
+          </div>
+        </div>
 
-      <div class="pager">
-        <span style="font-size:12.5px;color:var(--muted)">248건 중 1–7</span>
-        <div class="pnum"><button class="on">1</button><button>2</button><button>3</button><button>…</button><button>36</button></div>
-      </div>
-    </div>
+        <div class="filters">
+          <div class="fsel wide"><select class="inp"><option>계약 당사자</option></select></div>
+          <div class="fsel wide"><select class="inp"><option>계약 분류</option></select></div>
+          <div class="fsearch"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input class="inp" placeholder="계약명·관리번호·상대계약자 검색" /></div>
+          <span class="swLabel">내 업무만<span class="swt"></span></span>
+        </div>
 
-    <div style="margin-top:16px" class="callout co-warn">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-      <div><b>확인 필요</b> — 지금 목록 칩 필터는 <code>unassigned / legalReview / requesterReview / reviewDone</code> 네 개뿐이라 체결·종료 계약이 아예 안 보입니다. 위처럼 <b>단계 그룹</b>으로 묶으면 칩 개수를 늘리지 않고 전 생애주기를 덮을 수 있습니다.</div>
+        <div class="panel">
+          <div class="chipbar">
+            <div class="chips">
+              <button class="chip on">전체 <span class="n">248</span></button>
+              <div class="chipsep"></div>
+              <button class="chip">미배정 <span class="n">9</span></button>
+              <button class="chip">법무 검토 중 <span class="n">14</span></button>
+              <button class="chip">요청자 검토 중 <span class="n">5</span></button>
+              <button class="chip">검토 완료 <span class="n">3</span></button>
+              <div class="chipsep"></div>
+              <button class="chip grp">체결 진행 <span class="n">7</span><span class="new">NEW</span></button>
+              <button class="chip grp">체결 완료 <span class="n">196</span><span class="new">NEW</span></button>
+              <button class="chip grp">종료 <span class="n">14</span><span class="new">NEW</span></button>
+              <div class="chipsep"></div>
+              <button class="chip" style="background:var(--warningTint);color:var(--warningDark);font-weight:700">
+                <svg class="ic" viewBox="0 0 24 24" style="width:11px;height:11px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                만료 임박 90일 <span class="n">12</span><span class="new">NEW</span>
+              </button>
+            </div>
+            <span class="cnt">총 <b>248</b>건</span>
+          </div>
+
+          <div class="tableWrap" style="padding:0 6px">
+            <table>
+              <thead><tr>
+                <th style="width:34px"></th>
+                <th style="width:122px">관리번호<svg class="ic" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg></th>
+                <th style="width:230px">계약명<svg class="ic" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg></th>
+                <th style="width:84px">당사자<svg class="ic" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg></th>
+                <th style="width:86px">분류</th>
+                <th style="width:132px">상대계약자<svg class="ic" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg></th>
+                <th style="width:80px">요청자</th>
+                <th style="width:104px">법무팀 담당자</th>
+                <th style="width:96px">체결일<span class="new">NEW</span></th>
+                <th style="width:124px">검토기한 · 만료<span class="new">NEW</span></th>
+                <th style="width:112px">진행상태<svg class="ic" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg></th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td><svg class="ic star" viewBox="0 0 24 24" style="color:var(--warning);fill:currentColor;stroke:none"><path d="M12 2l3 6.5 7 .9-5 4.9 1.2 7L12 18l-6.2 3.3L7 14.3l-5-4.9 7-.9z"/></svg></td>
+                  <td><span class="cCode">C20251218-0412</span></td>
+                  <td><span class="cName">클라우드 인프라 이용 계약</span></td>
+                  <td><span class="cBody">용역</span></td>
+                  <td><span class="tag">IT 인프라</span></td>
+                  <td><span class="cBody13">주식회사 로아이</span></td>
+                  <td><span class="cBody">김서연</span></td>
+                  <td><span class="cBody13">이정민</span></td>
+                  <td><span class="cDate">2025-12-18</span></td>
+                  <td><span class="due"><span class="cDate">2026-12-31</span><span class="dd warn">D-47</span></span></td>
+                  <td><span class="sb sm sb-success"><i></i>체결 완료</span></td>
+                </tr>
+                <tr>
+                  <td><svg class="ic star" viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .9-5 4.9 1.2 7L12 18l-6.2 3.3L7 14.3l-5-4.9 7-.9z"/></svg></td>
+                  <td><span class="cCode">C20251102-0388</span></td>
+                  <td><span class="cName">사무실 임대차 계약 (본사 12F)</span></td>
+                  <td><span class="cBody">임대차</span></td>
+                  <td><span class="tag">부동산</span></td>
+                  <td><span class="cBody13">대성빌딩관리</span></td>
+                  <td><span class="cBody">박지훈</span></td>
+                  <td><span class="cBody13">이정민</span></td>
+                  <td><span class="cDate">2025-11-02</span></td>
+                  <td><span class="due"><span class="cDate">2026-11-01</span><span class="dd urgent">D-9</span></span></td>
+                  <td><span class="sb sm sb-success"><i></i>체결 완료</span></td>
+                </tr>
+                <tr>
+                  <td><svg class="ic star" viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .9-5 4.9 1.2 7L12 18l-6.2 3.3L7 14.3l-5-4.9 7-.9z"/></svg></td>
+                  <td><span class="cCode">C20250930-0301</span></td>
+                  <td><span class="cName"><svg class="ic lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>기술이전 및 라이선스 계약</span></td>
+                  <td><span class="cBody">라이선스</span></td>
+                  <td><span class="tag">지식재산</span></td>
+                  <td><span class="cBody13">넥스트바이오</span></td>
+                  <td><span class="cBody">최유진</span></td>
+                  <td><span class="cBody13">이정민</span></td>
+                  <td><span class="cDate">2025-09-30</span></td>
+                  <td><span class="due"><span class="cDate">2027-09-29</span><span class="dd ok">D-383</span></span></td>
+                  <td><span class="sb sm sb-success"><i></i>체결 완료</span></td>
+                </tr>
+                <tr>
+                  <td><svg class="ic star" viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .9-5 4.9 1.2 7L12 18l-6.2 3.3L7 14.3l-5-4.9 7-.9z"/></svg></td>
+                  <td><span class="cCode">C20260912-9719</span></td>
+                  <td><span class="cName"><svg class="ic lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>공동연구개발 협약</span></td>
+                  <td><span class="cBody">협약</span></td>
+                  <td><span class="tag">R&amp;D</span></td>
+                  <td><span class="cBody13">한국과학기술원</span></td>
+                  <td><span class="cBody">김서연</span></td>
+                  <td><span class="cBody13">이정민</span></td>
+                  <td><span class="cDim">—</span></td>
+                  <td><span class="due"><span class="cDate">2026-09-30</span><span class="dd ok">D-18</span></span></td>
+                  <td><span class="sb sm sb-warning"><i></i>체결 진행</span></td>
+                </tr>
+                <tr>
+                  <td><svg class="ic star" viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .9-5 4.9 1.2 7L12 18l-6.2 3.3L7 14.3l-5-4.9 7-.9z"/></svg></td>
+                  <td><span class="cCode">C20260912-4930</span></td>
+                  <td><span class="cName">마케팅 대행 용역 계약</span></td>
+                  <td><span class="cBody">용역</span></td>
+                  <td><span class="tag">마케팅</span></td>
+                  <td><span class="cBody13">크리에이티브랩</span></td>
+                  <td><span class="cBody">정하늘</span></td>
+                  <td><span class="cBody13">손준호</span></td>
+                  <td><span class="cDim">—</span></td>
+                  <td><span class="due"><span class="cDate">2026-09-18</span><span class="dd urgent">D-6</span></span></td>
+                  <td><span class="sb sm sb-primary"><i></i>법무 검토 중</span></td>
+                </tr>
+                <tr>
+                  <td><svg class="ic star" viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .9-5 4.9 1.2 7L12 18l-6.2 3.3L7 14.3l-5-4.9 7-.9z"/></svg></td>
+                  <td><span class="cCode">C20260912-6115</span></td>
+                  <td><span class="cName">물품 공급 계약 (사무기기)</span></td>
+                  <td><span class="cBody">매매</span></td>
+                  <td><span class="tag">구매</span></td>
+                  <td><span class="cBody13">오피스플러스</span></td>
+                  <td><span class="cBody">정하늘</span></td>
+                  <td><span class="cUnassigned">미배정</span></td>
+                  <td><span class="cDim">—</span></td>
+                  <td><span class="due"><span class="cDate">2026-09-26</span><span class="dd ok">D-14</span></span></td>
+                  <td><span class="sb sm sb-danger"><i></i>미배정</span></td>
+                </tr>
+                <tr style="opacity:.6">
+                  <td><svg class="ic star" viewBox="0 0 24 24"><path d="M12 2l3 6.5 7 .9-5 4.9 1.2 7L12 18l-6.2 3.3L7 14.3l-5-4.9 7-.9z"/></svg></td>
+                  <td><span class="cCode">C20240311-0192</span></td>
+                  <td><span class="cName" style="color:var(--muted)">구 홈페이지 유지보수 계약</span></td>
+                  <td><span class="cBody">용역</span></td>
+                  <td><span class="tag">IT</span></td>
+                  <td><span class="cBody13">웹메이커</span></td>
+                  <td><span class="cBody">박지훈</span></td>
+                  <td><span class="cBody13">손준호</span></td>
+                  <td><span class="cDate">2024-03-11</span></td>
+                  <td><span class="due"><span class="cDate">2025-03-10</span><span class="dd ok">만료</span></span></td>
+                  <td><span class="sb sm sb-secondary"><i></i>계약 종료</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pager">
+            <span class="pgTotal">총 <b style="color:var(--heading)">248</b>건 중 1–7</span>
+            <div class="pnum"><button class="on">1</button><button>2</button><button>3</button><button>…</button><button>36</button></div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px" class="calloutBox co-warn">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <div><b>지금 상태</b> — 실제 화면을 확인해보니 체결·종료 계약 <b>행 자체는 이미 표시</b>됩니다(<code>CONTRACT_STATUS_LABEL</code> 에 전부 정의됨). 문제는 <code>CONTRACT_STATUS_FILTERS</code> 가 검토 4단계만 담고 있어 <b>필터로 좁힐 방법이 없다</b>는 것. 칩만 늘리면 해결됩니다.</div>
+        </div>
+      </main>
     </div>
   </div>
 </section>
 
-<!-- ══════════════════ VIEW 3 : 체결 처리 ══════════════════ -->
+<!-- ══════════════════════════ VIEW 3 ══════════════════════════ -->
 <section class="view" id="v3">
-  <div class="note"><div class="notebox" style="margin-top:20px">
-    <b>남는 것</b> — 검토를 <b>거친</b> 계약은 여전히 마지막에 "실제로 체결됐다"를 찍어줄 사람이 필요합니다.
-    지금은 결재가 다 끝나도 <code>signing → signed</code>로 넘길 버튼이 <b>어디에도 없습니다</b>.
+  <div class="note"><div class="notebox">
+    <b>남는 것</b> — 검토를 <b>거친</b> 계약은 마지막에 "실제로 체결됐다"를 찍을 사람이 필요합니다.
+    실제 화면을 확인해보니 <code>체결 진행</code> 상태에서 결재 현황 패널은 <b>"체결 품의의 결재가 진행 중입니다."</b> 안내만 띄우고,
+    <code>signing → signed</code> 로 넘길 <b>액션이 없습니다</b>.
     <ul>
-      <li>새 화면 아님 — 기존 <b>계약 상세</b>의 액션 패널에 버튼 하나 추가</li>
-      <li>권한: <code>sealManager</code> (인감 담당) — <code>contracts.authz.ts</code>에 이미 예외 처리되어 있음</li>
-      <li>조건: 결재선 <b>전원 승인 완료</b> 후에만 활성화</li>
-      <li>모달에서 <b>서명본 업로드 + 체결일</b>을 받아 한 번에 처리 (View 1의 체결 모드와 동일한 입력)</li>
+      <li>새 화면 아님 — 기존 <b>계약 상세</b> 우측 레일에 액션 패널 하나 추가</li>
+      <li>권한 <code>sealManager</code> — <code>contracts.authz.ts</code> 에 이미 예외 처리되어 있음</li>
+      <li>조건: 결재선 <b>전원 승인</b> 후에만 활성화</li>
+      <li>모달에서 <b>서명본 + 체결일</b>을 받아 한 번에 처리 (View 1 체결 모드와 동일 입력)</li>
     </ul>
   </div></div>
 
-  <div class="page" style="padding-top:0">
-    <div class="backlink">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-      계약 조회
-    </div>
+  <div class="shell">
+    <nav class="side">
+      <div class="brand"><span class="brandMark">L</span>Law<span>.ai</span></div>
+      <div class="navGroup">개요</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>홈</div>
+      <div class="navGroup">계약 관리</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>계약서 검토 요청</div>
+      <div class="navItem on"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>계약 조회</div>
+      <div class="navGroup">결재</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>결재 대기함</div>
+      <div class="navGroup">법무 업무</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/></svg>법률자문</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>송무</div>
+      <div class="navItem"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg>인감 사용 신청</div>
+      <div class="sideFoot">
+        <div class="tenantChip"><span class="avatar">휴</span>휴맥스아이티</div>
+        <div class="userRow"><span class="avatar" style="background:var(--warning)">인</span><div><div class="userName">최인감</div><div class="userRole">인감 담당</div></div></div>
+      </div>
+    </nav>
 
-    <div class="hero">
-      <div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="ccode">CT-2026-0037</span>
-          <span class="badge b-done">체결 품의 완료</span>
+    <div class="mainWrap">
+      <div class="topbar">
+        <div class="gsearch"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="계약·자문·송무·문서를 통합 검색하세요" /></div>
+        <div class="topActs">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M20 12h2M2 12h2M12 2v2M12 20v2"/></svg>
         </div>
-        <h1>공동연구개발 협약</h1>
       </div>
-      <div class="pacts">
-        <button class="btn btn-outline btn-sm">이력</button>
-        <button class="btn btn-outline btn-sm">인쇄</button>
-      </div>
-    </div>
 
-    <div class="glance">
-      <div class="gi"><div class="gl">상대 계약자</div><div class="gv">한국과학기술원</div></div>
-      <div class="gi"><div class="gl">계약 기간</div><div class="gv">2026-10-01 ~ 2028-09-30</div></div>
-      <div class="gi"><div class="gl">계약 규모</div><div class="gv">₩ 340,000,000</div></div>
-      <div class="gi"><div class="gl">법무 담당</div><div class="gv">이정민</div></div>
-    </div>
+      <main class="detail">
+        <div class="backlink"><svg class="ic" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>계약 조회</div>
 
-    <div class="stepbar">
-      <div class="st done"><div class="stn"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div><div class="stl">검토 의뢰</div></div><div class="stsep"></div>
-      <div class="st done"><div class="stn"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div><div class="stl">배정</div></div><div class="stsep"></div>
-      <div class="st done"><div class="stn"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div><div class="stl">법무 검토</div></div><div class="stsep"></div>
-      <div class="st done"><div class="stn"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div><div class="stl">요청자 검토</div></div><div class="stsep"></div>
-      <div class="st done"><div class="stn"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div><div class="stl">검토 완료</div></div><div class="stsep"></div>
-      <div class="st done"><div class="stn"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div><div class="stl">체결 품의</div></div><div class="stsep"></div>
-      <div class="st cur"><div class="stn">7</div><div class="stl">체결 완료</div></div>
-    </div>
-
-    <div class="dcols">
-      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-        <div class="card">
-          <div class="chead">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-            체결 품의 결재선
-            <span class="badge b-done" style="margin-left:auto">
-              <svg class="ic" viewBox="0 0 24 24" style="width:11px;height:11px"><path d="M20 6L9 17l-5-5"/></svg>
-              전원 승인
-            </span>
+        <div class="hero">
+          <div>
+            <div class="heroTitleRow">
+              <svg class="ic heroLock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              <h1 class="heroTitle">공동연구개발 협약</h1>
+              <span class="sb sb-warning"><i></i>체결 진행</span>
+            </div>
+            <div class="hmeta">
+              <span class="hcode">C20260912-9719</span><span class="sep">|</span>
+              <span>신규계약</span><span class="sep">|</span>
+              <span>등록 2026-09-12</span>
+            </div>
           </div>
-          <div class="cbody">
-            <div class="aline">
-              <div class="astep done"><div class="amark">기안</div><div class="ainfo"><div class="aname">김서연</div><div class="adept">인프라팀 · 기안</div><div class="awhen">2026-09-08 14:22 상신</div></div></div>
-              <div class="astep done"><div class="amark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div><div class="ainfo"><div class="aname">이정민</div><div class="adept">법무팀장 · 결재</div><div class="awhen">2026-09-09 09:41 승인</div></div></div>
-              <div class="astep done"><div class="amark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div><div class="ainfo"><div class="aname">박현우</div><div class="adept">경영지원본부장 · 결재</div><div class="awhen">2026-09-10 16:05 승인</div></div></div>
+          <div class="pacts">
+            <button class="btn btn-outline btn-sm">미리보기</button>
+            <button class="btn btn-primary btn-sm">코멘트 추가</button>
+          </div>
+        </div>
+
+        <div class="glance">
+          <div class="gcell"><div class="gl">상대 계약자</div><div class="gv">한국과학기술원</div></div>
+          <div class="gcell"><div class="gl">계약 분류</div><div class="gv">협약 · R&amp;D</div></div>
+          <div class="gcell"><div class="gl">계약 기간</div><div class="gv">2026-10-01 ~<br />2028-09-30</div></div>
+          <div class="gcell"><div class="gl">실 지급액</div><div class="gv">340,000,000<br />KRW</div></div>
+          <div class="gcell"><div class="gl">협상력</div><div class="gauge"><span class="gbar"><span class="gbarFill" style="width:50%"></span></span><b class="gv" style="font-size:12.5px">50%</b></div></div>
+          <div class="gcell"><div class="gl">법무 담당자</div><div class="gv" style="font-size:13px">이정민</div></div>
+        </div>
+
+        <div class="lifebar">
+          <div class="steps">
+            <span class="step done"><span class="stepMark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="stepLabel">임시 저장</span></span>
+            <svg class="ic stepArrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            <span class="step done"><span class="stepMark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="stepLabel">검토 의뢰</span></span>
+            <svg class="ic stepArrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            <span class="step done"><span class="stepMark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="stepLabel">배정</span></span>
+            <svg class="ic stepArrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            <span class="step done"><span class="stepMark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="stepLabel">법무 검토</span></span>
+            <svg class="ic stepArrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            <span class="step done"><span class="stepMark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="stepLabel">요청자 검토</span></span>
+            <svg class="ic stepArrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            <span class="step done"><span class="stepMark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><span class="stepLabel">검토 완료</span></span>
+            <svg class="ic stepArrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            <span class="step cur"><span class="stepMark"><span class="pip"></span></span><span class="stepLabel">체결 진행</span></span>
+            <svg class="ic stepArrow" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            <span class="step"><span class="stepMark">8</span><span class="stepLabel">체결 완료</span></span>
+          </div>
+          <div class="lifeProg"><span class="lifeProgFill" style="width:82%"></span></div>
+        </div>
+
+        <div class="railGrid">
+          <div class="stack">
+            <div class="lkCard">
+              <div class="lkHead"><svg class="ic" viewBox="0 0 24 24" style="color:var(--lkPrimary)"><path d="M12 2l2 6.5h6.5l-5.3 4 2 6.5-5.2-4-5.2 4 2-6.5-5.3-4H10z"/></svg>AI 계약 리스크</div>
+              <div class="lkBody">
+                <div class="lkCallout lkco-info">
+                  <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  <div>검토 단계에서 분석된 리스크 3건이 모두 반영되었습니다.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="lkCard">
+              <div class="lkHead">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                체결 품의 결재선
+                <div class="lkHeadActions"><span class="sb sm sb-success"><i></i>전원 승인</span></div>
+              </div>
+              <div class="lkBody">
+                <div class="aline">
+                  <div class="astep done"><span class="amark">기안</span><div><div class="aname">김서연</div><div class="adept">인프라팀 · 기안</div><div class="awhen">2026-09-08 14:22 상신</div></div></div>
+                  <div class="astep done"><span class="amark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><div><div class="aname">이정민</div><div class="adept">법무팀장 · 결재</div><div class="awhen">2026-09-09 09:41 승인</div></div></div>
+                  <div class="astep done"><span class="amark"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span><div><div class="aname">박현우</div><div class="adept">경영지원본부장 · 결재</div><div class="awhen">2026-09-10 16:05 승인</div></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="lkCard">
+              <div class="lkHead"><svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.8L7 14"/></svg>기본 · 분류</div>
+              <div class="lkBody"><div class="facts">
+                <div class="fact"><div class="fl">보안 여부</div><div class="fv">보안</div></div>
+                <div class="fact"><div class="fl">계약서 유형</div><div class="fv">일반 검토요청</div></div>
+                <div class="fact"><div class="fl">계약 기간</div><div class="fv">2026-10-01 ~ 2028-09-30</div></div>
+                <div class="fact"><div class="fl">계약예정일</div><div class="fv">2026-09-30</div></div>
+                <div class="fact"><div class="fl">계약 언어</div><div class="fv">국문</div></div>
+                <div class="fact"><div class="fl">법무 분류</div><div class="fv">국내 법무</div></div>
+              </div></div>
+            </div>
+          </div>
+
+          <div class="stack">
+            <!-- ★ 신규: 체결 처리 액션 패널 -->
+            <div class="actpanel">
+              <h3><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>내 차례 · 체결 처리<span class="new">NEW</span></h3>
+              <p>모든 결재가 완료되었습니다. 서명·날인이 끝난 계약서를 등록하면 <b>체결 완료</b>로 확정됩니다.</p>
+              <button class="btn btn-success" style="width:100%;justify-content:center" id="openSign">
+                <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                체결 처리
+              </button>
+            </div>
+
+            <div class="lkCard">
+              <div class="lkHead"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg>결재 현황</div>
+              <div class="lkBody" style="padding:14px 18px">
+                <div class="kvRow"><dt>현재 단계</dt><dd><span class="sb sm sb-warning"><i></i>체결 진행</span></dd></div>
+                <div class="notice" style="margin-top:12px">결재가 모두 완료되어 <b>체결 처리</b>를 기다리고 있습니다.</div>
+                <dl style="margin:12px 0 0">
+                  <div class="kvRow"><dt>검토 완료</dt><dd>2026-09-08</dd></div>
+                  <div class="kvRow"><dt>품의 상신</dt><dd>2026-09-08</dd></div>
+                  <div class="kvRow"><dt>결재 완료</dt><dd>2026-09-10</dd></div>
+                  <div class="kvRow"><dt>체결일</dt><dd style="color:var(--lkFaint);font-weight:500">미등록</dd></div>
+                </dl>
+              </div>
+            </div>
+
+            <div class="lkCard">
+              <div class="lkHead"><svg class="ic" viewBox="0 0 24 24"><path d="M21.4 11l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5"/></svg>문서</div>
+              <div class="lkBody" style="padding:14px 18px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                  <span style="font-size:11.5px;color:var(--lkMuted)">계약서</span>
+                  <span class="sb sm sb-danger" style="font-size:10.5px;padding:1px 6px">필수</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--lkBorder);border-radius:6px;margin-bottom:12px">
+                  <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--lkMuted)"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+                  <span style="font-size:12px;font-weight:600;color:var(--lkHeading)">협약서_v4_최종.docx</span>
+                  <span class="sb sm sb-primary" style="margin-left:auto;font-size:10.5px;padding:1px 6px"><i></i>검토본</span>
+                </div>
+                <div class="lkCallout lkco-warn">
+                  <svg class="ic" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                  <div>아직 <b>서명본</b>이 없습니다. 체결 처리 시 함께 등록됩니다.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="lkCard">
+              <div class="lkHead" style="font-size:13px"><svg class="ic" viewBox="0 0 24 24" style="color:var(--lkFaint)"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>권한 안내</div>
+              <div class="lkBody" style="padding:13px 18px">
+                <p style="margin:0;font-size:11.5px;line-height:1.7;color:var(--lkMuted)">체결 처리는 <b style="color:var(--lkHeading)">인감 담당(sealManager)</b>만 실행할 수 있습니다. 다른 역할에는 이 패널 대신 읽기 전용 안내가 표시됩니다.</p>
+              </div>
             </div>
           </div>
         </div>
-
-        <div class="card">
-          <div class="chead">
-            <svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-            계약서 · 첨부
-          </div>
-          <div class="cbody">
-            <div class="fileitem" style="margin-top:0">
-              <svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-              <span class="fname">공동연구개발_협약서_v4_최종.docx</span>
-              <span class="badge b-legal">검토본</span>
-              <span class="fmeta">312 KB</span>
-            </div>
-            <div style="margin-top:10px" class="callout co-warn">
-              <svg class="ic" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-              <div>아직 <b>서명본</b>이 등록되지 않았습니다. 체결 처리 시 함께 업로드됩니다.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="side">
-        <!-- 내 차례 액션 패널 -->
-        <div class="actpanel">
-          <h3>
-            <svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-            내 차례 · 체결 처리
-          </h3>
-          <p>모든 결재가 완료되었습니다. 서명·날인이 끝난 계약서를 등록하면 <b>체결 완료</b>로 확정됩니다.</p>
-          <button class="btn btn-success" style="width:100%;justify-content:center" id="openSign">
-            <svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-            체결 처리
-          </button>
-        </div>
-
-        <div class="card">
-          <div class="chead" style="font-size:13px">
-            <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            진행 정보
-          </div>
-          <div class="cbody" style="padding:8px 16px 12px">
-            <dl style="margin:0">
-              <div class="kv"><dt>등록 유형</dt><dd>법무 검토 요청</dd></div>
-              <div class="kv"><dt>검토 완료</dt><dd>2026-09-08</dd></div>
-              <div class="kv"><dt>품의 상신</dt><dd>2026-09-08</dd></div>
-              <div class="kv"><dt>결재 완료</dt><dd>2026-09-10</dd></div>
-              <div class="kv"><dt>체결일</dt><dd style="color:var(--faint);font-weight:500">미등록</dd></div>
-            </dl>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="chead" style="font-size:13px">
-            <svg class="ic" viewBox="0 0 24 24" style="color:var(--faint)"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-            권한 안내
-          </div>
-          <div class="cbody">
-            <p style="margin:0;font-size:11.5px;line-height:1.7;color:var(--muted)">체결 처리는 <b style="color:var(--heading)">인감 담당(sealManager)</b>만 실행할 수 있습니다. 다른 역할에게는 이 버튼 대신 읽기 전용 안내가 표시됩니다.</p>
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   </div>
 
-  <!-- 체결 처리 모달 -->
   <div class="scrim" id="signModal" hidden>
     <div class="modal">
-      <div class="mhead">
-        <svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-        체결 처리
-      </div>
+      <div class="mhead"><svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>체결 처리</div>
       <div class="mbody">
-        <div class="callout co-info">
+        <div class="lkCallout lkco-info">
           <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
           <div>확정하면 계약이 <b>체결 완료</b> 상태가 되고 더 이상 수정할 수 없습니다.</div>
         </div>
-
         <div>
-          <div class="flabel" style="padding-top:0;margin-bottom:7px">최종 서명본<span class="req">*</span></div>
-          <div class="drop" style="border-color:var(--successAccent);background:color-mix(in srgb,#28c76f 5%,#fff);padding:15px">
-            <svg class="ic" viewBox="0 0 24 24" style="color:var(--successAccent)"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+          <div class="flb">최종 서명본<span class="req">*</span></div>
+          <div class="drop" style="border-color:color-mix(in srgb,#28c76f 34%,#fff);background:color-mix(in srgb,#28c76f 5%,#fff)">
+            <button type="button" class="btn btn-outline btn-sm"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>파일 첨부</button>
             <p>서명·날인이 완료된 계약서 원본</p>
           </div>
-          <div class="fileitem" style="border-color:var(--successAccent)">
-            <svg class="ic" viewBox="0 0 24 24" style="color:var(--success)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-            <span class="fname">공동연구개발_협약서_서명본.pdf</span>
-            <span class="fmeta">1.8 MB</span>
+          <div class="fileitem" style="border-color:color-mix(in srgb,#28c76f 34%,#fff)">
+            <svg class="ic" viewBox="0 0 24 24" style="color:var(--lkSuccess)"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            <span class="fname">공동연구개발_협약서_서명본.pdf</span><span class="fmeta">1.8 MB</span>
           </div>
         </div>
-
-        <div>
-          <div class="flabel" style="padding-top:0;margin-bottom:7px">체결일<span class="req">*</span></div>
-          <input class="inp" value="2026-09-12" />
-        </div>
-
-        <div>
-          <div class="flabel" style="padding-top:0;margin-bottom:7px">비고</div>
-          <textarea class="inp" style="height:62px;padding:9px 11px;resize:vertical;line-height:1.6" placeholder="특이사항이 있으면 입력하세요 (선택)"></textarea>
-        </div>
+        <div><div class="flb">체결일<span class="req">*</span></div><input class="inp" value="2026-09-12" /></div>
+        <div><div class="flb">비고</div><textarea class="inp" rows="2" placeholder="특이사항이 있으면 입력하세요 (선택)"></textarea></div>
       </div>
       <div class="mfoot">
         <button class="btn btn-outline" id="closeSign">취소</button>
-        <button class="btn btn-success">
-          <svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg>
-          체결 확정
-        </button>
+        <button class="btn btn-success"><svg class="ic" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>체결 확정</button>
       </div>
     </div>
   </div>
 </section>
 
 <script>
-  // 탭 전환
   document.querySelectorAll(".tab").forEach(function (t) {
     t.addEventListener("click", function () {
       document.querySelectorAll(".tab").forEach(function (x) { x.classList.remove("on"); });
@@ -824,39 +1127,33 @@
     });
   });
 
-  // View1 등록 유형 토글
   var HELP = {
-    review: "법무 검토 → 요청자 검토 → 체결 품의(결재) → 체결 순서로 진행됩니다.",
+    review: "법무 검토 → 요청자 검토 → 검토 완료 → 체결 품의(결재) → 체결 순서로 진행됩니다.",
     signed: "검토·결재를 건너뛰고 곧바로 체결 완료 상태로 등록합니다."
   };
-  document.querySelectorAll("#modeseg button").forEach(function (b) {
+  document.querySelectorAll("#modeseg .segbtn").forEach(function (b) {
     b.addEventListener("click", function () {
       var mode = b.dataset.mode;
-      document.querySelectorAll("#modeseg button").forEach(function (x) {
-        x.classList.remove("on", "alt");
-      });
+      document.querySelectorAll("#modeseg .segbtn").forEach(function (x) { x.classList.remove("on"); });
       b.classList.add("on");
-      if (mode === "signed") b.classList.add("alt");
+
+      var signed = mode === "signed";
       document.body.dataset.mode = mode;
 
-      document.querySelectorAll(".onlySigned").forEach(function (el) {
-        el.style.display = mode === "signed" ? "" : "none";
-      });
-      document.querySelectorAll(".onlyReview").forEach(function (el) {
-        el.style.display = mode === "signed" ? "none" : "";
-      });
-
       document.getElementById("modehelp").textContent = HELP[mode];
-      document.getElementById("v1title").textContent =
-        mode === "signed" ? "체결 계약 등록" : "계약서 검토 요청";
-      document.getElementById("v1submit").lastChild.textContent =
-        mode === "signed" ? " 체결 계약 등록" : " 검토요청 등록";
-      document.getElementById("purposereq").style.display =
-        mode === "signed" ? "none" : "";
+      document.getElementById("v1title").textContent = signed ? "체결 계약 등록" : "계약서 검토 요청";
+      document.querySelector("#v1submit span").textContent = signed ? "체결 계약 등록" : "검토요청 등록";
+
+      // 작성 현황: 체결 모드는 필수 항목 수가 달라진다
+      document.getElementById("prgPct").innerHTML = signed ? '17<em>%</em>' : '13<em>%</em>';
+      document.getElementById("prgReq").textContent = signed ? "필수 1 / 6" : "필수 1 / 8";
+      document.getElementById("prgFill").style.width = signed ? "17%" : "13%";
+      document.getElementById("pl1").textContent = signed ? "3남음" : "4남음";
+      document.getElementById("pl5").textContent = signed ? "선택" : "1남음";
+      document.getElementById("pl5").className = signed ? "prgLeft opt" : "prgLeft";
     });
   });
 
-  // View3 모달
   document.getElementById("openSign").addEventListener("click", function () {
     document.getElementById("signModal").hidden = false;
   });
