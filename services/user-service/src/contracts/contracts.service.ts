@@ -5,6 +5,13 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
 import { ApprovalsService } from "../approvals/approvals.service";
+import { AiAnalysisService } from "../ai-analysis/ai-analysis.service";
+import {
+  buildPrecheckPayload,
+  buildRiskPayload,
+  buildSubmitBriefingPayload,
+  buildApprovalBriefingPayload,
+} from "../ai-analysis/prompt-payloads";
 import { evaluate } from "./contracts.authz";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
 import { tenantScope, resolveTenantId } from "../common/tenant-scope";
@@ -109,6 +116,7 @@ export class ContractsService {
     private readonly audit: AuditService,
     private readonly r2: R2Client,
     private readonly approvals: ApprovalsService,
+    private readonly aiAnalysis: AiAnalysisService,
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
@@ -245,7 +253,19 @@ export class ContractsService {
         actorId: req.createdById,
         tenantId: row.tenantId,
       });
-      return this.toResponse(row);
+      const response = this.toResponse(row);
+      // 계약서 원본(role=contract) 파일이 있으면 사전 위험 점검(precheck)을 백그라운드로 트리거.
+      if (req.files.some((f) => f.role === "contract")) {
+        void this.aiAnalysis.trigger({
+          targetType: "contract",
+          targetId: row.id,
+          kind: "precheck",
+          tenantId: row.tenantId,
+          triggeredByUserId: req.createdById,
+          payload: buildPrecheckPayload(response),
+        });
+      }
+      return response;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === "P2003") {
@@ -597,7 +617,17 @@ export class ContractsService {
       tenantId: row.tenantId,
       detail: { kind: "submitApproval", from: "reviewDone", to: "signing" },
     });
-    return { contract: this.toResponse(updated, line), notifications };
+    const response = this.toResponse(updated, line);
+    // 상신 성공 후 결재자용 브리핑(approvalBriefing)을 백그라운드로 트리거.
+    void this.aiAnalysis.trigger({
+      targetType: "contract",
+      targetId: row.id,
+      kind: "approvalBriefing",
+      tenantId: row.tenantId,
+      triggeredByUserId: req.viewerId!,
+      payload: buildApprovalBriefingPayload(response, line),
+    });
+    return { contract: response, notifications };
   }
 
   async updateStatus(
@@ -642,6 +672,8 @@ export class ContractsService {
       include: contractInclude,
     });
 
+    const response = this.toResponse(row);
+
     if (isTransition) {
       await this.audit.record({
         action: "transition",
@@ -651,9 +683,32 @@ export class ContractsService {
         tenantId: row.tenantId,
         detail: { from: current.status, to: req.status },
       });
+      // legalReview 진입: 담당자(owner) 배정 전이면 트리거 자체를 건너뛴다(AiAnalysisService 의
+      // 자격증명 없음 처리와 동일하게, 호출부에서 미리 걸러 불필요한 skipped 행 생성을 피함).
+      if (req.status === "legalReview" && row.ownerId) {
+        void this.aiAnalysis.trigger({
+          targetType: "contract",
+          targetId: req.id,
+          kind: "risk",
+          tenantId: row.tenantId,
+          triggeredByUserId: row.ownerId,
+          payload: buildRiskPayload(response, null),
+        });
+      }
+      // reviewDone 진입: 상신 전 결재자용 요약(submitBriefing)을 백그라운드로 트리거.
+      if (req.status === "reviewDone") {
+        void this.aiAnalysis.trigger({
+          targetType: "contract",
+          targetId: req.id,
+          kind: "submitBriefing",
+          tenantId: row.tenantId,
+          triggeredByUserId: row.createdById,
+          payload: buildSubmitBriefingPayload(response),
+        });
+      }
     }
 
-    return this.toResponse(row);
+    return response;
   }
 
   // 삭제되지 않은 계약 존재 확인 후 현재 행(관계 포함) 반환(없으면 404).

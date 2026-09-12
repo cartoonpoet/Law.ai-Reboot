@@ -68,4 +68,19 @@ describe("AiCredentialsService", () => {
       svc.save({ provider: "openai", model: "gpt-mini", apiKey: "sk-x", tenantContext: { tenantId: "t1", isSystemAdmin: false } }),
     ).rejects.toBeInstanceOf(RpcException);
   });
+
+  it("getDecryptedKeyFor: 자격증명이 없으면 null", async () => {
+    prisma.aiProviderCredential.findUnique.mockResolvedValue(null);
+    const result = await svc.getDecryptedKeyFor("u1");
+    expect(result).toBeNull();
+  });
+
+  it("getDecryptedKeyFor: 있으면 복호화한 apiKey 를 포함해 반환", async () => {
+    prisma.aiProviderCredential.findUnique.mockResolvedValue({
+      provider: "openai", model: "gpt-mini", encryptedApiKey: "enc(sk-x)",
+    });
+    const result = await svc.getDecryptedKeyFor("u1");
+    expect(crypto.decrypt).toHaveBeenCalledWith("enc(sk-x)");
+    expect(result).toEqual({ provider: "openai", model: "gpt-mini", apiKey: "sk-x" });
+  });
 });

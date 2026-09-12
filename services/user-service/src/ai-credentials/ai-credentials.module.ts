@@ -18,5 +18,7 @@ const cryptoPort: CryptoPort = {
     { provide: "AI_CRYPTO_PORT", useValue: cryptoPort },
     { provide: "AI_CREDENTIAL_VERIFIER", useExisting: AiServiceClient },
   ],
+  // AiAnalysisModule 등 다른 모듈이 자격증명 조회/AI 호출을 재사용할 수 있도록 export.
+  exports: [AiCredentialsService, AiServiceClient],
 })
 export class AiCredentialsModule {}

@@ -3,8 +3,21 @@ import { AiAnalyzeInput, AiModelOption, AiProvider } from "./provider";
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 
 const KIND_PROMPT: Record<string, string> = {
-  risk: "당신은 계약서 위험 분석 전문가입니다. 입력된 계약서 본문에서 위험 조항을 찾아 JSON으로 반환하세요.",
-  summary: "당신은 계약서 요약 전문가입니다. 입력된 계약서 본문을 핵심만 요약해 JSON으로 반환하세요.",
+  // 사전 위험 점검(risk 의 경량 버전) — 파일 원문 없이 계약 메타데이터(title/details)만으로 1차 점검.
+  precheck:
+    "당신은 계약서 사전 점검 전문가입니다. 계약 메타데이터(제목/상세)를 바탕으로 " +
+    '주의가 필요한 지점을 찾아 다음 JSON 스키마로 반환하세요: { "risks": [{ "level": "low"|"medium"|"high", "clause": string, "finding": string }] }.',
+  risk:
+    "당신은 계약서 위험 분석 전문가입니다. 입력된 계약서 본문에서 위험 조항을 찾아 " +
+    '다음 JSON 스키마로 반환하세요: { "risks": [{ "level": "low"|"medium"|"high", "clause": string, "finding": string }] }.',
+  // 상신 전(reviewDone) 결재자용 요약 브리핑.
+  submitBriefing:
+    "당신은 계약 검토 요약 전문가입니다. 계약 메타데이터와 결재선을 바탕으로 결재자가 " +
+    '빠르게 파악할 수 있도록 다음 JSON 스키마로 반환하세요: { "summary": string, "keyFacts": [{ "label": string, "value": string }] }.',
+  // 상신 성공 후 실제 결재선(approvalLine) 확정 시 결재자용 브리핑.
+  approvalBriefing:
+    "당신은 계약 결재 브리핑 전문가입니다. 계약 메타데이터와 확정된 결재선을 바탕으로 " +
+    '결재자를 위한 요약과 위험 요인을 다음 JSON 스키마로 반환하세요: { "summary": string, "risks": [{ "level": "low"|"medium"|"high", "clause": string, "finding": string }], "keyFacts": [{ "label": string, "value": string }] }.',
 };
 const DEFAULT_PROMPT =
   "당신은 법률 문서 분석 전문가입니다. 입력을 분석해 JSON으로 반환하세요.";

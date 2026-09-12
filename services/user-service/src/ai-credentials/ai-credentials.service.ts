@@ -53,4 +53,14 @@ export class AiCredentialsService {
     });
     return { provider: req.provider, model: req.model, hasApiKey: true, lastVerifiedAt: now.toISOString() };
   }
+
+  // 내부 전용(RPC 미노출) — 다른 서비스 로직(예: AiAnalysisService)이 특정 사용자의
+  // 복호화된 AI 자격증명을 직접 조회할 때 사용.
+  async getDecryptedKeyFor(
+    userId: string,
+  ): Promise<{ provider: string; model: string; apiKey: string } | null> {
+    const row = await this.prisma.aiProviderCredential.findUnique({ where: { userId } });
+    if (!row) return null;
+    return { provider: row.provider, model: row.model, apiKey: this.crypto.decrypt(row.encryptedApiKey) };
+  }
 }
