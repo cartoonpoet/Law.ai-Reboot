@@ -11,7 +11,7 @@ import { useCompanySearch } from "../hooks/useCompanySearch";
 import { useCounterparties } from "../hooks/useCounterparties";
 import { toCompanyOptions } from "../companyLabel";
 import { CompanyCreateModal } from "./CompanyCreateModal";
-import { RelatedDocsModal } from "./RelatedDocsModal";
+import { RelatedDocsPicker } from "./RelatedDocsPicker";
 import * as css from "../contractRequest.css";
 
 const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v);
@@ -35,7 +35,6 @@ export function OverviewSection() {
   const { query, results, search } = useCompanySearch();
   const { selected, add, selectByIds } = useCounterparties();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isOrigDocsOpen, setIsOrigDocsOpen] = useState(false);
 
   // 대/중 cascade 선택. 사용자가 명시적으로 고른 값(override)을 우선하고,
   // 아직 안 골랐으면 저장된 categoryId 의 조상 경로에서 파생한다(수정 화면 복원).
@@ -118,21 +117,7 @@ export function OverviewSection() {
           <div className={isSigned ? css.origRequired : css.origOptional}>
             <Field label="원 계약" required={isSigned}
               info="변경·해지 대상 계약입니다. 관련문서로 저장됩니다.">
-              <Controller name="relatedDocs" control={control} render={({ field }) => (
-                <div className={css.browseRow}>
-                  <Button type="button" variant="outline" color="secondary" size="small" onClick={() => setIsOrigDocsOpen(true)}>
-                    찾아보기
-                  </Button>
-                  {field.value.length > 0 && <span className={css.browseCount}>{field.value.length}건 선택</span>}
-                  {isOrigDocsOpen && (
-                    <RelatedDocsModal
-                      selected={field.value}
-                      onClose={() => setIsOrigDocsOpen(false)}
-                      onConfirm={(docs) => { field.onChange(docs); setIsOrigDocsOpen(false); }}
-                    />
-                  )}
-                </div>
-              )} />
+              <RelatedDocsPicker />
             </Field>
             <ErrText msg={errors.relatedDocs?.message as string | undefined} />
           </div>
