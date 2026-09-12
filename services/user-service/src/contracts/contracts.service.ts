@@ -33,6 +33,7 @@ import type {
   ApproverSnapshot,
   SubmitContractApprovalRequest,
   SubmitContractApprovalResult,
+  FileInput,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -94,6 +95,33 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   signed: ["fulfilling"],
   fulfilling: ["closed"],
   closed: [],
+};
+
+// 계약서 파일 교체 시 risk 재분석을 다시 돌릴 상태(spec §6). 법무 검토 루프 안에 있는
+// 두 상태 — 이 구간에서는 첨부된 문서가 곧 검토 대상이라 문서가 바뀌면 기존 분석이 무효다.
+// (requesterReview 는 legalReview 로 되돌아갈 수 있는 같은 루프의 반대편이다.)
+const RISK_RECHECK_STATUSES: ContractStatus[] = ["legalReview", "requesterReview"];
+
+// role="contract"(계약서 본문) 파일이 실제로 교체됐는지 판정.
+// 추가(신규 업로드) / 제거 / 다른 파일의 role 을 contract 로 승격 — 셋 다 "문서가 바뀜"으로 본다.
+// 파일을 건드리지 않은 수정(제목/기간 등)이나 이름·정렬만 바뀐 경우는 false.
+const isContractFileReplaced = (
+  currentFiles: { id: string; role: string }[],
+  nextFiles: FileInput[],
+): boolean => {
+  const currentContractIds = new Set(
+    currentFiles.filter((f) => f.role === "contract").map((f) => f.id),
+  );
+  const nextContractIds = new Set(
+    nextFiles
+      .filter((f) => f.role === "contract")
+      .map((f) => f.id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const hasNewUpload = nextFiles.some((f) => f.role === "contract" && !f.id);
+  const hasRemoved = [...currentContractIds].some((id) => !nextContractIds.has(id));
+  const hasPromoted = [...nextContractIds].some((id) => !currentContractIds.has(id));
+  return hasNewUpload || hasRemoved || hasPromoted;
 };
 
 // 관리번호: C{YYYYMMDD}-{4자리}. 충돌 시 호출부에서 재시도(unique 제약).
@@ -552,7 +580,28 @@ export class ContractsService {
       detail: { changed },
     });
 
-    return this.toResponse(row);
+    const response = this.toResponse(row);
+
+    // spec §6: risk 는 "legalReview 진입 또는 계약서 파일 교체 시" 트리거된다.
+    // 검토 중 문서가 바뀌면 기존 위험 분석은 현재 문서와 어긋나므로 다시 돌린다.
+    // 담당자(owner) 미배정이면 자격증명 주체가 없어 건너뛴다(상태 전이 트리거와 동일).
+    if (
+      req.files !== undefined &&
+      RISK_RECHECK_STATUSES.includes(current.status as ContractStatus) &&
+      row.ownerId &&
+      isContractFileReplaced(current.files, req.files)
+    ) {
+      void this.aiAnalysis.trigger({
+        targetType: "contract",
+        targetId: req.id,
+        kind: "risk",
+        tenantId: row.tenantId,
+        triggeredByUserId: row.ownerId,
+        payload: buildRiskPayload(response, null),
+      });
+    }
+
+    return response;
   }
 
   /**
