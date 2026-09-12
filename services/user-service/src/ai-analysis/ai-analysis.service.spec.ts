@@ -37,7 +37,7 @@ describe("AiAnalysisService", () => {
   });
 
   it("trigger: 자격증명 있으면 pending→(analyze 성공)succeeded 로 갱신", async () => {
-    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-mini", apiKey: "sk-x" });
+    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-4o-mini", apiKey: "sk-x" });
     prisma.aiAnalysis.upsert.mockResolvedValue({ id: "a1" });
     aiClient.analyze.mockResolvedValue({ result: { risks: [] } });
     await svc.trigger({ targetType: "contract", targetId: "c1", kind: "risk", tenantId: "t1", triggeredByUserId: "u1", payload: { text: "x" } });
@@ -47,7 +47,7 @@ describe("AiAnalysisService", () => {
   });
 
   it("trigger: analyze 실패하면 failed + errorMessage + attempts 증가", async () => {
-    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-mini", apiKey: "sk-x" });
+    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-4o-mini", apiKey: "sk-x" });
     prisma.aiAnalysis.upsert.mockResolvedValue({ id: "a1", attempts: 0 });
     aiClient.analyze.mockRejectedValue(new Error("401 invalid key"));
     await svc.trigger({ targetType: "contract", targetId: "c1", kind: "risk", tenantId: "t1", triggeredByUserId: "u1", payload: {} });
@@ -65,7 +65,7 @@ describe("AiAnalysisService", () => {
   });
 
   it("trigger: upsert(pending 생성)가 실패해도 reject 하지 않는다(fire-and-forget 안전성)", async () => {
-    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-mini", apiKey: "sk-x" });
+    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-4o-mini", apiKey: "sk-x" });
     prisma.aiAnalysis.upsert.mockRejectedValue(new Error("db down"));
     await expect(
       svc.trigger({ targetType: "contract", targetId: "c1", kind: "risk", tenantId: "t1", triggeredByUserId: "u1", payload: {} }),
@@ -80,7 +80,7 @@ describe("AiAnalysisService", () => {
 
   it("retry: 기존 행을 pending 으로 되돌리고 다시 trigger 한다", async () => {
     prisma.aiAnalysis.findUnique.mockResolvedValue({ id: "a1", targetType: "contract", targetId: "c1", kind: "risk", tenantId: "t1", input: { text: "x" }, triggeredByUserId: "u1" });
-    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-mini", apiKey: "sk-x" });
+    credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-4o-mini", apiKey: "sk-x" });
     aiClient.analyze.mockResolvedValue({ result: {} });
     await svc.retry("contract", "c1", "risk");
     expect(aiClient.analyze).toHaveBeenCalled();

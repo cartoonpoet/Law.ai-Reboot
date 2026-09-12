@@ -6,10 +6,15 @@ describe("OpenAiProvider", () => {
     global.fetch = originalFetch;
   });
 
-  it("listModels: 고정 목록을 등급과 함께 반환한다", async () => {
+  it("listModels: 실제 OpenAI 모델 ID 를 등급과 함께 반환한다", async () => {
     const provider = new OpenAiProvider();
     const models = await provider.listModels();
-    expect(models.length).toBeGreaterThan(0);
+    // id 는 OpenAI API 에 그대로 전달된다 — 가상의 ID 가 섞이면 모든 호출이 404 가 되므로 고정한다.
+    expect(models).toEqual([
+      { id: "gpt-4o-mini", label: "GPT-4o mini (경량)", tier: "economy" },
+      { id: "gpt-4o", label: "GPT-4o (표준, 기본값)", tier: "standard" },
+      { id: "gpt-4.1", label: "GPT-4.1 (고정밀)", tier: "precision" },
+    ]);
     expect(models.some((m) => m.tier === "standard")).toBe(true);
   });
 
@@ -22,7 +27,7 @@ describe("OpenAiProvider", () => {
     }) as unknown as typeof fetch;
     const provider = new OpenAiProvider();
     const { result } = await provider.analyze({
-      kind: "risk", model: "gpt-mini", apiKey: "sk-test", payload: { text: "계약서 본문" },
+      kind: "risk", model: "gpt-4o-mini", apiKey: "sk-test", payload: { text: "계약서 본문" },
     });
     expect(result).toEqual({ risks: [{ level: "high", clause: "제12조" }] });
   });
@@ -31,7 +36,7 @@ describe("OpenAiProvider", () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401, text: async () => "invalid api key" }) as unknown as typeof fetch;
     const provider = new OpenAiProvider();
     await expect(
-      provider.analyze({ kind: "risk", model: "gpt-mini", apiKey: "sk-bad", payload: {} }),
+      provider.analyze({ kind: "risk", model: "gpt-4o-mini", apiKey: "sk-bad", payload: {} }),
     ).rejects.toThrow(/401|인증/);
   });
 
@@ -39,7 +44,7 @@ describe("OpenAiProvider", () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 429, text: async () => "rate limited" }) as unknown as typeof fetch;
     const provider = new OpenAiProvider();
     await expect(
-      provider.analyze({ kind: "risk", model: "gpt-mini", apiKey: "sk-x", payload: {} }),
+      provider.analyze({ kind: "risk", model: "gpt-4o-mini", apiKey: "sk-x", payload: {} }),
     ).rejects.toThrow(/429|rate/i);
   });
 });

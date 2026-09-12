@@ -22,10 +22,11 @@ const KIND_PROMPT: Record<string, string> = {
 const DEFAULT_PROMPT =
   "당신은 법률 문서 분석 전문가입니다. 입력을 분석해 JSON으로 반환하세요.";
 
+// id 는 OpenAI API 의 model 파라미터로 그대로 전달되므로 반드시 실제 모델 ID 여야 한다.
 const MODEL_OPTIONS: AiModelOption[] = [
-  { id: "gpt-mini", label: "GPT Mini (경량)", tier: "economy" },
-  { id: "gpt-standard", label: "GPT Standard (표준, 기본값)", tier: "standard" },
-  { id: "gpt-precision", label: "GPT Precision (고정밀)", tier: "precision" },
+  { id: "gpt-4o-mini", label: "GPT-4o mini (경량)", tier: "economy" },
+  { id: "gpt-4o", label: "GPT-4o (표준, 기본값)", tier: "standard" },
+  { id: "gpt-4.1", label: "GPT-4.1 (고정밀)", tier: "precision" },
 ];
 
 export class OpenAiProvider implements AiProvider {
