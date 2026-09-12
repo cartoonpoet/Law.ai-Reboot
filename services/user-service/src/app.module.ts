@@ -13,6 +13,7 @@ import { AdminModule } from "./admin/admin.module";
 import { TenantsModule } from "./tenants/tenants.module";
 import { InvitationsModule } from "./invitations/invitations.module";
 import { AiCredentialsModule } from "./ai-credentials/ai-credentials.module";
+import { AiClientModule } from "./ai-client/ai-client.module";
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AiCredentialsModule } from "./ai-credentials/ai-credentials.module";
     AdminModule,
     TenantsModule,
     InvitationsModule,
+    AiClientModule,
     AiCredentialsModule,
   ],
 })
