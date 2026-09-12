@@ -193,15 +193,33 @@ git commit -m "feat: 체결 처리 DTO 와 RPC 패턴 추가"
 - `this.toAuthzContract(row)` → `AuthzContract`
 - `evaluate(viewer, authzContract)` → `{ canTransition, ... }` (`./contracts.authz` 에서 import, 이미 import 되어 있음)
 - `this.toResponse(row)` → `ContractResponse`
-- `this.audit.record({ action, targetType, targetId, actorId, tenantId, detail })`
+- `this.auditMock.record({ action, targetType, targetId, actorId, tenantId, detail })`
 - `tenantScope(ctx)` / `resolveTenantId(ctx)` — 파일 상단에 이미 import 되어 있음
 - `contractInclude` — 파일 상단 상수
-- `this.approvals.getActive("contract", id)` → `{ line: ApprovalLineDto | null, historyCount: number }`
+- `this.approvalsMock.getActive("contract", id)` → `{ line: ApprovalLineDto | null, historyCount: number }`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
-`services/user-service/src/contracts/contracts.service.spec.ts` 끝에 추가한다.
-기존 스펙 파일의 mock 생성 헬퍼·`createService()` 패턴을 그대로 따른다(파일 상단을 먼저 읽을 것).
+`services/user-service/src/contracts/contracts.service.spec.ts` 의 **최상위 `describe` 블록 안쪽 끝**에
+추가한다(파일 맨 끝이 아니다 — 아래 mock 들과 `service` 는 그 describe 스코프에 있다).
+
+이 파일의 하네스는 **모듈 레벨 mock 객체 + `beforeEach` 의 공유 `service`** 다.
+`createService()` 같은 팩토리는 **없다.** 쓸 수 있는 이름은 다음과 같다:
+`service`, `prismaMock`, `auditMock`, `approvalsMock`, `aiAnalysisMock`, `r2Mock`.
+`beforeEach` 가 `jest.clearAllMocks()` 를 호출하므로 각 테스트는 필요한 mock 만 세팅하면 된다.
+
+**선행 수정:** `prismaMock.file` 에는 현재 `findMany` 밖에 없다. `findFirst` 와 `update` 를 추가한다:
+
+```ts
+    file: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+```
+
+또한 `prismaMock.userTenant.findFirst` 의 기본값은 `role: "general"` 이므로,
+권한이 필요한 테스트는 `mockResolvedValueOnce` 로 덮는다(파일의 기존 주석이 명시한 관례).
 
 ```ts
 describe("completeSigning", () => {
@@ -219,9 +237,8 @@ describe("completeSigning", () => {
   };
 
   it("권한이 없으면 403", async () => {
-    const { service, prisma } = createService();
-    prisma.contract.findFirst.mockResolvedValue(baseRow);
-    prisma.userTenant.findFirst.mockResolvedValue({
+    prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({
       role: "general",
       user: { departmentId: null },
     });
@@ -236,13 +253,12 @@ describe("completeSigning", () => {
   });
 
   it("결재가 완료되지 않았으면 400", async () => {
-    const { service, prisma, approvals } = createService();
-    prisma.contract.findFirst.mockResolvedValue(baseRow);
-    prisma.userTenant.findFirst.mockResolvedValue({
+    prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({
       role: "sealManager",
       user: { departmentId: null },
     });
-    approvals.getActive.mockResolvedValue({
+    approvalsMock.getActive.mockResolvedValue({
       line: { id: "l1", status: "pending", steps: [] },
       historyCount: 0,
     });
@@ -257,13 +273,12 @@ describe("completeSigning", () => {
   });
 
   it("결재선이 아예 없어도 400", async () => {
-    const { service, prisma, approvals } = createService();
-    prisma.contract.findFirst.mockResolvedValue(baseRow);
-    prisma.userTenant.findFirst.mockResolvedValue({
+    prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({
       role: "sealManager",
       user: { departmentId: null },
     });
-    approvals.getActive.mockResolvedValue({ line: null, historyCount: 0 });
+    approvalsMock.getActive.mockResolvedValue({ line: null, historyCount: 0 });
     await expect(
       service.completeSigning({
         contractId: "c1",
@@ -275,17 +290,16 @@ describe("completeSigning", () => {
   });
 
   it("남의 계약 파일을 주면 400", async () => {
-    const { service, prisma, approvals } = createService();
-    prisma.contract.findFirst.mockResolvedValue(baseRow);
-    prisma.userTenant.findFirst.mockResolvedValue({
+    prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({
       role: "sealManager",
       user: { departmentId: null },
     });
-    approvals.getActive.mockResolvedValue({
+    approvalsMock.getActive.mockResolvedValue({
       line: { id: "l1", status: "approved", steps: [] },
       historyCount: 0,
     });
-    prisma.file.findFirst.mockResolvedValue(null);
+    prismaMock.file.findFirst.mockResolvedValue(null);
     await expect(
       service.completeSigning({
         contractId: "c1",
@@ -298,18 +312,17 @@ describe("completeSigning", () => {
   });
 
   it("정상 처리 시 signed 로 전이하고 signedAt 과 파일 role 을 갱신한다", async () => {
-    const { service, prisma, approvals, audit } = createService();
-    prisma.contract.findFirst.mockResolvedValue(baseRow);
-    prisma.userTenant.findFirst.mockResolvedValue({
+    prismaMock.contract.findFirst.mockResolvedValue(baseRow);
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({
       role: "sealManager",
       user: { departmentId: null },
     });
-    approvals.getActive.mockResolvedValue({
+    approvalsMock.getActive.mockResolvedValue({
       line: { id: "l1", status: "approved", steps: [] },
       historyCount: 0,
     });
-    prisma.file.findFirst.mockResolvedValue({ id: "f1", contractId: "c1" });
-    prisma.contract.update.mockResolvedValue({
+    prismaMock.file.findFirst.mockResolvedValue({ id: "f1", contractId: "c1" });
+    prismaMock.contract.update.mockResolvedValue({
       ...baseRow,
       status: "signed",
       signedAt: new Date("2026-09-12"),
@@ -324,19 +337,19 @@ describe("completeSigning", () => {
       tenantContext: { tenantId: "t1", isSystemAdmin: false },
     });
 
-    expect(prisma.file.update).toHaveBeenCalledWith(
+    expect(prismaMock.file.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "f1" },
         data: { role: "signed" },
       }),
     );
-    expect(prisma.contract.update).toHaveBeenCalledWith(
+    expect(prismaMock.contract.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: "signed" }),
       }),
     );
     expect(result.contract.status).toBe("signed");
-    expect(audit.record).toHaveBeenCalledWith(
+    expect(auditMock.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "transition",
         detail: expect.objectContaining({ kind: "completeSigning" }),
@@ -363,7 +376,7 @@ Expected: FAIL — `service.completeSigning is not a function`
     req: CompleteSigningRequest,
   ): Promise<CompleteSigningResult> {
     const ctx = req.tenantContext!;
-    const row = await this.prisma.contract.findFirst({
+    const row = await this.prismaMock.contract.findFirst({
       where: { id: req.contractId, deletedAt: null, ...tenantScope(ctx) },
       include: contractInclude,
     });
@@ -382,32 +395,32 @@ Expected: FAIL — `service.completeSigning is not a function`
     }
 
     // 결재 완료 게이트 — 라인이 없거나 approved 가 아니면 체결할 수 없다.
-    const active = await this.approvals.getActive("contract", row.id);
+    const active = await this.approvalsMock.getActive("contract", row.id);
     if (!active.line || active.line.status !== "approved") {
       throw new RpcException({ status: 400, message: "결재가 완료되지 않았습니다" });
     }
 
     // 서명본 파일은 반드시 이 계약 소유여야 한다.
     if (req.fileId) {
-      const file = await this.prisma.file.findFirst({
+      const file = await this.prismaMock.file.findFirst({
         where: { id: req.fileId, contractId: row.id },
         select: { id: true },
       });
       if (!file) {
         throw new RpcException({ status: 400, message: "잘못된 파일입니다" });
       }
-      await this.prisma.file.update({
+      await this.prismaMock.file.update({
         where: { id: req.fileId },
         data: { role: "signed" },
       });
     }
 
-    const updated = await this.prisma.contract.update({
+    const updated = await this.prismaMock.contract.update({
       where: { id: row.id },
       data: { status: "signed", signedAt: parseDate(req.signedAt) },
       include: contractInclude,
     });
-    await this.audit.record({
+    await this.auditMock.record({
       action: "transition",
       targetType: "Contract",
       targetId: row.id,
@@ -477,7 +490,9 @@ git commit -m "feat: 체결 처리 RPC 추가 - 결재 완료 게이트 + 서명
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
-`contracts.service.spec.ts` 에 추가한다. `createService()` 헬퍼와 기존 create 테스트의 인자 형태를 따른다.
+`contracts.service.spec.ts` 의 **최상위 `describe` 안쪽**에 추가한다.
+Task 3 과 동일한 하네스를 쓴다 — `service`, `prismaMock`, `auditMock`, `approvalsMock`, `aiAnalysisMock`.
+`createService()` 팩토리는 존재하지 않는다. 기존 create 테스트의 인자 형태를 참고할 것.
 
 ```ts
 describe("create - 체결 완료 등록", () => {
@@ -494,7 +509,6 @@ describe("create - 체결 완료 등록", () => {
   };
 
   it("signedAt 이 없으면 400", async () => {
-    const { service } = createService();
     await expect(
       service.create({
         ...baseReq,
@@ -506,7 +520,6 @@ describe("create - 체결 완료 등록", () => {
   });
 
   it("서명본 파일이 없으면 400", async () => {
-    const { service } = createService();
     await expect(
       service.create({
         ...baseReq,
@@ -519,7 +532,6 @@ describe("create - 체결 완료 등록", () => {
   });
 
   it("변경·해지인데 원 계약이 없으면 400", async () => {
-    const { service } = createService();
     await expect(
       service.create({
         ...baseReq,
@@ -532,9 +544,8 @@ describe("create - 체결 완료 등록", () => {
   });
 
   it("정상이면 signed 상태로 생성하고 risk 분석을 트리거한다", async () => {
-    const { service, prisma, aiAnalysis } = createService();
-    prisma.user.findUnique.mockResolvedValue({ departmentId: null });
-    prisma.contract.create.mockResolvedValue({
+    prismaMock.user.findUnique.mockResolvedValue({ departmentId: null });
+    prismaMock.contract.create.mockResolvedValue({
       id: "c1",
       tenantId: "t1",
       status: "signed",
@@ -552,21 +563,20 @@ describe("create - 체결 완료 등록", () => {
       files: [{ role: "signed", name: "a.pdf", meta: "", sortOrder: 0 }],
     });
 
-    expect(prisma.contract.create).toHaveBeenCalledWith(
+    expect(prismaMock.contract.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: "signed" }),
       }),
     );
     expect(res.status).toBe("signed");
-    expect(aiAnalysis.trigger).toHaveBeenCalledWith(
+    expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "risk" }),
     );
   });
 
   it("registerAs 미지정이면 기존 동작 그대로 - status 를 지정하지 않고 precheck 를 트리거한다", async () => {
-    const { service, prisma, aiAnalysis } = createService();
-    prisma.user.findUnique.mockResolvedValue({ departmentId: null });
-    prisma.contract.create.mockResolvedValue({
+    prismaMock.user.findUnique.mockResolvedValue({ departmentId: null });
+    prismaMock.contract.create.mockResolvedValue({
       id: "c2",
       tenantId: "t1",
       status: "unassigned",
@@ -582,9 +592,9 @@ describe("create - 체결 완료 등록", () => {
       files: [{ role: "contract", name: "a.docx", meta: "", sortOrder: 0 }],
     });
 
-    const createArg = prisma.contract.create.mock.calls[0][0];
+    const createArg = prismaMock.contract.create.mock.calls[0][0];
     expect(createArg.data.status).toBeUndefined();
-    expect(aiAnalysis.trigger).toHaveBeenCalledWith(
+    expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "precheck" }),
     );
   });
@@ -625,7 +635,7 @@ Expected: FAIL — 검증이 없어 400 이 안 난다
 
 - [ ] **Step 4: create 데이터에 상태·체결일 반영**
 
-`this.prisma.contract.create({ data: { ... } })` 의 `dueDate: parseDate(req.dueDate),` 바로 아래에 추가한다.
+`this.prismaMock.contract.create({ data: { ... } })` 의 `dueDate: parseDate(req.dueDate),` 바로 아래에 추가한다.
 **조건부 스프레드**를 써서 `review` 경로에서는 키 자체가 들어가지 않게 한다(기존 동작 보존):
 
 ```ts
@@ -643,7 +653,7 @@ Expected: FAIL — 검증이 없어 400 이 안 난다
       // 체결 완료 등록은 서명본(role=signed) 기준 위험 분석(risk) 을 백그라운드로 돌린다.
       if (isDirectSigned) {
         if (req.files.some((f) => f.role === "signed")) {
-          void this.aiAnalysis.trigger({
+          void this.aiAnalysisMock.trigger({
             targetType: "contract",
             targetId: row.id,
             kind: "risk",
@@ -653,7 +663,7 @@ Expected: FAIL — 검증이 없어 400 이 안 난다
           });
         }
       } else if (req.files.some((f) => f.role === "contract")) {
-        void this.aiAnalysis.trigger({
+        void this.aiAnalysisMock.trigger({
           targetType: "contract",
           targetId: row.id,
           kind: "precheck",
