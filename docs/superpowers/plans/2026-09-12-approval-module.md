@@ -28,7 +28,7 @@
 **Interfaces:**
 - Produces: `ApprovalLine { targetType, targetId, title, status, tenantId, submittedById, submittedAt, decidedAt }`, `ApprovalStep { userId?, comment?, decidedAt? }`. `Contract.approvalLines` relation 제거.
 
-- [ ] **Step 1: 스키마 수정** — `model ApprovalLine`/`ApprovalStep` 를 아래로 교체하고, `model Contract` 에서 `approvalLines ApprovalLine[]` 줄 삭제, `model User` 에 두 relation 추가.
+- [x] **Step 1: 스키마 수정** — `model ApprovalLine`/`ApprovalStep` 를 아래로 교체하고, `model Contract` 에서 `approvalLines ApprovalLine[]` 줄 삭제, `model User` 에 두 relation 추가.
 
 ```prisma
 model ApprovalLine {
@@ -74,10 +74,10 @@ model ApprovalStep {
 
 User 에 추가: `submittedApprovalLines ApprovalLine[] @relation("SubmittedApprovalLines")`, `approvalSteps ApprovalStep[] @relation("UserApprovalSteps")`.
 
-- [ ] **Step 2: 마이그레이션** — `cd services/user-service && npx prisma migrate dev --name approval_polymorphic`. drift 로 reset 요구 시 수락(dev 데이터 폐기 허용). client 재생성 확인.
-- [ ] **Step 3: 컴파일 깨짐 임시 확인** — `npx tsc --noEmit` 은 contracts.service 의 `approvalLines` 참조로 실패할 것(Task 4 에서 수리). 이 단계에서는 스키마·마이그레이션 파일만 커밋.
-- [ ] **Step 4: erdify MCP 로 "Law.ai Reboot" ERD 에 동일 변경 반영** (미연결이면 보고 후 보류)
-- [ ] **Step 5: Commit** — `git add services/user-service/prisma && git commit -m "feat: 결재 라인/스텝 폴리모픽 개조 (target 참조 + 결재자 userId)"`
+- [x] **Step 2: 마이그레이션** — `cd services/user-service && npx prisma migrate dev --name approval_polymorphic`. drift 로 reset 요구 시 수락(dev 데이터 폐기 허용). client 재생성 확인.
+- [x] **Step 3: 컴파일 깨짐 임시 확인** — `npx tsc --noEmit` 은 contracts.service 의 `approvalLines` 참조로 실패할 것(Task 4 에서 수리). 이 단계에서는 스키마·마이그레이션 파일만 커밋.
+- [x] **Step 4: erdify MCP 로 "Law.ai Reboot" ERD 에 동일 변경 반영** (미연결이면 보고 후 보류)
+- [x] **Step 5: Commit** — `git add services/user-service/prisma && git commit -m "feat: 결재 라인/스텝 폴리모픽 개조 (target 참조 + 결재자 userId)"`
 
 ### Task 2: @lawai/contracts — 결재 DTO/패턴
 
@@ -88,7 +88,7 @@ User 에 추가: `submittedApprovalLines ApprovalLine[] @relation("SubmittedAppr
 **Interfaces:**
 - Produces: `APPROVAL_PATTERNS = { DECIDE:"approval.decide", INBOX:"approval.inbox", GET_ACTIVE:"approval.getActive" }`, `CONTRACT_PATTERNS.SUBMIT_APPROVAL = "contract.submitApproval"`, 아래 DTO 전부. `ApproverSnapshot.userId?: string | null`. `ApprovalStepResponse` 에 `userId/comment/decidedAt` 추가, `ApprovalLineResponse` 에 `currentStepId/submittedById/submittedAt` 추가, `ContractResponse.plannedApprovers: ApproverSnapshot[]` 추가. `SubmitContractApprovalRequest/Result`.
 
-- [ ] **Step 1: approval.dto.ts 작성**
+- [x] **Step 1: approval.dto.ts 작성**
 
 ```ts
 import type { TenantContext } from "./tenant.dto";
@@ -176,7 +176,7 @@ export interface GetActiveApprovalResponse {
 }
 ```
 
-- [ ] **Step 2: contract.dto.ts 수정** — `ApproverSnapshot` 에 `userId?: string | null;` 추가. `ApprovalStepResponse` 에 `userId: string | null; comment: string | null; decidedAt: string | null;` 추가. `ApprovalLineResponse` 에 `currentStepId: string | null; submittedById: string; submittedAt: string;` 추가. `ContractResponse` 에 `plannedApprovers: ApproverSnapshot[];` 추가. 그리고 상신 요청/응답:
+- [x] **Step 2: contract.dto.ts 수정** — `ApproverSnapshot` 에 `userId?: string | null;` 추가. `ApprovalStepResponse` 에 `userId: string | null; comment: string | null; decidedAt: string | null;` 추가. `ApprovalLineResponse` 에 `currentStepId: string | null; submittedById: string; submittedAt: string;` 추가. `ContractResponse` 에 `plannedApprovers: ApproverSnapshot[];` 추가. 그리고 상신 요청/응답:
 
 ```ts
 export interface SubmitContractApprovalRequest {
@@ -192,7 +192,7 @@ export interface SubmitContractApprovalResult {
 
 (`PushNotification` 은 `./comment.dto` 에서 import)
 
-- [ ] **Step 3: patterns.ts** — `CONTRACT_PATTERNS` 에 `SUBMIT_APPROVAL: "contract.submitApproval",` 추가하고 아래 신설:
+- [x] **Step 3: patterns.ts** — `CONTRACT_PATTERNS` 에 `SUBMIT_APPROVAL: "contract.submitApproval",` 추가하고 아래 신설:
 
 ```ts
 export const APPROVAL_PATTERNS = {
@@ -202,8 +202,8 @@ export const APPROVAL_PATTERNS = {
 } as const;
 ```
 
-- [ ] **Step 4: index.ts 에 `export * from "./dto/approval.dto";` 추가 후 빌드 확인** — `cd packages/contracts && pnpm build` (스크립트 없으면 `npx tsc --noEmit`)
-- [ ] **Step 5: Commit** — `git commit -m "feat: 결재 계약 추가 (approval DTO/패턴 + 계약 상신 DTO)"`
+- [x] **Step 4: index.ts 에 `export * from "./dto/approval.dto";` 추가 후 빌드 확인** — `cd packages/contracts && pnpm build` (스크립트 없으면 `npx tsc --noEmit`)
+- [x] **Step 5: Commit** — `git commit -m "feat: 결재 계약 추가 (approval DTO/패턴 + 계약 상신 DTO)"`
 
 ### Task 3: approvals 모듈 (user-service) — 서비스 + RPC + outcome 레지스트리
 
@@ -224,7 +224,7 @@ export const APPROVAL_PATTERNS = {
   - `ApprovalsService.inbox(req: ApprovalInboxRequest): Promise<ApprovalInboxResponse>`
   - `ApprovalsService.getActive(targetType: string, targetId: string): Promise<GetActiveApprovalResponse>`
 
-- [ ] **Step 1: approval-outcome.ts 작성**
+- [x] **Step 1: approval-outcome.ts 작성**
 
 ```ts
 import { Injectable } from "@nestjs/common";
@@ -250,7 +250,7 @@ export class ApprovalOutcomeRegistry {
 }
 ```
 
-- [ ] **Step 2: 실패하는 서비스 테스트 작성** (`approvals.service.spec.ts`) — 기존 `contracts.service.spec.ts` 의 PrismaService mock 패턴을 따른다. 핵심 케이스:
+- [x] **Step 2: 실패하는 서비스 테스트 작성** (`approvals.service.spec.ts`) — 기존 `contracts.service.spec.ts` 의 PrismaService mock 패턴을 따른다. 핵심 케이스:
 
 ```ts
 import { RpcException } from "@nestjs/microservices";
@@ -377,8 +377,8 @@ describe("ApprovalsService", () => {
 });
 ```
 
-- [ ] **Step 3: 테스트 실패 확인** — `cd services/user-service && pnpm test -- approvals.service` → 모듈 없음으로 FAIL
-- [ ] **Step 4: approvals.service.ts 구현** — 핵심 로직:
+- [x] **Step 3: 테스트 실패 확인** — `cd services/user-service && pnpm test -- approvals.service` → 모듈 없음으로 FAIL
+- [x] **Step 4: approvals.service.ts 구현** — 핵심 로직:
 
 ```ts
 import { Injectable } from "@nestjs/common";
@@ -423,8 +423,8 @@ const currentStepOf = (steps: { type: string; status: string }[]) =>
 
 `getActive(targetType, targetId)`: `findFirst({ where: { targetType, targetId }, orderBy: { submittedAt: "desc" }, include })` + `count - 1` (라인 없으면 0).
 
-- [ ] **Step 5: 테스트 통과 확인** — `pnpm test -- approvals.service` → PASS
-- [ ] **Step 6: controller/module 작성** — `approvals.controller.ts`: `@MessagePattern(APPROVAL_PATTERNS.DECIDE/INBOX/GET_ACTIVE)` 3개, contracts.controller.ts 패턴 동일(페이로드 그대로 서비스 위임). `approvals.module.ts`:
+- [x] **Step 5: 테스트 통과 확인** — `pnpm test -- approvals.service` → PASS
+- [x] **Step 6: controller/module 작성** — `approvals.controller.ts`: `@MessagePattern(APPROVAL_PATTERNS.DECIDE/INBOX/GET_ACTIVE)` 3개, contracts.controller.ts 패턴 동일(페이로드 그대로 서비스 위임). `approvals.module.ts`:
 
 ```ts
 @Module({
@@ -438,8 +438,8 @@ export class ApprovalsModule {}
 
 (NotificationsModule 이 NotificationService 를 export 하는지 확인 — 아니면 export 추가. PrismaModule 이 global 이면 imports 생략.) `app.module.ts` 에 `ApprovalsModule` 추가.
 
-- [ ] **Step 7: 전체 테스트/컴파일** — `pnpm test` (contracts 쪽 실패는 Task 4 대상이므로 approvals 만 green 확인), `npx tsc --noEmit` 오류가 contracts.service 뿐인지 확인
-- [ ] **Step 8: Commit** — `git commit -m "feat: 범용 결재 모듈 (순차 결재/대기함/outcome 레지스트리)"`
+- [x] **Step 7: 전체 테스트/컴파일** — `pnpm test` (contracts 쪽 실패는 Task 4 대상이므로 approvals 만 green 확인), `npx tsc --noEmit` 오류가 contracts.service 뿐인지 확인
+- [x] **Step 8: Commit** — `git commit -m "feat: 범용 결재 모듈 (순차 결재/대기함/outcome 레지스트리)"`
 
 ### Task 4: contracts 통합 — 상신 RPC·결재선 저장 방식 전환·반려 복귀 핸들러
 
@@ -454,7 +454,7 @@ export class ApprovalsModule {}
 - Consumes: `ApprovalsService.submit/getActive`, `ApprovalOutcomeRegistry.register`
 - Produces: RPC `contract.submitApproval(req: SubmitContractApprovalRequest): SubmitContractApprovalResult`. `ContractResponse.plannedApprovers` + `approvalLine`(활성 라인 파생, 기존 shape 유지+확장). `ALLOWED_TRANSITIONS.signing = ["signed", "reviewDone"]`.
 
-- [ ] **Step 1: 실패 테스트 추가** (contracts.service.spec.ts) — submitApproval 4케이스 + 반려 복귀:
+- [x] **Step 1: 실패 테스트 추가** (contracts.service.spec.ts) — submitApproval 4케이스 + 반려 복귀:
 
 ```ts
 describe("submitApproval", () => {
@@ -472,8 +472,8 @@ describe("ContractApprovalOutcomeHandler", () => {
 
 (mock: `approvals = { submit: jest.fn(), getActive: jest.fn().mockResolvedValue({ line: null, historyCount: 0 }) }` 를 ContractsService 생성자에 주입. 기존 spec 의 생성자 시그니처 변경에 맞춰 전체 검색·수정.)
 
-- [ ] **Step 2: 실패 확인** — `pnpm test -- contracts.service`
-- [ ] **Step 3: contracts.service.ts 수정**
+- [x] **Step 2: 실패 확인** — `pnpm test -- contracts.service`
+- [x] **Step 3: contracts.service.ts 수정**
   - `ALLOWED_TRANSITIONS.signing` 을 `["signed", "reviewDone"]` 로.
   - 생성자에 `private readonly approvals: ApprovalsService` 추가.
   - `contractInclude` 에서 `approvalLines` 제거.
@@ -512,7 +512,7 @@ async submitApproval(req: SubmitContractApprovalRequest): Promise<SubmitContract
 }
 ```
 
-- [ ] **Step 4: contract-approval.handler.ts 작성**
+- [x] **Step 4: contract-approval.handler.ts 작성**
 
 ```ts
 import { Injectable, OnModuleInit } from "@nestjs/common";
@@ -543,9 +543,9 @@ export class ContractApprovalOutcomeHandler implements ApprovalOutcomeHandler, O
 }
 ```
 
-- [ ] **Step 5: controller/module 배선** — contracts.controller 에 `@MessagePattern(CONTRACT_PATTERNS.SUBMIT_APPROVAL)` 추가(기존 핸들러와 동일 위임). contracts.module 에 `imports: [ApprovalsModule]`(기존 imports 유지) + `providers` 에 `ContractApprovalOutcomeHandler` 추가.
-- [ ] **Step 6: 전체 테스트** — `pnpm test` → 전부 PASS (`tsc --noEmit` 도 클린)
-- [ ] **Step 7: Commit** — `git commit -m "feat: 계약 체결 품의 상신 + 반려 복귀 (결재선 details 저장 전환)"`
+- [x] **Step 5: controller/module 배선** — contracts.controller 에 `@MessagePattern(CONTRACT_PATTERNS.SUBMIT_APPROVAL)` 추가(기존 핸들러와 동일 위임). contracts.module 에 `imports: [ApprovalsModule]`(기존 imports 유지) + `providers` 에 `ContractApprovalOutcomeHandler` 추가.
+- [x] **Step 6: 전체 테스트** — `pnpm test` → 전부 PASS (`tsc --noEmit` 도 클린)
+- [x] **Step 7: Commit** — `git commit -m "feat: 계약 체결 품의 상신 + 반려 복귀 (결재선 details 저장 전환)"`
 
 ### Task 5: api-gateway — 결재 엔드포인트
 
@@ -559,7 +559,7 @@ export class ContractApprovalOutcomeHandler implements ApprovalOutcomeHandler, O
 **Interfaces:**
 - Produces: `GET /approvals/inbox` → `ApprovalInboxResponse`, `POST /approvals/:lineId/decide` → `ApprovalLineDto`, `POST /contracts/:id/approval/submit` → `ContractResponse`. decide/submit 은 결과의 `notifications` 를 `NotificationHubService.push` 로 SSE 전달(코멘트 패턴 동일).
 
-- [ ] **Step 1: dto.ts** —
+- [x] **Step 1: dto.ts** —
 
 ```ts
 import { IsIn, IsOptional, IsString, MaxLength } from "class-validator";
@@ -569,11 +569,11 @@ export class DecideApprovalDto {
 }
 ```
 
-- [ ] **Step 2: approvals.controller.ts** — `@Controller("approvals")` + `JwtAuthGuard`, notifications.controller 의 `USER_CLIENT`/`rpcToHttp`/`extractTenantContext` 패턴 그대로:
+- [x] **Step 2: approvals.controller.ts** — `@Controller("approvals")` + `JwtAuthGuard`, notifications.controller 의 `USER_CLIENT`/`rpcToHttp`/`extractTenantContext` 패턴 그대로:
   - `@Get("inbox")` → `APPROVAL_PATTERNS.INBOX` `{ viewerId: sub, tenantContext }`
   - `@Post(":lineId/decide")` → `APPROVAL_PATTERNS.DECIDE` `{ lineId, decision, comment, viewerId: sub, tenantContext }` → `map((r: DecideApprovalResult) => { r.notifications.forEach((n) => this.hub.push(n.recipientId, n.notification)); return r.line; })`
-- [ ] **Step 3: approvals.module.ts** — contracts 게이트웨이 모듈과 동일 구성(USER_CLIENT client + NotificationHubModule import). app.module 에 등록.
-- [ ] **Step 4: contracts.controller.ts 에 상신 추가** —
+- [x] **Step 3: approvals.module.ts** — contracts 게이트웨이 모듈과 동일 구성(USER_CLIENT client + NotificationHubModule import). app.module 에 등록.
+- [x] **Step 4: contracts.controller.ts 에 상신 추가** —
 
 ```ts
 @ApiOperation({ summary: "체결 품의 상신", description: "요청자 본인 + 검토 완료 상태에서만" })
@@ -593,8 +593,8 @@ submitApproval(@Param("id") id: string, @Req() req: Request): Promise<ContractRe
 }
 ```
 
-- [ ] **Step 5: 게이트웨이 빌드 확인** — `cd services/api-gateway && npx tsc --noEmit`
-- [ ] **Step 6: Commit** — `git commit -m "feat: gateway 결재 엔드포인트 (inbox/decide/상신)"`
+- [x] **Step 5: 게이트웨이 빌드 확인** — `cd services/api-gateway && npx tsc --noEmit`
+- [x] **Step 6: Commit** — `git commit -m "feat: gateway 결재 엔드포인트 (inbox/decide/상신)"`
 
 ### Task 6: web — 결재 API 모듈 + 결재 대기함 화면
 
@@ -611,7 +611,7 @@ submitApproval(@Param("id") id: string, @Req() req: Request): Promise<ContractRe
 - Consumes: `GET /approvals/inbox`, `POST /approvals/:lineId/decide`, `POST /contracts/:id/approval/submit`
 - Produces: `getApprovalInbox(): Promise<ApprovalInboxResponse>`, `decideApproval(lineId, body: { decision, comment? }): Promise<ApprovalLineDto>`, `submitContractApproval(id): Promise<ContractResponse>`, `toInboxRow(item: ApprovalInboxItem): InboxRow`, 라우트 `/approvals/inbox`, 사이드바 "결재" 그룹.
 
-- [ ] **Step 1: api 모듈** — `approvals.ts`:
+- [x] **Step 1: api 모듈** — `approvals.ts`:
 
 ```ts
 import type { ApprovalInboxResponse, ApprovalLineDto } from "@lawai/contracts";
@@ -629,7 +629,7 @@ export const decideApproval = (
 
 `contracts.ts` 에 `export const submitContractApproval = (id: string): Promise<ContractResponse> => apiFetch(\`/contracts/${id}/approval/submit\`, { method: "POST" });` (기존 apiFetch 옵션 관행 — headers 자동이면 그대로 — 확인 후 동일하게).
 
-- [ ] **Step 2: 실패 테스트** — `toInboxRow.test.ts`:
+- [x] **Step 2: 실패 테스트** — `toInboxRow.test.ts`:
 
 ```ts
 import { toInboxRow } from "./toInboxRow";
@@ -658,10 +658,10 @@ it("결재 유형 라벨: contract → 체결 품의", () => {
 });
 ```
 
-- [ ] **Step 3: 실패 확인** — `cd apps/web && pnpm test -- src/pages/approval/toInboxRow`
-- [ ] **Step 4: toInboxRow.ts 구현** — `TARGET_ROUTE: Record<string, (id: string) => string> = { contract: (id) => \`/contract/${id}\` }`, `TARGET_KIND_LABEL = { contract: "체결 품의" }`, `TYPE_LABEL = { draft: "기안", approve: "결재", agree: "합의", refer: "참조" }`. `InboxRow { lineId, title, code?: undefined, kindLabel, submittedByName, submittedByDept, stepLabel, typeLabel, submittedAtLabel(MM-DD), href, myStatus, myDecidedAtLabel }`.
-- [ ] **Step 5: 통과 확인 후 훅/페이지 구현** — `useApprovalInbox`: `useQuery({ queryKey: ["approvalInbox"], queryFn: getApprovalInbox })` + 렌더 중 `toInboxRow` 매핑. `ApprovalInboxPage`: 탭(내 차례 n / 처리한 결재) 상태 `useState`, 테이블은 기존 `ContractListPage`/lawkit `DataTable` 사용 패턴을 따르되 셀 구성이 다르므로 시맨틱 `table` + vanilla-extract 로 직접(목록 시안 마크업 기준). 내 차례 행 라이브 펄스 점(`@keyframes` + `prefers-reduced-motion` media in css.ts). [처리] 버튼 → `navigate(row.href)`. 빈 상태 문구: "처리할 결재가 없습니다".
-- [ ] **Step 6: 라우트/사이드바** — routes.tsx 에 `<Route path="/approvals/inbox" element={<ApprovalInboxPage />} />`. Sidebar 섹션 배열의 "계약 관리" 다음에:
+- [x] **Step 3: 실패 확인** — `cd apps/web && pnpm test -- src/pages/approval/toInboxRow`
+- [x] **Step 4: toInboxRow.ts 구현** — `TARGET_ROUTE: Record<string, (id: string) => string> = { contract: (id) => \`/contract/${id}\` }`, `TARGET_KIND_LABEL = { contract: "체결 품의" }`, `TYPE_LABEL = { draft: "기안", approve: "결재", agree: "합의", refer: "참조" }`. `InboxRow { lineId, title, code?: undefined, kindLabel, submittedByName, submittedByDept, stepLabel, typeLabel, submittedAtLabel(MM-DD), href, myStatus, myDecidedAtLabel }`.
+- [x] **Step 5: 통과 확인 후 훅/페이지 구현** — `useApprovalInbox`: `useQuery({ queryKey: ["approvalInbox"], queryFn: getApprovalInbox })` + 렌더 중 `toInboxRow` 매핑. `ApprovalInboxPage`: 탭(내 차례 n / 처리한 결재) 상태 `useState`, 테이블은 기존 `ContractListPage`/lawkit `DataTable` 사용 패턴을 따르되 셀 구성이 다르므로 시맨틱 `table` + vanilla-extract 로 직접(목록 시안 마크업 기준). 내 차례 행 라이브 펄스 점(`@keyframes` + `prefers-reduced-motion` media in css.ts). [처리] 버튼 → `navigate(row.href)`. 빈 상태 문구: "처리할 결재가 없습니다".
+- [x] **Step 6: 라우트/사이드바** — routes.tsx 에 `<Route path="/approvals/inbox" element={<ApprovalInboxPage />} />`. Sidebar 섹션 배열의 "계약 관리" 다음에:
 
 ```ts
 {
@@ -672,8 +672,8 @@ it("결재 유형 라벨: contract → 체결 품의", () => {
 
 (Sidebar.test.tsx 스냅샷/기대 목록 갱신)
 
-- [ ] **Step 7: 테스트** — `pnpm test -- src/pages/approval src/components/layout/Sidebar`
-- [ ] **Step 8: Commit** — `git commit -m "feat: 결재 대기함 화면 + 결재 API 모듈"`
+- [x] **Step 7: 테스트** — `pnpm test -- src/pages/approval src/components/layout/Sidebar`
+- [x] **Step 8: Commit** — `git commit -m "feat: 결재 대기함 화면 + 결재 API 모듈"`
 
 ### Task 7: web — 결재선 모달 userId 보존
 
@@ -686,7 +686,7 @@ it("결재 유형 라벨: contract → 체결 품의", () => {
 - Consumes: `PersonRef { id, name, dept }` (`api/directory.ts`)
 - Produces: `Approver = { userId: string | null; name: string; dept: string; type: "draft"|"approve"|"agree"|"refer" }` — 이후 CreateContractRequest.approvers 로 그대로 전달.
 
-- [ ] **Step 1: 실패 테스트** — `toCreateRequest.test.ts` 에 추가:
+- [x] **Step 1: 실패 테스트** — `toCreateRequest.test.ts` 에 추가:
 
 ```ts
 it("approvers 에 userId 를 보존한다", () => {
@@ -697,9 +697,9 @@ it("approvers 에 userId 를 보존한다", () => {
 
 `toEditDefaults.test.ts` 에: 응답 `plannedApprovers`(없으면 기존 approvalLine.steps) → 폼 approvers 에 userId 매핑 확인.
 
-- [ ] **Step 2: 실패 확인 후 구현** — `approverSchema` 에 `userId: z.string().nullable().default(null)` 추가(기존 저장분 호환: default). `ApprovalLineModal.addPerson`: `{ id: st..., userId: p.id, name: p.name, dept: p.dept, type: addType }`; `apply`: `{ userId: s.userId ?? null, name, dept, type }`. 기본 기안 스텝(요청자 본인)은 `useMe` 의 id 사용 가능하면 주입, 아니면 null. `toEditDefaults`: `plannedApprovers` 우선, 폴백 `approvalLine.steps`(`userId` 필드 포함).
-- [ ] **Step 3: 테스트** — `pnpm test -- src/pages/contract/toCreateRequest src/pages/contract/toEditDefaults src/pages/contract/request-schema`
-- [ ] **Step 4: Commit** — `git commit -m "feat: 결재선 스텝에 실제 사용자 연결 (userId 보존)"`
+- [x] **Step 2: 실패 확인 후 구현** — `approverSchema` 에 `userId: z.string().nullable().default(null)` 추가(기존 저장분 호환: default). `ApprovalLineModal.addPerson`: `{ id: st..., userId: p.id, name: p.name, dept: p.dept, type: addType }`; `apply`: `{ userId: s.userId ?? null, name, dept, type }`. 기본 기안 스텝(요청자 본인)은 `useMe` 의 id 사용 가능하면 주입, 아니면 null. `toEditDefaults`: `plannedApprovers` 우선, 폴백 `approvalLine.steps`(`userId` 필드 포함).
+- [x] **Step 3: 테스트** — `pnpm test -- src/pages/contract/toCreateRequest src/pages/contract/toEditDefaults src/pages/contract/request-schema`
+- [x] **Step 4: Commit** — `git commit -m "feat: 결재선 스텝에 실제 사용자 연결 (userId 보존)"`
 
 ### Task 8: web — 계약 상세 상신·결재 처리 통합 + 모션
 
@@ -713,7 +713,7 @@ it("approvers 에 userId 를 보존한다", () => {
 - Consumes: `submitContractApproval`, `decideApproval`, `ContractResponse.plannedApprovers/approvalLine(currentStepId·steps[].userId·comment)`, `useMe`(내 userId)
 - Produces: `getSubmitPrecheck(input: { plannedApprovers: ApproverSnapshot[]; hasContractFile: boolean; annualAmountKrw: number | null }): { items: PrecheckItem[]; canSubmit: boolean }`, `getActionView(status, can, approval: { isRequester: boolean; isMyTurn: boolean; canSubmit: boolean })` 확장.
 
-- [ ] **Step 1: getSubmitPrecheck 실패 테스트**
+- [x] **Step 1: getSubmitPrecheck 실패 테스트**
 
 ```ts
 import { getSubmitPrecheck } from "./getSubmitPrecheck";
@@ -738,17 +738,17 @@ it("계약서 파일 없으면 canSubmit=false", () => {
 });
 ```
 
-- [ ] **Step 2: 구현** — `PrecheckItem { key: "approvers" | "contractFile" | "financeAgree"; ok: boolean; label: string; sub?: string }`. 규칙: approvers 1개 이상(필수) / 계약서(role==="contract") 파일 존재(필수) / `annualAmountKrw > 100_000_000` 이면 agree 스텝 포함 권고(경고 — canSubmit 에는 미반영). `canSubmit = 필수 항목 전부 ok`. 순수 함수, 렌더 중 호출.
-- [ ] **Step 3: getActionView 확장 (테스트 먼저)** — 시그니처를 `getActionView(status, can, approval: { isRequester: boolean; isMyTurn: boolean; canSubmit: boolean })` 로. 분기 추가: `status === "reviewDone" && approval.isRequester` → `buttons` 에 `{ kind: "submitApproval", label: "체결 품의 상신", color: "primary", variant: "default" }` (canSubmit false 면 `disabled: true` 필드 추가), head "체결 품의". `status === "signing" && approval.isMyTurn` → head "결재 현황", `isApprovalMode: true`, `buttons: [{ kind: "approveStep", ... }, { kind: "rejectStep", ... }]`. 기존 케이스(반려/검토완료/배정) 회귀 테스트 유지 — 기존 `getActionView` 호출부/테스트 전부 새 3번째 인자 기본값 `{ isRequester: false, isMyTurn: false, canSubmit: false }` 로 갱신.
-- [ ] **Step 4: useContractApproval.ts** — react-query `useMutation` 2개: `submit`(성공 시 `queryClient.invalidateQueries(["contract", id])`), `decide(lineId, decision, comment)`(동일 invalidate + `["approvalInbox"]`). 에러는 기존 훅 관행(토스트/alert)대로.
-- [ ] **Step 5: ReviewActionPanel/DetailPage 통합** — `ContractDetailPage` 에서 파생: `me` (기존 useMe 훅 또는 auth 저장 userId), `isRequester = d.createdById === myId`, `line = d.approvalLine`, `myTurn = line?.steps.find((s) => s.id === line.currentStepId)?.userId === myId`, `precheck = getSubmitPrecheck(...)`. ReviewActionPanel props 확장(approval 컨텍스트 + onSubmitApproval/onApprove/onReject 핸들러). 패널 렌더:
+- [x] **Step 2: 구현** — `PrecheckItem { key: "approvers" | "contractFile" | "financeAgree"; ok: boolean; label: string; sub?: string }`. 규칙: approvers 1개 이상(필수) / 계약서(role==="contract") 파일 존재(필수) / `annualAmountKrw > 100_000_000` 이면 agree 스텝 포함 권고(경고 — canSubmit 에는 미반영). `canSubmit = 필수 항목 전부 ok`. 순수 함수, 렌더 중 호출.
+- [x] **Step 3: getActionView 확장 (테스트 먼저)** — 시그니처를 `getActionView(status, can, approval: { isRequester: boolean; isMyTurn: boolean; canSubmit: boolean })` 로. 분기 추가: `status === "reviewDone" && approval.isRequester` → `buttons` 에 `{ kind: "submitApproval", label: "체결 품의 상신", color: "primary", variant: "default" }` (canSubmit false 면 `disabled: true` 필드 추가), head "체결 품의". `status === "signing" && approval.isMyTurn` → head "결재 현황", `isApprovalMode: true`, `buttons: [{ kind: "approveStep", ... }, { kind: "rejectStep", ... }]`. 기존 케이스(반려/검토완료/배정) 회귀 테스트 유지 — 기존 `getActionView` 호출부/테스트 전부 새 3번째 인자 기본값 `{ isRequester: false, isMyTurn: false, canSubmit: false }` 로 갱신.
+- [x] **Step 4: useContractApproval.ts** — react-query `useMutation` 2개: `submit`(성공 시 `queryClient.invalidateQueries(["contract", id])`), `decide(lineId, decision, comment)`(동일 invalidate + `["approvalInbox"]`). 에러는 기존 훅 관행(토스트/alert)대로.
+- [x] **Step 5: ReviewActionPanel/DetailPage 통합** — `ContractDetailPage` 에서 파생: `me` (기존 useMe 훅 또는 auth 저장 userId), `isRequester = d.createdById === myId`, `line = d.approvalLine`, `myTurn = line?.steps.find((s) => s.id === line.currentStepId)?.userId === myId`, `precheck = getSubmitPrecheck(...)`. ReviewActionPanel props 확장(approval 컨텍스트 + onSubmitApproval/onApprove/onReject 핸들러). 패널 렌더:
   - 상신 모드: precheck 체크리스트(ok → check 아이콘/warn → 주의 아이콘, 시안 `aichk` 스타일) + 상신 버튼(disabled=!canSubmit) + 안내 문구.
   - 결재 모드(내 차례): 의견 textarea(`useState`) + [승인]/[반려] — 반려는 `ApprovalRejectModal`(사유 textarea + 경고 문구 + [반려 확정], lawkit Modal) 열어 확정. 스텝 목록에 각 스텝 상태(`승인 MM-DD` / `반려` / `내 차례` / `대기`)와 comment 표시(`toDetailView.toApprovalStep` 확장: userId·comment·decidedAt 통과).
   - 결재선 카드(ApprovalLineCard): 라인 없으면 `plannedApprovers` 로 "(예정)" 표시.
-- [ ] **Step 6: 모션** — `contractDetail.css.ts` 에 vanilla-extract `keyframes` 로 `ringPulse`(내 차례 스텝 번호·현재 라이프사이클), `boxGlow`(내 차례 액션 박스) 추가, `@media (prefers-reduced-motion: reduce)` 에서 `animation: "none"`. 시안 `approval-process-mockup.html` 의 값 사용(2s ease-out infinite / 2.6s ease-in-out infinite).
-- [ ] **Step 7: 컴포넌트 테스트 갱신** — `ContractDetailPage.test.tsx`: 요청자+reviewDone 에 상신 버튼 노출 / 비요청자에 미노출 / signing+내 차례에 승인·반려 노출 / 반려 모달 확정 시 decide 호출. `getActionView.test` 신규 분기.
-- [ ] **Step 8: 전체 프론트 테스트** — `cd apps/web && pnpm test` → PASS
-- [ ] **Step 9: Commit** — `git commit -m "feat: 계약 상세 체결 품의 상신·결재 처리 통합 (사전점검 + 내 차례 모션)"`
+- [x] **Step 6: 모션** — `contractDetail.css.ts` 에 vanilla-extract `keyframes` 로 `ringPulse`(내 차례 스텝 번호·현재 라이프사이클), `boxGlow`(내 차례 액션 박스) 추가, `@media (prefers-reduced-motion: reduce)` 에서 `animation: "none"`. 시안 `approval-process-mockup.html` 의 값 사용(2s ease-out infinite / 2.6s ease-in-out infinite).
+- [x] **Step 7: 컴포넌트 테스트 갱신** — `ContractDetailPage.test.tsx`: 요청자+reviewDone 에 상신 버튼 노출 / 비요청자에 미노출 / signing+내 차례에 승인·반려 노출 / 반려 모달 확정 시 decide 호출. `getActionView.test` 신규 분기.
+- [x] **Step 8: 전체 프론트 테스트** — `cd apps/web && pnpm test` → PASS
+- [x] **Step 9: Commit** — `git commit -m "feat: 계약 상세 체결 품의 상신·결재 처리 통합 (사전점검 + 내 차례 모션)"`
 
 ### Task 9: 수동 검증 + 마무리
 
