@@ -18,7 +18,10 @@ export class AiCredentialsService {
     @Inject("AI_CREDENTIAL_VERIFIER") private readonly verifier: AiCredentialVerifier,
   ) {}
 
-  async get(viewerId: string, _ctx: TenantContext): Promise<MyAiCredentialDto | null> {
+  async get(viewerId: string | undefined, _ctx: TenantContext): Promise<MyAiCredentialDto | null> {
+    if (!viewerId) {
+      throw new RpcException({ status: 401, message: "인증이 필요합니다" });
+    }
     const row = await this.prisma.aiProviderCredential.findUnique({ where: { userId: viewerId } });
     if (!row) return null;
     return {

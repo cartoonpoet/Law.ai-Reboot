@@ -36,6 +36,13 @@ describe("AiCredentialsService", () => {
     expect(result).toEqual({ provider: "openai", model: "gpt-mini", hasApiKey: true, lastVerifiedAt: "2026-09-01T00:00:00.000Z" });
   });
 
+  it("get: viewerId 없으면 401 이고 조회하지 않는다", async () => {
+    await expect(
+      svc.get(undefined, { tenantId: "t1", isSystemAdmin: false }),
+    ).rejects.toBeInstanceOf(RpcException);
+    expect(prisma.aiProviderCredential.findUnique).not.toHaveBeenCalled();
+  });
+
   it("save: 검증 실패하면 400 이고 저장하지 않는다", async () => {
     verifier.verify.mockResolvedValue(false);
     await expect(
