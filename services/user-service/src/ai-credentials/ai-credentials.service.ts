@@ -38,9 +38,18 @@ export class AiCredentialsService {
     if (!req.viewerId) {
       throw new RpcException({ status: 401, message: "인증이 필요합니다" });
     }
-    const ok = await this.verifier.verify({ provider: req.provider, model: req.model, apiKey: req.apiKey });
-    if (!ok) {
-      throw new RpcException({ status: 400, message: "API 키 검증에 실패했습니다" });
+    // 검증 실패 사유를 그대로 노출한다 — 키 문제/모델 문제/인프라 문제를 구분하지 못하면
+    // 사용자는 멀쩡한 키를 두고 키를 의심하게 된다.
+    const verified = await this.verifier.verify({
+      provider: req.provider,
+      model: req.model,
+      apiKey: req.apiKey,
+    });
+    if (!verified.ok) {
+      throw new RpcException({
+        status: 400,
+        message: `API 키 검증에 실패했습니다: ${verified.message}`,
+      });
     }
     const tenantId = req.tenantContext?.tenantId;
     if (!tenantId) {

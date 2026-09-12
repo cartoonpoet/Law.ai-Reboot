@@ -1,6 +1,7 @@
 import { RpcException } from "@nestjs/microservices";
 import { AiCredentialsService, type CryptoPort } from "./ai-credentials.service";
 import type { PrismaService } from "../prisma/prisma.service";
+import type { AiCredentialVerifier } from "./ai-credential-verifier";
 
 // 의존성 mock — 이 서비스가 실제로 호출하는 메서드만 갖춘 객체를 만들고,
 // 생성자 주입 시점에만 좁은 캐스팅을 둔다(타입 전체를 흉내 낼 필요가 없다).
@@ -18,13 +19,14 @@ const createCryptoMock = () => ({
 describe("AiCredentialsService", () => {
   let prisma: ReturnType<typeof createPrismaMock>;
   let crypto: ReturnType<typeof createCryptoMock>;
-  let verifier: { verify: jest.Mock };
+  // jest.MockedObject 로 두면 verify 의 반환 타입이 포트와 묶여, 시그니처가 바뀔 때 tsc 가 잡는다.
+  let verifier: jest.Mocked<AiCredentialVerifier>;
   let svc: AiCredentialsService;
 
   beforeEach(() => {
     prisma = createPrismaMock();
     crypto = createCryptoMock();
-    verifier = { verify: jest.fn().mockResolvedValue(true) };
+    verifier = { verify: jest.fn().mockResolvedValue({ ok: true }) };
     svc = new AiCredentialsService(prisma as unknown as PrismaService, crypto as CryptoPort, verifier);
   });
 
@@ -50,11 +52,20 @@ describe("AiCredentialsService", () => {
   });
 
   it("save: 검증 실패하면 400 이고 저장하지 않는다", async () => {
-    verifier.verify.mockResolvedValue(false);
+    verifier.verify.mockResolvedValue({ ok: false, message: "OpenAI 인증 실패(401): invalid api key" });
     await expect(
       svc.save({ provider: "openai", model: "gpt-4o-mini", apiKey: "sk-bad", viewerId: "u1", tenantContext: { tenantId: "t1", isSystemAdmin: false } }),
     ).rejects.toBeInstanceOf(RpcException);
     expect(prisma.aiProviderCredential.upsert).not.toHaveBeenCalled();
+  });
+
+  it("save: 검증 실패 사유를 그대로 에러 메시지에 싣는다(키 문제/인프라 문제 구분)", async () => {
+    verifier.verify.mockResolvedValue({ ok: false, message: "connect ECONNREFUSED 127.0.0.1:4003" });
+    await expect(
+      svc.save({ provider: "openai", model: "gpt-4o-mini", apiKey: "sk-good", viewerId: "u1", tenantContext: { tenantId: "t1", isSystemAdmin: false } }),
+    ).rejects.toMatchObject({
+      error: { status: 400, message: expect.stringContaining("ECONNREFUSED") },
+    });
   });
 
   it("save: 검증 성공하면 암호화해서 저장", async () => {
