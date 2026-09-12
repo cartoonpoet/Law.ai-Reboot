@@ -1,30 +1,36 @@
 import { RpcException } from "@nestjs/microservices";
-import { AiCredentialsService } from "./ai-credentials.service";
+import { AiCredentialsService, type CryptoPort } from "./ai-credentials.service";
+import type { PrismaService } from "../prisma/prisma.service";
+
+// 의존성 mock — 이 서비스가 실제로 호출하는 메서드만 갖춘 객체를 만들고,
+// 생성자 주입 시점에만 좁은 캐스팅을 둔다(타입 전체를 흉내 낼 필요가 없다).
+const createPrismaMock = () => ({
+  aiProviderCredential: {
+    findUnique: jest.fn(),
+    upsert: jest.fn(),
+  },
+});
+const createCryptoMock = () => ({
+  encrypt: jest.fn((v: string) => `enc(${v})`),
+  decrypt: jest.fn((v: string) => v.replace(/^enc\(|\)$/g, "")),
+});
 
 describe("AiCredentialsService", () => {
-  let prisma: any;
-  let crypto: any;
+  let prisma: ReturnType<typeof createPrismaMock>;
+  let crypto: ReturnType<typeof createCryptoMock>;
   let verifier: { verify: jest.Mock };
   let svc: AiCredentialsService;
 
   beforeEach(() => {
-    prisma = {
-      aiProviderCredential: {
-        findUnique: jest.fn(),
-        upsert: jest.fn(),
-      },
-    };
-    crypto = {
-      encrypt: jest.fn((v: string) => `enc(${v})`),
-      decrypt: jest.fn((v: string) => v.replace(/^enc\(|\)$/g, "")),
-    };
+    prisma = createPrismaMock();
+    crypto = createCryptoMock();
     verifier = { verify: jest.fn().mockResolvedValue(true) };
-    svc = new AiCredentialsService(prisma, crypto, verifier);
+    svc = new AiCredentialsService(prisma as unknown as PrismaService, crypto as CryptoPort, verifier);
   });
 
   it("get: 설정이 없으면 null", async () => {
     prisma.aiProviderCredential.findUnique.mockResolvedValue(null);
-    const result = await svc.get("u1", { tenantId: "t1", isSystemAdmin: false });
+    const result = await svc.get("u1");
     expect(result).toBeNull();
   });
 
@@ -32,13 +38,13 @@ describe("AiCredentialsService", () => {
     prisma.aiProviderCredential.findUnique.mockResolvedValue({
       provider: "openai", model: "gpt-mini", encryptedApiKey: "enc(sk-x)", lastVerifiedAt: new Date("2026-09-01"),
     });
-    const result = await svc.get("u1", { tenantId: "t1", isSystemAdmin: false });
+    const result = await svc.get("u1");
     expect(result).toEqual({ provider: "openai", model: "gpt-mini", hasApiKey: true, lastVerifiedAt: "2026-09-01T00:00:00.000Z" });
   });
 
   it("get: viewerId 없으면 401 이고 조회하지 않는다", async () => {
     await expect(
-      svc.get(undefined, { tenantId: "t1", isSystemAdmin: false }),
+      svc.get(undefined),
     ).rejects.toBeInstanceOf(RpcException);
     expect(prisma.aiProviderCredential.findUnique).not.toHaveBeenCalled();
   });

@@ -10,7 +10,7 @@ export class AiCredentialsController {
 
   @MessagePattern(AI_CREDENTIAL_PATTERNS.GET)
   get(@Payload() req: GetMyAiCredentialRequest) {
-    return this.aiCredentials.get(req.viewerId!, req.tenantContext!);
+    return this.aiCredentials.get(req.viewerId);
   }
 
   @MessagePattern(AI_CREDENTIAL_PATTERNS.SAVE)

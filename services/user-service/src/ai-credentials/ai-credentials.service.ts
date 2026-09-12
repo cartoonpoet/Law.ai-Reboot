@@ -1,6 +1,6 @@
 import { Injectable, Inject } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
-import type { TenantContext, MyAiCredentialDto, SaveMyAiCredentialRequest } from "@lawai/contracts";
+import type { MyAiCredentialDto, SaveMyAiCredentialRequest } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import type { AiCredentialVerifier } from "./ai-credential-verifier";
 
@@ -18,7 +18,9 @@ export class AiCredentialsService {
     @Inject("AI_CREDENTIAL_VERIFIER") private readonly verifier: AiCredentialVerifier,
   ) {}
 
-  async get(viewerId: string | undefined, _ctx: TenantContext): Promise<MyAiCredentialDto | null> {
+  // 자격증명은 userId 유니크(사용자 1인당 1건)라 테넌트 스코프가 개입할 여지가 없다 —
+  // 그래서 TenantContext 를 받지 않는다.
+  async get(viewerId: string | undefined): Promise<MyAiCredentialDto | null> {
     if (!viewerId) {
       throw new RpcException({ status: 401, message: "인증이 필요합니다" });
     }

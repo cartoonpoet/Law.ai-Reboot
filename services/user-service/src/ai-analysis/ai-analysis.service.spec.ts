@@ -1,12 +1,30 @@
 import { AiAnalysisService } from "./ai-analysis.service";
+import type { PrismaService } from "../prisma/prisma.service";
+import type { AiCredentialsService } from "../ai-credentials/ai-credentials.service";
+import type { AiServiceClient } from "../ai-credentials/ai-service.client";
+
+// 의존성 mock — 이 서비스가 실제로 호출하는 메서드만 갖춘 객체를 만들고,
+// 생성자 주입 시점에만 좁은 캐스팅을 둔다(타입 전체를 흉내 낼 필요가 없다).
+const createPrismaMock = () => ({
+  aiAnalysis: { upsert: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
+});
+const createCredentialsMock = () => ({ getDecryptedKeyFor: jest.fn() });
+const createAiClientMock = () => ({ analyze: jest.fn() });
 
 describe("AiAnalysisService", () => {
-  let prisma: any; let credentials: any; let aiClient: any; let svc: AiAnalysisService;
+  let prisma: ReturnType<typeof createPrismaMock>;
+  let credentials: ReturnType<typeof createCredentialsMock>;
+  let aiClient: ReturnType<typeof createAiClientMock>;
+  let svc: AiAnalysisService;
   beforeEach(() => {
-    prisma = { aiAnalysis: { upsert: jest.fn(), update: jest.fn(), findUnique: jest.fn() } };
-    credentials = { getDecryptedKeyFor: jest.fn() };
-    aiClient = { analyze: jest.fn() };
-    svc = new AiAnalysisService(prisma, credentials, aiClient);
+    prisma = createPrismaMock();
+    credentials = createCredentialsMock();
+    aiClient = createAiClientMock();
+    svc = new AiAnalysisService(
+      prisma as unknown as PrismaService,
+      credentials as unknown as AiCredentialsService,
+      aiClient as unknown as AiServiceClient,
+    );
   });
 
   it("trigger: 자격증명 없으면 skipped 로 upsert 하고 analyze 호출 안 함", async () => {
