@@ -788,6 +788,11 @@ export const useAiAnalysis = (targetId: string, kind: string) => {
 
 ### Task 11: 수동 검증 + 마무리
 
-- [ ] **Step 1: 로컬 기동** — Postgres + auth-service + user-service + ai-service + api-gateway + apps/web. 실제(또는 테스트용) OpenAI API 키로: 계약 생성(파일 첨부) → precheck 결과 확인 → legalReview 배정 → risk 결과 확인 → reviewDone → submitBriefing 확인 → 결재 상신 → approvalBriefing 확인. 자격증명 미설정 사용자로 트리거되는 경우 `skipped` 렌더 확인.
-- [ ] **Step 2: erdify ERD 동기화 확인** (Task 2 에서 보류됐다면 재시도)
-- [ ] **Step 3: 남은 체크박스 반영 후 Commit** — `git commit -m "docs: AI 연동 플랜 체크박스 갱신"`
+- [x] **Step 1: 로컬 기동** — Postgres + auth-service + user-service + ai-service + api-gateway + apps/web 전부 실제 기동(DI 에러 없음, `AiCredentialsModule`/`AiAnalysisModule` 정상 초기화, gateway에 5개 AI 라우트 전부 매핑 확인). 실 API 키가 없어 다음 범위로 검증:
+  - 실 `POST /contracts`(파일 `role=contract` 첨부)로 계약 생성 → `precheck` 트리거 자동 발생 → 자격증명 미설정이라 `AiAnalysis.status="skipped"` 정확히 반영 확인(curl)
+  - 가짜 API Key로 `PUT /ai/my-credential` 시도 → 실제로 OpenAI에 검증 호출이 나가 401을 받고 400으로 거부, DB 미저장 확인(curl) — 전체 RPC 체인(gateway→user-service→ai-service→OpenAI) 실동작 확인
+  - 브라우저 실행: `/system` 설정 화면(미설정 상태) 및 계약 상세의 AI 카드("AI 설정이 필요합니다 · 설정하러 가기") 크래시 없이 렌더링, 콘솔 에러 없음 확인
+  - **이 과정에서 실제 크래시 버그 발견 및 수정**: `GET /ai/my-credential`·`GET /ai/analysis`가 `null` 반환 시 NestJS가 빈 바디(Content-Length 0)로 응답하는데 프론트 `apiFetch`가 무조건 `res.json()`을 호출해 파싱 에러로 크래시 — 신규 사용자(자격증명 미설정, 기본 상태) 전원과 아직 트리거 안 된 분석 조회마다 발생하는 고빈도 버그였음. `apiFetchNullable` 헬퍼 추가로 수정, 실 서비스 재현+해결 확인까지 완료(커밋 c0a3622..cdb7f53)
+  - **미검증**: `legalReview`(risk)/`reviewDone`(submitBriefing)/결재 상신(approvalBriefing) 트리거와 **실제 성공하는 OpenAI 분석 결과**는 유효한 실 API 키가 없어 검증하지 못함 — 트리거 배선 자체는 Task 7의 유닛 테스트로 커버되어 있으나, 실 왕복은 사용자가 실 키로 추후 확인 필요
+- [x] **Step 2: erdify ERD 동기화 확인** — 이번 세션도 네트워크 연결 실패(Task 2 구현자가 이미 시도·실패 보고). 계속 보류 — 연결 가능해지면 `ai` 스키마(AiProviderCredential/AiAnalysis) 반영 필요
+- [x] **Step 3: 남은 체크박스 반영 후 Commit** — `git commit -m "docs: AI 연동 플랜 체크박스 갱신"`
