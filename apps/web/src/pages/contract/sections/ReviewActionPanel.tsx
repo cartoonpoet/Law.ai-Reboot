@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Button, Icon, Avatar } from "@lawkit/ui";
 import type { ContractStatus, ContractCan } from "@lawai/contracts";
 import type { ApprovalStepView } from "../mock-data";
+import type { PrecheckItem } from "../getSubmitPrecheck";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { getStatusLabel } from "../contractStatus";
 import { getActionView } from "../getActionView";
+import type { ApprovalActionContext } from "../getActionView";
 import { cx } from "../cx";
 import * as css from "../contractDetail.css";
 
@@ -16,12 +19,19 @@ interface ReviewActionPanelProps {
   onReject: () => void;
   onReviewDone: () => void;
   onAssign: () => void;
+  // 체결 품의(상신/결재 처리) — 결재 모듈 전용.
+  approval: ApprovalActionContext;
+  precheckItems: PrecheckItem[];
+  onSubmitApproval: () => void;
+  isSubmitting: boolean;
+  onApproveStep: (comment: string) => void;
+  onOpenRejectModal: () => void;
+  isDeciding: boolean;
 }
 
 /**
- * 우측 레일 "검토 액션 / 결재 현황" 패널.
- * status + can 으로 getActionView 가 파생한 선언적 뷰모델을 렌더한다(분기 로직은 순수 함수에 위임).
- * 결재 단계(signing 이후)는 결재 현황으로 전환 — 반려/배정 버튼 숨기고 approvalLine 진행 표시.
+ * 우측 레일 "검토 액션 / 체결 품의 / 결재 현황" 패널.
+ * status + can + approval 로 getActionView 가 파생한 선언적 뷰모델을 렌더한다(분기 로직은 순수 함수에 위임).
  */
 export function ReviewActionPanel({
   status,
@@ -32,12 +42,23 @@ export function ReviewActionPanel({
   onReject,
   onReviewDone,
   onAssign,
+  approval,
+  precheckItems,
+  onSubmitApproval,
+  isSubmitting,
+  onApproveStep,
+  onOpenRejectModal,
+  isDeciding,
 }: ReviewActionPanelProps) {
-  const view = getActionView(status, can);
+  const view = getActionView(status, can, approval);
+  const [comment, setComment] = useState("");
   const handlers = {
     reject: onReject,
     reviewDone: onReviewDone,
     assign: onAssign,
+    submitApproval: onSubmitApproval,
+    approveStep: () => onApproveStep(comment),
+    rejectStep: onOpenRejectModal,
   } as const;
 
   return (
@@ -67,54 +88,138 @@ export function ReviewActionPanel({
 
           {view.notice && <p className={css.actionNotice}>{view.notice}</p>}
 
+          {view.isSubmitMode && <PrecheckList items={precheckItems} />}
+
           {view.isApprovalMode && approvalLine && approvalLine.length > 0 && (
-            <div>
-              {approvalLine.map((step) => (
-                <div key={step.order} className={css.apvrow}>
-                  <span
-                    className={cx(
-                      css.apvnum,
-                      step.statusKind === "done" && css.apvnumDone,
-                      step.statusKind === "now" && css.apvnumActive,
-                    )}
-                  >
-                    {step.order}
-                  </span>
-                  <span>
-                    <span className={css.apvname}>{step.name}</span>
-                    <span className={css.apvdept}>{step.dept}</span>
-                  </span>
-                  <span className={cx(css.apvtype, css.apvtypeKind[step.typeKind])}>
-                    {step.type}
-                  </span>
-                  <span
-                    className={cx(
-                      css.apvstat,
-                      css.apvstatWrap,
-                      css.apvstatKind[step.statusKind],
-                    )}
-                  >
-                    {step.status}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <ApprovalLineRows
+              steps={approvalLine}
+              isDecideMode={view.isDecideMode}
+              comment={comment}
+              onCommentChange={setComment}
+              onApprove={() => onApproveStep(comment)}
+              onOpenRejectModal={onOpenRejectModal}
+              isDeciding={isDeciding}
+            />
           )}
 
           {view.isApprovalMode && (!approvalLine || approvalLine.length === 0) && (
             <p className={css.docEmpty}>등록된 결재선이 없습니다.</p>
           )}
 
-          {!view.isApprovalMode && view.buttons.length > 0 && (
+          {!view.isDecideMode && !view.isApprovalMode && view.buttons.length > 0 && (
             <ReviewActionButtons
               buttons={view.buttons}
-              isUpdating={isUpdating}
+              isUpdating={isUpdating || isSubmitting}
               handlers={handlers}
             />
           )}
         </div>
       </div>
     </section>
+  );
+}
+
+function PrecheckList({ items }: { items: PrecheckItem[] }) {
+  return (
+    <div className={css.precheckList}>
+      {items.map((item) => (
+        <div key={item.key} className={css.precheckRow}>
+          <span
+            className={cx(
+              css.precheckIcon,
+              item.ok ? css.precheckIconOk : css.precheckIconWarn,
+            )}
+          >
+            <Icon name={item.ok ? "check" : "alertTriangle"} size="sm" />
+          </span>
+          <div>
+            <span className={css.precheckLabel}>{item.label}</span>
+            {item.sub && <span className={css.precheckSub}>{item.sub}</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface ApprovalLineRowsProps {
+  steps: ApprovalStepView[];
+  isDecideMode: boolean;
+  comment: string;
+  onCommentChange: (value: string) => void;
+  onApprove: () => void;
+  onOpenRejectModal: () => void;
+  isDeciding: boolean;
+}
+
+/** 결재 현황 타임라인 — 내 차례(statusKind="now")면 의견 입력 + 승인/반려 박스를 그 자리에 끼워 넣는다. */
+function ApprovalLineRows({
+  steps,
+  isDecideMode,
+  comment,
+  onCommentChange,
+  onApprove,
+  onOpenRejectModal,
+  isDeciding,
+}: ApprovalLineRowsProps) {
+  return (
+    <div>
+      {steps.map((step) => (
+        <div key={step.id}>
+          <div className={css.apvrow}>
+            <span
+              className={cx(
+                css.apvnum,
+                step.statusKind === "done" && css.apvnumDone,
+                step.statusKind === "rejected" && css.apvnumRejected,
+                step.statusKind === "now" && css.apvnumActive,
+              )}
+            >
+              {step.statusKind === "done" ? "✓" : step.order + 1}
+            </span>
+            <span>
+              <span className={css.apvname}>{step.name}</span>
+              <span className={css.apvdept}>{step.dept}</span>
+            </span>
+            <span className={cx(css.apvtype, css.apvtypeKind[step.typeKind])}>
+              {step.type}
+            </span>
+            <span className={cx(css.apvstat, css.apvstatKind[step.statusKind])}>
+              {step.status}
+            </span>
+          </div>
+          {step.comment && <p className={css.apvcomment}>{step.comment}</p>}
+          {isDecideMode && step.statusKind === "now" && (
+            <div className={css.decideBox}>
+              <div className={css.decideLabel}>
+                <Icon name="edit" size="sm" />
+                결재 의견 (선택)
+              </div>
+              <textarea
+                className={css.decideTextarea}
+                placeholder="승인/반려 의견을 입력하세요"
+                value={comment}
+                onChange={(e) => onCommentChange(e.target.value)}
+              />
+              <div className={css.decideButtons}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  color="danger"
+                  disabled={isDeciding}
+                  onClick={onOpenRejectModal}
+                >
+                  반려
+                </Button>
+                <Button type="button" disabled={isDeciding} onClick={onApprove}>
+                  승인
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -125,13 +230,17 @@ interface ReviewActionButtonsProps {
     reject: () => void;
     reviewDone: () => void;
     assign: () => void;
+    submitApproval: () => void;
+    approveStep: () => void;
+    rejectStep: () => void;
   };
 }
 
-/** 반려/검토완료는 2열 그리드, 배정은 전체폭(시안 액션패널). */
+/** 반려/검토완료는 2열 그리드, 배정·상신은 전체폭(시안 액션패널). */
 function ReviewActionButtons({ buttons, isUpdating, handlers }: ReviewActionButtonsProps) {
   const pair = buttons.filter((b) => b.kind === "reject" || b.kind === "reviewDone");
   const assign = buttons.find((b) => b.kind === "assign");
+  const submit = buttons.find((b) => b.kind === "submitApproval");
   return (
     <>
       {pair.length > 0 && (
@@ -159,6 +268,15 @@ function ReviewActionButtons({ buttons, isUpdating, handlers }: ReviewActionButt
           onClick={handlers.assign}
         >
           {assign.label}
+        </Button>
+      )}
+      {submit && (
+        <Button
+          size="medium"
+          disabled={isUpdating || submit.disabled}
+          onClick={handlers.submitApproval}
+        >
+          {submit.label}
         </Button>
       )}
     </>

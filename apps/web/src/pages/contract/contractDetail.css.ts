@@ -1,4 +1,4 @@
-import { style, styleVariants } from "@vanilla-extract/css";
+import { style, styleVariants, keyframes } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
 
 /* =========================================================================
@@ -444,11 +444,24 @@ export const apvnum = style({
 
 export const apvnumDone = style({ background: PRIMARY, color: themeVars.color.textInverse });
 
+// 내 차례 결재 스텝 — 펄스 링(reduced-motion 존중).
+const ringPulse = keyframes({
+  "0%": { boxShadow: `0 0 0 0 color-mix(in srgb, ${PRIMARY} 30%, transparent)` },
+  "70%": { boxShadow: `0 0 0 8px color-mix(in srgb, ${PRIMARY} 0%, transparent)` },
+  "100%": { boxShadow: `0 0 0 0 color-mix(in srgb, ${PRIMARY} 0%, transparent)` },
+});
+
 export const apvnumActive = style({
   background: SURFACE,
   border: `2px solid ${PRIMARY}`,
   color: PRIMARY,
+  animation: `${ringPulse} 2s ease-out infinite`,
+  "@media": {
+    "(prefers-reduced-motion: reduce)": { animation: "none" },
+  },
 });
+
+export const apvnumRejected = style({ background: DANGER, color: themeVars.color.textInverse });
 
 export const apvname = style({ fontSize: 13, fontWeight: 700, color: HEADING });
 
@@ -480,8 +493,119 @@ export const apvstat = style({ fontSize: 11, fontWeight: 700 });
 
 export const apvstatKind = styleVariants({
   done: { color: SUCCESS },
+  rejected: { color: DANGER },
   now: { color: PRIMARY },
   wait: { color: FAINT },
+});
+
+export const apvcomment = style({
+  fontSize: 12,
+  color: MUTED,
+  background: SURFACE_ALT,
+  borderRadius: themeVars.radius.md,
+  padding: "8px 10px",
+  lineHeight: 1.5,
+  margin: "2px 0 8px 32px",
+});
+
+/* =========================================================================
+ * 상신 사전점검 / 결재 처리(승인·반려) — 우측 레일 검토 액션 카드 확장
+ * ======================================================================= */
+
+export const precheckList = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: 9,
+  marginBottom: 12,
+});
+
+export const precheckRow = style({
+  display: "flex",
+  gap: 9,
+  fontSize: 13,
+  lineHeight: 1.5,
+  alignItems: "flex-start",
+});
+
+export const precheckIcon = style({
+  width: 18,
+  height: 18,
+  borderRadius: 99,
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  marginTop: 1,
+});
+
+export const precheckIconOk = style({ background: SUCCESS_TINT, color: SUCCESS });
+export const precheckIconWarn = style({ background: WARNING_TINT, color: WARNING_DARK });
+
+export const precheckLabel = style({ color: HEADING, fontWeight: 700 });
+
+export const precheckSub = style({
+  display: "block",
+  fontSize: 12,
+  color: FAINT,
+  marginTop: 1,
+});
+
+// 내 차례 결재 액션 박스 — 은은한 브리딩 글로우(reduced-motion 존중).
+const boxGlow = keyframes({
+  "0%": { boxShadow: "none", borderColor: `color-mix(in srgb, ${PRIMARY} 30%, ${SURFACE})` },
+  "50%": {
+    boxShadow: `0 0 12px 0 color-mix(in srgb, ${PRIMARY} 16%, transparent)`,
+    borderColor: `color-mix(in srgb, ${PRIMARY} 55%, ${SURFACE})`,
+  },
+  "100%": { boxShadow: "none", borderColor: `color-mix(in srgb, ${PRIMARY} 30%, ${SURFACE})` },
+});
+
+export const decideBox = style({
+  marginTop: 4,
+  background: PRIMARY_TINT,
+  border: `1px solid color-mix(in srgb, ${PRIMARY} 30%, ${SURFACE})`,
+  borderRadius: LAYOUT.cardRadius,
+  padding: 12,
+  animation: `${boxGlow} 2.6s ease-in-out infinite`,
+  "@media": {
+    "(prefers-reduced-motion: reduce)": { animation: "none" },
+  },
+});
+
+export const decideLabel = style({
+  fontSize: 12,
+  fontWeight: 800,
+  color: PRIMARY_DARK,
+  marginBottom: 8,
+  display: "flex",
+  alignItems: "center",
+  gap: 5,
+});
+
+export const decideTextarea = style({
+  width: "100%",
+  fontFamily: "inherit",
+  fontSize: 12.5,
+  color: HEADING,
+  background: SURFACE,
+  border: `1px solid ${BORDER_SUBTLE}`,
+  borderRadius: themeVars.radius.md,
+  padding: "9px 10px",
+  resize: "vertical",
+  minHeight: 58,
+  selectors: {
+    "&:focus": {
+      outline: "none",
+      borderColor: PRIMARY,
+      boxShadow: themeVars.shadow.focus,
+    },
+  },
+});
+
+export const decideButtons = style({
+  display: "flex",
+  gap: 8,
+  marginTop: 9,
 });
 
 /* =========================================================================

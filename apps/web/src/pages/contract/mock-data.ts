@@ -30,13 +30,17 @@ export interface Risk {
 
 // 결재선 단계 뷰모델(approvalLine.steps[] 에서 파생).
 export interface ApprovalStepView {
+  id: string;
   order: number;
+  userId: string | null;
   name: string;
   dept: string;
   type: string; // 기안/합의/결재/참조
   typeKind: "draft" | "approve" | "agree" | "refer";
-  status: string; // 완료/진행중/대기
-  statusKind: "done" | "now" | "wait";
+  status: string; // 완료/반려/진행중/대기
+  statusKind: "done" | "rejected" | "now" | "wait";
+  comment: string | null;
+  decidedAt: string | null;
 }
 
 // 관련문서 행 뷰모델(details.relatedDocs[] 에서 파생).
