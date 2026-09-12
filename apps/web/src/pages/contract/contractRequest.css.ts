@@ -74,3 +74,31 @@ export const submitError = style({
   background: themeVars.color.neutralSurface,
   border: `1px solid ${themeVars.color.accentDanger}`,
 });
+
+/* 등록 유형 분기 — 시안의 강조 박스 */
+export const modeRow = style({
+  background: `color-mix(in srgb, ${themeVars.color.accentPrimary} 5%, ${themeVars.color.neutralSurface})`,
+  border: `1px solid color-mix(in srgb, ${themeVars.color.accentPrimary} 18%, ${themeVars.color.neutralSurface})`,
+  borderRadius: 6,
+  padding: "13px 14px",
+  marginBottom: 18,
+  gridColumn: "1 / -1",
+});
+
+export const modeHelp = style({
+  fontSize: 11.5,
+  color: themeVars.color.textMuted,
+  marginTop: 8,
+  lineHeight: 1.6,
+});
+
+/* 변경·해지 + 체결 완료 등록 = 원 계약 필수 강조 */
+export const origRequired = style({
+  background: `color-mix(in srgb, ${themeVars.color.accentWarning} 8%, ${themeVars.color.neutralSurface})`,
+  border: `1px solid color-mix(in srgb, ${themeVars.color.accentWarning} 26%, ${themeVars.color.neutralSurface})`,
+  borderRadius: 6,
+  padding: "12px 13px",
+  gridColumn: "1 / -1",
+});
+
+export const origOptional = style({ gridColumn: "1 / -1" });

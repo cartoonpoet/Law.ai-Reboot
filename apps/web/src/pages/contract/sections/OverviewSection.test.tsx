@@ -106,4 +106,17 @@ describe("OverviewSection", () => {
     expect(screen.getByText("개발/공급")).toBeInTheDocument();
     expect(screen.getByText("소프트웨어")).toBeInTheDocument();
   });
+
+  it("체결 완료 등록을 고르면 체결일이 뜨고 검토 요청자가 사라진다", async () => {
+    renderSection();
+    await userEvent.click(screen.getByRole("button", { name: /체결 완료 등록/ }));
+    expect(screen.getByText("체결일")).toBeInTheDocument();
+    expect(screen.queryByText("검토 요청자")).not.toBeInTheDocument();
+  });
+
+  it("변경·해지를 고르면 원 계약 필드가 나타난다", async () => {
+    renderSection();
+    await userEvent.click(screen.getByLabelText("변경·해지"));
+    expect(screen.getByText("원 계약")).toBeInTheDocument();
+  });
 });
