@@ -225,18 +225,22 @@ export class ContractsService {
 
     // 체결 완료 등록: 검토·결재를 건너뛰므로 여기서 못 잡으면 영영 못 잡는다.
     const isDirectSigned = req.registerAs === "signed";
+    // parseDate 는 빈 문자열/잘못된 형식을 조용히 null 로 반환하므로, 원본 문자열이 아니라
+    // 파싱 결과를 검증해야 한다(completeSigning 과 동일한 패턴) — 그렇지 않으면
+    // signedAt: "garbage" 같은 값이 게이트를 통과해 signedAt=null 인 영구 signed 행이 생긴다.
+    let signedAt: Date | null = null;
     if (isDirectSigned) {
       if (!req.signedAt) {
         throw new RpcException({ status: 400, message: "체결일을 입력하세요" });
       }
+      signedAt = parseDate(req.signedAt);
+      if (!signedAt) {
+        throw new RpcException({ status: 400, message: "체결일이 올바르지 않습니다" });
+      }
       if (!req.files.some((f) => f.role === "signed")) {
         throw new RpcException({ status: 400, message: "최종 서명본을 첨부하세요" });
       }
-      const details = req.details as unknown as {
-        stage?: string;
-        relatedDocs?: unknown[];
-      };
-      if (details.stage === "change" && !details.relatedDocs?.length) {
+      if (req.details.stage === "change" && !req.details.relatedDocs?.length) {
         throw new RpcException({
           status: 400,
           message: "변경·해지 계약은 원 계약을 연결해야 합니다",
@@ -262,9 +266,7 @@ export class ContractsService {
           periodStart: parseDate(req.periodStart),
           periodEnd: parseDate(req.periodEnd),
           dueDate: parseDate(req.dueDate),
-          ...(isDirectSigned
-            ? { status: "signed" as const, signedAt: parseDate(req.signedAt) }
-            : {}),
+          ...(isDirectSigned ? { status: "signed" as const, signedAt } : {}),
           schemaVersion: req.schemaVersion,
           // 상신 전 결재선(approvers)은 details JSONB 로만 보관 — 라인은 상신 시 생성.
           details: {
@@ -311,16 +313,16 @@ export class ContractsService {
       // 검토 경로는 계약서 원본(role=contract) 기준 사전 점검(precheck),
       // 체결 완료 등록은 서명본(role=signed) 기준 위험 분석(risk) 을 백그라운드로 돌린다.
       if (isDirectSigned) {
-        if (req.files.some((f) => f.role === "signed")) {
-          void this.aiAnalysis.trigger({
-            targetType: "contract",
-            targetId: row.id,
-            kind: "risk",
-            tenantId: row.tenantId,
-            triggeredByUserId: req.createdById,
-            payload: buildRiskPayload(response, null),
-          });
-        }
+        // 서명본(role=signed) 첨부는 위 검증 블록에서 이미 필수로 확인했고, req.files 는
+        // 그 사이 변형되지 않으므로 여기서 다시 확인할 필요가 없다.
+        void this.aiAnalysis.trigger({
+          targetType: "contract",
+          targetId: row.id,
+          kind: "risk",
+          tenantId: row.tenantId,
+          triggeredByUserId: req.createdById,
+          payload: buildRiskPayload(response, null),
+        });
       } else if (req.files.some((f) => f.role === "contract")) {
         void this.aiAnalysis.trigger({
           targetType: "contract",

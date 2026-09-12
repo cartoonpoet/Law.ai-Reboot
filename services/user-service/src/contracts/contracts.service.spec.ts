@@ -1389,6 +1389,20 @@ describe("ContractsService", () => {
           files: [{ role: "signed", name: "a.pdf", meta: "", sortOrder: 0 }],
         }),
       ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.create).not.toHaveBeenCalled();
+    });
+
+    it("signedAt 이 파싱 불가능한 값이면 400 (parseDate 가 null 을 조용히 반환해도 게이트를 통과하지 못한다)", async () => {
+      await expect(
+        service.create({
+          ...baseReq,
+          registerAs: "signed",
+          signedAt: "2026-13-45",
+          details: { stage: "new" } as never,
+          files: [{ role: "signed", name: "a.pdf", meta: "", sortOrder: 0 }],
+        }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.create).not.toHaveBeenCalled();
     });
 
     it("서명본 파일이 없으면 400", async () => {
@@ -1401,6 +1415,7 @@ describe("ContractsService", () => {
           files: [{ role: "contract", name: "a.docx", meta: "", sortOrder: 0 }],
         }),
       ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.create).not.toHaveBeenCalled();
     });
 
     it("변경·해지인데 원 계약이 없으면 400", async () => {
@@ -1413,6 +1428,7 @@ describe("ContractsService", () => {
           files: [{ role: "signed", name: "a.pdf", meta: "", sortOrder: 0 }],
         }),
       ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.create).not.toHaveBeenCalled();
     });
 
     it("정상이면 signed 상태로 생성하고 risk 분석을 트리거한다", async () => {
