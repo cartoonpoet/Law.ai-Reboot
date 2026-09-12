@@ -241,6 +241,15 @@ export const evaluate = (
   const canAssign =
     policy.assign && (contract.ownerId === null ? true : ownerOk);
 
+  // 미배정(ownerId null) 계약은 생성자 본인만 편집 가능 — canAssign 과 같은 모양의 완화다.
+  // 신규 작성 2단계 제출 흐름(계약 생성 → 파일 업로드 → PATCH 로 반영)에서, 담당자가
+  // 아직 배정되지 않은 그 짧은 구간에도 생성자 본인은 자기가 막 만든 계약을 편집(파일 반영)
+  // 할 수 있어야 하기 때문이다. 담당자가 배정되는 순간부터는 이 완화가 사라지고 원래
+  // 규칙(ownerOk, 담당자만)으로 즉시 돌아간다 — "생성자면 언제나 편집 가능"이 아니다.
+  // canAssign/canTransition/canDelete 는 이 완화의 영향을 받지 않는다(ownerOk 그대로 사용).
+  const canEditUnassigned =
+    contract.ownerId === null && viewer.id === contract.createdById;
+
   // sealManager 특수: 역할상 transition=true 이지만 signing 단계에서만(→signed) 가능.
   const isSealManager = viewer.role === "sealManager";
   const canTransition = isSealManager
@@ -249,7 +258,7 @@ export const evaluate = (
 
   return {
     canView: true,
-    canEdit: policy.edit && ownerOk,
+    canEdit: policy.edit && (ownerOk || canEditUnassigned),
     canAssign,
     canTransition,
     canDelete: policy.delete, // delete 는 admin 전용(requiresOwner 무관)
