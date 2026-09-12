@@ -35,6 +35,7 @@ const response: ContractResponse = {
   periodStart: null,
   periodEnd: null,
   dueDate: "2026-06-18T00:00:00.000Z",
+  signedAt: null,
   schemaVersion: 1,
   details: {
     stage: "new",

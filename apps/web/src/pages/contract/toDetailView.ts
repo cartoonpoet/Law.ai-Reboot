@@ -32,6 +32,7 @@ const FILE_KIND: Record<FileRole, string> = {
   contract: "계약서",
   attach: "첨부",
   ref: "참고",
+  signed: "서명본",
 };
 
 // 결재 유형 라벨(시안 결재선 칩: 기안/합의/결재/참조).
