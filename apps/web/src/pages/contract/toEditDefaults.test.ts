@@ -144,4 +144,57 @@ describe("toEditDefaults", () => {
     expect(req.approvers).toHaveLength(2);
     expect(req.counterparties[0].companyId).toBe("comp-1");
   });
+
+  // C1 회귀 방지: toEditDefaults 가 registerAs/signedAt/signedFiles 를 복원하지 못하면,
+  // 편집 화면이 "법무 검토 요청"으로 잘못 렌더되고(체결일·서명본 UI가 아예 안 뜸), 그 상태로
+  // 저장하면 PATCH 의 files 배열에 서명본이 빠져 실제 서명 원본(R2 객체 포함)이 삭제된다.
+  describe("체결 완료 등록 계약(role=signed 파일 존재)", () => {
+    const signedResponse: ContractResponse = {
+      ...response,
+      signedAt: "2026-09-12T00:00:00.000Z",
+      files: [
+        ...response.files,
+        {
+          id: "f-signed-1",
+          role: "signed",
+          name: "서명본.pdf",
+          meta: "PDF",
+          size: 1024,
+          mimeType: "application/pdf",
+          storageKey: "contracts/uuid-1/abc/서명본.pdf",
+          sortOrder: 0,
+        },
+      ],
+    };
+
+    it("registerAs 를 signed 로 복원한다(role=signed 파일 존재로 역산)", () => {
+      const f = toEditDefaults(signedResponse);
+      expect(f.registerAs).toBe("signed");
+    });
+
+    it("signedAt 을 날짜만(YYYY-MM-DD) 복원한다", () => {
+      const f = toEditDefaults(signedResponse);
+      expect(f.signedAt).toBe("2026-09-12");
+    });
+
+    it("signedFiles 를 복원한다(id 포함 — 편집 저장 시 PATCH 에서 이 id 가 유지돼야 삭제되지 않는다)", () => {
+      const f = toEditDefaults(signedResponse);
+      expect(f.signedFiles).toEqual([
+        { id: "f-signed-1", name: "서명본.pdf", meta: "PDF", mimeType: "application/pdf" },
+      ]);
+    });
+
+    it("일반 검토 계약(role=signed 파일 없음)은 registerAs=review, signedFiles=[]", () => {
+      const f = toEditDefaults(response);
+      expect(f.registerAs).toBe("review");
+      expect(f.signedFiles).toEqual([]);
+      expect(f.signedAt).toBe("");
+    });
+
+    it("역매핑→toCreateRequest 라운드트립에 signedFiles 의 id 가 그대로 살아있다(삭제 방지의 핵심)", () => {
+      const req = toCreateRequest(toEditDefaults(signedResponse));
+      const signedFile = req.files.find((file) => file.role === "signed");
+      expect(signedFile?.id).toBe("f-signed-1");
+    });
+  });
 });

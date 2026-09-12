@@ -4,6 +4,7 @@ import type { FileInput } from "@lawai/contracts";
 import {
   createContract,
   updateContract,
+  finalizeRegistration,
   type CreateContractInput,
   type UpdateContractInput,
 } from "../../../api/contracts";
@@ -12,17 +13,35 @@ import type { ContractRequestForm } from "../request-schema";
 import { uploadContractFile } from "./uploadContractFile";
 import { FIELD_TO_ROLE, type FileFieldName } from "../fileFieldRole";
 
-// 게이트웨이 UpdateContractDto 는 registerAs/signedAt 을 모르는 필드로 취급한다(선언 자체가 없음) —
-// 체결 전환은 전용 completeSigning 엔드포인트로만 이뤄지게 하려는 의도적 설계이고, 전역
-// ValidationPipe 가 whitelist:true, forbidNonWhitelisted:true 라 모르는 프로퍼티는 400 으로 거부된다.
-// toCreateRequest() 는 생성 payload 겸용이라 이 두 필드를 항상 포함하므로, PATCH(updateContract)
-// 로 보내기 전에는 반드시 제거해야 한다 — 안 그러면 "property registerAs should not exist" 400.
-const toUpdatePayload = (payload: CreateContractInput): UpdateContractInput => {
-  const copy: Partial<CreateContractInput> = { ...payload };
-  delete copy.registerAs;
-  delete copy.signedAt;
-  return copy as UpdateContractInput;
-};
+// 게이트웨이 UpdateContractDto 는 registerAs/signedAt 을 모르는 필드로 취급한다(선언 자체가 없음,
+// 의도적 설계) — 체결 전환은 전용 finalizeRegistration/completeSigning 엔드포인트로만 이뤄지게
+// 하려는 것이다. 만약 일반 PATCH 로 이 두 필드를 세팅할 수 있으면, 결재 게이트 없이 계약을
+// signed 로 바꿔치기하는 두 번째 경로가 생긴다 — 이 기능 전체가 막으려는 바로 그 우회다.
+// 그래서 클라이언트가 이 필드들을 절대 보내지 않아야 한다.
+//
+// 이전엔 `{ ...payload }` 뒤에 `delete copy.registerAs` 로 지웠는데, 그건 타입 관계를
+// 끊어버린다(캐스트로 얼버무림) — CreateContractRequest 에 새 필드가 또 추가되면 tsc 가
+// 아무 말 없이 조용히 PATCH 로 흘려보내고, Task 6 때 실제로 일어났던 "property X should not
+// exist" 400 이 그대로 재발한다. 그래서 여기서는 UpdateContractInput 의 필드를 하나하나
+// 명시해서 만든다 — 새 필드는 여기 안 적으면 자동으로 안 나간다. 컴파일러가 그 자체로 게이트다.
+const toUpdatePayload = (payload: CreateContractInput): UpdateContractInput => ({
+  title: payload.title,
+  securityLevel: payload.securityLevel,
+  reviewType: payload.reviewType,
+  party: payload.party,
+  categoryId: payload.categoryId,
+  requesterId: payload.requesterId,
+  ownerId: payload.ownerId,
+  periodStart: payload.periodStart,
+  periodEnd: payload.periodEnd,
+  dueDate: payload.dueDate,
+  schemaVersion: payload.schemaVersion,
+  details: payload.details,
+  counterparties: payload.counterparties,
+  approvers: payload.approvers,
+  files: payload.files,
+  references: payload.references,
+});
 
 interface FormFileEntry {
   id: string | null;
@@ -50,20 +69,22 @@ const flattenFormFiles = (
  *
  * - edit 모드: toCreateRequest 결과를 toUpdatePayload 로 registerAs/signedAt 제거 후 PATCH
  *   (FileUploadField 가 이미 R2 업로드 완료).
- * - create 모드: 2단계 흐름
- *   1) createContract({ ...payload, files: createFiles }) → contract.id 확보.
- *      files 는 기본적으로 비워 보내지만(presign 은 contractId 가 있어야 가능하므로 blob 은
- *      아직 못 올림), registerAs === "signed" 는 예외다 — 서버가 create 시점에
- *      req.files.some(f => f.role === "signed") 를 요구하는 검증 게이트가 있어서
- *      (체결 완료 등록은 검토·결재 없이 바로 상태가 확정되는 경로라 여기서 못 막으면 영영 못 막음),
- *      role="signed" 항목만 메타데이터-only(파일명/메타, id 없음)로 먼저 실어 보낸다.
- *      그 결과 R2 객체 없는 임시 File 행이 잠깐 생기지만, 뒤이은 2)~3) 업로드+PATCH 가
- *      끝나면 PATCH 의 "keepIds 에 없는 기존 File 은 삭제" 규칙(contracts.service.ts update())에
- *      따라 자동으로 치워진다 — 별도 정리 코드 불필요.
- *   2) blob 있는 폼 파일들을 새 id 로 presign+confirm 업로드 (Promise.allSettled 병렬)
- *   3) 업로드 결과 + metadata-only 항목을 합쳐 PATCH — 1)에서 만든 임시 signed 메타 행은
- *      새 id 로 대체되며 PATCH 의 전체 교체 규칙에 의해 삭제된다.
- *   4) 부분 실패 시 contract 는 살아있고 부분 성공 메시지 후 상세 페이지로 — 편집에서 재시도 가능
+ * - create 모드: 2단계(+체결 완료 등록이면 3단계) 흐름
+ *   1) createContract({ ...payload, files: [] }) → contract.id 확보. files 는 항상 비워
+ *      보낸다 — presign 이 contractId 를 필요로 해서 이 시점엔 아직 실제 파일을 올릴 수
+ *      없다. registerAs==="signed" 라고 특별 취급하지 않는다: 서버 create() 는 이제
+ *      "서명본 첨부" 를 요구하지 않고, 항상 unassigned 로 만들 뿐이다(signedAt 도 아직 저장
+ *      안 함) — 실제로 signed 로 확정하는 건 3) finalizeRegistration 이다. (예전엔 이 gate를
+ *      통과시키려고 signedFiles 만 메타데이터-only 로 먼저 보내는 우회가 있었는데, 그 gate
+ *      자체가 없어졌으니 더는 필요 없다.)
+ *   2) blob 있는 폼 파일들을 새 id 로 presign+confirm 업로드 (Promise.allSettled 병렬),
+ *      업로드 결과를 합쳐 PATCH 로 반영.
+ *   3) registerAs==="signed" 면, 2)가 끝난 뒤 finalizeRegistration 을 호출해 실제로 signed 로
+ *      확정한다. 서버가 "role=signed + storageKey 있는 파일" 을 다시 확인하므로, 2)의 업로드가
+ *      실패했다면(예: R2 미구성) 여기서 자연히 거부된다 — 계약은 unassigned 로 남아 나중에
+ *      편집에서 재시도 가능(예전처럼 파일 없는 signed 로 영구 고정되지 않는다).
+ *   4) 부분/단계 실패 시에도 contract 는 살아있고 에러 메시지 후 상세 페이지로 이동 —
+ *      편집에서 재시도 가능.
  */
 export const useContractSubmit = (
   mode: "create" | "edit" = "create",
@@ -84,15 +105,13 @@ export const useContractSubmit = (
         return;
       }
 
-      // create 모드 — 2단계 흐름.
+      // create 모드 — 2단계(+체결 완료 등록이면 3단계) 흐름.
       const flat = flattenFormFiles(form);
       const blobs = flat.filter((f) => f.entry.blob instanceof File);
 
-      // 1) 계약 먼저 생성 — 서명본(role=signed)만 메타데이터-only 로 동봉(위 주석 참고),
-      //    나머지(계약서/첨부/참고)는 blob 업로드 전이라 비워서 보낸다.
+      // 1) 파일 빼고 계약 먼저 생성 — 언제나 unassigned(위 주석 참고).
       const initialPayload = toCreateRequest(form);
-      const createFiles = initialPayload.files.filter((f) => f.role === "signed");
-      const created = await createContract({ ...initialPayload, files: createFiles });
+      const created = await createContract({ ...initialPayload, files: [] });
 
       // 2) blob 들 병렬 업로드. Promise.allSettled 로 부분 실패 격리.
       const uploadResults = await Promise.allSettled(
@@ -135,11 +154,28 @@ export const useContractSubmit = (
         await updateContract(created.id, { ...toUpdatePayload(initialPayload), files: finalFiles });
       }
 
+      const errors: string[] = [];
       if (failedNames.length > 0) {
-        // 부분 성공 — contract 는 생성됐지만 일부 첨부 실패. 상세로 이동하되 에러 표시.
-        setSubmitError(
-          `계약은 생성됐지만 일부 첨부 업로드 실패: ${failedNames.join(", ")}. 편집에서 다시 업로드해 주세요.`,
-        );
+        errors.push(`일부 첨부 업로드 실패: ${failedNames.join(", ")}.`);
+      }
+
+      // 4) 체결 완료 등록이면 실제 업로드 확인 후 signed 로 확정. 서명본 업로드가 실패했으면
+      //    서버가 다시 거부한다(파일 없는 signed 로 고정되지 않고 unassigned 로 남는다).
+      if (form.registerAs === "signed") {
+        try {
+          await finalizeRegistration(created.id, { signedAt: form.signedAt });
+        } catch (finalizeError) {
+          errors.push(
+            finalizeError instanceof Error
+              ? `체결 완료 확정 실패: ${finalizeError.message}`
+              : "체결 완료 확정에 실패했습니다.",
+          );
+        }
+      }
+
+      if (errors.length > 0) {
+        // 부분 성공 — contract 는 생성됐지만 뭔가 실패. 상세로 이동하되 에러 표시(편집에서 재시도 가능).
+        setSubmitError(`${errors.join(" ")} 편집에서 다시 시도해 주세요.`);
       }
       navigate(`/contract/${created.id}`);
     } catch (error) {

@@ -86,3 +86,14 @@ export const completeSigning = (
     method: "POST",
     body: JSON.stringify(body),
   });
+
+// 체결 완료 등록 확정 — 미배정 상태의 생성자 본인만, 실제 업로드된(storageKey 있는)
+// role=signed 파일이 있어야 통과. completeSigning 과 별개(결재선 없음).
+export const finalizeRegistration = (
+  id: string,
+  body: { signedAt: string },
+): Promise<ContractResponse> =>
+  apiFetch<ContractResponse>(`/contracts/${id}/finalize`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });

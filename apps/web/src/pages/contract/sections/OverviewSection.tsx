@@ -12,12 +12,10 @@ import { useCounterparties } from "../hooks/useCounterparties";
 import { toCompanyOptions } from "../companyLabel";
 import { CompanyCreateModal } from "./CompanyCreateModal";
 import { RelatedDocsPicker } from "./RelatedDocsPicker";
+import { toISODate, isoToDate } from "../dateIso";
 import * as css from "../contractRequest.css";
 
 const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v);
-
-const toISODate = (date: Date | null): string => (date ? date.toISOString().slice(0, 10) : "");
-const isoToDate = (iso: string): Date | null => (iso ? new Date(iso) : null);
 
 export function OverviewSection() {
   const { control, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();

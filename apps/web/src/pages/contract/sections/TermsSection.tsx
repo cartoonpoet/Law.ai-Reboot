@@ -15,12 +15,10 @@ import {
 import type { ContractRequestForm } from "../request-schema";
 import { VAT_OPTIONS, CURRENCY_OPTIONS } from "../request-schema";
 import { CardTitle, ErrText, Field } from "./_shared";
+import { toISODate, isoToDate } from "../dateIso";
 import * as css from "../contractRequest.css";
 
 const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v);
-
-const isoToDate = (iso: string): Date | null => (iso ? new Date(iso) : null);
-const dateToIso = (d: Date): string => d.toISOString().slice(0, 10);
 
 export function TermsSection() {
   const {
@@ -68,7 +66,7 @@ export function TermsSection() {
               <InputDatePicker
                 value={isoToDate(field.value)}
                 placeholder="YYYY-MM-DD"
-                onChange={(d) => field.onChange(d ? dateToIso(d) : "")}
+                onChange={(d) => field.onChange(toISODate(d))}
               />
             )}
           />

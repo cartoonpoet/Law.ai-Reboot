@@ -9,7 +9,7 @@ const dateOnly = (iso: string | null): string => (iso ? iso.slice(0, 10) : "");
 // 계약 단건 응답(ContractResponse) → 폼 기본값(ContractRequestForm). toCreateRequest 의 역변환.
 export const toEditDefaults = (c: ContractResponse): ContractRequestForm => {
   const d = c.details;
-  const filesByRole = (role: "contract" | "attach" | "ref") =>
+  const filesByRole = (role: "contract" | "attach" | "ref" | "signed") =>
     c.files
       .filter((f) => f.role === role)
       .map((f) => ({
@@ -22,6 +22,14 @@ export const toEditDefaults = (c: ContractResponse): ContractRequestForm => {
     c.references
       .filter((r) => r.ccType === ccType && r.isSecret === isSecret)
       .map((r) => ({ id: r.refId, name: r.name }));
+
+  // registerAs 는 DB 컬럼이 아니라 create() 시점 입력일 뿐이라 응답에 그대로 없다(계약이
+  // signed 로 확정된 뒤엔 "체결 완료 등록으로 시작했는지" 자체가 더는 구분해서 저장되지
+  // 않는다 — 서버 create() 주석 참고). 그래서 여기선 role=signed 파일 존재 여부로 역산한다:
+  // 체결 완료 등록(및 completeSigning 으로 승격된 검토 계약)은 signed 파일이 있고, 순수
+  // 검토 계약은 없다. finalizeRegistration 확정 *전*(아직 unassigned, signedAt 미저장)에
+  // 편집을 다시 열면 signedAt 은 비어 보인다 — 그 값은 finalize 시점에만 저장되기 때문.
+  const isSigned = c.files.some((f) => f.role === "signed");
 
   return {
     ...contractRequestDefaults,
@@ -39,10 +47,14 @@ export const toEditDefaults = (c: ContractResponse): ContractRequestForm => {
     periodManual: d.periodManual,
     noEndDate: d.noEndDate,
     counterparties: c.counterparties.map((cp) => cp.snapshot),
+    // 등록 유형 — role=signed 파일 존재로 역산(위 주석 참고).
+    registerAs: isSigned ? "signed" : "review",
+    signedAt: dateOnly(c.signedAt),
     // ② 계약서·첨부
     contractFiles: filesByRole("contract"),
     attachFiles: filesByRole("attach"),
     refFiles: filesByRole("ref"),
+    signedFiles: filesByRole("signed"),
     // ③ 관계자·참조
     ccUsers: refsBy("user", false),
     ccDepts: refsBy("dept", false),
