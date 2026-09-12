@@ -112,4 +112,23 @@ describe("toCreateRequest", () => {
     expect(req.counterparties[0].companyId).toBe("comp-1");
     expect(req.counterparties[0].snapshot.name).toBe("삼성전자(주)");
   });
+
+  it("체결 완료 등록이면 registerAs 와 signedAt 을 싣고 서명본을 role=signed 로 매핑한다", () => {
+    const req = toCreateRequest({
+      ...form,
+      registerAs: "signed",
+      signedAt: "2025-12-18",
+      signedFiles: [{ id: "f1", name: "sign.pdf", meta: "1MB", mimeType: "application/pdf" }],
+    });
+    expect(req.registerAs).toBe("signed");
+    expect(req.signedAt).toBe("2025-12-18");
+    expect(req.files.some((f) => f.role === "signed" && f.name === "sign.pdf")).toBe(true);
+  });
+
+  it("검토 요청(registerAs=review)이면 signedAt 을 null 로, 서명본은 files 에 없다", () => {
+    const req = toCreateRequest(form);
+    expect(req.registerAs).toBe("review");
+    expect(req.signedAt).toBeNull();
+    expect(req.files.some((f) => f.role === "signed")).toBe(false);
+  });
 });

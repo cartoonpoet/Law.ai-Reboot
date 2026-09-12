@@ -76,3 +76,13 @@ export const submitContractApproval = (id: string): Promise<ContractResponse> =>
   apiFetch<ContractResponse>(`/contracts/${id}/approval/submit`, {
     method: "POST",
   });
+
+// 체결 처리 — 인감 담당 + 결재 전원 승인 상태에서만.
+export const completeSigning = (
+  id: string,
+  body: { signedAt: string; fileId?: string | null; note?: string | null },
+): Promise<ContractResponse> =>
+  apiFetch<ContractResponse>(`/contracts/${id}/complete-signing`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });

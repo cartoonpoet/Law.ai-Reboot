@@ -17,6 +17,8 @@ export const toCreateRequest = (
   periodEnd: form.periodEnd || null,
   dueDate: form.expectedDate || null,
   schemaVersion: 1,
+  registerAs: form.registerAs,
+  signedAt: form.signedAt || null,
   details: {
     stage: form.stage,
     periodText: form.periodText,
@@ -60,6 +62,13 @@ export const toCreateRequest = (
     ...form.refFiles.map((f, i) => ({
       ...(f.id ? { id: f.id } : {}),
       role: "ref" as const,
+      name: f.name,
+      meta: f.meta,
+      sortOrder: i,
+    })),
+    ...form.signedFiles.map((f, i) => ({
+      ...(f.id ? { id: f.id } : {}),
+      role: "signed" as const,
       name: f.name,
       meta: f.meta,
       sortOrder: i,
