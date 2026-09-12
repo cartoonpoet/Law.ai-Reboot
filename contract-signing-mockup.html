@@ -223,6 +223,18 @@
   .swLabel{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--heading);cursor:pointer;}
   .swt{width:30px;height:17px;border-radius:99px;background:var(--borderStrong);position:relative;flex-shrink:0;}
   .swt::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:99px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18);}
+  /* 단계 그룹 세그먼트 — 개수가 고정(전체+4)이라 상태가 늘어도 폭이 안 늘어난다 */
+  .grpbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .grpSeg{display:inline-flex;background:var(--surfaceAlt);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px;}
+  .grpSeg button{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--muted);background:transparent;border:0;border-radius:5px;padding:6px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+  .grpSeg button:hover{color:var(--heading);}
+  .grpSeg button.on{background:#fff;color:var(--primary);font-weight:700;box-shadow:var(--shadowCard);}
+  .grpSeg button .n{font-size:10.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--faint);}
+  .grpSeg button.on .n{color:var(--primary);opacity:.75;}
+  /* 세부 상태 — 선택된 그룹의 것만 나오므로 최대 6개로 유한 */
+  .subbar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);background:var(--surfaceAlt);flex-wrap:wrap;}
+  .subbar .lbl{font-size:11px;font-weight:700;color:var(--faint);letter-spacing:.02em;flex-shrink:0;}
+  .subbar.empty{display:none;}
   .chipbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
   .chips{display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
   .chip{font-family:inherit;font-size:12px;font-weight:500;color:var(--body);background:rgba(52,52,52,.07);border:0;border-radius:30px;padding:5px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
@@ -722,9 +734,17 @@
     사이드바의 <span class="del">체결 계약 조회</span> · <span class="del">체결계약 만료 현황</span>(둘 다 현재 빈 플레이스홀더)을 없애고 흡수합니다.
     <ul>
       <li>메뉴명 <b>계약서 검토 조회 → 계약 조회</b> (검토 전용이 아니게 되므로)</li>
-      <li>현재 칩은 <code>미배정 / 법무 검토 중 / 요청자 검토 중 / 검토 완료</code> 4개뿐 → <b>단계 그룹</b> 추가로 체결·종료까지 필터</li>
-      <li><b>체결일</b> 컬럼 추가, <b>검토기한</b> 컬럼은 체결 후 <b>만료</b> 로 전환 → 만료 현황 메뉴를 칩 하나로 대체</li>
+      <li><b>체결일</b> 컬럼 추가, <b>검토기한</b> 컬럼은 체결 후 <b>만료</b> 로 전환 → 만료 현황 메뉴 대체</li>
     </ul>
+    <div style="margin-top:9px;padding-top:9px;border-top:1px solid color-mix(in srgb,#2151ec 22%,transparent)">
+      <b>상태 필터는 2단으로</b> — 칩 한 줄에 상태를 전부 늘어놓으면 상태가 늘 때마다 줄이 터집니다. 현재도 10종이고 더 늘 수 있어서요.
+      <ul>
+        <li><b>1단 · 단계 그룹</b> <code>전체 / 검토 / 체결 / 이행 / 종료</code> — 라이프사이클이라 <b>개수가 고정</b>이고, 상태가 늘어도 폭이 안 변합니다</li>
+        <li><b>2단 · 세부 상태</b> — 선택한 그룹의 것만 나옵니다. 상태를 추가하면 해당 그룹 안에만 들어가므로 한 줄을 넘지 않습니다 (검토 그룹이 6개로 최대)</li>
+        <li><b>만료 기준은 상태 축이 아니라 날짜 축</b> — 칩에서 빼서 <b>필터 행의 드롭다운</b>(전체/90일/180일/만료됨)으로 분리했습니다. 상태와 <b>조합</b>도 가능해집니다 (예: 체결 완료 + 90일 이내)</li>
+      </ul>
+      <b>위 단계 그룹을 눌러보세요</b> — 세부 상태 줄이 바뀝니다.
+    </div>
   </div></div>
 
   <div class="shell">
@@ -772,29 +792,28 @@
           <div class="fsel wide"><select class="inp"><option>계약 당사자</option></select></div>
           <div class="fsel wide"><select class="inp"><option>계약 분류</option></select></div>
           <div class="fsearch"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input class="inp" placeholder="계약명·관리번호·상대계약자 검색" /></div>
+          <div class="fsel" style="width:118px">
+            <select class="inp" title="만료 기준 — 상태와 다른 축이라 분리">
+              <option>만료 전체</option><option>90일 이내</option><option>180일 이내</option><option>만료됨</option>
+            </select>
+          </div>
           <span class="swLabel">내 업무만<span class="swt"></span></span>
         </div>
 
         <div class="panel">
-          <div class="chipbar">
-            <div class="chips">
-              <button class="chip on">전체 <span class="n">248</span></button>
-              <div class="chipsep"></div>
-              <button class="chip">미배정 <span class="n">9</span></button>
-              <button class="chip">법무 검토 중 <span class="n">14</span></button>
-              <button class="chip">요청자 검토 중 <span class="n">5</span></button>
-              <button class="chip">검토 완료 <span class="n">3</span></button>
-              <div class="chipsep"></div>
-              <button class="chip grp">체결 진행 <span class="n">7</span><span class="new">NEW</span></button>
-              <button class="chip grp">체결 완료 <span class="n">196</span><span class="new">NEW</span></button>
-              <button class="chip grp">종료 <span class="n">14</span><span class="new">NEW</span></button>
-              <div class="chipsep"></div>
-              <button class="chip" style="background:var(--warningTint);color:var(--warningDark);font-weight:700">
-                <svg class="ic" viewBox="0 0 24 24" style="width:11px;height:11px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                만료 임박 90일 <span class="n">12</span><span class="new">NEW</span>
-              </button>
+          <div class="grpbar">
+            <div class="grpSeg" id="grpSeg">
+              <button class="on" data-grp="all">전체 <span class="n">248</span></button>
+              <button data-grp="review">검토 <span class="n">31</span></button>
+              <button data-grp="sign">체결 <span class="n">203</span></button>
+              <button data-grp="fulfil">이행 <span class="n">0</span></button>
+              <button data-grp="closed">종료 <span class="n">14</span></button>
             </div>
-            <span class="cnt">총 <b>248</b>건</span>
+            <span class="cnt">총 <b id="grpCnt">248</b>건</span>
+          </div>
+          <div class="subbar empty" id="subbar">
+            <span class="lbl">세부 상태</span>
+            <div class="chips" id="subChips"></div>
           </div>
 
           <div class="tableWrap" style="padding:0 6px">
@@ -1213,6 +1232,34 @@
   });
 
   sync();
+
+  /* ---------- 계약 조회: 단계 그룹(고정) → 세부 상태(그룹 내) 2단 필터 ----------
+     상태가 늘어도 그룹은 그대로이고 세부 칩만 해당 그룹 안에서 늘어난다.
+     그룹은 라이프사이클이라 개수가 늘 일이 없고, 세부는 한 번에 한 그룹만 보이므로
+     칩 줄이 무한정 길어지지 않는다. 만료 기준은 상태와 다른 축이라 필터 행으로 뺐다. */
+  var GROUPS = {
+    all:    { total: 248, subs: [] },
+    review: { total: 31,  subs: [["임시 저장",2,"secondary"],["미배정",9,"danger"],["배정 중",3,"secondary"],["법무 검토 중",14,"primary"],["요청자 검토 중",5,"info"],["검토 완료",3,"success"]] },
+    sign:   { total: 203, subs: [["체결 진행",7,"warning"],["체결 완료",196,"success"]] },
+    fulfil: { total: 0,   subs: [["계약 이행",0,"info"]] },
+    closed: { total: 14,  subs: [["계약 종료",14,"secondary"]] }
+  };
+  var subbar = document.getElementById("subbar");
+  var subChips = document.getElementById("subChips");
+  document.querySelectorAll("#grpSeg button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll("#grpSeg button").forEach(function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      var g = GROUPS[b.dataset.grp];
+      document.getElementById("grpCnt").textContent = g.total;
+      subChips.innerHTML = g.subs.map(function (s) {
+        return '<button class="chip"><span class="sb sm sb-' + s[2] +
+               '" style="padding:0;background:transparent"><i></i></span>' + s[0] +
+               ' <span class="n">' + s[1] + '</span></button>';
+      }).join("");
+      subbar.classList.toggle("empty", g.subs.length === 0);
+    });
+  });
 
   document.getElementById("openSign").addEventListener("click", function () {
     document.getElementById("signModal").hidden = false;
