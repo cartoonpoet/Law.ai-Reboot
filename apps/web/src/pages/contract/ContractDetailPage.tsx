@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon, Button, StepBar, ProgressBar, Alert } from "@lawkit/ui";
 import type { ApproverSnapshot } from "@lawai/contracts";
@@ -357,6 +357,11 @@ function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) 
 export function ContractDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  // 제출(신규 작성/수정) 직후 일부 단계(업로드·finalize)가 실패했을 때만 useContractSubmit 이
+  // navigate(state) 로 넘긴다 — 그 페이지는 이 화면으로 넘어오며 즉시 unmount 돼 자기 화면에
+  // 에러를 못 띄우므로, 여기서 대신 보여준다(안 그러면 사용자는 실패를 영영 모른다).
+  const location = useLocation();
+  const submitError = (location.state as { submitError?: string } | null)?.submitError ?? null;
   const { data, isLoading } = useQuery({
     queryKey: ["contract", id],
     queryFn: () => getContract(id),
@@ -437,6 +442,14 @@ export function ContractDetailPage() {
         <Icon name="chevronLeft" size="sm" className={css.backIcon} />
         계약서 검토 조회
       </button>
+
+      {/* lawkit Alert 는 warning/error 타입이 없다(info/confirm/secret/saveTemporarily 뿐) —
+          기존 컨벤션대로 info 로 대체한다. */}
+      {submitError && (
+        <Alert type="info" size="small">
+          {submitError}
+        </Alert>
+      )}
 
       {/* hero */}
       <header className={css.hero}>

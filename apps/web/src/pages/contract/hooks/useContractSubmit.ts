@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { FileInput } from "@lawai/contracts";
+import type { ContractResponse, FileInput } from "@lawai/contracts";
 import {
   createContract,
   updateContract,
@@ -64,11 +64,21 @@ const flattenFormFiles = (
   return out;
 };
 
+// finalizeRegistration 실패를 사람이 읽을 메시지로.
+const finalizeErrorMessage = (error: unknown): string =>
+  error instanceof Error
+    ? `체결 완료 확정 실패: ${error.message}`
+    : "체결 완료 확정에 실패했습니다.";
+
 /**
  * 계약 검토 요청 제출.
  *
  * - edit 모드: toCreateRequest 결과를 toUpdatePayload 로 registerAs/signedAt 제거 후 PATCH
- *   (FileUploadField 가 이미 R2 업로드 완료).
+ *   (FileUploadField 가 이미 R2 업로드 완료). 저장한 계약이 아직 unassigned 인 체결 완료
+ *   등록(registerAs=signed)이면, 편집 저장에서도 finalizeRegistration 을 다시 시도한다 —
+ *   최초 제출 때 finalize 가 실패해(예: R2 미구성, 업로드 실패) 멈춘 계약을 편집에서 실제로
+ *   복구할 수 있어야 하기 때문이다(그렇지 않으면 "편집에서 다시 시도해 주세요" 라는 안내가
+ *   거짓말이 된다).
  * - create 모드: 2단계(+체결 완료 등록이면 3단계) 흐름
  *   1) createContract({ ...payload, files: [] }) → contract.id 확보. files 는 항상 비워
  *      보낸다 — presign 이 contractId 를 필요로 해서 이 시점엔 아직 실제 파일을 올릴 수
@@ -83,8 +93,10 @@ const flattenFormFiles = (
  *      확정한다. 서버가 "role=signed + storageKey 있는 파일" 을 다시 확인하므로, 2)의 업로드가
  *      실패했다면(예: R2 미구성) 여기서 자연히 거부된다 — 계약은 unassigned 로 남아 나중에
  *      편집에서 재시도 가능(예전처럼 파일 없는 signed 로 영구 고정되지 않는다).
- *   4) 부분/단계 실패 시에도 contract 는 살아있고 에러 메시지 후 상세 페이지로 이동 —
- *      편집에서 재시도 가능.
+ *   4) 실패가 있으면 상세 페이지로 이동하면서 router state 로 에러 메시지를 함께 넘긴다.
+ *      이 훅의 setSubmitError 는 이 컴포넌트가 곧바로 navigate 로 unmount 되기 때문에 화면에
+ *      보일 기회가 없다 — ContractDetailPage 가 location.state.submitError 를 읽어 배너로
+ *      띄운다(그래야 실패가 실제로 사용자 눈에 보인다).
  */
 export const useContractSubmit = (
   mode: "create" | "edit" = "create",
@@ -94,6 +106,11 @@ export const useContractSubmit = (
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // 성공(에러 없음)이면 평소처럼, 에러가 있으면 상세 페이지에서 보이도록 state 로 실어 이동.
+  const goToDetail = (contract: ContractResponse, errorMessage?: string) => {
+    navigate(`/contract/${contract.id}`, errorMessage ? { state: { submitError: errorMessage } } : undefined);
+  };
+
   const submit = async (form: ContractRequestForm) => {
     setIsSubmitting(true);
     setSubmitError(null);
@@ -101,7 +118,18 @@ export const useContractSubmit = (
       if (mode === "edit" && contractId) {
         const payload = toCreateRequest(form);
         const saved = await updateContract(contractId, toUpdatePayload(payload));
-        navigate(`/contract/${saved.id}`);
+
+        if (form.registerAs === "signed" && saved.status === "unassigned") {
+          try {
+            const finalized = await finalizeRegistration(contractId, { signedAt: form.signedAt });
+            goToDetail(finalized);
+          } catch (finalizeError) {
+            goToDetail(saved, finalizeErrorMessage(finalizeError));
+          }
+          return;
+        }
+
+        goToDetail(saved);
         return;
       }
 
@@ -165,19 +193,14 @@ export const useContractSubmit = (
         try {
           await finalizeRegistration(created.id, { signedAt: form.signedAt });
         } catch (finalizeError) {
-          errors.push(
-            finalizeError instanceof Error
-              ? `체결 완료 확정 실패: ${finalizeError.message}`
-              : "체결 완료 확정에 실패했습니다.",
-          );
+          errors.push(finalizeErrorMessage(finalizeError));
         }
       }
 
-      if (errors.length > 0) {
-        // 부분 성공 — contract 는 생성됐지만 뭔가 실패. 상세로 이동하되 에러 표시(편집에서 재시도 가능).
-        setSubmitError(`${errors.join(" ")} 편집에서 다시 시도해 주세요.`);
-      }
-      navigate(`/contract/${created.id}`);
+      goToDetail(
+        created,
+        errors.length > 0 ? `${errors.join(" ")} 편집에서 다시 시도해 주세요.` : undefined,
+      );
     } catch (error) {
       setSubmitError(
         error instanceof Error

@@ -23,13 +23,18 @@ export const toEditDefaults = (c: ContractResponse): ContractRequestForm => {
       .filter((r) => r.ccType === ccType && r.isSecret === isSecret)
       .map((r) => ({ id: r.refId, name: r.name }));
 
-  // registerAs 는 DB 컬럼이 아니라 create() 시점 입력일 뿐이라 응답에 그대로 없다(계약이
-  // signed 로 확정된 뒤엔 "체결 완료 등록으로 시작했는지" 자체가 더는 구분해서 저장되지
-  // 않는다 — 서버 create() 주석 참고). 그래서 여기선 role=signed 파일 존재 여부로 역산한다:
-  // 체결 완료 등록(및 completeSigning 으로 승격된 검토 계약)은 signed 파일이 있고, 순수
-  // 검토 계약은 없다. finalizeRegistration 확정 *전*(아직 unassigned, signedAt 미저장)에
-  // 편집을 다시 열면 signedAt 은 비어 보인다 — 그 값은 finalize 시점에만 저장되기 때문.
-  const isSigned = c.files.some((f) => f.role === "signed");
+  // registerAs 는 DB 컬럼이 아니라 create() 시점 입력일 뿐이라 응답에 그대로 없다(서버
+  // create() 주석 참고) — 그래서 역산해야 한다. role=signed 파일 존재만으로는 안 된다:
+  // completeSigning 도 정상 검토 계약의 파일을 role=signed 로 승격시키므로, 그 신호만 보면
+  // "법무 검토 → 결재 → 체결"을 다 거친 일반 계약도 체결 완료 등록으로 잘못 보여 계약서
+  // 유형·검토 요청자 필드가 숨어버린다(데이터 손실은 아니지만 잘못된 화면).
+  // 두 경로를 실제로 구분하는 신호는 결재 라인(approvalLine)이다 — 체결 완료 등록은
+  // 애초에 검토·결재를 건너뛰므로 결재 라인이 "영원히" 없고(finalizeRegistration 은 결재를
+  // 만들지 않는다), completeSigning 은 반드시 승인된 결재 라인을 요구한다. 그래서
+  // "결재 라인이 없으면서 signed 파일이 있다"만 체결 완료 등록으로 판단한다.
+  // finalizeRegistration 확정 *전*(아직 unassigned, signedAt 미저장)에 편집을 다시 열면
+  // signedAt 은 비어 보인다 — 그 값은 finalize 시점에만 저장되기 때문.
+  const isSigned = c.approvalLine === null && c.files.some((f) => f.role === "signed");
 
   return {
     ...contractRequestDefaults,
