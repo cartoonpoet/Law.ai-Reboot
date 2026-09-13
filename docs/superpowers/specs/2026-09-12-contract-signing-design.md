@@ -98,7 +98,9 @@ export interface CompleteSigningRequest {
   contractId: string;
   viewerId: string;          // gateway 가 JWT sub 주입
   signedAt: string;          // ISO 8601
-  fileId?: string | null;    // 사전 업로드된 서명본 File.id (있으면 role 을 signed 로 승격)
+  fileId: string;            // 사전 업로드된 서명본 File.id — 필수(옵셔널 아님). role: "signed" 로
+                              // 승격하며, 실제 바이트가 있어야(storageKey not null) 하고 검토본
+                              // (role:"contract")은 지정할 수 없다(finalizeRegistration 과 대칭).
   note?: string | null;      // 비고 — 감사 로그에만 기록
   tenantContext?: TenantContext;
 }
@@ -120,8 +122,10 @@ export interface CompleteSigningResult {
    `line.status !== "approved"` 면 `400 "결재가 완료되지 않았습니다"`.
    라인 자체가 없으면(`line === null`) 같은 400. — 결재 없이 체결되는 경로를 막는다.
 5. 한 트랜잭션에서:
-   - `fileId` 가 있으면 그 File 이 **이 계약 소유**인지 확인 후 `role: "signed"` 로 갱신.
-     남의 계약 파일이면 `400 "잘못된 파일입니다"`.
+   - `fileId` 는 필수 — 그 File 이 **이 계약 소유**(commentId:null)인지, 실제 바이트가
+     있는지(`storageKey not null`), 검토본(`role:"contract"`)이 아닌지 확인 후 `role: "signed"`
+     로 갱신. 남의 계약 파일이면 `400 "잘못된 파일입니다"`, 바이트가 없으면
+     `400 "최종 서명본을 첨부하세요"`, 검토본이면 `400 "검토본은 서명본으로 지정할 수 없습니다. 서명본을 새로 첨부하세요"`.
    - `contract.update({ status: "signed", signedAt })`
 6. 감사 로그. 기존 상태 전이와 **같은 형태**를 쓴다(`submitApproval` 선례 참조):
    ```ts
@@ -144,7 +148,7 @@ export interface CompleteSigningResult {
 ```
 POST /contracts/:id/complete-signing
 ```
-바디 `{ signedAt, fileId?, note? }`. `viewerId` 는 JWT `sub`, `tenantContext` 는 기존 방식대로 주입.
+바디 `{ signedAt, fileId, note? }`(`fileId` 필수). `viewerId` 는 JWT `sub`, `tenantContext` 는 기존 방식대로 주입.
 `firstValueFrom(...).pipe(rpcToHttp())` 패턴 준수.
 
 `ContractResponse` 에 `signedAt: string | null` 를 추가한다.
