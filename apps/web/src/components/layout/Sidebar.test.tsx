@@ -53,9 +53,14 @@ describe("Sidebar", () => {
   it("계약 하위 메뉴를 접힘 없이 바로 노출한다", () => {
     renderSidebar();
     expect(screen.getByText("계약서 검토 요청")).toBeInTheDocument();
-    expect(screen.getByText("계약서 검토 조회")).toBeInTheDocument();
-    expect(screen.getByText("체결 계약 조회")).toBeInTheDocument();
-    expect(screen.getByText("체결계약 만료 현황")).toBeInTheDocument();
+    expect(screen.getByText("계약 조회")).toBeInTheDocument();
+  });
+
+  it("체결 전용 메뉴는 계약 조회로 흡수되어 노출되지 않는다", () => {
+    renderSidebar();
+    expect(screen.getByText("계약 조회")).toBeInTheDocument();
+    expect(screen.queryByText("체결 계약 조회")).not.toBeInTheDocument();
+    expect(screen.queryByText("체결계약 만료 현황")).not.toBeInTheDocument();
   });
 
   it("리프 메뉴 클릭 시 해당 경로로 이동한다", async () => {
@@ -68,7 +73,7 @@ describe("Sidebar", () => {
   it("계약 메뉴 클릭 시 그 경로로 이동한다", async () => {
     const user = userEvent.setup();
     renderSidebar();
-    await user.click(screen.getByRole("button", { name: /계약서 검토 조회/ }));
+    await user.click(screen.getByRole("button", { name: /계약 조회/ }));
     expect(screen.getByTestId("location")).toHaveTextContent("/contract/list");
   });
 

@@ -19,9 +19,7 @@ const SECTIONS = [
     label: "계약 관리",
     items: [
       { id: "c-request", label: "계약서 검토 요청", icon: "filePlus", path: "/contract/request" },
-      { id: "c-list", label: "계약서 검토 조회", icon: "fileFind", path: "/contract/list" },
-      { id: "c-signed", label: "체결 계약 조회", icon: "fileCheck", path: "/contract/signed" },
-      { id: "c-expire", label: "체결계약 만료 현황", icon: "clock", path: "/contract/expire" },
+      { id: "c-list", label: "계약 조회", icon: "fileFind", path: "/contract/list" },
     ],
   },
   {
