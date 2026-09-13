@@ -200,9 +200,6 @@ export const cheadActions = style({ marginLeft: "auto", display: "flex", gap: 8 
 
 export const cbody = style({ padding: 18 });
 
-/* 라이프사이클 StepBar 래퍼(lawkit StepBar 보완) */
-export const lifebar = style({ padding: "8px 2px", overflowX: "auto" });
-
 /* =========================================================================
  * facts 그리드
  * ======================================================================= */

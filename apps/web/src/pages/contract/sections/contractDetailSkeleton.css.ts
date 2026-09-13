@@ -68,14 +68,12 @@ export const glanceCell = style({
   gap: 8,
 });
 
-/* StepBar 자리(lifebar wrapper 와 동일 padding) */
-export const stepbar = style({ padding: "8px 2px" });
+/* 진행 게이지 자리(LifecycleRing 과 동일 배치) */
+export const lifecycle = style({ display: "flex", alignItems: "center", gap: 24, padding: "2px 4px" });
 
-export const stepbarRow = style({
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-});
+export const lifecycleInfo = style({ display: "flex", flexDirection: "column", gap: 8 });
+
+export const lifecycleDots = style({ display: "flex", gap: 5, marginTop: 4 });
 
 /* 본문 2컬럼(rail-grid 와 동일: 1fr railWidth) */
 export const railGrid = style({
