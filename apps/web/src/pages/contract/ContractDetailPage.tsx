@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Icon, Button, StepBar, ProgressBar, Alert } from "@lawkit/ui";
+import { Icon, Button, ProgressBar, Alert } from "@lawkit/ui";
 import type { ApproverSnapshot } from "@lawai/contracts";
 import {
   FilePreviewModal,
@@ -12,13 +12,15 @@ import { AssignModal } from "./sections/AssignModal";
 import { CommentPanel } from "./sections/CommentPanel";
 import { ReviewActionPanel } from "./sections/ReviewActionPanel";
 import { ApprovalRejectModal } from "./sections/ApprovalRejectModal";
+import { ApprovalStepRows } from "./sections/ApprovalStepRows";
 import { ContractDetailSkeleton } from "./sections/ContractDetailSkeleton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import type { ContractDetail, ApprovalStepView } from "./mock-data";
 import { AiRiskCard } from "./sections/AiRiskCard";
 import { getContract } from "../../api/contracts";
 import { toDetailView } from "./toDetailView";
-import { getLifecycleSteps } from "./getLifecycleSteps";
+import { getLifecycleProgress } from "./getLifecycleProgress";
+import { LifecycleRing } from "./sections/LifecycleRing";
 import { getSubmitPrecheck } from "./getSubmitPrecheck";
 import { useContractStatus } from "./hooks/useContractStatus";
 import { useContractApproval } from "./hooks/useContractApproval";
@@ -144,34 +146,7 @@ function ApprovalLineCard({
         {hasPlanned && <span className={css.cheadNote}>예정 · 상신 전</span>}
       </header>
       <div className={css.cbody}>
-        {hasActiveLine &&
-          steps!.map((step) => (
-            <div key={step.id}>
-              <div className={css.apvrow}>
-                <span
-                  className={cx(
-                    css.apvnum,
-                    step.statusKind === "done" && css.apvnumDone,
-                    step.statusKind === "rejected" && css.apvnumRejected,
-                    step.statusKind === "now" && css.apvnumActive,
-                  )}
-                >
-                  {step.statusKind === "done" ? "✓" : step.order + 1}
-                </span>
-                <span>
-                  <span className={css.apvname}>{step.name}</span>
-                  <span className={css.apvdept}>{step.dept}</span>
-                </span>
-                <span className={cx(css.apvtype, css.apvtypeKind[step.typeKind])}>
-                  {step.type}
-                </span>
-                <span className={cx(css.apvstat, css.apvstatKind[step.statusKind])}>
-                  {step.status}
-                </span>
-              </div>
-              {step.comment && <p className={css.apvcomment}>{step.comment}</p>}
-            </div>
-          ))}
+        {hasActiveLine && <ApprovalStepRows steps={steps!} currentStepExtra={null} />}
         {hasPlanned &&
           plannedApprovers.map((a, i) => (
             <div key={`${a.name}-${i}`} className={css.apvrow}>
@@ -416,8 +391,16 @@ export function ContractDetailPage() {
     transition: Boolean(data.can?.transition),
     delete: Boolean(data.can?.delete),
   };
-  // 라이프사이클 단계(라벨 mock 고정) — completed/active/scheduled 는 실 status 에서 파생.
-  const lifecycleSteps = getLifecycleSteps(data.status);
+  // 진행 게이지 — 실 status + 담당자·검토기한·결재선·체결일에서 파생.
+  const lifecycle = getLifecycleProgress({
+    status: data.status,
+    ownerName: data.ownerName,
+    dueDate: data.dueDate,
+    signedAt: data.signedAt,
+    period: d.period,
+    approvalLine: data.approvalLine,
+    now: new Date(),
+  });
 
   // 체결 품의 컨텍스트 — 요청자 본인 여부(상신 주체) + 활성 라인의 현재 차례가 나인지.
   const myId = me?.id ?? null;
@@ -506,14 +489,8 @@ export function ContractDetailPage() {
       {/* at-a-glance */}
       <GlanceStrip d={d} />
 
-      {/* lifecycle StepBar(mock) */}
-      <section className={css.card}>
-        <div className={css.cbody}>
-          <div className={css.lifebar}>
-            <StepBar steps={lifecycleSteps} />
-          </div>
-        </div>
-      </section>
+      {/* 진행 게이지(지난·남은 단계는 hover 팝오버) */}
+      <LifecycleRing progress={lifecycle} />
 
       <div className={css.railGrid}>
         {/* 좌측 본문 stack */}

@@ -17,11 +17,6 @@ export interface ContractRow {
   mine: boolean;
 }
 
-export interface LifecycleStep {
-  label: string;
-  status: "completed" | "active" | "scheduled";
-}
-
 // 결재선 단계 뷰모델(approvalLine.steps[] 에서 파생).
 export interface ApprovalStepView {
   id: string;
@@ -118,14 +113,6 @@ export const LIST_FILTERS = {
   sub: ["전체", "용역", "도급", "공급", "위탁", "협약", "LOI/MOU", "개인정보"],
   status: ["전체", "임시 저장", "미배정", "배정 중", "법무 검토 중", "요청자 검토 중", "검토 완료", "체결 진행"],
 };
-
-export const LIFECYCLE: LifecycleStep[] = [
-  { label: "임시 저장", status: "completed" }, { label: "검토 의뢰", status: "completed" },
-  { label: "배정", status: "completed" }, { label: "법무 검토", status: "active" },
-  { label: "요청자 검토", status: "scheduled" }, { label: "검토 완료", status: "scheduled" },
-  { label: "체결 진행", status: "scheduled" }, { label: "체결 완료", status: "scheduled" },
-  { label: "계약 이행", status: "scheduled" }, { label: "계약 종료", status: "scheduled" },
-];
 
 const SAMPLE_DETAIL: ContractDetail = {
   id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", status: "법무 검토 중", secure: true, stage: "신규계약",

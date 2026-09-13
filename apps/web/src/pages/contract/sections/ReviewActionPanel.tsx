@@ -8,6 +8,7 @@ import { getStatusLabel } from "../contractStatus";
 import { getActionView } from "../getActionView";
 import type { ApprovalActionContext } from "../getActionView";
 import { CompleteSigningModal } from "./CompleteSigningModal";
+import { ApprovalStepRows } from "./ApprovalStepRows";
 import { cx } from "../cx";
 import * as css from "../contractDetail.css";
 
@@ -196,32 +197,10 @@ function ApprovalLineRows({
 }: ApprovalLineRowsProps) {
   return (
     <div>
-      {steps.map((step) => (
-        <div key={step.id}>
-          <div className={css.apvrow}>
-            <span
-              className={cx(
-                css.apvnum,
-                step.statusKind === "done" && css.apvnumDone,
-                step.statusKind === "rejected" && css.apvnumRejected,
-                step.statusKind === "now" && css.apvnumActive,
-              )}
-            >
-              {step.statusKind === "done" ? "✓" : step.order + 1}
-            </span>
-            <span>
-              <span className={css.apvname}>{step.name}</span>
-              <span className={css.apvdept}>{step.dept}</span>
-            </span>
-            <span className={cx(css.apvtype, css.apvtypeKind[step.typeKind])}>
-              {step.type}
-            </span>
-            <span className={cx(css.apvstat, css.apvstatKind[step.statusKind])}>
-              {step.status}
-            </span>
-          </div>
-          {step.comment && <p className={css.apvcomment}>{step.comment}</p>}
-          {isDecideMode && step.statusKind === "now" && (
+      <ApprovalStepRows
+        steps={steps}
+        currentStepExtra={
+          isDecideMode && (
             <div className={css.decideBox}>
               <div className={css.decideLabel}>
                 <Icon name="edit" size="sm" />
@@ -248,9 +227,9 @@ function ApprovalLineRows({
                 </Button>
               </div>
             </div>
-          )}
-        </div>
-      ))}
+          )
+        }
+      />
     </div>
   );
 }

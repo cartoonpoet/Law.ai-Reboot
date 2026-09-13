@@ -4,6 +4,15 @@ import * as css from "./mockups.css";
 export function MockupsIndex() {
   return (
     <div className={css.indexWrap}>
+      <h2 className={css.indexHero}>계약 상세 진행 단계 바</h2>
+      <Link to="/mockups/contract-lifecycle" className={css.indexCard}>
+        <h3>D. 링 게이지 요약형 (채택)</h3>
+        <p>
+          실제 LifecycleRing 을 상태별로 돌려봅니다. 현재 단계가 메인이고, 지난·남은 단계는 게이지 hover 시
+          Popover, 막대 hover 시 Tooltip 으로.
+        </p>
+      </Link>
+
       <h1 className={css.indexHero}>UI 시안 — 파일 미리보기 · 비교</h1>
       <p className={css.indexSub}>
         A안(모달) 확정. 미리보기는 시안 그대로 진행하고, 비교 UX 는 단계 줄인

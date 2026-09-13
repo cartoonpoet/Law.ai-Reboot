@@ -77,14 +77,20 @@ export function ContractDetailSkeleton() {
         ))}
       </div>
 
-      {/* StepBar 바 */}
+      {/* 진행 게이지: 링 + 현재 단계 텍스트 + 단계 막대 */}
       <section className={css.card}>
         <div className={css.cardBody}>
-          <div className={css.stepbar}>
-            <div className={css.stepbarRow}>
-              {stepDots.map((i) => (
-                <Skeleton key={i} variant="circle" width={24} height={24} />
-              ))}
+          <div className={css.lifecycle}>
+            <Skeleton variant="circle" width={104} height={104} />
+            <div className={css.lifecycleInfo}>
+              <Skeleton variant="text" width={120} height={10} />
+              <Skeleton variant="rect" width={160} height={24} />
+              <Skeleton variant="text" width={260} height={13} />
+              <div className={css.lifecycleDots}>
+                {stepDots.map((i) => (
+                  <Skeleton key={i} variant="rect" width={22} height={5} />
+                ))}
+              </div>
             </div>
           </div>
         </div>
