@@ -94,7 +94,11 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   assigning: ["legalReview"],
   legalReview: ["requesterReview", "reviewDone"],
   requesterReview: ["legalReview", "reviewDone"],
-  reviewDone: ["signing", "legalReview"],
+  // reviewDone → signing 은 이 맵에 두지 않는다 — signing 진입은 submitApproval() 전용이다
+  // (결재 라인을 새로 만들면서 전이). 여기 두면 "signing 에서 승인된 라인 → reviewDone 으로
+  // 되돌림 → 계약서 교체 → 상태 엔드포인트로 signing 복귀" 로 옛 승인을 다른 문서에 재사용해
+  // completeSigning 을 통과시킬 수 있다(completeSigning 은 최신 라인만 본다).
+  reviewDone: ["legalReview"],
   signing: ["signed", "reviewDone"],
   signed: ["fulfilling"],
   fulfilling: ["closed"],
@@ -642,24 +646,49 @@ export class ContractsService {
         }
       }
 
-      // 서명본(role=signed) 파일이 이 PATCH 로 전부 사라질 수는 없다 — 클라이언트가 폼 상태를
-      // 잘못 복원해(예: toEditDefaults 가 signedFiles 를 빠뜨렸던 버그) role=signed 항목을
-      // files 배열에서 누락한 채 저장해도, 이미 R2 에 올라간 서명 원본이 deleteMany + R2 객체
-      // 삭제로 조용히 사라지는 사고를 서버에서 원천 차단한다. 클라이언트 쪽 왕복 정합성만으로는
-      // 부족하다 — 다른 클라이언트나 직접 API 호출도 이 가드를 거쳐야 한다.
-      // 단, "제거"만 막는다 — 기존 서명본을 새 서명본으로 교체하는 건 정상 업무이므로(잘못
-      // 올린 파일 다시 첨부) 허용한다: req.files 에 role=signed 항목이 하나라도 있으면
-      // 통과시키고, 아예 0개로 만들려는 시도만 막는다.
-      const hasExistingSignedFile = await this.prisma.file.findFirst({
+      // 서명본(role=signed) 보호 — 이미 R2 에 올라간 서명 원본이 이 PATCH 로 조용히 사라지는
+      // 사고를 서버에서 원천 차단한다(클라이언트 폼 복원 버그·다른 클라이언트·직접 API 호출 모두).
+      // 모든 거부는 아래 deleteMany/R2 삭제 후보 계산·contract.update 보다 먼저 일어난다.
+      //
+      // 실제 바이트가 있는(storageKey not null) 서명본이 있으면:
+      //  (a) 기존 서명본의 role 을 바꿀 수 없다 — { id, role:"attach" } 로 강등하고 id 없는
+      //      메타데이터 signed 항목을 끼워 넣으면 "서명본은 있지만 바이트가 없는" 상태가 된다.
+      //  (b) 바이트 있는 기존 서명본 중 최소 하나를 id 로 유지해야 한다 — id 없는 메타데이터
+      //      signed 항목은 개수에 치지 않는다(그걸 세면 실제 서명본 id 를 빼고 가짜 항목만
+      //      남겨 R2 원본을 지울 수 있다). 즉 서명본은 "추가"만 되고 교체·삭제는 안 된다.
+      // 바이트 있는 서명본이 없고 메타데이터-only 서명본만 있으면(레거시) 기존 규칙 그대로:
+      // signed 항목을 0개로 만드는 PATCH 만 막는다.
+      const existingSignedFiles = await this.prisma.file.findMany({
         where: { contractId: req.id, commentId: null, role: "signed" },
-        select: { id: true },
+        select: { id: true, storageKey: true },
       });
-      const patchKeepsSignedFile = req.files.some((f) => f.role === "signed");
-      if (hasExistingSignedFile && !patchKeepsSignedFile) {
-        throw new RpcException({
+      if (existingSignedFiles.length > 0) {
+        const signedRemovalError = new RpcException({
           status: 400,
           message: "서명본 파일은 이 요청으로 제거할 수 없습니다",
         });
+        const requestedById = new Map(
+          req.files.filter((f) => f.id).map((f) => [f.id as string, f]),
+        );
+        const hasBackedSignedFile = existingSignedFiles.some((f) => f.storageKey);
+        if (hasBackedSignedFile) {
+          const isDemoting = existingSignedFiles.some((f) => {
+            const requested = requestedById.get(f.id);
+            return requested !== undefined && requested.role !== "signed";
+          });
+          if (isDemoting) {
+            throw new RpcException({
+              status: 400,
+              message: "서명본 파일의 역할은 변경할 수 없습니다",
+            });
+          }
+          const keepsBackedSignedFile = existingSignedFiles.some(
+            (f) => f.storageKey && requestedById.get(f.id)?.role === "signed",
+          );
+          if (!keepsBackedSignedFile) throw signedRemovalError;
+        } else if (!req.files.some((f) => f.role === "signed")) {
+          throw signedRemovalError;
+        }
       }
 
       const toDelete = await this.prisma.file.findMany({

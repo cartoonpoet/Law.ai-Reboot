@@ -566,6 +566,19 @@ describe("ContractsService", () => {
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
 
+  // N2: signing 진입은 submitApproval 전용 — reviewDone→signing 을 상태 엔드포인트로 허용하면
+  // 옛 승인 라인을 교체된 문서에 재사용해 completeSigning 을 통과할 수 있다.
+  it("updateStatus는 reviewDone→signing 을 전이맵 400으로 막는다 (옛 결재 승인 재사용 방지)", async () => {
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("reviewDone"), status: "reviewDone", ownerId: "admin-1" });
+    await expect(
+      service.updateStatus({ id: "ct-1", status: "signing", viewerId: "admin-1", ...makeCtx() }),
+    ).rejects.toMatchObject({
+      error: { status: 400, message: "'reviewDone' → 'signing' 상태 전이는 허용되지 않습니다" },
+    });
+    expect(prismaMock.contract.update).not.toHaveBeenCalled();
+  });
+
   it("update는 제공된 필드만 갱신하고 날짜를 파싱한다", async () => {
     // 권한 통과: viewer 를 inHouseCounsel(담당 건 edit 가능) as owner 로 구성.
     prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
@@ -618,12 +631,24 @@ describe("ContractsService", () => {
   // C(Important): "제거"만 막는다 — payload 가 signed 파일을 0개로 만들 때만 거부한다.
   // 잘못 올린 서명본을 새 서명본으로 교체하는 건 정상 업무라 허용해야 한다(예전엔 기존 id 가
   // keepIds 에 없기만 해도 무조건 막아서, 잘못 첨부한 사용자가 영영 못 고치는 문제가 있었다).
-  describe("update: role=signed 파일이 0개가 되는 PATCH 만 막는다(교체는 허용)", () => {
-    it("files 배열에 signed 항목이 하나도 없으면 400 (0개로 만들려는 시도, deleteMany 조회 전에 막음)", async () => {
+  // P4: 바이트 있는(storageKey) 서명본이 있으면 "추가"만 된다 — 강등·교체·삭제 모두 거부.
+  // id 없는 메타데이터 signed 항목은 유지 요건에 치지 않는다. 모든 거부는 쓰기 전에 일어난다.
+  describe("update: 서명본(role=signed) 보호 가드", () => {
+    const signedRow = () => ({ ...fullRow("signed"), ownerId: "admin-1" });
+    const asCounsel = () =>
       prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
-      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signed"), ownerId: "admin-1" });
-      // 이 계약엔 role=signed 파일이 이미 붙어 있다.
-      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f-signed-1" });
+    const BACKED_SIGNED = { id: "f-signed-1", storageKey: "contracts/ct-1/u/signed.pdf" };
+    const expectNoWrite = () => {
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(r2Mock.deleteObjects).not.toHaveBeenCalled();
+      // 가드용 조회(1회)만 하고 deleteMany 대상 storageKey 조회까지 가지 않는다.
+      expect(prismaMock.file.findMany).toHaveBeenCalledTimes(1);
+    };
+
+    it("files 배열에 signed 항목이 하나도 없으면 400 (0개로 만들려는 시도)", async () => {
+      asCounsel();
+      prismaMock.contract.findFirst.mockResolvedValue(signedRow());
+      prismaMock.file.findMany.mockResolvedValueOnce([BACKED_SIGNED]);
       await expect(
         service.update({
           id: "ct-1",
@@ -632,58 +657,83 @@ describe("ContractsService", () => {
           files: [{ role: "contract", name: "계약명 오타 수정.docx", meta: "DOCX", sortOrder: 0 }],
         }),
       ).rejects.toMatchObject({ error: { status: 400, message: "서명본 파일은 이 요청으로 제거할 수 없습니다" } });
-      expect(prismaMock.file.findFirst).toHaveBeenCalledWith(
+      expect(prismaMock.file.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { contractId: "ct-1", commentId: null, role: "signed" },
         }),
       );
-      expect(prismaMock.contract.update).not.toHaveBeenCalled();
-      // deleteMany 대상 storageKey 조회(findMany)까지 가지 않고 먼저 막아야 한다 — R2 삭제
-      // 후보 계산 자체를 시작하지 않는다는 뜻.
-      expect(prismaMock.file.findMany).not.toHaveBeenCalled();
+      expectNoWrite();
     });
 
-    it("기존 signed 항목의 id 를 그대로 유지하면 통과한다", async () => {
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
-      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signed"), ownerId: "admin-1" });
-      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f-signed-1" });
+    it("우회①: 실제 서명본 id 를 빼고 id 없는 signed 항목만 넣으면 400 (메타데이터 항목은 유지로 치지 않음)", async () => {
+      asCounsel();
+      prismaMock.contract.findFirst.mockResolvedValue(signedRow());
+      prismaMock.file.findMany.mockResolvedValueOnce([BACKED_SIGNED]);
+      await expect(
+        service.update({
+          id: "ct-1",
+          viewerId: "admin-1",
+          ...makeCtx(),
+          files: [{ role: "signed", name: "가짜 서명본.pdf", meta: "PDF", sortOrder: 0 }],
+        }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "서명본 파일은 이 요청으로 제거할 수 없습니다" } });
+      expectNoWrite();
+    });
+
+    it("우회②: 서명본 id 는 유지하되 attach 로 강등 + id 없는 signed 항목을 넣으면 400", async () => {
+      asCounsel();
+      prismaMock.contract.findFirst.mockResolvedValue(signedRow());
+      prismaMock.file.findMany.mockResolvedValueOnce([BACKED_SIGNED]);
+      await expect(
+        service.update({
+          id: "ct-1",
+          viewerId: "admin-1",
+          ...makeCtx(),
+          files: [
+            { id: "f-signed-1", role: "attach", name: "서명본.pdf", meta: "PDF", sortOrder: 0 },
+            { role: "signed", name: "가짜 서명본.pdf", meta: "PDF", sortOrder: 0 },
+          ],
+        }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "서명본 파일의 역할은 변경할 수 없습니다" } });
+      expectNoWrite();
+    });
+
+    it("정상: 서명본을 그대로 두고 다른 필드 수정 + 첨부 추가는 통과한다", async () => {
+      asCounsel();
+      prismaMock.contract.findFirst.mockResolvedValue(signedRow());
+      prismaMock.file.findMany.mockResolvedValueOnce([BACKED_SIGNED]);
       prismaMock.contract.update.mockResolvedValue(fullRow("signed"));
       await service.update({
         id: "ct-1",
         viewerId: "admin-1",
+        title: "제목 수정",
         ...makeCtx(),
         files: [
           { id: "f-signed-1", role: "signed", name: "서명본.pdf", meta: "PDF", sortOrder: 0 },
-          { role: "contract", name: "계약명 오타 수정.docx", meta: "DOCX", sortOrder: 1 },
+          { role: "attach", name: "별첨.pdf", meta: "PDF", sortOrder: 0 },
         ],
       });
       expect(prismaMock.contract.update).toHaveBeenCalled();
+      const arg = prismaMock.contract.update.mock.calls[0][0];
+      expect(arg.data.title).toBe("제목 수정");
+      expect(arg.data.files.create).toHaveLength(1);
+      expect(arg.data.files.deleteMany).toEqual({ commentId: null, id: { notIn: ["f-signed-1"] } });
     });
 
-    // C 의 핵심 케이스: 기존 서명본(f-signed-old)의 id 를 아예 빼고 새 서명본(id 없음 = 새
-    // File 생성)만 role=signed 로 보낸다 — "제거"가 아니라 "교체" 다. 통과해야 한다.
-    it("기존 signed 파일 id 를 빼고 새 signed 파일(id 없음)로 교체하면 통과한다(0개가 아니므로)", async () => {
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
-      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signed"), ownerId: "admin-1" });
-      // 기존에 signed 파일이 있었다는 사실 자체는 여전히 true(교체 대상이 있다는 뜻) —
-      // hasExistingSignedFile 쿼리는 role 만 보고 특정 id 를 안 걸러서 여전히 truthy 다.
-      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f-signed-old" });
+    it("레거시: 바이트 없는(메타데이터-only) 서명본만 있으면 새 signed 항목으로 교체를 허용한다", async () => {
+      asCounsel();
+      prismaMock.contract.findFirst.mockResolvedValue(signedRow());
+      prismaMock.file.findMany.mockResolvedValueOnce([{ id: "f-signed-old", storageKey: null }]);
       prismaMock.contract.update.mockResolvedValue(fullRow("signed"));
       await service.update({
         id: "ct-1",
         viewerId: "admin-1",
         ...makeCtx(),
-        files: [
-          { role: "signed", name: "서명본(재업로드).pdf", meta: "PDF", sortOrder: 0 }, // id 없음 = 새로 생성
-        ],
+        files: [{ role: "signed", name: "서명본(재업로드).pdf", meta: "PDF", sortOrder: 0 }],
       });
       expect(prismaMock.contract.update).toHaveBeenCalled();
-      // 실제로 기존 f-signed-old 는 keepIds 에 없으니 deleteMany 대상에 포함되고, 새 항목은
-      // create 목록에 들어가야 한다 — 그게 "교체"의 실제 구현.
       const arg = prismaMock.contract.update.mock.calls[0][0];
       expect(arg.data.files.create).toHaveLength(1);
-      // keepIds 가 비어 있으면(새 파일뿐이라 id 있는 항목이 없음) notIn 조건 자체를 안 붙인다
-      // (update() 의 기존 관례 — 빈 notIn:[] 은 Prisma 에서 "전부 제외 없음"과 동치라 아예 생략).
       expect(arg.data.files.deleteMany).toEqual({ commentId: null });
     });
   });

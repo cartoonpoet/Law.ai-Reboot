@@ -505,10 +505,57 @@ describe("CommentsService", () => {
           id: { in: ["file-1"] },
           contractId: "contract-1",
           commentId: null,
+          role: { not: "signed" },
         },
         data: { commentId: "comment-1" },
       });
       expect(ok.comment.id).toBe("comment-1");
+    });
+    // N3: 서명 원본(role=signed)은 코멘트 첨부로 흡수될 수 없다 — where 에서 제외되고, 제외분은
+    // count 불일치 400 으로 트랜잭션 전체가 롤백된다(코멘트 재조회·감사·알림까지 가지 않음).
+    it("role=signed 파일 id 는 코멘트 첨부로 흡수되지 않는다 — 400 + 롤백", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "general", user: { departmentId: "dept-9" } },
+      );
+      // cc 로 참조된 general(canView 만 있음)이 서명본 id 를 첨부로 넣는 시나리오.
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "viewer-cc", isSecret: false }] }),
+      );
+      // DB 상 signed 행은 role 필터로 매칭되지 않으므로 count 0.
+      const fileUpdateManyMock = jest.fn().mockResolvedValue({ count: 0 });
+      const findUniqueMock = jest.fn();
+      const txMock = {
+        comment: {
+          create: jest.fn().mockResolvedValue({ id: "comment-1", contractId: "contract-1" }),
+          findUniqueOrThrow: findUniqueMock,
+        },
+        commentMention: { createMany: jest.fn() },
+        file: { updateMany: fileUpdateManyMock },
+      };
+      prismaMock.$transaction.mockImplementation(
+        async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),
+      );
+
+      await expect(
+        service.create({
+          contractId: "contract-1",
+          body: "서명본 첨부 시도",
+          viewerId: "viewer-cc",
+          attachmentIds: ["file-signed"],
+          tenantContext: makeCtx(),
+        }),
+      ).rejects.toMatchObject({
+        error: { status: 400, message: "일부 첨부 파일을 찾을 수 없습니다" },
+      });
+      expect(fileUpdateManyMock).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          id: { in: ["file-signed"] },
+          role: { not: "signed" },
+        }),
+        data: { commentId: "comment-1" },
+      });
+      expect(findUniqueMock).not.toHaveBeenCalled();
+      expect(auditMock.record).not.toHaveBeenCalled();
     });
   });
 
@@ -739,6 +786,7 @@ describe("CommentsService", () => {
           id: { in: ["file-c"] },
           contractId: "contract-1",
           commentId: null,
+          role: { not: "signed" },
         },
         data: { commentId: "comment-1" },
       });
@@ -848,6 +896,60 @@ describe("CommentsService", () => {
           tenantContext: makeCtx(),
         }),
       ).rejects.toBeInstanceOf(RpcException);
+    });
+    // N3: 수정 경로도 동일 — 서명본 id 는 흡수되지 않고 400 롤백. detach 된 기존 첨부의
+    // R2 정리(트랜잭션 성공 후에만 실행)도 일어나지 않는다.
+    it("attachmentIds 전체교체에 role=signed 파일 id 가 있으면 흡수되지 않고 400 + R2 정리 없음", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue(
+        { role: "inHouseCounsel", user: { departmentId: "dept-1" } },
+      );
+      prismaMock.comment.findFirst.mockResolvedValue(mentionRow());
+      const fileFindManyMock = jest.fn().mockResolvedValue([
+        { id: "file-a", storageKey: "contracts/contract-1/uuid-a/a.pdf" },
+      ]);
+      const fileDeleteManyMock = jest.fn().mockResolvedValue({ count: 1 });
+      const fileUpdateManyMock = jest.fn().mockResolvedValue({ count: 0 });
+      const findUniqueMock = jest.fn();
+      const txMock = {
+        comment: { update: jest.fn(), findUniqueOrThrow: findUniqueMock },
+        commentMention: {
+          findMany: jest.fn().mockResolvedValue([]),
+          deleteMany: jest.fn(),
+          createMany: jest.fn(),
+        },
+        file: {
+          findMany: fileFindManyMock,
+          deleteMany: fileDeleteManyMock,
+          updateMany: fileUpdateManyMock,
+        },
+      };
+      prismaMock.$transaction.mockImplementation(
+        async (cb: (tx: typeof txMock) => Promise<unknown>) => cb(txMock),
+      );
+
+      await expect(
+        service.update({
+          contractId: "contract-1",
+          commentId: "comment-1",
+          body: "본문",
+          viewerId: "counsel-1",
+          attachmentIds: ["file-signed"],
+          tenantContext: makeCtx(),
+        }),
+      ).rejects.toMatchObject({
+        error: { status: 400, message: "일부 첨부 파일을 찾을 수 없습니다" },
+      });
+      expect(fileUpdateManyMock).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          id: { in: ["file-signed"] },
+          role: { not: "signed" },
+        }),
+        data: { commentId: "comment-1" },
+      });
+      expect(findUniqueMock).not.toHaveBeenCalled();
+      expect(r2Mock.deleteObjects).not.toHaveBeenCalled();
+      expect(auditMock.record).not.toHaveBeenCalled();
     });
   });
 
