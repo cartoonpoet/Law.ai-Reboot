@@ -394,31 +394,6 @@ describe("ContractsService", () => {
     ).rejects.toMatchObject({ error: { status: 400 } });
   });
 
-  it("list expiry=d90 은 periodEnd 를 오늘~90일 이내로 필터링한다", async () => {
-    prismaMock.contract.findMany.mockResolvedValue([]);
-    prismaMock.contract.count.mockResolvedValue(0);
-
-    const before = Date.now();
-    await service.list({ expiry: "d90", page: 1, pageSize: 20, ...makeCtx() });
-    const after = Date.now();
-
-    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
-    const { gte, lte } = findArg.where.periodEnd;
-    expect(gte.getTime()).toBeGreaterThanOrEqual(before);
-    expect(gte.getTime()).toBeLessThanOrEqual(after);
-    expect(lte.getTime() - gte.getTime()).toBe(90 * 86_400_000);
-  });
-
-  it("list expiry=expired 는 periodEnd lt 지금으로 필터링한다", async () => {
-    prismaMock.contract.findMany.mockResolvedValue([]);
-    prismaMock.contract.count.mockResolvedValue(0);
-
-    await service.list({ expiry: "expired", page: 1, pageSize: 20, ...makeCtx() });
-
-    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
-    expect(findArg.where.periodEnd.lt).toBeInstanceOf(Date);
-  });
-
   it("list expiry 가 알 수 없는 값이면 400 을 던진다", async () => {
     await expect(
       service.list({
@@ -429,6 +404,87 @@ describe("ContractsService", () => {
         ...makeCtx(),
       }),
     ).rejects.toMatchObject({ error: { status: 400 } });
+  });
+
+  describe("list expiry — 오늘 자정(UTC) 경계 + 체결 이후 상태 제한", () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("만료 판정은 흐르는 현재 시각이 아니라 오늘 자정(UTC)에 고정된다(당일 만료 계약이 조기에 expired 로 새지 않는다)", async () => {
+      // KST 14:00 = UTC 05:00 — "오늘"이 이미 여러 시간 지난 시점에도 오늘 자정 기준은 그대로여야 한다.
+      jest.useFakeTimers().setSystemTime(new Date("2026-06-11T05:00:00.000Z"));
+      prismaMock.contract.findMany.mockResolvedValue([]);
+      prismaMock.contract.count.mockResolvedValue(0);
+
+      await service.list({ expiry: "expired", page: 1, pageSize: 20, ...makeCtx() });
+
+      const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+      // lt 가 정확히 오늘 자정이면 periodEnd===오늘자정(=오늘 만료)인 계약은 lt 를 만족하지 않아
+      // 아직 expired 로 분류되지 않는다.
+      expect((findArg.where.periodEnd.lt as Date).toISOString()).toBe(
+        "2026-06-11T00:00:00.000Z",
+      );
+    });
+
+    it("d90 만료 윈도우도 오늘 자정(UTC) 기준으로 계산된다(하루 중 시각과 무관)", async () => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-06-11T21:00:00.000Z"));
+      prismaMock.contract.findMany.mockResolvedValue([]);
+      prismaMock.contract.count.mockResolvedValue(0);
+
+      await service.list({ expiry: "d90", page: 1, pageSize: 20, ...makeCtx() });
+
+      const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+      const todayStart = Date.UTC(2026, 5, 11);
+      expect((findArg.where.periodEnd.gte as Date).toISOString()).toBe(
+        new Date(todayStart).toISOString(),
+      );
+      expect((findArg.where.periodEnd.lte as Date).toISOString()).toBe(
+        new Date(todayStart + 90 * 86_400_000).toISOString(),
+      );
+    });
+
+    it("expiry 만 지정하면(상태 필터 없음) 체결 이후 상태(signed/fulfilling/closed)로만 좁힌다", async () => {
+      prismaMock.contract.findMany.mockResolvedValue([]);
+      prismaMock.contract.count.mockResolvedValue(0);
+
+      await service.list({ expiry: "expired", page: 1, pageSize: 20, ...makeCtx() });
+
+      const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+      expect(findArg.where.status).toEqual({ in: ["signed", "fulfilling", "closed"] });
+    });
+
+    it("expiry + status(검토 중) 조합은 교집합이 비어 빈 결과 조건이 된다(에러 아님)", async () => {
+      prismaMock.contract.findMany.mockResolvedValue([]);
+      prismaMock.contract.count.mockResolvedValue(0);
+
+      await service.list({
+        status: "legalReview",
+        expiry: "expired",
+        page: 1,
+        pageSize: 20,
+        ...makeCtx(),
+      });
+
+      const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+      expect(findArg.where.status).toEqual({ in: [] });
+    });
+
+    it("expiry + statuses(체결 그룹) 조합은 체결 이후 상태만 남긴다(signing 은 제외)", async () => {
+      prismaMock.contract.findMany.mockResolvedValue([]);
+      prismaMock.contract.count.mockResolvedValue(0);
+
+      await service.list({
+        statuses: "signing,signed",
+        expiry: "d90",
+        page: 1,
+        pageSize: 20,
+        ...makeCtx(),
+      });
+
+      const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+      expect(findArg.where.status).toEqual({ in: ["signed"] });
+    });
   });
 
   // toResponse 가 요구하는 관계 배열을 포함한 최소 행

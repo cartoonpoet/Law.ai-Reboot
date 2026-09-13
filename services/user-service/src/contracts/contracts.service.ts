@@ -112,6 +112,11 @@ const VALID_STATUSES = new Set<string>(Object.keys(ALLOWED_TRANSITIONS));
 const EXPIRY_WINDOW_DAYS: Record<"d90" | "d180", number> = { d90: 90, d180: 180 };
 const DAY_MS = 86_400_000;
 
+// 만료는 "체결 이후"에만 의미가 있다(옛 "체결계약 만료 현황" 메뉴를 흡수) — 검토 중인 계약은
+// 만료 축 자체가 없다. status/statuses 로 이미 좁혀둔 값과 교집합하고, 아무 상태 필터가
+// 없으면 이 셋 전체로 좁힌다.
+const POST_SIGN_STATUSES: ContractStatus[] = ["signed", "fulfilling", "closed"];
+
 // "signing,signed" → ["signing","signed"]. 미지원 상태 값이 섞여 있으면 400(전체 조회로 조용히
 // 새는 것을 막는다 — 잘못된 필터가 "필터 없음"처럼 동작하면 발견하기 어려운 버그가 된다).
 const parseStatusesParam = (raw: string): ContractStatus[] => {
@@ -125,14 +130,26 @@ const parseStatusesParam = (raw: string): ContractStatus[] => {
   return values as ContractStatus[];
 };
 
-// expiry → periodEnd where 절. d90/d180 은 [지금, 지금+N일], expired 는 (~, 지금).
+// periodEnd 는 항상 "그날 00:00 UTC"로 저장된다("YYYY-MM-DD" 를 new Date() 에 넘기면 UTC 자정으로
+// 파싱됨). 그런데 만료 판정 기준을 시:분:초가 계속 흐르는 현재 시각(now)으로 잡으면, 하루 안에서도
+// 값이 흔들린다 — 예: KST 09:00(=UTC 00:00) 이후부터 "오늘 만료"인 계약이 조기에 expired 로
+// 넘어가거나 90일 이내 창에서 빠진다. 오늘 자정(UTC)으로 고정해 하루 종일 같은 결과를 보장한다.
+const getTodayStartUtc = (): Date => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+};
+
+// expiry → periodEnd where 절. d90/d180 은 [오늘 자정, 오늘 자정+N일], expired 는 (~, 오늘 자정).
 const parseExpiryFilter = (
   expiry: string,
 ): NonNullable<Prisma.ContractWhereInput["periodEnd"]> => {
-  const now = new Date();
-  if (expiry === "expired") return { lt: now };
+  const todayStart = getTodayStartUtc();
+  if (expiry === "expired") return { lt: todayStart };
   if (expiry === "d90" || expiry === "d180") {
-    return { gte: now, lte: new Date(now.getTime() + EXPIRY_WINDOW_DAYS[expiry] * DAY_MS) };
+    return {
+      gte: todayStart,
+      lte: new Date(todayStart.getTime() + EXPIRY_WINDOW_DAYS[expiry] * DAY_MS),
+    };
   }
   throw new RpcException({ status: 400, message: "유효하지 않은 expiry 값입니다" });
 };
@@ -447,14 +464,26 @@ export class ContractsService {
       !req.status && req.statuses ? parseStatusesParam(req.statuses) : undefined;
     const expiryFilter = req.expiry ? parseExpiryFilter(req.expiry) : undefined;
 
+    // expiry 가 있으면 이미 지정된 status/statuses 와 "체결 이후 상태"의 교집합으로 좁힌다.
+    // 상태 필터가 아예 없으면(전체 탭 + 만료만) POST_SIGN_STATUSES 전체가 기준이 된다.
+    // 교집합이 비면(예: 검토 그룹 + 만료됨) 에러가 아니라 빈 결과(status: { in: [] }).
+    const explicitStatuses = req.status ? [req.status] : statusesFilter;
+    const statusFilter: ContractStatus | { in: ContractStatus[] } | undefined = req.expiry
+      ? {
+          in: (explicitStatuses ?? POST_SIGN_STATUSES).filter((s) =>
+            POST_SIGN_STATUSES.includes(s),
+          ),
+        }
+      : req.status
+        ? req.status
+        : statusesFilter
+          ? { in: statusesFilter }
+          : undefined;
+
     const where: Prisma.ContractWhereInput = {
       deletedAt: null,
       ...tenantScope(ctx),
-      ...(req.status
-        ? { status: req.status }
-        : statusesFilter
-          ? { status: { in: statusesFilter } }
-          : {}),
+      ...(statusFilter !== undefined ? { status: statusFilter } : {}),
       ...(req.party ? { party: req.party } : {}),
       ...(req.categoryId ? { categoryId: req.categoryId } : {}),
       ...(req.mineOf ? { createdById: req.mineOf } : {}),

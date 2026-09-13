@@ -139,7 +139,7 @@ export function listColumns(): ColumnDef<ContractRow>[] {
         return v ? (
           <span className={listCss.dateCell}>{String(v)}</span>
         ) : (
-          <span className={listCss.emptyCell}>—</span>
+          <span className={listCss.emptyCell}>-</span>
         );
       },
     },

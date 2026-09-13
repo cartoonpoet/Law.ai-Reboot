@@ -16,10 +16,11 @@ export const dateCell = style({
   fontVariantNumeric: "tabular-nums",
 });
 
-// 체결일이 없는 행("—").
+// 체결일이 없는 행("-") — 실제 정보(미체결)를 전달하므로 textDisabled(초저대비) 대신
+// textMuted 를 쓴다. textDisabled 는 진짜 비활성 요소용으로 남겨둔다.
 export const emptyCell = style({
   fontSize: 12,
-  color: c.textDisabled,
+  color: c.textMuted,
   fontVariantNumeric: "tabular-nums",
 });
 
@@ -62,7 +63,8 @@ export const tableWrap = style({ padding: 6 });
 export const subbarLabel = style({
   fontSize: 11,
   fontWeight: 700,
-  color: c.textDisabled,
+  // 읽어야 하는 라벨이라 textDisabled(초저대비) 대신 textMuted 사용.
+  color: c.textMuted,
   letterSpacing: "0.02em",
   flexShrink: 0,
 });
