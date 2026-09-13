@@ -5,6 +5,13 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
 import { ApprovalsService } from "../approvals/approvals.service";
+import { AiAnalysisService } from "../ai-analysis/ai-analysis.service";
+import {
+  buildPrecheckPayload,
+  buildRiskPayload,
+  buildSubmitBriefingPayload,
+  buildApprovalBriefingPayload,
+} from "../ai-analysis/prompt-payloads";
 import { evaluate } from "./contracts.authz";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
 import { tenantScope, resolveTenantId } from "../common/tenant-scope";
@@ -26,6 +33,7 @@ import type {
   ApproverSnapshot,
   SubmitContractApprovalRequest,
   SubmitContractApprovalResult,
+  FileInput,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -89,6 +97,33 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   closed: [],
 };
 
+// 계약서 파일 교체 시 risk 재분석을 다시 돌릴 상태(spec §6). 법무 검토 루프 안에 있는
+// 두 상태 — 이 구간에서는 첨부된 문서가 곧 검토 대상이라 문서가 바뀌면 기존 분석이 무효다.
+// (requesterReview 는 legalReview 로 되돌아갈 수 있는 같은 루프의 반대편이다.)
+const RISK_RECHECK_STATUSES: ContractStatus[] = ["legalReview", "requesterReview"];
+
+// role="contract"(계약서 본문) 파일이 실제로 교체됐는지 판정.
+// 추가(신규 업로드) / 제거 / 다른 파일의 role 을 contract 로 승격 — 셋 다 "문서가 바뀜"으로 본다.
+// 파일을 건드리지 않은 수정(제목/기간 등)이나 이름·정렬만 바뀐 경우는 false.
+const isContractFileReplaced = (
+  currentFiles: { id: string; role: string }[],
+  nextFiles: FileInput[],
+): boolean => {
+  const currentContractIds = new Set(
+    currentFiles.filter((f) => f.role === "contract").map((f) => f.id),
+  );
+  const nextContractIds = new Set(
+    nextFiles
+      .filter((f) => f.role === "contract")
+      .map((f) => f.id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const hasNewUpload = nextFiles.some((f) => f.role === "contract" && !f.id);
+  const hasRemoved = [...currentContractIds].some((id) => !nextContractIds.has(id));
+  const hasPromoted = [...nextContractIds].some((id) => !currentContractIds.has(id));
+  return hasNewUpload || hasRemoved || hasPromoted;
+};
+
 // 관리번호: C{YYYYMMDD}-{4자리}. 충돌 시 호출부에서 재시도(unique 제약).
 const generateCode = (): string => {
   const now = new Date();
@@ -109,6 +144,7 @@ export class ContractsService {
     private readonly audit: AuditService,
     private readonly r2: R2Client,
     private readonly approvals: ApprovalsService,
+    private readonly aiAnalysis: AiAnalysisService,
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
@@ -245,7 +281,19 @@ export class ContractsService {
         actorId: req.createdById,
         tenantId: row.tenantId,
       });
-      return this.toResponse(row);
+      const response = this.toResponse(row);
+      // 계약서 원본(role=contract) 파일이 있으면 사전 위험 점검(precheck)을 백그라운드로 트리거.
+      if (req.files.some((f) => f.role === "contract")) {
+        void this.aiAnalysis.trigger({
+          targetType: "contract",
+          targetId: row.id,
+          kind: "precheck",
+          tenantId: row.tenantId,
+          triggeredByUserId: req.createdById,
+          payload: buildPrecheckPayload(response),
+        });
+      }
+      return response;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === "P2003") {
@@ -532,7 +580,28 @@ export class ContractsService {
       detail: { changed },
     });
 
-    return this.toResponse(row);
+    const response = this.toResponse(row);
+
+    // spec §6: risk 는 "legalReview 진입 또는 계약서 파일 교체 시" 트리거된다.
+    // 검토 중 문서가 바뀌면 기존 위험 분석은 현재 문서와 어긋나므로 다시 돌린다.
+    // 담당자(owner) 미배정이면 자격증명 주체가 없어 건너뛴다(상태 전이 트리거와 동일).
+    if (
+      req.files !== undefined &&
+      RISK_RECHECK_STATUSES.includes(current.status as ContractStatus) &&
+      row.ownerId &&
+      isContractFileReplaced(current.files, req.files)
+    ) {
+      void this.aiAnalysis.trigger({
+        targetType: "contract",
+        targetId: req.id,
+        kind: "risk",
+        tenantId: row.tenantId,
+        triggeredByUserId: row.ownerId,
+        payload: buildRiskPayload(response, null),
+      });
+    }
+
+    return response;
   }
 
   /**
@@ -597,7 +666,17 @@ export class ContractsService {
       tenantId: row.tenantId,
       detail: { kind: "submitApproval", from: "reviewDone", to: "signing" },
     });
-    return { contract: this.toResponse(updated, line), notifications };
+    const response = this.toResponse(updated, line);
+    // 상신 성공 후 결재자용 브리핑(approvalBriefing)을 백그라운드로 트리거.
+    void this.aiAnalysis.trigger({
+      targetType: "contract",
+      targetId: row.id,
+      kind: "approvalBriefing",
+      tenantId: row.tenantId,
+      triggeredByUserId: req.viewerId!,
+      payload: buildApprovalBriefingPayload(response, line),
+    });
+    return { contract: response, notifications };
   }
 
   async updateStatus(
@@ -642,6 +721,8 @@ export class ContractsService {
       include: contractInclude,
     });
 
+    const response = this.toResponse(row);
+
     if (isTransition) {
       await this.audit.record({
         action: "transition",
@@ -651,9 +732,32 @@ export class ContractsService {
         tenantId: row.tenantId,
         detail: { from: current.status, to: req.status },
       });
+      // legalReview 진입: 담당자(owner) 배정 전이면 트리거 자체를 건너뛴다(AiAnalysisService 의
+      // 자격증명 없음 처리와 동일하게, 호출부에서 미리 걸러 불필요한 skipped 행 생성을 피함).
+      if (req.status === "legalReview" && row.ownerId) {
+        void this.aiAnalysis.trigger({
+          targetType: "contract",
+          targetId: req.id,
+          kind: "risk",
+          tenantId: row.tenantId,
+          triggeredByUserId: row.ownerId,
+          payload: buildRiskPayload(response, null),
+        });
+      }
+      // reviewDone 진입: 상신 전 결재자용 요약(submitBriefing)을 백그라운드로 트리거.
+      if (req.status === "reviewDone") {
+        void this.aiAnalysis.trigger({
+          targetType: "contract",
+          targetId: req.id,
+          kind: "submitBriefing",
+          tenantId: row.tenantId,
+          triggeredByUserId: row.createdById,
+          payload: buildSubmitBriefingPayload(response),
+        });
+      }
     }
 
-    return this.toResponse(row);
+    return response;
   }
 
   // 삭제되지 않은 계약 존재 확인 후 현재 행(관계 포함) 반환(없으면 404).

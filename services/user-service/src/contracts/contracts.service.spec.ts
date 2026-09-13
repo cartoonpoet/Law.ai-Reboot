@@ -5,6 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
 import { ApprovalsService } from "../approvals/approvals.service";
+import { AiAnalysisService } from "../ai-analysis/ai-analysis.service";
 import type { CreateContractRequest } from "@lawai/contracts";
 
 const companySnapshot = {
@@ -132,6 +133,8 @@ describe("ContractsService", () => {
     submit: jest.fn(),
     getActive: jest.fn().mockResolvedValue({ line: null, historyCount: 0 }),
   };
+  // AI 분석 잡 트리거 — fire-and-forget 호출이므로 트리거 여부/인자만 검증.
+  const aiAnalysisMock = { trigger: jest.fn().mockResolvedValue(undefined) };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -144,6 +147,7 @@ describe("ContractsService", () => {
         { provide: AuditService, useValue: auditMock },
         { provide: R2Client, useValue: r2Mock },
         { provide: ApprovalsService, useValue: approvalsMock },
+        { provide: AiAnalysisService, useValue: aiAnalysisMock },
       ],
     }).compile();
     service = moduleRef.get(ContractsService);
@@ -239,6 +243,37 @@ describe("ContractsService", () => {
     ]);
     expect(result.references).toHaveLength(3);
     expect(result.references.find((r) => r.isSecret)?.name).toBe("비밀임원");
+  });
+
+  it("create: 계약서(role=contract) 파일이 있으면 precheck AI 분석을 트리거한다", async () => {
+    prismaMock.contract.create.mockResolvedValue({
+      ...fullRow("unassigned"),
+      id: "ct-1",
+      createdById: "user-uuid-1",
+    });
+    await service.create({ ...createReq, ...makeCtx() });
+    expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetType: "contract",
+        targetId: "ct-1",
+        kind: "precheck",
+        triggeredByUserId: "user-uuid-1",
+      }),
+    );
+  });
+
+  it("create: 계약서(role=contract) 파일이 없으면 precheck AI 분석을 트리거하지 않는다", async () => {
+    prismaMock.contract.create.mockResolvedValue({
+      ...fullRow("unassigned"),
+      id: "ct-2",
+      createdById: "user-uuid-1",
+    });
+    await service.create({
+      ...createReq,
+      ...makeCtx(),
+      files: [{ role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", sortOrder: 0 }],
+    });
+    expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
   });
 
   it("get은 deletedAt null 조건으로 조회하고 없으면 404 RpcException", async () => {
@@ -365,6 +400,34 @@ describe("ContractsService", () => {
     expect(res.status).toBe("reviewDone");
   });
 
+  it("updateStatus: legalReview 진입 시 risk AI 분석을 트리거한다", async () => {
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: "admin-1" });
+    prismaMock.contract.update.mockResolvedValue({ ...fullRow("legalReview"), ownerId: "admin-1" });
+    await service.updateStatus({ id: "ct-1", status: "legalReview", viewerId: "admin-1", ...makeCtx() });
+    expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+      expect.objectContaining({ targetType: "contract", targetId: "ct-1", kind: "risk", triggeredByUserId: "admin-1" }),
+    );
+  });
+
+  it("updateStatus: legalReview 진입해도 ownerId 가 없으면 AI 분석을 트리거하지 않는다", async () => {
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: "admin-1" });
+    prismaMock.contract.update.mockResolvedValue({ ...fullRow("legalReview"), ownerId: null });
+    await service.updateStatus({ id: "ct-1", status: "legalReview", viewerId: "admin-1", ...makeCtx() });
+    expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+  });
+
+  it("updateStatus: reviewDone 진입 시 submitBriefing AI 분석을 트리거한다", async () => {
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview", ownerId: "admin-1" });
+    prismaMock.contract.update.mockResolvedValue({ ...fullRow("reviewDone"), createdById: "creator-1" });
+    await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1", ...makeCtx() });
+    expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+      expect.objectContaining({ targetType: "contract", targetId: "ct-1", kind: "submitBriefing", triggeredByUserId: "creator-1" }),
+    );
+  });
+
   it("updateStatus는 허용되지 않은 전이를 400으로 막는다 (unassigned→signed)", async () => {
     // 역할(canTransition)은 통과(inHouseCounsel as owner)하되 ALLOWED_TRANSITIONS 위반으로 400.
     prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
@@ -417,6 +480,85 @@ describe("ContractsService", () => {
     expect(arg.data.details.approvers).toEqual([]);
     // 미제공 관계(counterparties)는 건드리지 않음
     expect(arg.data.counterparties).toBeUndefined();
+  });
+
+  // spec §6: risk 는 "legalReview 진입 또는 계약서 파일 교체 시" 트리거된다.
+  describe("update: 계약서 파일 교체 시 risk 재분석", () => {
+    // 검토 중(legalReview)이고 계약서 본문 파일 f1 이 이미 붙어 있는 계약.
+    const rowInReview = () => ({
+      ...fullRow("legalReview"),
+      status: "legalReview",
+      ownerId: "admin-1",
+      files: [{ id: "f1", role: "contract" }],
+    });
+
+    beforeEach(() => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    });
+
+    it("legalReview 중 계약서 파일을 새 파일로 교체하면 risk 를 다시 트리거한다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(rowInReview());
+      prismaMock.contract.update.mockResolvedValue(rowInReview());
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        // 기존 f1 을 빼고 새 계약서를 올림 → 교체.
+        files: [{ role: "contract", name: "revised.docx", meta: "DOCX", sortOrder: 0 }],
+      });
+      expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+        expect.objectContaining({ targetType: "contract", targetId: "ct-1", kind: "risk", triggeredByUserId: "admin-1" }),
+      );
+    });
+
+    it("risk 대상이 아닌 상태(unassigned)에서는 파일을 교체해도 트리거하지 않는다", async () => {
+      const row = { ...rowInReview(), status: "unassigned" };
+      prismaMock.contract.findFirst.mockResolvedValue(row);
+      prismaMock.contract.update.mockResolvedValue(row);
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        files: [{ role: "contract", name: "revised.docx", meta: "DOCX", sortOrder: 0 }],
+      });
+      expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+    });
+
+    it("파일을 건드리지 않는 수정(제목 등)은 트리거하지 않는다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(rowInReview());
+      prismaMock.contract.update.mockResolvedValue(rowInReview());
+      await service.update({ id: "ct-1", title: "제목만 수정", viewerId: "admin-1", ...makeCtx() });
+      expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+    });
+
+    it("계약서 파일은 그대로 두고 참고자료만 추가하면 트리거하지 않는다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(rowInReview());
+      prismaMock.contract.update.mockResolvedValue(rowInReview());
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        // f1(계약서)은 유지, role=ref 참고자료만 신규 추가.
+        files: [
+          { id: "f1", role: "contract", name: "original.docx", meta: "DOCX", sortOrder: 0 },
+          { role: "ref", name: "참고.pdf", meta: "PDF", sortOrder: 1 },
+        ],
+      });
+      expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+    });
+
+    it("담당자(owner) 미배정이면 파일을 교체해도 트리거하지 않는다", async () => {
+      const row = { ...rowInReview(), ownerId: null };
+      prismaMock.contract.findFirst.mockResolvedValue(rowInReview());
+      prismaMock.contract.update.mockResolvedValue(row);
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        files: [{ role: "contract", name: "revised.docx", meta: "DOCX", sortOrder: 0 }],
+      });
+      expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+    });
   });
 
   // 마스킹 검증용: 비밀 참조자 + PII 있는 상대회사
@@ -926,6 +1068,15 @@ describe("ContractsService", () => {
         expect.objectContaining({
           action: "transition",
           detail: expect.objectContaining({ kind: "submitApproval" }),
+        }),
+      );
+      // 상신 성공 시 결재자용 브리핑(approvalBriefing) AI 분석을 트리거한다.
+      expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetType: "contract",
+          targetId: "ct-1",
+          kind: "approvalBriefing",
+          triggeredByUserId: "requester-1",
         }),
       );
     });

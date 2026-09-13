@@ -21,13 +21,6 @@ export interface LifecycleStep {
   status: "completed" | "active" | "scheduled";
 }
 
-export interface Risk {
-  level: "high" | "mid" | "low";
-  clause: string;
-  finding: string;
-  suggest: string;
-}
-
 // 결재선 단계 뷰모델(approvalLine.steps[] 에서 파생).
 export interface ApprovalStepView {
   id: string;
@@ -130,13 +123,6 @@ export const LIFECYCLE: LifecycleStep[] = [
   { label: "요청자 검토", status: "scheduled" }, { label: "검토 완료", status: "scheduled" },
   { label: "체결 진행", status: "scheduled" }, { label: "체결 완료", status: "scheduled" },
   { label: "계약 이행", status: "scheduled" }, { label: "계약 종료", status: "scheduled" },
-];
-
-export const RISKS: Risk[] = [
-  { level: "high", clause: "손해배상 한도", finding: "손해배상 상한 조항이 없습니다. 우리 측 무한책임 노출 가능성.", suggest: "계약금액의 100% 한도 조항 삽입 권장" },
-  { level: "mid", clause: "지체상금", finding: "지체상금율 1일 0.3%로 표준(0.1%) 대비 3배 높습니다.", suggest: "0.1%로 조정 협의" },
-  { level: "mid", clause: "자동 갱신", finding: "이의 없을 시 1년 자동 갱신. 갱신 거절 통지 기간이 짧습니다(30일).", suggest: "갱신 거절 통지 60일로 연장" },
-  { level: "low", clause: "준거법·관할", finding: "관할 법원이 상대방 소재지 기준입니다.", suggest: "당사 소재지(서울중앙) 변경 검토" },
 ];
 
 const SAMPLE_DETAIL: ContractDetail = {

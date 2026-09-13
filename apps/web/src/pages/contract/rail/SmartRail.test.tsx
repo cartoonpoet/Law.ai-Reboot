@@ -18,8 +18,8 @@ describe("SmartRail", () => {
     expect(screen.queryByText("요청 요약")).not.toBeInTheDocument();
   });
 
-  it("계약서 미첨부 시 AI는 분석 전 안내를 보인다", () => {
+  it("AI 사전 점검 자리에는 저장 후 자동 분석 안내 문구만 보인다", () => {
     render(<Wrap />);
-    expect(screen.getByText(/계약서를 첨부/)).toBeInTheDocument();
+    expect(screen.getByText("저장 후 AI가 자동으로 사전 점검합니다.")).toBeInTheDocument();
   });
 });

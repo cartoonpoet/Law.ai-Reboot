@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["users", "companies", "contracts", "shared"]
+  schemas  = ["users", "companies", "contracts", "shared", "ai"]
 }
 
 enum TenantPlan {
@@ -503,4 +503,39 @@ model Notification {
   @@index([recipientId, createdAt])
   @@index([tenantId])
   @@schema("shared")
+}
+
+model AiProviderCredential {
+  id            String   @id @default(uuid())
+  userId        String   @unique   // 개인별 — 테넌트 공용 아님
+  tenantId      String             // 소속 테넌트(감사·조회용 스냅샷)
+  provider      String             // "openai"
+  model         String             // 선택된 모델 id
+  encryptedApiKey String
+  lastVerifiedAt  DateTime?        // 저장 시 검증 호출 성공 시각
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@schema("ai")
+}
+
+model AiAnalysis {
+  id               String   @id @default(uuid())
+  tenantId         String
+  targetType       String   // "contract"
+  targetId         String
+  kind             String   // "precheck" | "risk" | "submitBriefing" | "approvalBriefing"
+  status           String   // "pending" | "running" | "succeeded" | "failed" | "skipped"
+  model            String?
+  triggeredByUserId String  // 이 결과를 생성한 자격증명의 소유자(표시: "OOO님의 AI 설정으로 생성됨")
+  input            Json     // 분석에 넘긴 입력 스냅샷(재현/디버깅용)
+  result           Json?
+  errorMessage     String?
+  attempts         Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([targetType, targetId, kind])
+  @@index([tenantId, status])
+  @@schema("ai")
 }
