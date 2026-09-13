@@ -12,6 +12,7 @@ import { AssignModal } from "./sections/AssignModal";
 import { CommentPanel } from "./sections/CommentPanel";
 import { ReviewActionPanel } from "./sections/ReviewActionPanel";
 import { ApprovalRejectModal } from "./sections/ApprovalRejectModal";
+import { ApprovalStepRows } from "./sections/ApprovalStepRows";
 import { ContractDetailSkeleton } from "./sections/ContractDetailSkeleton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import type { ContractDetail, ApprovalStepView } from "./mock-data";
@@ -144,34 +145,7 @@ function ApprovalLineCard({
         {hasPlanned && <span className={css.cheadNote}>예정 · 상신 전</span>}
       </header>
       <div className={css.cbody}>
-        {hasActiveLine &&
-          steps!.map((step) => (
-            <div key={step.id}>
-              <div className={css.apvrow}>
-                <span
-                  className={cx(
-                    css.apvnum,
-                    step.statusKind === "done" && css.apvnumDone,
-                    step.statusKind === "rejected" && css.apvnumRejected,
-                    step.statusKind === "now" && css.apvnumActive,
-                  )}
-                >
-                  {step.statusKind === "done" ? "✓" : step.order + 1}
-                </span>
-                <span>
-                  <span className={css.apvname}>{step.name}</span>
-                  <span className={css.apvdept}>{step.dept}</span>
-                </span>
-                <span className={cx(css.apvtype, css.apvtypeKind[step.typeKind])}>
-                  {step.type}
-                </span>
-                <span className={cx(css.apvstat, css.apvstatKind[step.statusKind])}>
-                  {step.status}
-                </span>
-              </div>
-              {step.comment && <p className={css.apvcomment}>{step.comment}</p>}
-            </div>
-          ))}
+        {hasActiveLine && <ApprovalStepRows steps={steps!} currentStepExtra={null} />}
         {hasPlanned &&
           plannedApprovers.map((a, i) => (
             <div key={`${a.name}-${i}`} className={css.apvrow}>
