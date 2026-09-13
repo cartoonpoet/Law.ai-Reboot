@@ -14,8 +14,8 @@ import { ReviewActionPanel } from "./sections/ReviewActionPanel";
 import { ApprovalRejectModal } from "./sections/ApprovalRejectModal";
 import { ContractDetailSkeleton } from "./sections/ContractDetailSkeleton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { RISKS } from "./mock-data";
-import type { Risk, ContractDetail, ApprovalStepView } from "./mock-data";
+import type { ContractDetail, ApprovalStepView } from "./mock-data";
+import { AiRiskCard } from "./sections/AiRiskCard";
 import { getContract } from "../../api/contracts";
 import { toDetailView } from "./toDetailView";
 import { getLifecycleSteps } from "./getLifecycleSteps";
@@ -27,12 +27,6 @@ import { cx } from "./cx";
 import * as css from "./contractDetail.css";
 
 /* ── 작은 표시 헬퍼(SRP: 뷰 조각) ── */
-
-const RISK_LABEL: Record<Risk["level"], string> = {
-  high: "고위험",
-  mid: "주의",
-  low: "참고",
-};
 
 function EmptyChip() {
   return <span className={css.emptychip}>없음</span>;
@@ -69,24 +63,6 @@ function Rblock({ title, text }: { title: string; text: string | null }) {
     <div className={css.rblock}>
       <div className={css.rbt}>{title}</div>
       <div className={css.rbtxt}>{text ?? <EmptyChip />}</div>
-    </div>
-  );
-}
-
-function RiskCard({ risk }: { risk: Risk }) {
-  return (
-    <div className={cx(css.risk, css.riskLevel[risk.level])}>
-      <div className={css.riskHead}>
-        <span className={cx(css.rbadge, css.rbadgeLevel[risk.level])}>
-          {RISK_LABEL[risk.level]}
-        </span>
-        <span className={css.riskClause}>{risk.clause}</span>
-      </div>
-      <div className={css.riskFinding}>{risk.finding}</div>
-      <div className={css.rsuggest}>
-        <Icon name="autoAwesome" size="sm" className={css.rsuggestIcon} />
-        {risk.suggest}
-      </div>
     </div>
   );
 }
@@ -418,7 +394,6 @@ export function ContractDetailPage() {
     transition: Boolean(data.can?.transition),
     delete: Boolean(data.can?.delete),
   };
-  const riskHigh = RISKS.filter((r) => r.level === "high").length;
   // 라이프사이클 단계(라벨 mock 고정) — completed/active/scheduled 는 실 status 에서 파생.
   const lifecycleSteps = getLifecycleSteps(data.status);
 
@@ -513,25 +488,8 @@ export function ContractDetailPage() {
       <div className={css.railGrid}>
         {/* 좌측 본문 stack */}
         <div className={css.stack}>
-          {/* AI 리스크(mock) */}
-          <section className={css.card}>
-            <header className={css.chead}>
-              <Icon name="autoAwesome" size="sm" className={css.cheadIcon} />
-              AI 계약 리스크
-              <span className={css.riskCount}>
-                <b className={css.riskCountHigh}>고위험 {riskHigh}</b> · 총 {RISKS.length}건 감지
-              </span>
-            </header>
-            <div className={cx(css.cbody, css.stack)}>
-              {RISKS.map((r, i) => (
-                <RiskCard key={i} risk={r} />
-              ))}
-              <div className={css.docGroupLabel}>
-                <Icon name="info" size="sm" className={css.noteIcon} />
-                AI가 표준계약서·과거 검토 이력과 대조해 분석한 결과입니다. 최종 판단은 검토자에게 있습니다.
-              </div>
-            </div>
-          </section>
+          {/* AI 계약 리스크(실동작 — 상태 기반 kind 폴링) */}
+          <AiRiskCard contractId={id} status={data.status} />
 
           {/* 검토 내용 */}
           <section className={css.card}>

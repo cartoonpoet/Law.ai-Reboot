@@ -18,6 +18,14 @@ const clients = ClientsModule.register([
       port: Number(process.env.USER_SERVICE_PORT ?? 4002),
     },
   },
+  {
+    name: "AI_CLIENT",
+    transport: Transport.TCP,
+    options: {
+      host: process.env.AI_SERVICE_HOST ?? "localhost",
+      port: Number(process.env.AI_SERVICE_PORT ?? 4003),
+    },
+  },
 ]);
 
 @Global()

@@ -3,16 +3,18 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ContractResponse } from "@lawai/contracts";
+import type { ContractResponse, AiAnalysisDto } from "@lawai/contracts";
 import { ContractDetailPage } from "./ContractDetailPage";
 import * as api from "../../api/contracts";
 import * as commentsApi from "../../api/comments";
 import * as approvalsApi from "../../api/approvals";
+import * as aiApi from "../../api/ai";
 import { useMe } from "../../components/layout/hooks/useMe";
 
 vi.mock("../../api/contracts");
 vi.mock("../../api/comments");
 vi.mock("../../api/approvals");
+vi.mock("../../api/ai");
 vi.mock("../../components/layout/hooks/useMe");
 
 const response: ContractResponse = {
@@ -97,6 +99,9 @@ describe("ContractDetailPage", () => {
     attachments: [],
       },
     ]);
+    // 기본값: 아직 분석 행 없음(null). 게이트웨이 GET /ai/analysis 계약과 동일.
+    vi.mocked(aiApi.getAiAnalysis).mockResolvedValue(null);
+    vi.mocked(aiApi.retryAiAnalysis).mockResolvedValue(undefined);
   });
 
   it("계약 단건 API의 계약명을 렌더한다", async () => {
@@ -106,10 +111,77 @@ describe("ContractDetailPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("AI 계약 리스크 섹션과 고위험 조항을 렌더한다(mock 유지)", async () => {
+  it("AI 계약 리스크(legalReview→risk kind): 분석 전에는 대기 안내를 렌더한다", async () => {
     renderAt("uuid-1");
     expect(await screen.findByText("AI 계약 리스크")).toBeInTheDocument();
-    expect(screen.getByText("손해배상 한도")).toBeInTheDocument();
+    expect(aiApi.getAiAnalysis).toHaveBeenCalledWith("contract", "uuid-1", "risk");
+    expect(await screen.findByText("아직 AI 분석이 시작되지 않았습니다.")).toBeInTheDocument();
+  });
+
+  it("AI 계약 리스크: succeeded 상태면 kind별 result(risks)를 렌더한다", async () => {
+    vi.mocked(aiApi.getAiAnalysis).mockResolvedValue({
+      kind: "risk",
+      status: "succeeded",
+      result: { risks: [{ level: "high", clause: "손해배상 한도", finding: "배상 한도 누락." }] },
+      errorMessage: null,
+      triggeredByUserId: "u1",
+      updatedAt: "2026-06-09T00:00:00.000Z",
+    } satisfies AiAnalysisDto);
+    renderAt("uuid-1");
+    expect(await screen.findByText("손해배상 한도")).toBeInTheDocument();
+    expect(screen.getByText("고위험")).toBeInTheDocument();
+    expect(screen.getByText(/고위험 1/)).toBeInTheDocument();
+  });
+
+  it("AI 계약 리스크: pending 상태면 진행 중 안내를 렌더한다", async () => {
+    vi.mocked(aiApi.getAiAnalysis).mockResolvedValue({
+      kind: "risk",
+      status: "pending",
+      result: null,
+      errorMessage: null,
+      triggeredByUserId: "u1",
+      updatedAt: "2026-06-09T00:00:00.000Z",
+    } satisfies AiAnalysisDto);
+    renderAt("uuid-1");
+    expect(await screen.findByText("AI 분석 진행 중입니다…")).toBeInTheDocument();
+  });
+
+  it("AI 계약 리스크: skipped 상태면 AI 설정 안내와 /system 링크를 렌더한다", async () => {
+    vi.mocked(aiApi.getAiAnalysis).mockResolvedValue({
+      kind: "risk",
+      status: "skipped",
+      result: null,
+      errorMessage: null,
+      triggeredByUserId: "u1",
+      updatedAt: "2026-06-09T00:00:00.000Z",
+    } satisfies AiAnalysisDto);
+    renderAt("uuid-1");
+    expect(await screen.findByText(/AI 설정이 필요합니다/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "설정하러 가기" })).toBeInTheDocument();
+  });
+
+  it("AI 계약 리스크: failed 상태면 재시도 버튼을 렌더하고 클릭 시 retryAiAnalysis를 호출한다", async () => {
+    vi.mocked(aiApi.getAiAnalysis).mockResolvedValue({
+      kind: "risk",
+      status: "failed",
+      result: null,
+      errorMessage: "OpenAI 인증 실패(401)",
+      triggeredByUserId: "u1",
+      updatedAt: "2026-06-09T00:00:00.000Z",
+    } satisfies AiAnalysisDto);
+    const user = userEvent.setup();
+    renderAt("uuid-1");
+    expect(await screen.findByText(/분석 실패/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /다시 시도/ }));
+    expect(aiApi.retryAiAnalysis).toHaveBeenCalledWith("contract", "uuid-1", "risk");
+  });
+
+  it("AI 계약 리스크: kind가 없는 상태(requesterReview)는 미제공 안내를 렌더한다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({ ...response, status: "requesterReview" });
+    vi.mocked(aiApi.getAiAnalysis).mockClear();
+    renderAt("uuid-1");
+    expect(await screen.findByText("이 단계에서는 AI 분석을 제공하지 않습니다.")).toBeInTheDocument();
+    expect(aiApi.getAiAnalysis).not.toHaveBeenCalled();
   });
 
   it("재설계된 카드 IA(검토 내용/기본·분류/금액·협상/당사자·관계자/결재선)를 렌더한다", async () => {

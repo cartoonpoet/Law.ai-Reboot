@@ -24,6 +24,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ai-service:
+        condition: service_started
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=users"
       USER_SERVICE_PORT: "4002"
@@ -40,6 +42,11 @@ services:
       # presign→confirm 사이 단기 업로드 토큰 sign용(없으면 JWT_ACCESS_SECRET fallback)
       FILE_UPLOAD_SECRET: ${FILE_UPLOAD_SECRET:-}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      # AI 분석 트리거가 호출하는 ai-service
+      AI_SERVICE_HOST: ai-service
+      AI_SERVICE_PORT: "4003"
+      # AI 자격증명 암복호화 마스터 키(base64 32바이트) — 없으면 자격증명 저장/복호화가 실패한다.
+      AI_CREDENTIAL_MASTER_KEY: ${AI_CREDENTIAL_MASTER_KEY}
 
   auth-service:
     image: ghcr.io/cartoonpoet/lawai-auth-service:latest
@@ -58,6 +65,14 @@ services:
       PASSWORD_RESET_TTL_MIN: ${PASSWORD_RESET_TTL_MIN:-30}
       APP_WEB_URL: ${APP_WEB_URL}
 
+  # AI 프로바이더 호출 전담(무상태) — DB/볼륨 없음, TCP 마이크로서비스로만 노출.
+  ai-service:
+    image: ghcr.io/cartoonpoet/lawai-ai-service:latest
+    container_name: lawai-ai-service
+    restart: unless-stopped
+    environment:
+      AI_SERVICE_PORT: "4003"
+
   api-gateway:
     image: ghcr.io/cartoonpoet/lawai-api-gateway:latest
     container_name: lawai-api-gateway
@@ -65,12 +80,15 @@ services:
     depends_on:
       - auth-service
       - user-service
+      - ai-service
     environment:
       GATEWAY_PORT: "3000"
       AUTH_SERVICE_HOST: auth-service
       AUTH_SERVICE_PORT: "4001"
       USER_SERVICE_HOST: user-service
       USER_SERVICE_PORT: "4002"
+      AI_SERVICE_HOST: ai-service
+      AI_SERVICE_PORT: "4003"
       # 어드민 서브도메인도 같은 게이트웨이를 호출 → CORS 허용 origin 에 함께 등록.
       # APP_ADMIN_URL 이 .env 에 없으면 admin.lawai-reboot.kro.kr 기본값.
       CORS_ORIGINS: ${APP_WEB_URL},${APP_ADMIN_URL:-https://admin.lawai-reboot.kro.kr}

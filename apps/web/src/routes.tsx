@@ -9,6 +9,7 @@ import { InviteAcceptPage } from "./pages/login/InviteAcceptPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { ContractPlaceholderPage } from "./pages/contract/ContractPlaceholderPage";
 import { MembersPage } from "./pages/members/MembersPage";
+import { SystemSettingsPage } from "./pages/system/SystemSettingsPage";
 import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
 import { ContractCreatePage } from "./pages/contract/ContractCreatePage";
@@ -62,6 +63,7 @@ export function AppRoutes() {
         <Route path="/contract/signed" element={<ContractPlaceholderPage title="체결 계약 조회" />} />
         <Route path="/contract/expire" element={<ContractPlaceholderPage title="체결계약 만료 현황" />} />
         <Route path="/members" element={<MembersPage />} />
+        <Route path="/system" element={<SystemSettingsPage />} />
         <Route path="/approvals/inbox" element={<ApprovalInboxPage />} />
         <Route path="/contract/:id/edit" element={<ContractEditPage />} />
         <Route path="/contract/:id" element={<ContractDetailPage />} />

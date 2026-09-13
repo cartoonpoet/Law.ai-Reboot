@@ -40,6 +40,7 @@ jobs:
           - { name: api-gateway, dockerfile: services/api-gateway/Dockerfile }
           - { name: auth-service, dockerfile: services/auth-service/Dockerfile }
           - { name: user-service, dockerfile: services/user-service/Dockerfile }
+          - { name: ai-service, dockerfile: services/ai-service/Dockerfile }
           - { name: web, dockerfile: apps/web/Dockerfile }
           - { name: admin, dockerfile: apps/admin/Dockerfile }
     steps:

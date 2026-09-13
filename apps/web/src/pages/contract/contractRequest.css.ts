@@ -57,8 +57,10 @@ export const prgRow = style({
 export const prgDot = style({ width: 20, height: 20, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" });
 export const prgLabel = style({ flex: 1, fontSize: 12.5, fontWeight: 700, color: themeVars.color.textHeading });
 
-export const drisk = style({ background: themeVars.color.neutralSurface, border: `1px solid ${themeVars.color.neutralBorder}`, borderRadius: 8, padding: "11px 12px" });
 export const errText = style({ marginTop: 5, fontSize: 12, color: themeVars.color.accentDanger });
+
+/* AI 사전 점검 안내(저장 후 자동 분석 — 폼 내 동기 mock 패널 대체) */
+export const aiNotice = style({ fontSize: 12, color: themeVars.color.textMuted, lineHeight: 1.6 });
 
 export const submitIcon = style({ width: 14, height: 14 });
 

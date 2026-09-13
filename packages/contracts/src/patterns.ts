@@ -95,3 +95,18 @@ export const NOTIFICATION_PATTERNS = {
   MARK_READ: "notification.markRead",
   MARK_ALL_READ: "notification.markAllRead",
 } as const;
+
+export const AI_PATTERNS = {
+  ANALYZE: "ai.analyze",
+  LIST_MODELS: "ai.listModels",
+} as const;
+
+export const AI_CREDENTIAL_PATTERNS = {
+  GET: "aiCredential.get",
+  SAVE: "aiCredential.save",
+} as const;
+
+export const AI_ANALYSIS_PATTERNS = {
+  GET: "aiAnalysis.get",
+  RETRY: "aiAnalysis.retry",
+} as const;
