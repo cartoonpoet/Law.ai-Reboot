@@ -302,7 +302,7 @@ function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) 
             <div className={css.docGroupLabel}>서명본</div>
             {signeds.map((f, i) => (
               <DocFileRow
-                key={i}
+                key={f.id ?? `signed-${i}`}
                 file={f}
                 showCompare
                 onPreview={handlePreview}

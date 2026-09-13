@@ -9,7 +9,11 @@ export const useCompleteSigning = (contractId: string) => {
   const mutation = useMutation({
     mutationFn: (body: { signedAt: string; fileId: string; note?: string | null }) =>
       completeSigning(contractId, body),
-    onSuccess: () => {
+    // 성공은 물론 실패(특히 409 — 동시 요청으로 이미 처리됨)에도 재조회한다. 서버 에러
+    // 메시지에는 상태 코드가 없어 여기서 409 만 골라낼 수 없지만, 다른 실패(400 등)는 계약이
+    // 안 바뀌었으니 재조회해도 무해하다 — onSettled 로 통일해 "체결 처리 버튼이 이미 처리된
+    // 계약에 그대로 남아 있는" 오래된 화면을 막는다.
+    onSettled: () => {
       void qc.invalidateQueries({ queryKey: ["contract", contractId] });
       void qc.invalidateQueries({ queryKey: ["contracts"] });
     },

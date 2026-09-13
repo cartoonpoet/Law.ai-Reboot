@@ -1579,9 +1579,18 @@ describe("ContractsService", () => {
         tenantContext: { tenantId: "t1", isSystemAdmin: false },
       });
 
+      // TOCTOU 방어: findFirst 로 확인한 조건(role != contract, storageKey not null)을
+      // update where 에도 다시 넣어야 한다 — 아니면 확인과 쓰기 사이에 동시 PATCH 가
+      // role 을 contract 로 바꿔치기할 틈이 생긴다.
       expect(prismaMock.file.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "f1", contractId: "c1", commentId: null },
+          where: {
+            id: "f1",
+            contractId: "c1",
+            commentId: null,
+            role: { not: "contract" },
+            storageKey: { not: null },
+          },
           data: { role: "signed" },
         }),
       );

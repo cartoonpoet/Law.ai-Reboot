@@ -893,8 +893,19 @@ export class ContractsService {
     // 남고 계약은 signing 에 머무는 절반 반영을 막는다(signing→reviewDone 은 허용된 역방향
     // 전이라 그 상태로 검토에 돌아가면 유령 서명본이 남는다).
     // where 에 status:"signing" 을 넣어 동시 요청 중 하나만 성공하도록(CAS) 방어한다.
+    // 파일 쪽도 같은 이유로 위에서 확인한 조건(role != contract, storageKey not null)을
+    // where 에 다시 넣는다 — 그렇지 않으면 findFirst 로 확인한 시점과 이 update 사이에
+    // 동시 PATCH 가 파일의 role 을 contract 로 바꿔치기하는 TOCTOU 틈이 생긴다. 대상이
+    // 사라지면(findFirst 이후 상태 변경) $transaction 이 P2025 를 던지고, 기존 catch 가
+    // 이미 409 로 변환한다.
     const fileUpdate = this.prisma.file.update({
-      where: { id: req.fileId, contractId: row.id, commentId: null },
+      where: {
+        id: req.fileId,
+        contractId: row.id,
+        commentId: null,
+        role: { not: "contract" },
+        storageKey: { not: null },
+      },
       data: { role: "signed" },
     });
     const contractUpdate = this.prisma.contract.update({

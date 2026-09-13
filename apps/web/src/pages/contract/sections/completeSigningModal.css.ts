@@ -21,6 +21,13 @@ export const required = style({
   marginLeft: 3,
 });
 
+export const uploadNotice = style({
+  fontSize: 12,
+  color: c.textMuted,
+  lineHeight: 1.5,
+  margin: "0 0 8px",
+});
+
 export const fileList = style({
   display: "flex",
   flexDirection: "column",
