@@ -92,7 +92,7 @@ export const contractRequestSchema = z.object({
   noEndDate: z.boolean(),
   counterparties: z.array(companyRefSchema).min(1, "상대 계약자를 선택하세요"),
   // ② 계약서·첨부 (mock: 파일명 + 메타 배열)
-  contractFiles: z.array(uploadedFileSchema).min(1, "계약서를 첨부하세요"),
+  contractFiles: z.array(uploadedFileSchema),
   attachFiles: z.array(uploadedFileSchema),
   refFiles: z.array(uploadedFileSchema),
   // ③ 관계자·참조 (검색형 AutoComplete — id+name ref 보관)
@@ -119,6 +119,24 @@ export const contractRequestSchema = z.object({
   urls: z.array(z.object({ value: z.string() })),
   // 결재선
   approvers: z.array(approverSchema),
+  // 등록 유형 — "signed" 면 검토·결재를 건너뛰고 곧바로 체결 완료로 등록한다.
+  registerAs: z.enum(["review", "signed"]),
+  signedAt: z.string(),
+  signedFiles: z.array(uploadedFileSchema),
+}).superRefine((v, ctx) => {
+  if (v.registerAs === "signed") {
+    if (!v.signedAt) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["signedAt"], message: "체결일을 입력하세요" });
+    }
+    if (v.signedFiles.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["signedFiles"], message: "최종 서명본을 첨부하세요" });
+    }
+    if (v.stage === "change" && v.relatedDocs.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["relatedDocs"], message: "변경·해지 계약은 원 계약을 연결해야 합니다" });
+    }
+  } else if (v.contractFiles.length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["contractFiles"], message: "계약서를 첨부하세요" });
+  }
 });
 
 export type ContractRequestForm = z.infer<typeof contractRequestSchema>;
@@ -158,4 +176,7 @@ export const contractRequestDefaults: ContractRequestForm = {
   concerns: "",
   urls: [],
   approvers: [{ userId: null, name: "손준호", dept: "법무팀", type: "draft" }],
+  registerAs: "review",
+  signedAt: "",
+  signedFiles: [],
 };

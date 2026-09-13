@@ -7,6 +7,7 @@ export interface ContractRow {
   counter: string;
   requester: string;
   owner: string;
+  signedAt: string | null;
   updated: string;
   due: string;
   dleft: number;
@@ -95,19 +96,20 @@ export interface ContractDetail {
   ccUser: CcRecipientView[]; // 참조수신자(사용자, !isSecret)
   ccSecret: CcRecipientView[]; // 참조수신자(비밀, 백엔드가 권한 따라 마스킹)
   approvalLine: ApprovalStepView[] | null; // 결재선(approvalLine.steps, null→빈 상태)
+  signedAt: string | null; // 체결일(코어 signedAt, ISO). 체결 전이면 null.
 }
 
 export const CONTRACTS_FULL: ContractRow[] = [
-  { id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", party: "본사계약", sub: "용역", counter: "AAA", requester: "관리자1", owner: "김기찬", updated: "2026-06-09", due: "2026-06-11", dleft: 2, status: "법무 검토 중", secure: true, star: true, mine: true },
-  { id: "A20260531-0011", name: "개인정보 위수탁 처리 자문", party: "본사계약", sub: "개인정보", counter: "정보보안팀", requester: "정보보안팀", owner: "이법무", updated: "2026-06-09", due: "2026-06-10", dleft: 1, status: "법무 검토 중", secure: false, star: true, mine: true },
-  { id: "C20260609-0002", name: "[hkpark2] 통합검색 유지보수 계약", party: "법인계약", sub: "LOI/MOU", counter: "휴맥스 테스트 회사", requester: "박현경", owner: "미배정", updated: "2026-06-09", due: "2026-07-06", dleft: 27, status: "미배정", secure: true, star: false, mine: false },
-  { id: "C20250902-0001", name: "한라산용역계약서", party: "법인계약", sub: "LOI/MOU", counter: "AAA", requester: "관리자1", owner: "김다함", updated: "2026-06-09", due: "2026-06-14", dleft: 5, status: "법무 검토 중", secure: false, star: false, mine: false },
-  { id: "C20260601-0007", name: "사후계약관리 표준 NDA", party: "본사계약", sub: "LOI/MOU", counter: "(주)온테스트", requester: "이희규", owner: "이법무", updated: "2026-06-08", due: "2026-06-18", dleft: 9, status: "요청자 검토 중", secure: false, star: false, mine: false },
-  { id: "C20250710-0010", name: "체크리스트 검수 위탁계약", party: "본사계약", sub: "위탁", counter: "(주)온테스트", requester: "김기찬", owner: "미배정", updated: "2026-06-09", due: "2026-06-20", dleft: 11, status: "배정 중", secure: true, star: false, mine: false },
-  { id: "C20260605-0003", name: "옥외광고 매체 이용계약", party: "법인계약", sub: "용역", counter: "한빛미디어", requester: "한지민", owner: "박법무", updated: "2026-06-07", due: "2026-06-16", dleft: 7, status: "법무 검토 중", secure: false, star: false, mine: false },
-  { id: "C20260602-0018", name: "통합검색 다운로드 로직 계약서", party: "법인계약", sub: "LOI/MOU", counter: "휴맥스 테스트 회사", requester: "박현경", owner: "박현경", updated: "2026-06-02", due: "2026-05-12", dleft: -28, status: "검토 완료", secure: false, star: false, mine: false },
-  { id: "C20260519-0002", name: "솔루션 OEM 공급계약", party: "본사계약", sub: "공급", counter: "그린모빌리티", requester: "영업1팀", owner: "김기찬", updated: "2026-06-01", due: "2026-06-13", dleft: 4, status: "체결 진행", secure: false, star: true, mine: true },
-  { id: "C20260528-0009", name: "공동연구 협약서 (산학)", party: "법인계약", sub: "협약", counter: "한국대학교 산학협력단", requester: "R&D센터", owner: "박법무", updated: "2026-05-29", due: "2026-06-17", dleft: 8, status: "요청자 검토 중", secure: true, star: false, mine: false },
+  { id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", party: "본사계약", sub: "용역", counter: "AAA", requester: "관리자1", owner: "김기찬", signedAt: null, updated: "2026-06-09", due: "2026-06-11", dleft: 2, status: "법무 검토 중", secure: true, star: true, mine: true },
+  { id: "A20260531-0011", name: "개인정보 위수탁 처리 자문", party: "본사계약", sub: "개인정보", counter: "정보보안팀", requester: "정보보안팀", owner: "이법무", signedAt: null, updated: "2026-06-09", due: "2026-06-10", dleft: 1, status: "법무 검토 중", secure: false, star: true, mine: true },
+  { id: "C20260609-0002", name: "[hkpark2] 통합검색 유지보수 계약", party: "법인계약", sub: "LOI/MOU", counter: "휴맥스 테스트 회사", requester: "박현경", owner: "미배정", signedAt: null, updated: "2026-06-09", due: "2026-07-06", dleft: 27, status: "미배정", secure: true, star: false, mine: false },
+  { id: "C20250902-0001", name: "한라산용역계약서", party: "법인계약", sub: "LOI/MOU", counter: "AAA", requester: "관리자1", owner: "김다함", signedAt: null, updated: "2026-06-09", due: "2026-06-14", dleft: 5, status: "법무 검토 중", secure: false, star: false, mine: false },
+  { id: "C20260601-0007", name: "사후계약관리 표준 NDA", party: "본사계약", sub: "LOI/MOU", counter: "(주)온테스트", requester: "이희규", owner: "이법무", signedAt: null, updated: "2026-06-08", due: "2026-06-18", dleft: 9, status: "요청자 검토 중", secure: false, star: false, mine: false },
+  { id: "C20250710-0010", name: "체크리스트 검수 위탁계약", party: "본사계약", sub: "위탁", counter: "(주)온테스트", requester: "김기찬", owner: "미배정", signedAt: null, updated: "2026-06-09", due: "2026-06-20", dleft: 11, status: "배정 중", secure: true, star: false, mine: false },
+  { id: "C20260605-0003", name: "옥외광고 매체 이용계약", party: "법인계약", sub: "용역", counter: "한빛미디어", requester: "한지민", owner: "박법무", signedAt: null, updated: "2026-06-07", due: "2026-06-16", dleft: 7, status: "법무 검토 중", secure: false, star: false, mine: false },
+  { id: "C20260602-0018", name: "통합검색 다운로드 로직 계약서", party: "법인계약", sub: "LOI/MOU", counter: "휴맥스 테스트 회사", requester: "박현경", owner: "박현경", signedAt: null, updated: "2026-06-02", due: "2026-05-12", dleft: -28, status: "검토 완료", secure: false, star: false, mine: false },
+  { id: "C20260519-0002", name: "솔루션 OEM 공급계약", party: "본사계약", sub: "공급", counter: "그린모빌리티", requester: "영업1팀", owner: "김기찬", signedAt: null, updated: "2026-06-01", due: "2026-06-13", dleft: 4, status: "체결 진행", secure: false, star: true, mine: true },
+  { id: "C20260528-0009", name: "공동연구 협약서 (산학)", party: "법인계약", sub: "협약", counter: "한국대학교 산학협력단", requester: "R&D센터", owner: "박법무", signedAt: null, updated: "2026-05-29", due: "2026-06-17", dleft: 8, status: "요청자 검토 중", secure: true, star: false, mine: false },
 ];
 
 export const LIST_FILTERS = {
@@ -174,6 +176,7 @@ const SAMPLE_DETAIL: ContractDetail = {
   ccUser: [],
   ccSecret: [],
   approvalLine: null,
+  signedAt: null,
 };
 
 export function getContractDetail(id: string): ContractDetail {

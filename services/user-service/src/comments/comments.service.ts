@@ -294,11 +294,15 @@ export class CommentsService {
         });
       }
       if (attachmentIds.length > 0) {
+        // role:"signed" 제외 — 서명 원본을 코멘트로 끌어오면 contract.files 에서 빠지고, 이후
+        // 코멘트 수정(attachmentIds 제외)으로 File 행 + R2 객체까지 지워진다. 제외된 id 는
+        // 아래 count 불일치로 400 이 난다(트랜잭션 롤백 — 코멘트도 생성되지 않음).
         const updated = await tx.file.updateMany({
           where: {
             id: { in: attachmentIds },
             contractId: req.contractId,
             commentId: null,
+            role: { not: "signed" },
           },
           data: { commentId: created.id },
         });
@@ -460,11 +464,14 @@ export class CommentsService {
               .filter((k): k is string => Boolean(k));
           }
           if (toAttach.length > 0) {
+            // role:"signed" 제외(create 와 동일 — 서명 원본 흡수 후 삭제 방지). 제외분은 count
+            // 불일치 400 → 트랜잭션 롤백(위 deleteMany 도 되돌려지고 R2 정리도 실행 안 됨).
             const attached = await tx.file.updateMany({
               where: {
                 id: { in: toAttach },
                 contractId: req.contractId,
                 commentId: null,
+                role: { not: "signed" },
               },
               data: { commentId: req.commentId },
             });

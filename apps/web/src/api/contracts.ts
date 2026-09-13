@@ -49,6 +49,8 @@ export function updateContractStatus(
 export interface ListContractsParams {
   q?: string;
   status?: ContractStatus;
+  statuses?: string;
+  expiry?: "d90" | "d180" | "expired";
   party?: string;
   categoryId?: string;
   mine?: boolean;
@@ -62,6 +64,8 @@ export function listContracts(
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
   if (params.status) search.set("status", params.status);
+  if (params.statuses) search.set("statuses", params.statuses);
+  if (params.expiry) search.set("expiry", params.expiry);
   if (params.party) search.set("party", params.party);
   if (params.categoryId) search.set("categoryId", params.categoryId);
   if (params.mine) search.set("mine", "true");
@@ -75,4 +79,26 @@ export function listContracts(
 export const submitContractApproval = (id: string): Promise<ContractResponse> =>
   apiFetch<ContractResponse>(`/contracts/${id}/approval/submit`, {
     method: "POST",
+  });
+
+// 체결 처리 — 인감 담당 + 결재 전원 승인 상태에서만. fileId 는 필수(서버가 실제 바이트가 있는
+// 서명본을 요구한다 — client/server 비대칭 방지를 위해 이 계층부터 required 로 맞춘다).
+export const completeSigning = (
+  id: string,
+  body: { signedAt: string; fileId: string; note?: string | null },
+): Promise<ContractResponse> =>
+  apiFetch<ContractResponse>(`/contracts/${id}/complete-signing`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+// 체결 완료 등록 확정 — 미배정 상태의 생성자 본인만, 실제 업로드된(storageKey 있는)
+// role=signed 파일이 있어야 통과. completeSigning 과 별개(결재선 없음).
+export const finalizeRegistration = (
+  id: string,
+  body: { signedAt: string },
+): Promise<ContractResponse> =>
+  apiFetch<ContractResponse>(`/contracts/${id}/finalize`, {
+    method: "POST",
+    body: JSON.stringify(body),
   });

@@ -250,6 +250,76 @@ describe("FilesService", () => {
     });
   });
 
+  // N4: role=signed presign 은 체결 완료 등록 경로(unassigned + ownerId null + 생성자 본인)만.
+  describe("presign role=signed 게이트", () => {
+    const signedReq = (over: Record<string, unknown> = {}) => ({
+      contractId: "contract-1",
+      role: "signed" as const,
+      fileName: "서명본.pdf",
+      size: 100,
+      mimeType: VALID_MIME,
+      sha256: VALID_SHA,
+      viewerId: "creator-1",
+      tenantContext: makeCtx(),
+      ...over,
+    });
+    const directRow = () =>
+      makeContractRow({ status: "unassigned", ownerId: null, createdById: "creator-1" });
+
+    it("미배정 unassigned 계약의 생성자 본인이면 발급된다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(directRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general", user: { departmentId: "dept-1" } });
+      const res = await service.presign(signedReq());
+      expect(res.uploadToken).toEqual(expect.any(String));
+    });
+
+    it("참조자(cc)가 legalReview 계약에 signed 를 올리려 하면 403 (URL/토큰 발급 없음)", async () => {
+      const { getSignedUrl } = jest.requireMock("@aws-sdk/s3-request-presigner");
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general", user: { departmentId: "dept-9" } });
+      await expect(service.presign(signedReq({ viewerId: "cc-1" }))).rejects.toMatchObject({
+        error: { status: 403 },
+      });
+      expect(getSignedUrl).not.toHaveBeenCalled();
+    });
+
+    it("생성자 본인이라도 담당자가 배정됐으면 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ status: "unassigned", ownerId: "owner-1", createdById: "creator-1" }),
+      );
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general", user: { departmentId: "dept-1" } });
+      await expect(service.presign(signedReq())).rejects.toMatchObject({ error: { status: 403 } });
+    });
+
+    it("미배정 unassigned 여도 생성자가 아니면(법무팀 등) 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(directRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+      await expect(service.presign(signedReq({ viewerId: "counsel-1" }))).rejects.toMatchObject({
+        error: { status: 403 },
+      });
+    });
+
+    it("코멘트 첨부(commentId 지정)로는 signed 를 올릴 수 없다 — 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(directRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general", user: { departmentId: "dept-1" } });
+      await expect(service.presign(signedReq({ commentId: "comment-1" }))).rejects.toMatchObject({
+        error: { status: 403 },
+      });
+      expect(prismaMock.file.count).not.toHaveBeenCalled();
+    });
+
+    it("role 미지정(attach 기본)은 이 게이트와 무관하게 참조자도 발급된다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ references: [{ ccType: "user", refId: "cc-1" }] }),
+      );
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general", user: { departmentId: "dept-9" } });
+      const res = await service.presign(signedReq({ viewerId: "cc-1", role: undefined }));
+      expect(res.uploadToken).toEqual(expect.any(String));
+    });
+  });
+
   describe("confirm", () => {
     it("토큰 sub != viewerId 면 403", async () => {
       const token = signUploadToken(
@@ -345,6 +415,66 @@ describe("FilesService", () => {
       });
       expect(dto.id).toBe("file-1");
       expect(dto.sha256).toBe("etag-xyz");
+    });
+  });
+
+  // N4: confirm 은 토큰의 role 을 신뢰하되, signed 는 File 생성 직전 현재 계약 상태로 재확인한다.
+  describe("confirm role=signed 재확인", () => {
+    const signedToken = () =>
+      signUploadToken(
+        {
+          sub: "creator-1",
+          contractId: "contract-1",
+          commentId: null,
+          role: "signed",
+          storageKey: "contracts/contract-1/uuid/signed.pdf",
+          fileName: "signed.pdf",
+          sha256: VALID_SHA,
+          size: 100,
+          mimeType: VALID_MIME,
+        },
+        900,
+      );
+
+    it("presign 이후 담당자가 배정됐으면 403 — HeadObject·File 생성 없음", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ status: "assigning", ownerId: "owner-1", createdById: "creator-1" }),
+      );
+      await expect(
+        service.confirm({
+          uploadToken: signedToken(),
+          etag: "e",
+          viewerId: "creator-1",
+          tenantContext: makeCtx(),
+        }),
+      ).rejects.toMatchObject({ error: { status: 403 } });
+      expect(sendMock).not.toHaveBeenCalled();
+      expect(prismaMock.file.create).not.toHaveBeenCalled();
+    });
+
+    it("여전히 체결 완료 등록 상태면 role=signed File 을 만든다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        makeContractRow({ status: "unassigned", ownerId: null, createdById: "creator-1" }),
+      );
+      sendMock.mockResolvedValueOnce({ ContentLength: 100 });
+      prismaMock.file.findFirst.mockResolvedValue(null);
+      prismaMock.file.create.mockResolvedValue({
+        id: "file-s",
+        name: "signed.pdf",
+        size: 100,
+        mimeType: VALID_MIME,
+        checksum: "e",
+        createdAt: new Date("2026-09-13T00:00:00Z"),
+      });
+      await service.confirm({
+        uploadToken: signedToken(),
+        etag: "e",
+        viewerId: "creator-1",
+        tenantContext: makeCtx(),
+      });
+      expect(prismaMock.file.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ role: "signed", contractId: "contract-1" }),
+      });
     });
   });
 

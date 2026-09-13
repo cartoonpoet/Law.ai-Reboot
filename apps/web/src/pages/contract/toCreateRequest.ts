@@ -12,11 +12,15 @@ export const toCreateRequest = (
   party: form.party || null,
   categoryId: form.categoryId || null,
   requesterId: form.requester || null,
-  ownerId: form.owner?.id ?? null,
+  // ownerId(법무 담당자)는 보내지 않는다. 폼의 업무담당자(form.owner)는 details.owner 에만 담는다 —
+  // ownerId 는 AssignModal/상태 엔드포인트로만 배정되고, AI 트리거·알림·"내 담당" 큐와
+  // 미배정 생성자 권한(canEditUnassigned)·finalizeRegistration 게이트가 이 값에 걸려 있다.
   periodStart: form.periodStart || null,
   periodEnd: form.periodEnd || null,
   dueDate: form.expectedDate || null,
   schemaVersion: 1,
+  registerAs: form.registerAs,
+  signedAt: form.signedAt || null,
   details: {
     stage: form.stage,
     periodText: form.periodText,
@@ -60,6 +64,13 @@ export const toCreateRequest = (
     ...form.refFiles.map((f, i) => ({
       ...(f.id ? { id: f.id } : {}),
       role: "ref" as const,
+      name: f.name,
+      meta: f.meta,
+      sortOrder: i,
+    })),
+    ...form.signedFiles.map((f, i) => ({
+      ...(f.id ? { id: f.id } : {}),
+      role: "signed" as const,
       name: f.name,
       meta: f.meta,
       sortOrder: i,

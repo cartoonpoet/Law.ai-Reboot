@@ -1,16 +1,18 @@
-import { useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
-import { Card, Button } from "@lawkit/ui";
+import { Controller, useFormContext, useWatch } from "react-hook-form";
+import { Card } from "@lawkit/ui";
 import type { ContractRequestForm } from "../request-schema";
 import { searchUsers, searchDepartments, searchProjects } from "../../../api/directory";
 import { CardTitle, Field } from "./_shared";
 import { EntityAutoComplete } from "./EntityAutoComplete";
-import { RelatedDocsModal } from "./RelatedDocsModal";
+import { RelatedDocsPicker } from "./RelatedDocsPicker";
 import * as css from "../contractRequest.css";
 
 export function PeopleSection() {
   const { control } = useFormContext<ContractRequestForm>();
-  const [isDocsOpen, setIsDocsOpen] = useState(false);
+  // 변경·해지 계약은 OverviewSection 이 같은 relatedDocs 필드를 "원 계약"으로 노출한다 —
+  // 두 곳에서 동시에 렌더되지 않도록 여기서는 숨긴다.
+  const stage = useWatch({ control, name: "stage" });
+  const isChange = stage === "change";
   return (
     <Card bordered header={<CardTitle num={3}>관계자 · 참조</CardTitle>}>
       <div className={css.grid2}>
@@ -51,23 +53,11 @@ export function PeopleSection() {
           )} />
         </Field>
 
-        <Field label="관련문서" info="이 계약과 연관된 기존 문서를 연결합니다.">
-          <Controller name="relatedDocs" control={control} render={({ field }) => (
-            <div className={css.browseRow}>
-              <Button type="button" variant="outline" color="secondary" size="small" onClick={() => setIsDocsOpen(true)}>
-                찾아보기
-              </Button>
-              {field.value.length > 0 && <span className={css.browseCount}>{field.value.length}건 선택</span>}
-              {isDocsOpen && (
-                <RelatedDocsModal
-                  selected={field.value}
-                  onClose={() => setIsDocsOpen(false)}
-                  onConfirm={(docs) => { field.onChange(docs); setIsDocsOpen(false); }}
-                />
-              )}
-            </div>
-          )} />
-        </Field>
+        {!isChange && (
+          <Field label="관련문서" info="이 계약과 연관된 기존 문서를 연결합니다.">
+            <RelatedDocsPicker />
+          </Field>
+        )}
       </div>
     </Card>
   );

@@ -5,6 +5,7 @@ import { Tag } from "../../components/ui/Tag";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { dday } from "../dashboard/dday";
 import type { ContractRow } from "./mock-data";
+import * as listCss from "./contractList.css";
 
 function StarCell({ on }: { on: boolean }) {
   return (
@@ -126,6 +127,19 @@ export function listColumns(): ColumnDef<ContractRow>[] {
           </span>
         ) : (
           <span style={{ fontSize: 13, color: T.body }}>{v}</span>
+        );
+      },
+    },
+    {
+      accessorKey: "signedAt",
+      header: "체결일",
+      size: 96,
+      cell: (i) => {
+        const v = i.getValue();
+        return v ? (
+          <span className={listCss.dateCell}>{String(v)}</span>
+        ) : (
+          <span className={listCss.emptyCell}>-</span>
         );
       },
     },

@@ -46,6 +46,11 @@ export interface AuthzContract {
 export interface AuthzResult {
   canView: boolean;
   canEdit: boolean;
+  // canEdit 이 "미배정 생성자" 완화만으로 성립했을 때 true(정상 담당자 경로도 함께 성립하면
+  // false). true 면 service(update())가 파일 "추가"만 허용하고 기존 파일 제거는 막아야 한다 —
+  // policy.edit=false 인 역할(예: general)의 생성자까지 포함하는 완화라서, 정식 edit 권한과
+  // 같은 크기로 취급하면 안 된다. 아래 evaluate() 주석 참고.
+  editIsAdditiveOnly: boolean;
   canAssign: boolean;
   canTransition: boolean;
   canDelete: boolean;
@@ -140,6 +145,12 @@ const SECRET_PRIVILEGED_ROLES: ReadonlySet<TenantRole> = new Set<TenantRole>([
   "contractManager",
 ]);
 
+// canEditUnassigned 완화가 적용되는 status — "아직 생애주기 초반"만. 아래 evaluate() 참고.
+const EARLY_STATUSES: ReadonlySet<ContractStatus> = new Set<ContractStatus>([
+  "draft",
+  "unassigned",
+]);
+
 /**
  * 계약 "관련자" userId 집합을 산출하는 순수 함수.
  *
@@ -204,6 +215,7 @@ export const evaluate = (
     return {
       canView: false,
       canEdit: false,
+      editIsAdditiveOnly: false,
       canAssign: false,
       canTransition: false,
       canDelete: false,
@@ -226,6 +238,7 @@ export const evaluate = (
     return {
       canView: false,
       canEdit: false,
+      editIsAdditiveOnly: false,
       canAssign: false,
       canTransition: false,
       canDelete: false,
@@ -241,6 +254,36 @@ export const evaluate = (
   const canAssign =
     policy.assign && (contract.ownerId === null ? true : ownerOk);
 
+  // 미배정(ownerId null) 계약은 생성자 본인만 편집 가능 — canAssign 과 같은 모양의 완화다.
+  // 신규 작성 2단계 제출 흐름(계약 생성 → 파일 업로드 → PATCH 로 반영, 그리고 체결 완료
+  // 등록의 경우 그 뒤 finalizeRegistration 확정)에서, 담당자가 아직 배정되지 않은 동안에는
+  // 생성자 본인이 자기가 막 만든 계약을 편집(파일 반영)할 수 있어야 하기 때문이다.
+  // 담당자가 배정되는 순간부터는 이 완화가 사라지고 원래 규칙(ownerOk, 담당자만)으로
+  // 즉시 돌아간다 — "생성자면 언제나 편집 가능"이 아니다.
+  //
+  // status 를 draft/unassigned 로 한정한 이유(중요): ownerId 는 미배정 상태에서 영영 null 로
+  // 남을 수 있다(체결 완료 등록 경로는 애초에 법무 담당자를 배정하지 않는다 — 위 create()
+  // 주석 참고). status 로 한정하지 않으면, 이미 signed/closed 로 끝난 계약이라도 누군가
+  // status 전이나 PATCH 로 ownerId 를 다시 null 로 되돌리기만 하면 생성자의 편집 권한이
+  // 그 계약 생애주기와 무관한 시점에 재부팅된다 — "생성 직후의 짧은 구간"이라는 이 완화의
+  // 전제 자체가 깨진다. draft/unassigned 로 묶으면 실제로 아직 아무도 손대지 않은(또는
+  // 확정 전) 초기 구간에만 적용된다.
+  // canAssign/canTransition/canDelete 는 이 완화의 영향을 받지 않는다(ownerOk 그대로 사용).
+  //
+  // 이 완화는 policy.edit 을 우회한다(&& 로 안 묶는다) — general 처럼 policy.edit=false 인
+  // 역할의 생성자도 받아야 하기 때문이다. 등록 폼 자체가 "누가 만들든" 파일 첨부를 요구하므로
+  // (request-schema.ts), 그 요구를 만족시킬 권리를 역할 정책 뒤에 숨기면 안 된다. 대신 이
+  // 경로로 받은 canEdit 은 "추가 전용" 이다(editIsAdditiveOnly) — service(update())가 이 값을
+  // 보고 기존 파일 제거를 막는다. 정식 edit 권한(policy.edit && ownerOk)이 이미 성립하면
+  // editIsAdditiveOnly 는 false — 담당자로 배정된 뒤에는 지금처럼 파일 교체를 포함해 전부
+  // 허용된다(검토 중 문서 교체는 risk 재분석까지 트리거하는 정상 업무 흐름).
+  const canEditUnassigned =
+    contract.ownerId === null &&
+    viewer.id === contract.createdById &&
+    EARLY_STATUSES.has(contract.status);
+  const normalEdit = policy.edit && ownerOk;
+  const editIsAdditiveOnly = !normalEdit && canEditUnassigned;
+
   // sealManager 특수: 역할상 transition=true 이지만 signing 단계에서만(→signed) 가능.
   const isSealManager = viewer.role === "sealManager";
   const canTransition = isSealManager
@@ -249,7 +292,8 @@ export const evaluate = (
 
   return {
     canView: true,
-    canEdit: policy.edit && ownerOk,
+    canEdit: normalEdit || canEditUnassigned,
+    editIsAdditiveOnly,
     canAssign,
     canTransition,
     canDelete: policy.delete, // delete 는 admin 전용(requiresOwner 무관)

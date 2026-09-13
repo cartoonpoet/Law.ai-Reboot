@@ -49,7 +49,7 @@ export interface PresignUploadRequest {
   commentId?: string | null;
   // 어떤 슬롯의 파일인지 — 계약 본 파일은 contract/attach/ref, 코멘트 첨부는 (생략 시) attach.
   // 토큰에 인코딩돼 confirm 시 File.role 로 그대로 저장된다.
-  role?: "contract" | "attach" | "ref" | "etc";
+  role?: "contract" | "attach" | "ref" | "etc" | "signed";
   fileName: string;
   size: number;
   mimeType: string;

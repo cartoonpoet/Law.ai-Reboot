@@ -36,3 +36,83 @@ describe("contractRequestSchema", () => {
     }
   });
 });
+
+const signedBase = {
+  ...contractRequestDefaults,
+  name: "계약",
+  requester: "jhson1",
+  party: "당사자",
+  categoryId: "cat1",
+  counterparties: [{ id: "co1", type: "company", name: "상대", bizNo: "1",
+    ceo: null, phone: null, address: null, addressDetail: null,
+    managerName: null, managerPhone: null, managerEmail: null, createdAt: "2026-01-01" }],
+  purpose: "목적",
+  money: [{ vat: "excluded" as const, amount: 1000, currency: "KRW" }],
+  registerAs: "signed" as const,
+};
+
+describe("contractRequestSchema - 등록 유형 교차 검증", () => {
+  it("체결 완료 등록인데 체결일이 없으면 signedAt 에러로 실패한다", () => {
+    const r = contractRequestSchema.safeParse({
+      ...signedBase,
+      signedAt: "",
+      signedFiles: [{ id: "f1", name: "a.pdf", meta: "", mimeType: null }],
+      contractFiles: [],
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.some((i) => i.path[0] === "signedAt")).toBe(true);
+    }
+  });
+
+  it("체결 완료 등록인데 서명본이 없으면 signedFiles 에러로 실패한다", () => {
+    const r = contractRequestSchema.safeParse({
+      ...signedBase,
+      signedAt: "2025-12-18",
+      signedFiles: [],
+      contractFiles: [],
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.some((i) => i.path[0] === "signedFiles")).toBe(true);
+    }
+  });
+
+  it("변경·해지 + 체결 완료 등록인데 원 계약이 없으면 relatedDocs 에러로 실패한다", () => {
+    const r = contractRequestSchema.safeParse({
+      ...signedBase,
+      stage: "change" as const,
+      signedAt: "2025-12-18",
+      signedFiles: [{ id: "f1", name: "a.pdf", meta: "", mimeType: null }],
+      contractFiles: [],
+      relatedDocs: [],
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.some((i) => i.path[0] === "relatedDocs")).toBe(true);
+    }
+  });
+
+  it("체결 완료 등록은 검토용 계약서가 없어도 통과한다", () => {
+    const r = contractRequestSchema.safeParse({
+      ...signedBase,
+      signedAt: "2025-12-18",
+      signedFiles: [{ id: "f1", name: "a.pdf", meta: "", mimeType: null }],
+      contractFiles: [],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("검토 요청은 계약서가 없으면 contractFiles 에러로 실패한다(기존 규칙 유지)", () => {
+    const r = contractRequestSchema.safeParse({
+      ...signedBase,
+      registerAs: "review" as const,
+      contractFiles: [],
+      signedFiles: [],
+    });
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.some((i) => i.path[0] === "contractFiles")).toBe(true);
+    }
+  });
+});

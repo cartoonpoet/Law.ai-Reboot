@@ -14,13 +14,5 @@ export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
   closed: "계약 종료",
 };
 
-// 목록 칩 필터에 노출할 주요 상태(요청~검토 흐름).
-export const CONTRACT_STATUS_FILTERS: ContractStatus[] = [
-  "unassigned",
-  "legalReview",
-  "requesterReview",
-  "reviewDone",
-];
-
 export const getStatusLabel = (status: ContractStatus): string =>
   CONTRACT_STATUS_LABEL[status] ?? status;

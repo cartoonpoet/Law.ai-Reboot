@@ -50,13 +50,13 @@ export class PresignDto {
   sha256!: string;
 
   @ApiPropertyOptional({
-    enum: ["contract", "attach", "ref", "etc"],
+    enum: ["contract", "attach", "ref", "etc", "signed"],
     description:
       "파일 역할 — 계약 본 파일은 contract/attach/ref, 코멘트 첨부는 생략(기본 attach).",
   })
   @IsOptional()
-  @IsIn(["contract", "attach", "ref", "etc"])
-  role?: "contract" | "attach" | "ref" | "etc";
+  @IsIn(["contract", "attach", "ref", "etc", "signed"])
+  role?: "contract" | "attach" | "ref" | "etc" | "signed";
 }
 
 // 비교 보고서 다운로드 감사 — 두 fileId 가 같은 contractId 의 파일인지 + viewer 권한 서버에서 재검증.

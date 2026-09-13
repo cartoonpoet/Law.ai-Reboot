@@ -14,8 +14,10 @@ interface DocsSectionProps {
 }
 
 export function DocsSection({ contractId }: DocsSectionProps = {}) {
-  const { getValues, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
+  const { getValues, setValue, watch, formState: { errors } } = useFormContext<ContractRequestForm>();
   const [isFormsOpen, setIsFormsOpen] = useState(false);
+  const registerAs = watch("registerAs");
+  const isSigned = registerAs === "signed";
 
   const handleAttachForm = (form: StandardForm) => {
     setValue(
@@ -38,18 +40,32 @@ export function DocsSection({ contractId }: DocsSectionProps = {}) {
     <Card bordered header={<CardTitle num={2}>계약서 · 첨부</CardTitle>}>
       <div className={css.docsBody}>
         <Alert type="info" size="small">
-          검토 정확도를 위해 편집 가능한 워드(.docx) 파일 첨부를 권장합니다. 첨부 즉시 AI가 주요 리스크 조항을 사전 점검합니다.
+          {isSigned
+            ? "서명·날인이 완료된 최종본을 올려주세요. 서명본 기준으로 AI 리스크 분석이 실행됩니다."
+            : "검토 정확도를 위해 편집 가능한 워드(.docx) 파일 첨부를 권장합니다. 첨부 즉시 AI가 주요 리스크 조항을 사전 점검합니다."}
         </Alert>
 
-        <Field label="계약서" required>
-          <FileUploadField
-            name="contractFiles"
-            accept=".docx,.hwp,.pdf"
-            description="파일을 여기에 드래그하거나 버튼을 클릭해 선택하세요. · 가능한 워드(.docx) 권장"
-            contractId={contractId}
-          />
-          <ErrText msg={errors.contractFiles?.message} />
-        </Field>
+        {isSigned ? (
+          <Field label="최종 서명본" required>
+            <FileUploadField
+              name="signedFiles"
+              accept=".docx,.hwp,.pdf"
+              description="파일을 여기에 드래그하거나 버튼을 클릭해 선택하세요. · 서명·날인이 완료된 원본(.pdf 권장)"
+              contractId={contractId}
+            />
+            <ErrText msg={errors.signedFiles?.message} />
+          </Field>
+        ) : (
+          <Field label="계약서" required>
+            <FileUploadField
+              name="contractFiles"
+              accept=".docx,.hwp,.pdf"
+              description="파일을 여기에 드래그하거나 버튼을 클릭해 선택하세요. · 가능한 워드(.docx) 권장"
+              contractId={contractId}
+            />
+            <ErrText msg={errors.contractFiles?.message} />
+          </Field>
+        )}
 
         <div className={css.grid2}>
           <Field label="첨부 / 별첨">

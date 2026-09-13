@@ -3,24 +3,31 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { ContractStatus } from "@lawai/contracts";
 import { listContracts } from "../../../api/contracts";
 import { toListRow } from "../toListRow";
+import { getGroupStatuses, type StatusGroup } from "../statusGroups";
 
 const PAGE_SIZE = 20;
 
-// 계약 목록: 검색·상태·내업무 필터 + 페이지네이션. 필터 변경 시 1페이지로.
+export type ContractExpiryFilter = "" | "d90" | "d180" | "expired";
+
+// 계약 목록: 검색·상태(그룹+세부)·만료·내업무 필터 + 페이지네이션. 필터 변경 시 1페이지로.
 export const useContractsList = () => {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<ContractStatus | "">("");
+  const [group, setGroup] = useState<StatusGroup>("all");
+  const [expiry, setExpiry] = useState<ContractExpiryFilter>("");
   const [party, setParty] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [mine, setMine] = useState(false);
   const [page, setPage] = useState(1);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["contracts", { q, status, party, categoryId, mine, page }],
+    queryKey: ["contracts", { q, status, group, expiry, party, categoryId, mine, page }],
     queryFn: () =>
       listContracts({
         q: q || undefined,
         status: status || undefined,
+        statuses: status ? undefined : getGroupStatuses(group).join(",") || undefined,
+        expiry: expiry || undefined,
         party: party || undefined,
         categoryId: categoryId || undefined,
         mine,
@@ -36,6 +43,16 @@ export const useContractsList = () => {
   };
   const changeStatus = (next: ContractStatus | "") => {
     setStatus(next);
+    setPage(1);
+  };
+  // 그룹이 바뀌면 세부 상태 선택을 버린다(effect 로 동기화하지 않고 핸들러에서 직접 처리).
+  const changeGroup = (next: StatusGroup): void => {
+    setGroup(next);
+    setStatus("");
+    setPage(1);
+  };
+  const changeExpiry = (next: ContractExpiryFilter): void => {
+    setExpiry(next);
     setPage(1);
   };
   const changeParty = (next: string) => {
@@ -65,6 +82,10 @@ export const useContractsList = () => {
     changeQ,
     status,
     changeStatus,
+    group,
+    changeGroup,
+    expiry,
+    changeExpiry,
     party,
     changeParty,
     categoryId,

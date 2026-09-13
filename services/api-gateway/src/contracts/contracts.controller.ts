@@ -19,6 +19,10 @@ import {
   COMMENT_PATTERNS,
   CONTRACT_PATTERNS,
   type CommentDto,
+  type CompleteSigningRequest,
+  type CompleteSigningResult,
+  type FinalizeRegistrationRequest,
+  type FinalizeRegistrationResult,
   type ContractResponse,
   type ContractStatus,
   type CreateCommentRequest,
@@ -40,8 +44,10 @@ import { rpcToHttp } from "../common/rpc-to-http";
 import { extractTenantContext } from "../common/tenant-context";
 import { NotificationHubService } from "../notifications/notification-hub.service";
 import {
+  CompleteSigningDto,
   CreateCommentDto,
   CreateContractDto,
+  FinalizeRegistrationDto,
   UpdateCommentDto,
   UpdateContractDto,
   UpdateContractStatusDto,
@@ -76,12 +82,14 @@ export class ContractsController {
     );
   }
 
-  @ApiOperation({ summary: "계약 목록 조회", description: "필터(q·status·party·categoryId·mine)·페이지네이션" })
+  @ApiOperation({ summary: "계약 목록 조회", description: "필터(q·status/statuses·expiry·party·categoryId·mine)·페이지네이션" })
   @Get()
   list(
     @Req() req: Request,
     @Query("q") q?: string,
     @Query("status") status?: ContractStatus,
+    @Query("statuses") statuses?: string,
+    @Query("expiry") expiry?: string,
     @Query("party") party?: string,
     @Query("categoryId") categoryId?: string,
     @Query("mine") mine?: string,
@@ -92,6 +100,8 @@ export class ContractsController {
     const payload: ListContractsRequest = {
       q: q || undefined,
       status: status || undefined,
+      statuses: statuses || undefined,
+      expiry: (expiry || undefined) as ListContractsRequest["expiry"],
       party: party || undefined,
       categoryId: categoryId || undefined,
       mineOf: mine === "true" ? sub : undefined,
@@ -189,6 +199,64 @@ export class ContractsController {
             );
             return result.contract;
           }),
+        ),
+    );
+  }
+
+  @ApiOperation({
+    summary: "체결 처리",
+    description:
+      "인감 담당(sealManager) + 체결 진행(signing) + 결재 전원 승인 상태에서만. 서명본 파일 승격 + signedAt 확정 + signed 전이.",
+  })
+  @Post(":id/complete-signing")
+  completeSigning(
+    @Param("id") id: string,
+    @Body() body: CompleteSigningDto,
+    @Req() req: Request,
+  ): Promise<ContractResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: CompleteSigningRequest = {
+      contractId: id,
+      viewerId: sub,
+      signedAt: body.signedAt,
+      fileId: body.fileId,
+      note: body.note ?? null,
+      tenantContext: extractTenantContext(req),
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<CompleteSigningResult>(CONTRACT_PATTERNS.COMPLETE_SIGNING, payload)
+        .pipe(
+          rpcToHttp(),
+          map((result: CompleteSigningResult) => result.contract),
+        ),
+    );
+  }
+
+  @ApiOperation({
+    summary: "체결 완료 등록 확정",
+    description:
+      "체결 완료 등록(registerAs=signed)으로 만든 미배정 계약을, 실제 서명본 업로드 후 생성자 본인이 signed 로 확정. 결재선 없음(completeSigning과 별개).",
+  })
+  @Post(":id/finalize")
+  finalizeRegistration(
+    @Param("id") id: string,
+    @Body() body: FinalizeRegistrationDto,
+    @Req() req: Request,
+  ): Promise<ContractResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: FinalizeRegistrationRequest = {
+      contractId: id,
+      viewerId: sub,
+      signedAt: body.signedAt,
+      tenantContext: extractTenantContext(req),
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<FinalizeRegistrationResult>(CONTRACT_PATTERNS.FINALIZE_REGISTRATION, payload)
+        .pipe(
+          rpcToHttp(),
+          map((result: FinalizeRegistrationResult) => result.contract),
         ),
     );
   }

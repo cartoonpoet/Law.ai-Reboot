@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon, Button, StepBar, ProgressBar, Alert } from "@lawkit/ui";
 import type { ApproverSnapshot } from "@lawai/contracts";
@@ -251,6 +251,9 @@ const toPreviewRef = (f: DocFile): PreviewFileRef => ({
 });
 
 function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) {
+  // 서명본은 계약서보다 위(체결 완료 계약에서 가장 권위 있는 문서). 없으면 블록 자체를 렌더하지 않는다
+  // (검토 단계 계약은 서명본이 없는 게 정상 — 빈 섹션을 만들지 않는다).
+  const signeds = d.files.filter((f) => f.kind === "서명본");
   const contracts = d.files.filter((f) => f.kind === "계약서");
   const attachs = d.files.filter((f) => f.kind === "첨부");
   const refs = d.files.filter((f) => f.kind === "참고");
@@ -294,6 +297,20 @@ function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) 
         문서
       </header>
       <div className={cx(css.cbody, css.docGroup)}>
+        {signeds.length > 0 && (
+          <div>
+            <div className={css.docGroupLabel}>서명본</div>
+            {signeds.map((f, i) => (
+              <DocFileRow
+                key={f.id ?? `signed-${i}`}
+                file={f}
+                showCompare
+                onPreview={handlePreview}
+                onCompare={handleCompare}
+              />
+            ))}
+          </div>
+        )}
         <div>
           <div className={css.docGroupLabel}>
             계약서 <span className={css.minitag}>필수</span>
@@ -357,6 +374,11 @@ function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) 
 export function ContractDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  // 제출(신규 작성/수정) 직후 일부 단계(업로드·finalize)가 실패했을 때만 useContractSubmit 이
+  // navigate(state) 로 넘긴다 — 그 페이지는 이 화면으로 넘어오며 즉시 unmount 돼 자기 화면에
+  // 에러를 못 띄우므로, 여기서 대신 보여준다(안 그러면 사용자는 실패를 영영 모른다).
+  const location = useLocation();
+  const submitError = (location.state as { submitError?: string } | null)?.submitError ?? null;
   const { data, isLoading } = useQuery({
     queryKey: ["contract", id],
     queryFn: () => getContract(id),
@@ -435,8 +457,16 @@ export function ContractDetailPage() {
         onClick={() => navigate("/contract/list")}
       >
         <Icon name="chevronLeft" size="sm" className={css.backIcon} />
-        계약서 검토 조회
+        계약 조회
       </button>
+
+      {/* lawkit Alert 는 warning/error 타입이 없다(info/confirm/secret/saveTemporarily 뿐) —
+          기존 컨벤션대로 info 로 대체한다. */}
+      {submitError && (
+        <Alert type="info" size="small">
+          {submitError}
+        </Alert>
+      )}
 
       {/* hero */}
       <header className={css.hero}>
@@ -695,15 +725,22 @@ export function ContractDetailPage() {
         {/* 우측 레일(sticky) */}
         <div className={cx(css.stack, css.sticky)}>
           <ReviewActionPanel
+            contractId={id}
             status={data.status}
             can={can}
             ownerName={d.owner}
             approvalLine={d.approvalLine}
+            signedAt={d.signedAt}
             isUpdating={isUpdating}
             onReject={() => changeStatus("requesterReview")}
             onReviewDone={() => changeStatus("reviewDone")}
             onAssign={() => setIsAssignOpen(true)}
-            approval={{ isRequester, isMyTurn, canSubmit: precheck.canSubmit }}
+            approval={{
+              isRequester,
+              isMyTurn,
+              canSubmit: precheck.canSubmit,
+              isApprovalComplete: data.approvalLine?.status === "approved",
+            }}
             precheckItems={precheck.items}
             onSubmitApproval={submitApproval}
             isSubmitting={isSubmitting}

@@ -16,6 +16,7 @@ const base: ContractSummary = {
   ownerId: null,
   ownerName: null,
   dueDate: "2026-07-01T00:00:00.000Z",
+  signedAt: null,
   createdById: "u1",
   updatedAt: "2026-06-21T00:00:00.000Z",
 };
@@ -40,5 +41,12 @@ describe("toListRow", () => {
 
   it("normal 보안등급은 secure=false", () => {
     expect(toListRow({ ...base, securityLevel: "normal" }).secure).toBe(false);
+  });
+
+  it("signedAt 은 날짜만 남기고, 없으면 null", () => {
+    expect(toListRow({ ...base, signedAt: "2026-09-12T00:00:00.000Z" }).signedAt).toBe(
+      "2026-09-12",
+    );
+    expect(toListRow({ ...base, signedAt: null }).signedAt).toBeNull();
   });
 });

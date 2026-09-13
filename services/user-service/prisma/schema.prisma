@@ -243,6 +243,7 @@ model Contract {
   periodStart DateTime?
   periodEnd   DateTime?
   dueDate     DateTime?
+  signedAt    DateTime? // 실제 서명 완료일. signed 상태 진입 시 확정.
 
   schemaVersion Int  @default(1)
   details       Json
@@ -400,6 +401,7 @@ enum FileRole {
   contract // 계약서
   attach // 첨부/별첨
   ref // 참고서류
+  signed // 최종 서명본(체결 완료본)
 
   @@schema("shared")
 }

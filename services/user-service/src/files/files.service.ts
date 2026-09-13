@@ -151,6 +151,28 @@ export class FilesService {
     return viewer;
   }
 
+  // role:"signed" 업로드는 체결 완료 등록 경로(미배정·unassigned·생성자 본인)에서만 허용한다.
+  // 그 외엔 참조자 등 canView 만 가진 사용자가 남의 계약에 서명본을 끼워 넣어(서명본 버킷이
+  // 생기고 편집 폼이 서명 모드로 뒤집히며 PATCH 가드 때문에 지울 수도 없게 됨) 오염시킬 수 있다.
+  // 결재 경로(completeSigning)는 attach 로 올린 뒤 서버에서 승격하므로 이 제한과 무관하다.
+  private assertSignedUploadAllowed(
+    contract: ContractForAuthz,
+    viewerId: string,
+    commentId: string | null | undefined,
+  ): void {
+    const isDirectRegistration =
+      !commentId &&
+      contract.status === "unassigned" &&
+      contract.ownerId === null &&
+      contract.createdById === viewerId;
+    if (!isDirectRegistration) {
+      throw new RpcException({
+        status: 403,
+        message: "서명본은 체결 완료 등록 중인 본인 계약에만 업로드할 수 있습니다",
+      });
+    }
+  }
+
   private ensureEnabled(): void {
     if (this.r2.disabled || !this.r2.client || !this.r2.bucket) {
       throw new RpcException({
@@ -205,6 +227,9 @@ export class FilesService {
     this.ensureEnabled();
     const contract = await this.loadContract(req.contractId, ctx);
     const viewer = await this.authorizeCanView(contract, req.viewerId, ctx);
+    if (req.role === "signed") {
+      this.assertSignedUploadAllowed(contract, viewer.id, req.commentId);
+    }
     this.validateFileMeta({
       fileName: req.fileName,
       size: req.size,
@@ -279,6 +304,13 @@ export class FilesService {
         status: 403,
         message: "업로드 토큰 소유자가 아닙니다",
       });
+    }
+
+    // 토큰의 role 은 presign 시점 판단이다. 토큰 유효기간(15분) 사이에 계약이 배정·전이됐을 수
+    // 있으므로 signed 는 File 행을 만들기 직전에 현재 계약 상태로 다시 확인한다.
+    if (claims.role === "signed") {
+      const contract = await this.loadContract(claims.contractId, ctx);
+      this.assertSignedUploadAllowed(contract, claims.sub, claims.commentId);
     }
 
     // 객체 존재 + Size 일치 확인(클라이언트가 보낸 size 와 ±0).

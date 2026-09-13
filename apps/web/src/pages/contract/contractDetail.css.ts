@@ -831,3 +831,25 @@ export const chipRow = style({ display: "flex", flexWrap: "wrap", gap: 6 });
 
 /* 관련문서/URL 링크 목록 */
 export const linkList = style({ display: "flex", flexDirection: "column", gap: 4 });
+
+/* =========================================================================
+ * 체결 처리 액션 패널 강조(시안 .actpanel) — 성공색 테두리 + 은은한 글로우.
+ * ======================================================================= */
+const successGlow = keyframes({
+  "0%": { boxShadow: "none", borderColor: `color-mix(in srgb, ${SUCCESS} 35%, ${SURFACE})` },
+  "50%": {
+    boxShadow: `0 0 14px 0 color-mix(in srgb, ${SUCCESS} 18%, transparent)`,
+    borderColor: `color-mix(in srgb, ${SUCCESS} 60%, ${SURFACE})`,
+  },
+  "100%": { boxShadow: "none", borderColor: `color-mix(in srgb, ${SUCCESS} 35%, ${SURFACE})` },
+});
+
+export const actionPanelHighlight = style({
+  borderColor: `color-mix(in srgb, ${SUCCESS} 35%, ${SURFACE})`,
+  borderWidth: 1.5,
+  background: `color-mix(in srgb, ${SUCCESS} 4%, ${SURFACE})`,
+  animation: `${successGlow} 2.4s ease-in-out infinite`,
+  "@media": {
+    "(prefers-reduced-motion: reduce)": { animation: "none" },
+  },
+});

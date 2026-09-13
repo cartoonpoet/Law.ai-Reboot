@@ -11,12 +11,11 @@ import { useCompanySearch } from "../hooks/useCompanySearch";
 import { useCounterparties } from "../hooks/useCounterparties";
 import { toCompanyOptions } from "../companyLabel";
 import { CompanyCreateModal } from "./CompanyCreateModal";
+import { RelatedDocsPicker } from "./RelatedDocsPicker";
+import { toISODate, isoToDate } from "../dateIso";
 import * as css from "../contractRequest.css";
 
 const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v);
-
-const toISODate = (date: Date | null): string => (date ? date.toISOString().slice(0, 10) : "");
-const isoToDate = (iso: string): Date | null => (iso ? new Date(iso) : null);
 
 export function OverviewSection() {
   const { control, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
@@ -26,6 +25,10 @@ export function OverviewSection() {
   const periodManual = useWatch({ control, name: "periodManual" });
   const noEndDate = useWatch({ control, name: "noEndDate" });
   const categoryId = useWatch({ control, name: "categoryId" });
+  const registerAs = useWatch({ control, name: "registerAs" });
+  const stage = useWatch({ control, name: "stage" });
+  const isSigned = registerAs === "signed";
+  const isChange = stage === "change";
   const { getChildOptions, getPathIds, isLeaf } = useContractCategories();
   const { query, results, search } = useCompanySearch();
   const { selected, add, selectByIds } = useCounterparties();
@@ -51,6 +54,23 @@ export function OverviewSection() {
   return (
     <Card bordered header={<CardTitle num={1}>계약 개요</CardTitle>}>
       <div className={css.grid2}>
+        <div className={css.modeRow}>
+          <Field label="등록 유형" required>
+            <Controller name="registerAs" control={control} render={({ field }) => (
+              <ButtonGroup value={field.value} onChange={field.onChange} variant="outline"
+                items={[
+                  { value: "review", label: "법무 검토 요청", icon: <Icon name="edit" size="sm" /> },
+                  { value: "signed", label: "체결 완료 등록", icon: <Icon name="checkSquare" size="sm" /> },
+                ]} />
+            )} />
+          </Field>
+          <p className={css.modeHelp}>
+            {isSigned
+              ? "검토·결재를 건너뛰고 곧바로 체결 완료 상태로 등록합니다."
+              : "법무 검토 → 요청자 검토 → 검토 완료 → 체결 품의(결재) → 체결 순서로 진행됩니다."}
+          </p>
+        </div>
+
         <Field label="계약 단계" required>
           <Controller name="stage" control={control} render={({ field }) => (
             <RadioGroup value={field.value} onChange={field.onChange}>
@@ -78,22 +98,49 @@ export function OverviewSection() {
           <ErrText msg={errors.name?.message} />
         </Field>
 
-        <Field label="검토 요청자" info="검토를 요청하는 담당자입니다. 기본값은 로그인 사용자입니다." required>
-          <Controller name="requester" control={control} render={({ field }) => (
-            <AutoComplete options={userOptions} value={field.value} placeholder="검토 요청자 선택"
-              onChange={(v) => field.onChange(pickSingle(v))} />
-          )} />
-          <ErrText msg={errors.requester?.message} />
-        </Field>
+        {isSigned && (
+          <Field label="체결일" required>
+            <Controller name="signedAt" control={control} render={({ field }) => (
+              <InputDatePicker
+                value={isoToDate(field.value)}
+                placeholder="YYYY-MM-DD"
+                onChange={(date) => field.onChange(toISODate(date))}
+              />
+            )} />
+            <ErrText msg={errors.signedAt?.message} />
+          </Field>
+        )}
 
-        <Field label="계약서 유형" required>
-          <Controller name="ctype" control={control} render={({ field }) => (
-            <RadioGroup value={field.value} onChange={field.onChange}>
-              <Radio value="normal" label="일반 검토요청" />
-              <Radio value="std" label="표준계약서 계약체결" />
-            </RadioGroup>
-          )} />
-        </Field>
+        {isChange && (
+          <div className={isSigned ? css.origRequired : css.origOptional}>
+            <Field label="원 계약" required={isSigned}
+              info="변경·해지 대상 계약입니다. 관련문서로 저장됩니다.">
+              <RelatedDocsPicker />
+            </Field>
+            <ErrText msg={errors.relatedDocs?.message as string | undefined} />
+          </div>
+        )}
+
+        {!isSigned && (
+          <Field label="검토 요청자" info="검토를 요청하는 담당자입니다. 기본값은 로그인 사용자입니다." required>
+            <Controller name="requester" control={control} render={({ field }) => (
+              <AutoComplete options={userOptions} value={field.value} placeholder="검토 요청자 선택"
+                onChange={(v) => field.onChange(pickSingle(v))} />
+            )} />
+            <ErrText msg={errors.requester?.message} />
+          </Field>
+        )}
+
+        {!isSigned && (
+          <Field label="계약서 유형" required>
+            <Controller name="ctype" control={control} render={({ field }) => (
+              <RadioGroup value={field.value} onChange={field.onChange}>
+                <Radio value="normal" label="일반 검토요청" />
+                <Radio value="std" label="표준계약서 계약체결" />
+              </RadioGroup>
+            )} />
+          </Field>
+        )}
 
         <Field label="계약 분류" required className={css.full}>
           <div className={css.grid3}>

@@ -35,18 +35,28 @@ export function ContractRequestPage({
   const isEdit = mode === "edit";
   const handleValid = (form: ContractRequestForm) => submit(form);
 
+  const registerAs = methods.watch("registerAs");
+  const stage = methods.watch("stage");
+  const isSigned = registerAs === "signed";
+  const pageTitle = isSigned
+    ? stage === "change" ? "체결 변경계약 등록" : "체결 계약 등록"
+    : "계약서 검토 요청";
+  const submitLabel = isSubmitting
+    ? (isEdit ? "저장 중…" : "등록 중…")
+    : isEdit ? "수정 저장" : isSigned ? "체결 계약 등록" : "검토요청 등록";
+
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(handleValid)}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
           <div>
             <Eyebrow style={{ marginBottom: 7 }}>계약</Eyebrow>
-            <h1 style={{ margin: 0, fontSize: 23, fontWeight: 800, color: themeVars.color.textHeading, letterSpacing: "-0.025em" }}>계약서 검토 요청</h1>
+            <h1 style={{ margin: 0, fontSize: 23, fontWeight: 800, color: themeVars.color.textHeading, letterSpacing: "-0.025em" }}>{pageTitle}</h1>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <Button type="button" variant="outline" color="secondary" onClick={() => navigate("/contract/list")}>목록</Button>
             <Button type="button" variant="outline" color="secondary">임시저장</Button>
-            <Button type="submit" disabled={isSubmitting} iconLeft={<Icon name="submit" size="sm" className={css.submitIcon} />}>{isSubmitting ? (isEdit ? "저장 중…" : "등록 중…") : isEdit ? "수정 저장" : "검토요청 등록"}</Button>
+            <Button type="submit" disabled={isSubmitting} iconLeft={<Icon name="submit" size="sm" className={css.submitIcon} />}>{submitLabel}</Button>
           </div>
         </div>
 

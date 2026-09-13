@@ -6,6 +6,7 @@ import {
   Dropdown,
   Switch,
   ChipsNavigation,
+  ButtonGroup,
   DataTable,
   Pagination,
   PaginationCount,
@@ -15,7 +16,14 @@ import { T } from "../../design/tokens";
 import { Panel } from "../../components/ui/Panel";
 import { LIST_FILTERS } from "./mock-data";
 import { listColumns } from "./listColumns";
-import { CONTRACT_STATUS_FILTERS, getStatusLabel } from "./contractStatus";
+import { getStatusLabel } from "./contractStatus";
+import {
+  STATUS_GROUP_LABEL,
+  STATUS_GROUP_ORDER,
+  getGroupStatuses,
+  type StatusGroup,
+} from "./statusGroups";
+import type { ContractExpiryFilter } from "./hooks/useContractsList";
 import { useContractsList } from "./hooks/useContractsList";
 import { useContractCategories } from "./hooks/useContractCategories";
 import { toOptions, type SelectOption } from "./contractOptions";
@@ -23,6 +31,13 @@ import { Eyebrow } from "../../components/ui/Eyebrow";
 import * as listCss from "./contractList.css";
 
 const ALL_OPTION: SelectOption = { value: "", label: "전체" };
+
+const EXPIRY_OPTIONS: { value: ContractExpiryFilter; label: string }[] = [
+  { value: "", label: "만료 전체" },
+  { value: "d90", label: "90일 이내" },
+  { value: "d180", label: "180일 이내" },
+  { value: "expired", label: "만료됨" },
+];
 
 function FilterSelect({
   label,
@@ -59,6 +74,10 @@ export function ContractListPage() {
     changeQ,
     status,
     changeStatus,
+    group,
+    changeGroup,
+    expiry,
+    changeExpiry,
     party,
     changeParty,
     categoryId,
@@ -99,7 +118,7 @@ export function ContractListPage() {
               letterSpacing: "-0.025em",
             }}
           >
-            계약서 검토 조회
+            계약 조회
           </h1>
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -159,44 +178,50 @@ export function ContractListPage() {
             }
           />
         </div>
+        <div className={listCss.expirySelect}>
+          <Dropdown
+            options={EXPIRY_OPTIONS}
+            value={expiry}
+            placeholder="만료 전체"
+            onChange={(v) =>
+              changeExpiry((Array.isArray(v) ? v[0] ?? "" : v) as ContractExpiryFilter)
+            }
+          />
+        </div>
         <Switch label="내 업무만" checked={mine} onCheckedChange={changeMine} />
       </div>
 
       <Panel flush>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "11px 14px",
-            borderBottom: `1px solid ${T.border}`,
-            flexWrap: "wrap",
-          }}
-        >
-          <ChipsNavigation
-            allLabel="전체"
-            value={status}
-            onChange={handleStatusChange}
-            items={CONTRACT_STATUS_FILTERS.map((s) => ({
-              value: s,
-              label: getStatusLabel(s),
+        <div className={listCss.groupBar}>
+          <ButtonGroup
+            variant="segmented"
+            items={STATUS_GROUP_ORDER.map((g) => ({
+              value: g,
+              label: STATUS_GROUP_LABEL[g],
             }))}
+            value={group}
+            onChange={(v) => changeGroup(v as StatusGroup)}
           />
-          <div style={{ flex: 1 }} />
-          <span style={{ fontSize: 12.5, color: T.muted }}>
-            총{" "}
-            <b
-              style={{
-                color: T.heading,
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {total}
-            </b>
-            건
+          <div className={listCss.groupBarSpacer} />
+          <span className={listCss.totalCount}>
+            총 <b className={listCss.totalCountValue}>{total}</b>건
           </span>
         </div>
-        <div style={{ padding: 6 }}>
+        {group !== "all" && (
+          <div className={listCss.subbar}>
+            <span className={listCss.subbarLabel}>세부 상태</span>
+            <ChipsNavigation
+              allLabel="전체"
+              value={status}
+              onChange={handleStatusChange}
+              items={getGroupStatuses(group).map((s) => ({
+                value: s,
+                label: getStatusLabel(s),
+              }))}
+            />
+          </div>
+        )}
+        <div className={listCss.tableWrap}>
           <DataTable
             data={rows}
             columns={listColumns()}

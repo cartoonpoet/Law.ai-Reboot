@@ -50,7 +50,13 @@ describe("toCreateRequest", () => {
     expect(req.securityLevel).toBe("top");
     expect(req.reviewType).toBe("std");
     expect(req.categoryId).toBe("cat-saas");
-    expect(req.ownerId).toBe("lee");
+    expect(req.dueDate).toBe("2026-07-10");
+  });
+
+  it("업무담당자(form.owner)는 details.owner 로만 보내고 ownerId(법무 담당자)는 보내지 않는다", () => {
+    const req = toCreateRequest(form);
+    expect(req).not.toHaveProperty("ownerId");
+    expect(req.details.owner).toEqual({ id: "lee", name: "이법무" });
     expect(req.dueDate).toBe("2026-07-10");
     expect(req.schemaVersion).toBe(1);
   });
@@ -111,5 +117,24 @@ describe("toCreateRequest", () => {
     expect(req.counterparties).toHaveLength(1);
     expect(req.counterparties[0].companyId).toBe("comp-1");
     expect(req.counterparties[0].snapshot.name).toBe("삼성전자(주)");
+  });
+
+  it("체결 완료 등록이면 registerAs 와 signedAt 을 싣고 서명본을 role=signed 로 매핑한다", () => {
+    const req = toCreateRequest({
+      ...form,
+      registerAs: "signed",
+      signedAt: "2025-12-18",
+      signedFiles: [{ id: "f1", name: "sign.pdf", meta: "1MB", mimeType: "application/pdf" }],
+    });
+    expect(req.registerAs).toBe("signed");
+    expect(req.signedAt).toBe("2025-12-18");
+    expect(req.files.some((f) => f.role === "signed" && f.name === "sign.pdf")).toBe(true);
+  });
+
+  it("검토 요청(registerAs=review)이면 signedAt 을 null 로, 서명본은 files 에 없다", () => {
+    const req = toCreateRequest(form);
+    expect(req.registerAs).toBe("review");
+    expect(req.signedAt).toBeNull();
+    expect(req.files.some((f) => f.role === "signed")).toBe(false);
   });
 });
