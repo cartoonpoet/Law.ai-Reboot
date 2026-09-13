@@ -4,6 +4,7 @@ import { ContractsService } from "./contracts.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
+import { ApprovalsService } from "../approvals/approvals.service";
 import type { CreateContractRequest } from "@lawai/contracts";
 
 const companySnapshot = {
@@ -126,6 +127,11 @@ describe("ContractsService", () => {
     deleteObjects: jest.fn().mockResolvedValue(undefined),
     deleteObject: jest.fn().mockResolvedValue(undefined),
   };
+  // 결재 모듈 mock — get(활성 라인)·상신 경로에서 사용.
+  const approvalsMock = {
+    submit: jest.fn(),
+    getActive: jest.fn().mockResolvedValue({ line: null, historyCount: 0 }),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -137,6 +143,7 @@ describe("ContractsService", () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: AuditService, useValue: auditMock },
         { provide: R2Client, useValue: r2Mock },
+        { provide: ApprovalsService, useValue: approvalsMock },
       ],
     }).compile();
     service = moduleRef.get(ContractsService);
@@ -206,16 +213,16 @@ describe("ContractsService", () => {
     expect(arg.data.periodStart).toEqual(new Date("2026-07-01"));
     expect(arg.data.periodEnd).toBeNull(); // "" → null
     expect(arg.data.counterparties.create).toHaveLength(1);
-    // 결재선: approvers 를 배열 순서대로 단계화
-    expect(arg.data.approvalLines.create.steps.create).toEqual([
-      { stepOrder: 0, name: "손준호", dept: "법무팀", type: "draft" },
-      { stepOrder: 1, name: "이법무", dept: "법무팀", type: "approve" },
+    // 결재선(상신 전): 라인을 만들지 않고 details.approvers 로만 보관.
+    expect(arg.data.approvalLines).toBeUndefined();
+    expect(arg.data.details.approvers).toEqual([
+      { name: "손준호", dept: "법무팀", type: "draft" },
+      { name: "이법무", dept: "법무팀", type: "approve" },
     ]);
     expect(result.id).toBe("ct-1");
     expect(result.periodStart).toBe("2026-07-01T00:00:00.000Z");
     expect(result.counterparties[0].snapshot.name).toBe("삼성전자(주)");
-    expect(result.approvalLine?.steps).toHaveLength(2);
-    expect(result.approvalLine?.steps[1].type).toBe("approve");
+    expect(result.approvalLine).toBeNull();
     // 첨부: role+name+sortOrder+tenantId 로 생성, size/mimeType/storageKey 는 미전송(메타 행)
     expect(arg.data.files.create).toEqual([
       { tenantId: "t1", role: "contract", name: "계약서.docx", meta: "DOCX · 1.2MB", sortOrder: 0 },
@@ -245,7 +252,6 @@ describe("ContractsService", () => {
         requester: { select: { name: true } },
         owner: { select: { name: true } },
         counterparties: true,
-        approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
         files: {
           where: { commentId: null },
           orderBy: [{ role: "asc" }, { sortOrder: "asc" }],
@@ -406,8 +412,9 @@ describe("ContractsService", () => {
     expect(arg.data.files.create).toHaveLength(1);
     expect(arg.data.files.update).toEqual([]);
     expect(arg.data.references.create[0].name).toBe("운영팀");
-    // 빈 approvers → 결재선 전부 삭제만(재생성 없음)
-    expect(arg.data.approvalLines).toEqual({ deleteMany: {} });
+    // 빈 approvers → details.approvers 를 빈 배열로 갱신(라인 조작 없음)
+    expect(arg.data.approvalLines).toBeUndefined();
+    expect(arg.data.details.approvers).toEqual([]);
     // 미제공 관계(counterparties)는 건드리지 않음
     expect(arg.data.counterparties).toBeUndefined();
   });
@@ -826,5 +833,101 @@ describe("ContractsService", () => {
     expect(changed).not.toContain("id");
     expect(changed).not.toContain("viewerId");
     expect(changed).toContain("title");
+  });
+
+  describe("submitApproval (체결 품의 상신)", () => {
+    const approvedRow = (over: Record<string, unknown> = {}) => ({
+      ...fullRow("reviewDone"),
+      createdById: "requester-1",
+      details: {
+        ...detailsV1,
+        approvers: [
+          { userId: "requester-1", name: "한지원", dept: "사업개발팀", type: "draft" },
+          { userId: "u-legal", name: "김도윤", dept: "법무팀", type: "approve" },
+        ],
+      },
+      ...over,
+    });
+    const lineDto = {
+      id: "L1",
+      targetType: "contract",
+      targetId: "ct-1",
+      title: "계약",
+      status: "pending",
+      submittedById: "requester-1",
+      submittedByName: "한지원",
+      submittedAt: "2026-09-11T01:00:00.000Z",
+      decidedAt: null,
+      steps: [],
+      currentStepId: "S1",
+    };
+
+    it("요청자 본인이 아니면 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(approvedRow());
+      await expect(
+        service.submitApproval({ id: "ct-1", viewerId: "someone-else", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 403 } });
+    });
+
+    it("reviewDone 이 아니면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(approvedRow({ status: "legalReview" }));
+      await expect(
+        service.submitApproval({ id: "ct-1", viewerId: "requester-1", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+    });
+
+    it("details.approvers 비어 있으면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(
+        approvedRow({ details: { ...detailsV1, approvers: [] } }),
+      );
+      await expect(
+        service.submitApproval({ id: "ct-1", viewerId: "requester-1", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+    });
+
+    it("진행 중(pending) 라인이 이미 있으면 409", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(approvedRow());
+      approvalsMock.getActive.mockResolvedValueOnce({ line: lineDto, historyCount: 0 });
+      await expect(
+        service.submitApproval({ id: "ct-1", viewerId: "requester-1", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 409 } });
+    });
+
+    it("성공: approvals.submit 호출 + signing 전이 + 알림 반환", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(approvedRow());
+      approvalsMock.getActive.mockResolvedValueOnce({ line: null, historyCount: 0 });
+      approvalsMock.submit.mockResolvedValueOnce({
+        line: lineDto,
+        notifications: [{ recipientId: "u-legal", notification: { id: "n1" } }],
+      });
+      prismaMock.contract.update.mockResolvedValue(approvedRow({ status: "signing" }));
+      const result = await service.submitApproval({
+        id: "ct-1",
+        viewerId: "requester-1",
+        ...makeCtx(),
+      });
+      const submitArg = approvalsMock.submit.mock.calls[0][0];
+      expect(submitArg.targetType).toBe("contract");
+      expect(submitArg.steps).toHaveLength(2);
+      expect(submitArg.steps[1]).toEqual({
+        userId: "u-legal",
+        name: "김도윤",
+        dept: "법무팀",
+        type: "approve",
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: "signing" } }),
+      );
+      expect(result.contract.status).toBe("signing");
+      expect(result.contract.approvalLine?.id).toBe("L1");
+      expect(result.notifications).toHaveLength(1);
+      // 감사로그: transition + kind=submitApproval
+      expect(auditMock.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "transition",
+          detail: expect.objectContaining({ kind: "submitApproval" }),
+        }),
+      );
+    });
   });
 });

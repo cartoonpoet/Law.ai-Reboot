@@ -63,10 +63,14 @@ const response: ContractResponse = {
     id: "l-1",
     status: "pending",
     steps: [
-      { id: "s-1", stepOrder: 0, name: "손준호", dept: "법무팀", type: "draft", status: "pending" },
-      { id: "s-2", stepOrder: 1, name: "이법무", dept: "법무팀", type: "approve", status: "pending" },
+      { id: "s-1", stepOrder: 0, userId: "u-son", name: "손준호", dept: "법무팀", type: "draft", status: "pending", comment: null, decidedAt: null },
+      { id: "s-2", stepOrder: 1, userId: "u-lee", name: "이법무", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
     ],
+    currentStepId: "s-2",
+    submittedById: "u-son",
+    submittedAt: "2026-06-01T00:00:00.000Z",
   },
+  plannedApprovers: [],
   files: [
     { id: "f-1", role: "contract", name: "계약서.docx", meta: "DOCX", size: null, mimeType: null, storageKey: null, sortOrder: 0 },
     { id: "f-2", role: "attach", name: "별첨.pdf", meta: "PDF", size: null, mimeType: null, storageKey: null, sortOrder: 0 },
@@ -109,6 +113,25 @@ describe("toEditDefaults", () => {
     expect(f.ccSecret).toEqual([{ id: "u9", name: "비밀임원" }]);
     expect(f.approvers).toHaveLength(2);
     expect(f.approvers[1].type).toBe("approve");
+  });
+
+  it("plannedApprovers 가 있으면 활성 라인 대신 그걸 우선 사용한다(userId 포함)", () => {
+    const withPlanned = {
+      ...response,
+      plannedApprovers: [
+        { userId: "u-planned", name: "박기획", dept: "기획팀", type: "approve" as const },
+      ],
+    };
+    const f = toEditDefaults(withPlanned);
+    expect(f.approvers).toEqual([
+      { userId: "u-planned", name: "박기획", dept: "기획팀", type: "approve" },
+    ]);
+  });
+
+  it("plannedApprovers 가 없으면 활성 라인 스텝의 userId 를 보존한다", () => {
+    const f = toEditDefaults(response);
+    expect(f.approvers[0].userId).toBe("u-son");
+    expect(f.approvers[1].userId).toBe("u-lee");
   });
 
   it("역매핑→toCreateRequest 라운드트립이 안정적이다", () => {

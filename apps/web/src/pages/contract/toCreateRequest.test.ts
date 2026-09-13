@@ -73,6 +73,15 @@ describe("toCreateRequest", () => {
     expect("approvers" in req.details).toBe(false);
   });
 
+  it("approvers 에 실 결재자 userId 를 보존한다", () => {
+    const withUser: ContractRequestForm = {
+      ...form,
+      approvers: [{ userId: "u-1", name: "김도윤", dept: "법무팀", type: "approve" }],
+    };
+    const req = toCreateRequest(withUser);
+    expect(req.approvers[0].userId).toBe("u-1");
+  });
+
   it("3개 파일 배열을 role+sortOrder로 평탄화하고 details에서 뺀다", () => {
     const req = toCreateRequest(form);
     expect(req.files).toEqual([

@@ -63,11 +63,20 @@ export const toEditDefaults = (c: ContractResponse): ContractRequestForm => {
     keyPoints: d.keyPoints,
     concerns: d.concerns,
     urls: d.urls.map((value) => ({ value })),
-    // 결재선
-    approvers: c.approvalLine?.steps.map((s) => ({
-      name: s.name,
-      dept: s.dept,
-      type: s.type,
-    })) ?? [],
+    // 결재선: 상신 전(plannedApprovers)을 우선하고, 없으면 활성 라인 스텝으로 폴백.
+    approvers:
+      c.plannedApprovers.length > 0
+        ? c.plannedApprovers.map((a) => ({
+            userId: a.userId ?? null,
+            name: a.name,
+            dept: a.dept,
+            type: a.type,
+          }))
+        : c.approvalLine?.steps.map((s) => ({
+            userId: s.userId,
+            name: s.name,
+            dept: s.dept,
+            type: s.type,
+          })) ?? [],
   };
 };

@@ -33,7 +33,10 @@ export function ApprovalLineModal({ initial, onClose, onApply }: ApprovalLineMod
 
   const addPerson = (p: PersonRef) => {
     if (isAdded(p.name)) return;
-    setSteps((prev) => [...prev, { id: `st${Date.now()}`, name: p.name, dept: p.dept, type: addType as StepType }]);
+    setSteps((prev) => [
+      ...prev,
+      { id: `st${Date.now()}`, userId: p.id, name: p.name, dept: p.dept, type: addType as StepType },
+    ]);
   };
   const removeStep = (i: number) => setSteps((prev) => prev.filter((_, idx) => idx !== i));
 
@@ -48,7 +51,8 @@ export function ApprovalLineModal({ initial, onClose, onApply }: ApprovalLineMod
     setDragIndex(i);
   };
 
-  const apply = () => onApply(steps.map((s) => ({ name: s.name, dept: s.dept, type: s.type })));
+  const apply = () =>
+    onApply(steps.map((s) => ({ userId: s.userId ?? null, name: s.name, dept: s.dept, type: s.type })));
 
   return (
     <Modal

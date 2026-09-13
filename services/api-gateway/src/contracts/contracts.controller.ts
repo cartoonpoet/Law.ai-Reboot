@@ -29,6 +29,8 @@ import {
   type ListCommentsRequest,
   type ListContractsRequest,
   type ListContractsResponse,
+  type SubmitContractApprovalRequest,
+  type SubmitContractApprovalResult,
   type UpdateCommentRequest,
   type UpdateContractRequest,
   type UpdateContractStatusRequest,
@@ -158,6 +160,36 @@ export class ContractsController {
       this.userClient
         .send<ContractResponse>(CONTRACT_PATTERNS.UPDATE_STATUS, payload)
         .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({
+    summary: "체결 품의 상신",
+    description: "요청자 본인 + 검토 완료(reviewDone) 상태에서만. 결재선 스냅샷으로 결재 시작 + 계약은 체결 진행(signing) 전이.",
+  })
+  @Post(":id/approval/submit")
+  submitApproval(
+    @Param("id") id: string,
+    @Req() req: Request,
+  ): Promise<ContractResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: SubmitContractApprovalRequest = {
+      id,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<SubmitContractApprovalResult>(CONTRACT_PATTERNS.SUBMIT_APPROVAL, payload)
+        .pipe(
+          rpcToHttp(),
+          map((result: SubmitContractApprovalResult) => {
+            result.notifications.forEach((n) =>
+              this.hub.push(n.recipientId, n.notification),
+            );
+            return result.contract;
+          }),
+        ),
     );
   }
 

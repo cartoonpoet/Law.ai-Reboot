@@ -12,7 +12,7 @@ vi.mock("../../../api/directory", () => ({
   ]),
 }));
 
-const INITIAL: Approver[] = [{ name: "손준호", dept: "법무팀", type: "draft" }];
+const INITIAL: Approver[] = [{ userId: "son", name: "손준호", dept: "법무팀", type: "draft" }];
 
 function renderModal(onApply = vi.fn()) {
   const queryClient = new QueryClient();
@@ -40,6 +40,6 @@ describe("ApprovalLineModal", () => {
     expect(onApply).toHaveBeenCalledTimes(1);
     const applied = onApply.mock.calls[0][0];
     expect(applied).toHaveLength(2); // 기안 + 이법무
-    expect(applied[1]).toEqual({ name: "이법무", dept: "법무팀", type: "approve" });
+    expect(applied[1]).toEqual({ userId: "lee", name: "이법무", dept: "법무팀", type: "approve" });
   });
 });

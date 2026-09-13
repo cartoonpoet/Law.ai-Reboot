@@ -53,6 +53,13 @@ export const CONTRACT_PATTERNS = {
   LIST: "contract.list",
   UPDATE: "contract.update",
   UPDATE_STATUS: "contract.updateStatus",
+  SUBMIT_APPROVAL: "contract.submitApproval",
+} as const;
+
+export const APPROVAL_PATTERNS = {
+  DECIDE: "approval.decide",
+  INBOX: "approval.inbox",
+  GET_ACTIVE: "approval.getActive",
 } as const;
 
 export const COMMENT_PATTERNS = {

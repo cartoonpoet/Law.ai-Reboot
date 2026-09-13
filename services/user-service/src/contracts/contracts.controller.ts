@@ -5,6 +5,7 @@ import type {
   CreateContractRequest,
   GetContractRequest,
   ListContractsRequest,
+  SubmitContractApprovalRequest,
   UpdateContractRequest,
   UpdateContractStatusRequest,
 } from "@lawai/contracts";
@@ -32,6 +33,11 @@ export class ContractsController {
   @MessagePattern(CONTRACT_PATTERNS.UPDATE)
   update(@Payload() req: UpdateContractRequest) {
     return this.contracts.update(req);
+  }
+
+  @MessagePattern(CONTRACT_PATTERNS.SUBMIT_APPROVAL)
+  submitApproval(@Payload() req: SubmitContractApprovalRequest) {
+    return this.contracts.submitApproval(req);
   }
 
   @MessagePattern(CONTRACT_PATTERNS.UPDATE_STATUS)

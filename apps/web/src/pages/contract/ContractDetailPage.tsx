@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon, Button, StepBar, ProgressBar, Alert } from "@lawkit/ui";
+import type { ApproverSnapshot } from "@lawai/contracts";
 import {
   FilePreviewModal,
   type PreviewFileRef,
@@ -10,6 +11,7 @@ import {
 import { AssignModal } from "./sections/AssignModal";
 import { CommentPanel } from "./sections/CommentPanel";
 import { ReviewActionPanel } from "./sections/ReviewActionPanel";
+import { ApprovalRejectModal } from "./sections/ApprovalRejectModal";
 import { ContractDetailSkeleton } from "./sections/ContractDetailSkeleton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { RISKS } from "./mock-data";
@@ -17,7 +19,10 @@ import type { Risk, ContractDetail, ApprovalStepView } from "./mock-data";
 import { getContract } from "../../api/contracts";
 import { toDetailView } from "./toDetailView";
 import { getLifecycleSteps } from "./getLifecycleSteps";
+import { getSubmitPrecheck } from "./getSubmitPrecheck";
 import { useContractStatus } from "./hooks/useContractStatus";
+import { useContractApproval } from "./hooks/useContractApproval";
+import { useMe } from "../../components/layout/hooks/useMe";
 import { cx } from "./cx";
 import * as css from "./contractDetail.css";
 
@@ -136,39 +141,75 @@ function GlanceStrip({ d }: { d: ContractDetail }) {
 
 /* ── 결재선 카드 ── */
 
-function ApprovalLineCard({ steps }: { steps: ApprovalStepView[] | null }) {
+const PLANNED_TYPE_LABEL: Record<ApproverSnapshot["type"], string> = {
+  draft: "기안",
+  approve: "결재",
+  agree: "합의",
+  refer: "참조",
+};
+
+function ApprovalLineCard({
+  steps,
+  plannedApprovers,
+}: {
+  steps: ApprovalStepView[] | null;
+  plannedApprovers: ApproverSnapshot[];
+}) {
+  // 활성 결재 라인(상신됨)이 있으면 그걸, 없으면 상신 전 결재선(plannedApprovers)을 보여준다.
+  const hasActiveLine = Boolean(steps && steps.length > 0);
+  const hasPlanned = !hasActiveLine && plannedApprovers.length > 0;
+
   return (
     <section className={css.card}>
       <header className={css.chead}>
         <Icon name="checkCircle" size="sm" className={css.cheadIconMuted} />
         결재선
-        {steps && steps.length > 0 && (
-          <span className={css.cheadNote}>기안 1순위 고정</span>
-        )}
+        {hasActiveLine && <span className={css.cheadNote}>기안 1순위 고정</span>}
+        {hasPlanned && <span className={css.cheadNote}>예정 · 상신 전</span>}
       </header>
       <div className={css.cbody}>
-        {steps && steps.length > 0 ? (
-          steps.map((step) => (
-            <div key={step.order} className={css.apvrow}>
-              <span
-                className={cx(
-                  css.apvnum,
-                  step.statusKind === "done" && css.apvnumDone,
-                  step.statusKind === "now" && css.apvnumActive,
-                )}
-              >
-                {step.order}
-              </span>
+        {hasActiveLine &&
+          steps!.map((step) => (
+            <div key={step.id}>
+              <div className={css.apvrow}>
+                <span
+                  className={cx(
+                    css.apvnum,
+                    step.statusKind === "done" && css.apvnumDone,
+                    step.statusKind === "rejected" && css.apvnumRejected,
+                    step.statusKind === "now" && css.apvnumActive,
+                  )}
+                >
+                  {step.statusKind === "done" ? "✓" : step.order + 1}
+                </span>
+                <span>
+                  <span className={css.apvname}>{step.name}</span>
+                  <span className={css.apvdept}>{step.dept}</span>
+                </span>
+                <span className={cx(css.apvtype, css.apvtypeKind[step.typeKind])}>
+                  {step.type}
+                </span>
+                <span className={cx(css.apvstat, css.apvstatKind[step.statusKind])}>
+                  {step.status}
+                </span>
+              </div>
+              {step.comment && <p className={css.apvcomment}>{step.comment}</p>}
+            </div>
+          ))}
+        {hasPlanned &&
+          plannedApprovers.map((a, i) => (
+            <div key={`${a.name}-${i}`} className={css.apvrow}>
+              <span className={css.apvnum}>{i + 1}</span>
               <span>
-                <span className={css.apvname}>{step.name}</span>
-                <span className={css.apvdept}>{step.dept}</span>
+                <span className={css.apvname}>{a.name}</span>
+                <span className={css.apvdept}>{a.dept}</span>
               </span>
-              <span className={cx(css.apvtype, css.apvtypeKind[step.typeKind])}>
-                {step.type}
+              <span className={cx(css.apvtype, css.apvtypeKind[a.type])}>
+                {PLANNED_TYPE_LABEL[a.type]}
               </span>
             </div>
-          ))
-        ) : (
+          ))}
+        {!hasActiveLine && !hasPlanned && (
           <p className={css.docEmpty}>등록된 결재선이 없습니다.</p>
         )}
       </div>
@@ -346,7 +387,15 @@ export function ContractDetailPage() {
     enabled: Boolean(id),
   });
   const { changeStatus, isUpdating } = useContractStatus(id);
+  const { me } = useMe();
+  const {
+    submitApproval,
+    isSubmitting,
+    decideApproval,
+    isDeciding,
+  } = useContractApproval(id);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [isRejectOpen, setIsRejectOpen] = useState(false);
 
   // 로딩 중에는 재설계된 상세 레이아웃 형태의 스켈레톤(loading-state-convention: 상세=스켈레톤).
   if (isLoading) {
@@ -373,9 +422,34 @@ export function ContractDetailPage() {
   // 라이프사이클 단계(라벨 mock 고정) — completed/active/scheduled 는 실 status 에서 파생.
   const lifecycleSteps = getLifecycleSteps(data.status);
 
+  // 체결 품의 컨텍스트 — 요청자 본인 여부(상신 주체) + 활성 라인의 현재 차례가 나인지.
+  const myId = me?.id ?? null;
+  const isRequester = Boolean(myId) && data.createdById === myId;
+  const currentStep = data.approvalLine?.steps.find(
+    (s) => s.id === data.approvalLine!.currentStepId,
+  );
+  const isMyTurn = Boolean(myId) && currentStep?.userId === myId;
+
+  // 연간 금액(경고 판단용) — details.money 합산(통화 구분 없이 단순 합, 규칙 기반 권고이므로 근사치).
+  const annualAmountKrw = data.details.money.some((m) => m.amount != null)
+    ? data.details.money.reduce((sum, m) => sum + (m.amount ?? 0), 0)
+    : null;
+  const hasContractFile = data.files.some((f) => f.role === "contract");
+  const precheck = getSubmitPrecheck({
+    plannedApprovers: data.plannedApprovers,
+    hasContractFile,
+    annualAmountKrw,
+  });
+
   const handleAssign = (ownerId: string) => {
     changeStatus("assigning", ownerId);
     setIsAssignOpen(false);
+  };
+
+  const handleRejectConfirm = (comment: string) => {
+    if (!data.approvalLine) return;
+    decideApproval(data.approvalLine.id, "reject", comment || undefined);
+    setIsRejectOpen(false);
   };
 
   return (
@@ -654,7 +728,7 @@ export function ContractDetailPage() {
           </section>
 
           {/* 결재선 */}
-          <ApprovalLineCard steps={d.approvalLine} />
+          <ApprovalLineCard steps={d.approvalLine} plannedApprovers={data.plannedApprovers} />
 
           {/* 코멘트 · 이력 */}
           <CommentPanel contractId={id} />
@@ -671,6 +745,16 @@ export function ContractDetailPage() {
             onReject={() => changeStatus("requesterReview")}
             onReviewDone={() => changeStatus("reviewDone")}
             onAssign={() => setIsAssignOpen(true)}
+            approval={{ isRequester, isMyTurn, canSubmit: precheck.canSubmit }}
+            precheckItems={precheck.items}
+            onSubmitApproval={submitApproval}
+            isSubmitting={isSubmitting}
+            onApproveStep={(comment) =>
+              data.approvalLine &&
+              decideApproval(data.approvalLine.id, "approve", comment || undefined)
+            }
+            onOpenRejectModal={() => setIsRejectOpen(true)}
+            isDeciding={isDeciding}
           />
           <DocsCard d={d} contractId={id} />
         </div>
@@ -681,6 +765,14 @@ export function ContractDetailPage() {
           onClose={() => setIsAssignOpen(false)}
           onAssign={handleAssign}
           isAssigning={isUpdating}
+        />
+      )}
+
+      {isRejectOpen && (
+        <ApprovalRejectModal
+          onClose={() => setIsRejectOpen(false)}
+          onConfirm={handleRejectConfirm}
+          isRejecting={isDeciding}
         />
       )}
     </div>

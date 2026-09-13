@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ContractResponse } from "@lawai/contracts";
 import { ContractDetailPage } from "./ContractDetailPage";
 import * as api from "../../api/contracts";
 import * as commentsApi from "../../api/comments";
+import * as approvalsApi from "../../api/approvals";
+import { useMe } from "../../components/layout/hooks/useMe";
 
 vi.mock("../../api/contracts");
 vi.mock("../../api/comments");
+vi.mock("../../api/approvals");
+vi.mock("../../components/layout/hooks/useMe");
 
 const response: ContractResponse = {
   id: "uuid-1",
@@ -50,6 +55,7 @@ const response: ContractResponse = {
   },
   counterparties: [],
   approvalLine: null,
+  plannedApprovers: [],
   files: [],
   references: [],
   createdAt: "2026-06-01T00:00:00.000Z",
@@ -72,6 +78,9 @@ function renderAt(id: string) {
 describe("ContractDetailPage", () => {
   beforeEach(() => {
     vi.mocked(api.getContract).mockResolvedValue(response);
+    vi.mocked(useMe).mockReturnValue({
+      me: { id: "u1", email: "u1@test.com", name: "이희규", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "2026-01-01T00:00:00.000Z" },
+    });
     vi.mocked(commentsApi.listComments).mockResolvedValue([
       {
         id: "c1",
@@ -184,5 +193,91 @@ describe("ContractDetailPage", () => {
     ).toBeInTheDocument();
     // 코멘트 작성자 역할(한글 라벨)이 패널에 노출된다.
     expect(screen.getByText("사내변호사")).toBeInTheDocument();
+  });
+
+  it("검토 완료(reviewDone) + 요청자 본인: 체결 품의 상신 버튼을 노출한다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      status: "reviewDone",
+      createdById: "u1",
+      files: [{ id: "f-1", role: "contract", name: "계약서.docx", meta: "DOCX", size: null, mimeType: null, storageKey: null, sortOrder: 0 }],
+      plannedApprovers: [{ userId: "u2", name: "김도윤", dept: "법무팀", type: "approve" }],
+    });
+    renderAt("uuid-1");
+    expect(await screen.findByText("체결 품의")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "체결 품의 상신" })).toBeInTheDocument();
+  });
+
+  it("검토 완료(reviewDone) + 비요청자: 상신 버튼을 노출하지 않는다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      status: "reviewDone",
+      createdById: "someone-else",
+      can: { edit: false, assign: false, transition: false, delete: false },
+    });
+    renderAt("uuid-1");
+    await screen.findByText("사후계약관리 표준 NDA");
+    expect(screen.queryByRole("button", { name: "체결 품의 상신" })).not.toBeInTheDocument();
+  });
+
+  it("체결 진행(signing) + 내 차례: 의견 입력과 승인/반려 버튼을 노출한다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      status: "signing",
+      approvalLine: {
+        id: "line-1",
+        status: "pending",
+        currentStepId: "s-2",
+        submittedById: "u1",
+        submittedAt: "2026-06-09T00:00:00.000Z",
+        steps: [
+          { id: "s-1", stepOrder: 0, userId: "u1", name: "이희규", dept: "사업개발팀", type: "draft", status: "approved", comment: null, decidedAt: "2026-06-09T00:00:00.000Z" },
+          { id: "s-2", stepOrder: 1, userId: "u1", name: "이법무", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
+        ],
+      },
+    });
+    renderAt("uuid-1");
+    expect(await screen.findByText("결재 현황")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "승인" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "반려" })).toBeInTheDocument();
+  });
+
+  it("반려 모달에서 확정하면 decideApproval 을 호출한다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      status: "signing",
+      approvalLine: {
+        id: "line-1",
+        status: "pending",
+        currentStepId: "s-2",
+        submittedById: "u1",
+        submittedAt: "2026-06-09T00:00:00.000Z",
+        steps: [
+          { id: "s-1", stepOrder: 0, userId: "u1", name: "이희규", dept: "사업개발팀", type: "draft", status: "approved", comment: null, decidedAt: "2026-06-09T00:00:00.000Z" },
+          { id: "s-2", stepOrder: 1, userId: "u1", name: "이법무", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
+        ],
+      },
+    });
+    vi.mocked(approvalsApi.decideApproval).mockResolvedValue({
+      id: "line-1",
+      targetType: "contract",
+      targetId: "uuid-1",
+      title: "사후계약관리 표준 NDA",
+      status: "rejected",
+      submittedById: "u1",
+      submittedByName: "이희규",
+      submittedAt: "2026-06-09T00:00:00.000Z",
+      decidedAt: "2026-06-10T00:00:00.000Z",
+      steps: [],
+      currentStepId: null,
+    });
+    const user = userEvent.setup();
+    renderAt("uuid-1");
+    await user.click(await screen.findByRole("button", { name: "반려" }));
+    await user.click(await screen.findByRole("button", { name: "반려 확정" }));
+    expect(approvalsApi.decideApproval).toHaveBeenCalledWith("line-1", {
+      decision: "reject",
+      comment: undefined,
+    });
   });
 });

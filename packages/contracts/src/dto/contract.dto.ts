@@ -1,5 +1,6 @@
 import type { TenantContext } from "./tenant.dto";
 import type { Company } from "./company.dto";
+import type { PushNotification } from "./comment.dto";
 
 export type SecurityLevel = "top" | "secure" | "normal";
 export type ReviewType = "normal" | "std";
@@ -51,6 +52,8 @@ export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type StepStatus = "pending" | "approved" | "rejected";
 
 export interface ApproverSnapshot {
+  // 실제 결재자 userId. 과거 저장분 호환을 위해 optional/null 허용.
+  userId?: string | null;
   name: string;
   dept: string;
   type: ApproverType;
@@ -186,6 +189,20 @@ export interface UpdateContractRequest {
 }
 
 // 상태 전이. ownerId 지정 시 함께 배정.
+// 체결 품의 상신. 요청자 본인 + reviewDone + 결재선 비어있지 않음 검증은 서버가 수행.
+export interface SubmitContractApprovalRequest {
+  id: string;
+  // gateway 가 JWT sub 주입.
+  viewerId?: string;
+  tenantContext?: TenantContext;
+}
+
+export interface SubmitContractApprovalResult {
+  contract: ContractResponse;
+  // gateway 가 SSE 허브로 push.
+  notifications: PushNotification[];
+}
+
 export interface UpdateContractStatusRequest {
   id: string;
   status: ContractStatus;
@@ -206,16 +223,23 @@ export interface CounterpartyResponse {
 export interface ApprovalStepResponse {
   id: string;
   stepOrder: number;
+  userId: string | null;
   name: string;
   dept: string;
   type: ApproverType;
   status: StepStatus;
+  comment: string | null;
+  decidedAt: string | null;
 }
 
 export interface ApprovalLineResponse {
   id: string;
   status: ApprovalStatus;
   steps: ApprovalStepResponse[];
+  // 현재 차례 스텝 id(approve/agree 중 첫 pending). 확정된 라인이면 null.
+  currentStepId: string | null;
+  submittedById: string;
+  submittedAt: string;
 }
 
 export interface FileResponse {
@@ -259,6 +283,8 @@ export interface ContractResponse {
   details: ContractDetailsV1;
   counterparties: CounterpartyResponse[];
   approvalLine: ApprovalLineResponse | null;
+  // 상신 전 결재선(details.approvers). 상신하면 approvalLine(라인)이 생긴다.
+  plannedApprovers: ApproverSnapshot[];
   files: FileResponse[];
   references: CcRecipientResponse[];
   createdAt: string;

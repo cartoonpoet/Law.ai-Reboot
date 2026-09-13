@@ -11,6 +11,7 @@ import { FilesModule } from "./files/files.module";
 import { DepartmentsModule } from "./departments/departments.module";
 import { ContractCategoriesModule } from "./contractCategories/contractCategories.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { ApprovalsModule } from "./approvals/approvals.module";
 import { NotificationHubModule } from "./notifications/notification-hub.module";
 import { AdminModule } from "./admin/admin.module";
 import { TenantsGatewayModule } from "./tenants/tenants.module";
@@ -21,6 +22,7 @@ import { TenantsGatewayModule } from "./tenants/tenants.module";
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     GatewayClientsModule,
     NotificationHubModule,
+    ApprovalsModule,
     AuthModule,
     UsersModule,
     CompaniesModule,

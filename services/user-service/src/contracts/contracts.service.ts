@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
+import { ApprovalsService } from "../approvals/approvals.service";
 import { evaluate } from "./contracts.authz";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
 import { tenantScope, resolveTenantId } from "../common/tenant-scope";
@@ -21,6 +22,10 @@ import type {
   UpdateContractStatusRequest,
   ContractStatus,
   TenantContext,
+  ApprovalLineDto,
+  ApproverSnapshot,
+  SubmitContractApprovalRequest,
+  SubmitContractApprovalResult,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -28,7 +33,6 @@ const contractInclude = {
   requester: { select: { name: true } },
   owner: { select: { name: true } },
   counterparties: true,
-  approvalLines: { include: { steps: { orderBy: { stepOrder: "asc" } } } },
   // 코멘트 첨부(File.commentId 가 있는 행)는 Comment 응답으로만 노출.
   // Contract.files 는 계약 본 파일만 — DocsCard 가 코멘트 첨부와 섞이지 않도록 같은 쿼리에서 분리.
   files: {
@@ -79,7 +83,7 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   legalReview: ["requesterReview", "reviewDone"],
   requesterReview: ["legalReview", "reviewDone"],
   reviewDone: ["signing", "legalReview"],
-  signing: ["signed"],
+  signing: ["signed", "reviewDone"],
   signed: ["fulfilling"],
   fulfilling: ["closed"],
   closed: [],
@@ -104,6 +108,7 @@ export class ContractsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly r2: R2Client,
+    private readonly approvals: ApprovalsService,
   ) {}
 
   // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
@@ -199,7 +204,11 @@ export class ContractsService {
           periodEnd: parseDate(req.periodEnd),
           dueDate: parseDate(req.dueDate),
           schemaVersion: req.schemaVersion,
-          details: req.details as unknown as Prisma.InputJsonValue,
+          // 상신 전 결재선(approvers)은 details JSONB 로만 보관 — 라인은 상신 시 생성.
+          details: {
+            ...req.details,
+            approvers: req.approvers,
+          } as unknown as Prisma.InputJsonValue,
           counterparties: {
             create: req.counterparties.map((cp) => ({
               companyId: cp.companyId,
@@ -207,22 +216,6 @@ export class ContractsService {
               snapshot: cp.snapshot as unknown as Prisma.InputJsonValue,
             })),
           },
-          // 결재선: approvers 가 있을 때만 1개 생성하고 배열 순서대로 단계화.
-          approvalLines:
-            req.approvers.length > 0
-              ? {
-                  create: {
-                    steps: {
-                      create: req.approvers.map((a, index) => ({
-                        stepOrder: index,
-                        name: a.name,
-                        dept: a.dept,
-                        type: a.type,
-                      })),
-                    },
-                  },
-                }
-              : undefined,
           // 첨부 파일 메타데이터(계약서/첨부/참고).
           files: {
             create: req.files.map((f) => ({
@@ -289,7 +282,9 @@ export class ContractsService {
       throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
     }
 
-    const response = this.toResponse(row);
+    // 결재 라인은 결재 모듈에서 폴리모픽 조회(활성 = 최신 라인).
+    const active = await this.approvals.getActive("contract", row.id);
+    const response = this.toResponse(row, active.line);
 
     // 마스킹: evaluate.maskSecret 결과로만 비밀참조 숨김 + 상대회사 PII 마스킹.
     if (authz.maskSecret) {
@@ -430,8 +425,22 @@ export class ContractsService {
     if (req.periodEnd !== undefined) data.periodEnd = parseDate(req.periodEnd);
     if (req.dueDate !== undefined) data.dueDate = parseDate(req.dueDate);
     if (req.schemaVersion !== undefined) data.schemaVersion = req.schemaVersion;
-    if (req.details !== undefined)
-      data.details = req.details as unknown as Prisma.InputJsonValue;
+    // details/approvers 는 JSONB 하나로 병합 저장(상신 전 결재선 = details.approvers).
+    if (req.details !== undefined || req.approvers !== undefined) {
+      const baseDetails =
+        req.details !== undefined
+          ? req.details
+          : (current.details as unknown as ContractDetailsV1);
+      const baseApprovers =
+        req.approvers !== undefined
+          ? req.approvers
+          : ((current.details as unknown as { approvers?: ApproverSnapshot[] })
+              .approvers ?? []);
+      data.details = {
+        ...baseDetails,
+        approvers: baseApprovers,
+      } as unknown as Prisma.InputJsonValue;
+    }
 
     // 관계: 제공된 것만 전체 교체(deleteMany + create, 단일 update로 원자적).
     if (req.counterparties !== undefined) {
@@ -498,24 +507,6 @@ export class ContractsService {
         })),
       };
     }
-    if (req.approvers !== undefined) {
-      data.approvalLines =
-        req.approvers.length > 0
-          ? {
-              deleteMany: {},
-              create: {
-                steps: {
-                  create: req.approvers.map((a, index) => ({
-                    stepOrder: index,
-                    name: a.name,
-                    dept: a.dept,
-                    type: a.type,
-                  })),
-                },
-              },
-            }
-          : { deleteMany: {} };
-    }
 
     const row = await this.prisma.contract.update({
       where: { id: req.id, ...tenantScope(ctx) },
@@ -542,6 +533,71 @@ export class ContractsService {
     });
 
     return this.toResponse(row);
+  }
+
+  /**
+   * 체결 품의 상신 — 요청자 본인 + reviewDone + 결재선 비어있지 않음 + 진행 중 라인 없음.
+   * 결재 모듈에 라인 생성 후 계약을 signing 으로 전이한다(알림은 gateway 가 SSE push).
+   */
+  async submitApproval(
+    req: SubmitContractApprovalRequest,
+  ): Promise<SubmitContractApprovalResult> {
+    const ctx = req.tenantContext!;
+    const row = await this.ensureExists(req.id, ctx);
+    if (!req.viewerId || row.createdById !== req.viewerId) {
+      throw new RpcException({
+        status: 403,
+        message: "요청자 본인만 상신할 수 있습니다",
+      });
+    }
+    if (row.status !== "reviewDone") {
+      throw new RpcException({
+        status: 400,
+        message: "검토 완료 상태에서만 상신할 수 있습니다",
+      });
+    }
+    const approvers =
+      (row.details as unknown as { approvers?: ApproverSnapshot[] })
+        .approvers ?? [];
+    if (approvers.length === 0) {
+      throw new RpcException({ status: 400, message: "결재선이 비어 있습니다" });
+    }
+    const active = await this.approvals.getActive("contract", row.id);
+    if (active.line?.status === "pending") {
+      throw new RpcException({
+        status: 409,
+        message: "진행 중인 결재가 이미 있습니다",
+      });
+    }
+
+    const { line, notifications } = await this.approvals.submit({
+      targetType: "contract",
+      targetId: row.id,
+      title: row.title,
+      submittedById: req.viewerId,
+      tenantId: row.tenantId,
+      steps: approvers.map((a) => ({
+        userId: a.userId ?? null,
+        name: a.name,
+        dept: a.dept,
+        type: a.type,
+      })),
+    });
+
+    const updated = await this.prisma.contract.update({
+      where: { id: row.id },
+      data: { status: "signing" },
+      include: contractInclude,
+    });
+    await this.audit.record({
+      action: "transition",
+      targetType: "Contract",
+      targetId: row.id,
+      actorId: req.viewerId,
+      tenantId: row.tenantId,
+      detail: { kind: "submitApproval", from: "reviewDone", to: "signing" },
+    });
+    return { contract: this.toResponse(updated, line), notifications };
   }
 
   async updateStatus(
@@ -617,8 +673,10 @@ export class ContractsService {
     return row;
   }
 
-  private toResponse(row: ContractWithRelations): ContractResponse {
-    const line = row.approvalLines[0] ?? null;
+  private toResponse(
+    row: ContractWithRelations,
+    line: ApprovalLineDto | null = null,
+  ): ContractResponse {
     return {
       id: row.id,
       code: row.code,
@@ -652,13 +710,22 @@ export class ContractsService {
             steps: line.steps.map((s) => ({
               id: s.id,
               stepOrder: s.stepOrder,
+              userId: s.userId,
               name: s.name,
               dept: s.dept,
               type: s.type,
               status: s.status,
+              comment: s.comment,
+              decidedAt: s.decidedAt,
             })),
+            currentStepId: line.currentStepId,
+            submittedById: line.submittedById,
+            submittedAt: line.submittedAt,
           }
         : null,
+      plannedApprovers:
+        (row.details as unknown as { approvers?: ApproverSnapshot[] })
+          .approvers ?? [],
       files: row.files.map((f) => ({
         id: f.id,
         role: f.role,

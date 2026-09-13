@@ -42,17 +42,11 @@ const APPROVER_TYPE_LABEL: Record<ApproverType, string> = {
   refer: "참조",
 };
 
-// 결재 단계 상태 라벨(시안 apvstat: 완료/진행중/대기).
+// 결재 단계 상태 라벨(시안 apvstat: 완료/반려/진행중/대기).
 const STEP_STATUS_LABEL: Record<StepStatus, string> = {
   approved: "완료",
   rejected: "반려",
   pending: "대기",
-};
-
-const STEP_STATUS_KIND: Record<StepStatus, ApprovalStepView["statusKind"]> = {
-  approved: "done",
-  rejected: "wait",
-  pending: "wait",
 };
 
 const fmtMoney = (amount: number | null, currency: string): string =>
@@ -117,14 +111,31 @@ const deriveAmounts = (
   };
 };
 
-const toApprovalStep = (s: ApprovalStepResponse): ApprovalStepView => ({
+// pending 스텝 중 currentStepId 와 일치하는 것만 "now"(내 차례 진행 표시), 그 외 pending 은 "wait".
+const toStepStatusKind = (
+  s: ApprovalStepResponse,
+  currentStepId: string | null,
+): ApprovalStepView["statusKind"] => {
+  if (s.status === "approved") return "done";
+  if (s.status === "rejected") return "rejected";
+  return s.id === currentStepId ? "now" : "wait";
+};
+
+const toApprovalStep = (
+  s: ApprovalStepResponse,
+  currentStepId: string | null,
+): ApprovalStepView => ({
+  id: s.id,
   order: s.stepOrder,
+  userId: s.userId,
   name: s.name,
   dept: s.dept,
   type: APPROVER_TYPE_LABEL[s.type] ?? s.type,
   typeKind: s.type,
   status: STEP_STATUS_LABEL[s.status] ?? s.status,
-  statusKind: STEP_STATUS_KIND[s.status] ?? "wait",
+  statusKind: toStepStatusKind(s, currentStepId),
+  comment: s.comment,
+  decidedAt: s.decidedAt,
 });
 
 // 계약 단건 응답(ContractResponse) → 상세 화면 뷰모델(ContractDetail).
@@ -194,7 +205,7 @@ export const toDetailView = (c: ContractResponse): ContractDetail => {
     ccUser,
     ccSecret,
     approvalLine: c.approvalLine
-      ? c.approvalLine.steps.map(toApprovalStep)
+      ? c.approvalLine.steps.map((s) => toApprovalStep(s, c.approvalLine!.currentStepId))
       : null,
   };
 };

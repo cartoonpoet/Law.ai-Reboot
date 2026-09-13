@@ -21,6 +21,8 @@ export const relatedDocSchema = z.object({
 // 결재선 항목 — 기안/결재/합의/참조 + 순서(배열 순서)
 export const APPROVER_TYPES = ["draft", "approve", "agree", "refer"] as const;
 export const approverSchema = z.object({
+  // 실제 결재자 userId. 과거 저장분(사용자 미연결 스냅샷) 호환을 위해 nullable.
+  userId: z.string().nullable(),
   name: z.string(),
   dept: z.string(),
   type: z.enum(APPROVER_TYPES),
@@ -155,5 +157,5 @@ export const contractRequestDefaults: ContractRequestForm = {
   keyPoints: "",
   concerns: "",
   urls: [],
-  approvers: [{ name: "손준호", dept: "법무팀", type: "draft" }],
+  approvers: [{ userId: null, name: "손준호", dept: "법무팀", type: "draft" }],
 };

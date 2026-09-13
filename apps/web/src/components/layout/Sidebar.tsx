@@ -25,6 +25,12 @@ const SECTIONS = [
     ],
   },
   {
+    label: "결재",
+    items: [
+      { id: "approval-inbox", label: "결재 대기함", icon: "factCheck", path: "/approvals/inbox" },
+    ],
+  },
+  {
     label: "법무 업무",
     items: [
       { id: "advice", label: "법률자문", icon: "law", path: "/advice" },
