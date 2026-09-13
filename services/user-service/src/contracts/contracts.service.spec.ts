@@ -490,12 +490,14 @@ describe("ContractsService", () => {
   // 올라간 서명 원본이 조용히 사라지는 사고(계약서 표시는 그대로인데 파일만 증발)를 막는
   // 마지막 방어선. 클라이언트 왕복 정합성만으로는 부족해서(다른 클라이언트·직접 API 호출도
   // 있으니) 서버 쪽 게이트로 넣었다.
-  describe("update: role=signed 파일은 PATCH 로 암묵적으로 제거될 수 없다", () => {
-    it("files 배열에 signed 항목이 빠져 있으면 400 (deleteMany 도 조회조차 안 함)", async () => {
+  // C(Important): "제거"만 막는다 — payload 가 signed 파일을 0개로 만들 때만 거부한다.
+  // 잘못 올린 서명본을 새 서명본으로 교체하는 건 정상 업무라 허용해야 한다(예전엔 기존 id 가
+  // keepIds 에 없기만 해도 무조건 막아서, 잘못 첨부한 사용자가 영영 못 고치는 문제가 있었다).
+  describe("update: role=signed 파일이 0개가 되는 PATCH 만 막는다(교체는 허용)", () => {
+    it("files 배열에 signed 항목이 하나도 없으면 400 (0개로 만들려는 시도, deleteMany 조회 전에 막음)", async () => {
       prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
       prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signed"), ownerId: "admin-1" });
-      // 이 계약엔 role=signed 파일이 이미 붙어 있다 — PATCH 의 files 에 그 id 가 없으면
-      // (아래 요청처럼 role=contract 항목만 보내면) 서버가 이를 찾아내야 한다.
+      // 이 계약엔 role=signed 파일이 이미 붙어 있다.
       prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f-signed-1" });
       await expect(
         service.update({
@@ -507,7 +509,7 @@ describe("ContractsService", () => {
       ).rejects.toMatchObject({ error: { status: 400, message: "서명본 파일은 이 요청으로 제거할 수 없습니다" } });
       expect(prismaMock.file.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ contractId: "ct-1", commentId: null, role: "signed" }),
+          where: { contractId: "ct-1", commentId: null, role: "signed" },
         }),
       );
       expect(prismaMock.contract.update).not.toHaveBeenCalled();
@@ -516,11 +518,10 @@ describe("ContractsService", () => {
       expect(prismaMock.file.findMany).not.toHaveBeenCalled();
     });
 
-    it("files 배열에 signed 항목의 id 가 그대로 포함돼 있으면(유지) 통과한다", async () => {
+    it("기존 signed 항목의 id 를 그대로 유지하면 통과한다", async () => {
       prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
       prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signed"), ownerId: "admin-1" });
-      // keepIds 에 f-signed-1 이 있으므로 notIn 조회에 안 걸림 — 가드 통과.
-      prismaMock.file.findFirst.mockResolvedValueOnce(null);
+      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f-signed-1" });
       prismaMock.contract.update.mockResolvedValue(fullRow("signed"));
       await service.update({
         id: "ct-1",
@@ -530,6 +531,107 @@ describe("ContractsService", () => {
           { id: "f-signed-1", role: "signed", name: "서명본.pdf", meta: "PDF", sortOrder: 0 },
           { role: "contract", name: "계약명 오타 수정.docx", meta: "DOCX", sortOrder: 1 },
         ],
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalled();
+    });
+
+    // C 의 핵심 케이스: 기존 서명본(f-signed-old)의 id 를 아예 빼고 새 서명본(id 없음 = 새
+    // File 생성)만 role=signed 로 보낸다 — "제거"가 아니라 "교체" 다. 통과해야 한다.
+    it("기존 signed 파일 id 를 빼고 새 signed 파일(id 없음)로 교체하면 통과한다(0개가 아니므로)", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signed"), ownerId: "admin-1" });
+      // 기존에 signed 파일이 있었다는 사실 자체는 여전히 true(교체 대상이 있다는 뜻) —
+      // hasExistingSignedFile 쿼리는 role 만 보고 특정 id 를 안 걸러서 여전히 truthy 다.
+      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f-signed-old" });
+      prismaMock.contract.update.mockResolvedValue(fullRow("signed"));
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        files: [
+          { role: "signed", name: "서명본(재업로드).pdf", meta: "PDF", sortOrder: 0 }, // id 없음 = 새로 생성
+        ],
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalled();
+      // 실제로 기존 f-signed-old 는 keepIds 에 없으니 deleteMany 대상에 포함되고, 새 항목은
+      // create 목록에 들어가야 한다 — 그게 "교체"의 실제 구현.
+      const arg = prismaMock.contract.update.mock.calls[0][0];
+      expect(arg.data.files.create).toHaveLength(1);
+      // keepIds 가 비어 있으면(새 파일뿐이라 id 있는 항목이 없음) notIn 조건 자체를 안 붙인다
+      // (update() 의 기존 관례 — 빈 notIn:[] 은 Prisma 에서 "전부 제외 없음"과 동치라 아예 생략).
+      expect(arg.data.files.deleteMany).toEqual({ commentId: null });
+    });
+  });
+
+  // B(Important): 미배정 생성자 완화(editIsAdditiveOnly)로 canEdit 을 받은 경우 — general 처럼
+  // policy.edit=false 인 역할도 포함 — 파일 "추가"는 되지만 기존 파일 "제거"는 막아야 한다.
+  // prismaMock.userTenant.findFirst 의 파일 전역 기본값이 이미 role:"general" 이라(위 prismaMock
+  // 선언부 참고) 아래 general 테스트들은 별도로 역할을 mock 하지 않는다 — jest.clearAllMocks()
+  // 는 호출 기록만 지우고 기본 구현은 유지하므로 그대로 활용한다.
+  describe("update: 추가 전용(editIsAdditiveOnly) 모드에서는 기존 파일을 제거할 수 없다", () => {
+    // general 역할 + 생성자 본인 + 미배정 + status=unassigned → canEditUnassigned 로만 canEdit
+    // 을 받는 조합(정식 edit 은 general 이라 절대 안 됨) = editIsAdditiveOnly:true.
+    const unassignedRow = () => ({
+      ...fullRow("unassigned"),
+      createdById: "u-general-1",
+      ownerId: null,
+      files: [{ id: "f-existing", role: "contract" }],
+    });
+
+    it("기존 파일을 빼고 저장하면 400 (제거 시도)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(unassignedRow());
+      // 이 가드는 DB 에서 다시 조회한다(계약 row 의 files 는 authz 평가용일 뿐) — 실제 존재하는
+      // 파일 목록을 명시적으로 mock 해야 한다.
+      prismaMock.file.findMany.mockResolvedValueOnce([{ id: "f-existing" }]);
+      await expect(
+        service.update({
+          id: "ct-1",
+          viewerId: "u-general-1",
+          ...makeCtx(),
+          files: [], // 기존 f-existing 을 빼려는 시도.
+        }),
+      ).rejects.toMatchObject({
+        error: { status: 400, message: "이 상태에서는 파일을 추가할 수만 있고 제거할 수 없습니다" },
+      });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+    });
+
+    it("기존 파일은 유지하고 새 파일만 추가하면 통과한다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(unassignedRow());
+      prismaMock.file.findMany.mockResolvedValueOnce([{ id: "f-existing" }]);
+      prismaMock.contract.update.mockResolvedValue(unassignedRow());
+      await service.update({
+        id: "ct-1",
+        viewerId: "u-general-1",
+        ...makeCtx(),
+        files: [
+          { id: "f-existing", role: "contract", name: "계약서.docx", meta: "DOCX", sortOrder: 0 },
+          { role: "signed", name: "서명본.pdf", meta: "PDF", sortOrder: 1 }, // 추가만.
+        ],
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalled();
+    });
+
+    // general 은 policy.edit 자체가 항상 false 라 담당(owner)이 되더라도 정식 edit(ownerOk)은
+    // 절대 성립하지 않는다(애초에 담당자는 보통 inHouseCounsel 등에게 배정된다) — 그래서
+    // "배정되면 제약이 풀린다"는 정식 edit 권한이 있는 역할로 검증한다. 파일 전역 기본값
+    // (general) 을 이 테스트에서만 mockResolvedValueOnce 로 임시로 덮는다.
+    it("(edit 권한 있는 역할이 담당자로 배정된 뒤에는) 이 제약이 사라지고 파일 제거·교체가 전부 허용된다", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
+        role: "inHouseCounsel",
+        user: { departmentId: "dept-1" },
+      });
+      prismaMock.contract.findFirst.mockResolvedValue({
+        ...unassignedRow(),
+        createdById: "u-counsel-1",
+        ownerId: "u-counsel-1", // 본인이 담당자로 배정됨 → ownerOk 로 정식 edit.
+      });
+      prismaMock.contract.update.mockResolvedValue(unassignedRow());
+      await service.update({
+        id: "ct-1",
+        viewerId: "u-counsel-1",
+        ...makeCtx(),
+        files: [], // 기존 파일 전부 제거 — 정식 edit 이라 허용돼야 한다.
       });
       expect(prismaMock.contract.update).toHaveBeenCalled();
     });
@@ -1553,12 +1655,14 @@ describe("ContractsService", () => {
       updatedAt: new Date("2026-09-01T00:00:00.000Z"),
     };
 
-    it("생성자가 아니면(=미배정 완화 대상이 아니면) 403", async () => {
+    // A(Critical): 권한은 evaluate().canEdit 을 절대 재사용하지 않는다 — canEdit 은
+    // ownerOk||canEditUnassigned 라서, 정상적으로 담당자가 배정된 일반 검토 요청의 담당자도
+    // canEdit=true 를 받는다. 그걸 그대로 썼다면, 담당자가 role=signed 파일 하나 첨부하고
+    // finalize 를 호출하는 것만으로 ALLOWED_TRANSITIONS·updateStatus 가드·결재 게이트를 전부
+    // 건너뛰고 계약을 signed 로 만들 수 있었다 — 이 기능이 막으려던 우회가 재발하는 것.
+    // 그래서 여기 세 테스트는 authz 를 거치지 않고 "미배정 + 생성자 본인"만 직접 확인한다.
+    it("생성자가 아니면 403", async () => {
       prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
-        role: "inHouseCounsel",
-        user: { departmentId: null },
-      });
       await expect(
         service.finalizeRegistration({
           contractId: "c1",
@@ -1575,10 +1679,6 @@ describe("ContractsService", () => {
         ...baseRow,
         ownerId: "u-legal",
       });
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
-        role: "inHouseCounsel",
-        user: { departmentId: null },
-      });
       await expect(
         service.finalizeRegistration({
           contractId: "c1",
@@ -1590,18 +1690,33 @@ describe("ContractsService", () => {
       expect(prismaMock.contract.update).not.toHaveBeenCalled();
     });
 
-    // status 게이트는 canEditUnassigned 완화(draft/unassigned 로 한정)를 통과한 뒤 도달하는
-    // 두 번째 방어선이다. "signed"/"closed" 등은 애초에 canEditUnassigned 자체가 꺼져 있어
-    // 403 이 먼저 난다(바로 위 테스트로 이미 검증). 여기서는 EARLY_STATUSES 안이지만
-    // "unassigned" 는 아닌 "draft" 로, 그 두 번째 방어선 자체가 동작함을 확인한다.
-    it("unassigned 상태가 아니면 400 (draft — canEditUnassigned 는 통과하지만 finalize 대상은 아님)", async () => {
+    // 핵심 회귀 방지: 담당자로 배정된 사람이(=정상적으로 canEdit=true 를 받는 사람이) 자기
+    // 자신을 상대로 finalize 를 호출해도 403 이어야 한다 — 결재 게이트를 우회하는 그 경로.
+    it("배정된 담당자 본인이 finalize 를 호출해도 403 (canEdit 우회 방지 — 이게 A 의 핵심)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce({
+        ...baseRow,
+        createdById: "u-requester", // 요청자(생성자)와 담당자가 다른, 흔한 일반 검토 요청 모양.
+        ownerId: "u-legal",
+      });
+      await expect(
+        service.finalizeRegistration({
+          contractId: "c1",
+          viewerId: "u-legal", // 담당자 본인 — evaluate().canEdit 이라면 true 였을 케이스.
+          signedAt: "2026-09-12",
+          tenantContext: { tenantId: "t1", isSystemAdmin: false },
+        }),
+      ).rejects.toMatchObject({ error: { status: 403 } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+    });
+
+    // status 게이트는 authz 와 무관하게 finalizeRegistration 이 직접 확인하는 두 번째 방어선
+    // 이다. "이미 담당자가 배정됨"(위) 과 "미배정이지만 unassigned 도 아님"(아래)은 서로 다른
+    // 이유로 막힌다 — 여기선 authz 를 안 쓰므로 ownerId===null && 생성자 본인이면 status 만
+    // "unassigned 인지"로 갈린다(draft 도 unassigned 가 아니므로 여전히 막힌다).
+    it("unassigned 상태가 아니면 400 (draft)", async () => {
       prismaMock.contract.findFirst.mockResolvedValueOnce({
         ...baseRow,
         status: "draft",
-      });
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
-        role: "inHouseCounsel",
-        user: { departmentId: null },
       });
       await expect(
         service.finalizeRegistration({
@@ -1614,14 +1729,10 @@ describe("ContractsService", () => {
       expect(prismaMock.contract.update).not.toHaveBeenCalled();
     });
 
-    it("이미 signed 인 계약은 canEditUnassigned 자체가 꺼져 403 (재확정 방지)", async () => {
+    it("이미 signed 인 계약은 재확정 불가 — 400(미배정 상태가 아님, ownerId 는 여전히 null 이므로 403 이 아니다)", async () => {
       prismaMock.contract.findFirst.mockResolvedValueOnce({
         ...baseRow,
         status: "signed",
-      });
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
-        role: "inHouseCounsel",
-        user: { departmentId: null },
       });
       await expect(
         service.finalizeRegistration({
@@ -1630,16 +1741,12 @@ describe("ContractsService", () => {
           signedAt: "2026-09-12",
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
-      ).rejects.toMatchObject({ error: { status: 403 } });
+      ).rejects.toMatchObject({ error: { status: 400, message: "미배정 상태가 아닙니다" } });
       expect(prismaMock.contract.update).not.toHaveBeenCalled();
     });
 
     it("signedAt 이 올바르지 않으면 400", async () => {
       prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
-        role: "inHouseCounsel",
-        user: { departmentId: null },
-      });
       await expect(
         service.finalizeRegistration({
           contractId: "c1",
@@ -1655,10 +1762,6 @@ describe("ContractsService", () => {
     // 끝나 storageKey 가 채워진 role=signed 파일이 있어야 한다.
     it("실제 업로드된(storageKey 있는) role=signed 파일이 없으면 400", async () => {
       prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
-        role: "inHouseCounsel",
-        user: { departmentId: null },
-      });
       prismaMock.file.findFirst.mockResolvedValueOnce(null);
       await expect(
         service.finalizeRegistration({
@@ -1683,10 +1786,6 @@ describe("ContractsService", () => {
 
     it("정상 처리 시 signed 로 전이하고 signedAt 을 확정하며 risk 분석을 트리거한다", async () => {
       prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
-        role: "inHouseCounsel",
-        user: { departmentId: null },
-      });
       prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f1", contractId: "c1" });
       prismaMock.contract.update.mockResolvedValueOnce({
         ...baseRow,
@@ -1723,10 +1822,6 @@ describe("ContractsService", () => {
     // 먼저 커밋되면 대상 행이 없어 Prisma 가 P2025 를 던진다 — 409 로 변환해야 한다.
     it("동시 요청으로 이미 처리된 경우 P2025 를 409 로 변환한다 (CAS 실패)", async () => {
       prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
-      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
-        role: "inHouseCounsel",
-        user: { departmentId: null },
-      });
       prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f1", contractId: "c1" });
       const notFound = new Prisma.PrismaClientKnownRequestError(
         "An operation failed because it depends on one or more records that were required but not found.",

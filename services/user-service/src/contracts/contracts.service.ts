@@ -552,21 +552,39 @@ export class ContractsService {
       const updates = req.files.filter((f) => f.id);
       const creates = req.files.filter((f) => !f.id);
 
-      // 서명본(role=signed) 파일은 이 PATCH 로 암묵적으로 사라질 수 없다 — 클라이언트가
-      // 폼 상태를 잘못 복원해(예: toEditDefaults 가 signedFiles 를 빠뜨렸던 버그) role=signed
-      // 항목을 files 배열에서 누락한 채 저장해도, 이미 R2 에 올라간 서명 원본이 deleteMany +
-      // R2 객체 삭제로 조용히 사라지는 사고를 서버에서 원천 차단한다. 클라이언트 쪽 왕복
-      // 정합성만으로는 부족하다 — 다른 클라이언트나 직접 API 호출도 이 가드를 거쳐야 한다.
-      const droppedSignedFile = await this.prisma.file.findFirst({
-        where: {
-          contractId: req.id,
-          commentId: null,
-          role: "signed",
-          ...(keepIds.length > 0 ? { id: { notIn: keepIds } } : {}),
-        },
+      // "추가 전용" 모드(editIsAdditiveOnly — 미배정 생성자 완화로만 canEdit 을 얻은 경우,
+      // authz 참고): 기존 파일은 하나도 제거할 수 없다. role 무관하게 전부 보호한다 —
+      // 이 모드는 애초에 general 처럼 policy.edit=false 인 역할의 생성자까지 포함하도록
+      // 만든 완화라, "파일 첨부"보다 넓은 권한(임의 파일 삭제)을 준 적이 없다.
+      if (authz.editIsAdditiveOnly) {
+        const existingFiles = await this.prisma.file.findMany({
+          where: { contractId: req.id, commentId: null },
+          select: { id: true },
+        });
+        const keepIdSet = new Set(keepIds);
+        const wouldRemoveExisting = existingFiles.some((f) => !keepIdSet.has(f.id));
+        if (wouldRemoveExisting) {
+          throw new RpcException({
+            status: 400,
+            message: "이 상태에서는 파일을 추가할 수만 있고 제거할 수 없습니다",
+          });
+        }
+      }
+
+      // 서명본(role=signed) 파일이 이 PATCH 로 전부 사라질 수는 없다 — 클라이언트가 폼 상태를
+      // 잘못 복원해(예: toEditDefaults 가 signedFiles 를 빠뜨렸던 버그) role=signed 항목을
+      // files 배열에서 누락한 채 저장해도, 이미 R2 에 올라간 서명 원본이 deleteMany + R2 객체
+      // 삭제로 조용히 사라지는 사고를 서버에서 원천 차단한다. 클라이언트 쪽 왕복 정합성만으로는
+      // 부족하다 — 다른 클라이언트나 직접 API 호출도 이 가드를 거쳐야 한다.
+      // 단, "제거"만 막는다 — 기존 서명본을 새 서명본으로 교체하는 건 정상 업무이므로(잘못
+      // 올린 파일 다시 첨부) 허용한다: req.files 에 role=signed 항목이 하나라도 있으면
+      // 통과시키고, 아예 0개로 만들려는 시도만 막는다.
+      const hasExistingSignedFile = await this.prisma.file.findFirst({
+        where: { contractId: req.id, commentId: null, role: "signed" },
         select: { id: true },
       });
-      if (droppedSignedFile) {
+      const patchKeepsSignedFile = req.files.some((f) => f.role === "signed");
+      if (hasExistingSignedFile && !patchKeepsSignedFile) {
         throw new RpcException({
           status: 400,
           message: "서명본 파일은 이 요청으로 제거할 수 없습니다",
@@ -849,17 +867,21 @@ export class ContractsService {
    *  저장하지 않으므로, 생성자가 서명본 업로드를 마친 뒤 이 메서드를 호출해야 실제로 signed 가
    *  된다. completeSigning 과 의도적으로 분리했다: completeSigning 은 결재 전원 승인을
    *  요구하는데 이 경로엔 애초에 결재 라인이 없다(검토·결재를 건너뛰는 게 이 기능의 목적).
-   *  권한은 evaluate().canEdit 을 그대로 재사용한다 — "미배정 상태의 생성자 본인" 완화가
-   *  정확히 이 경로를 위해 추가된 것이라서다(contracts.authz.ts 참고). */
+   *
+   *  권한은 반드시 이 조건을 직접 검사한다 — evaluate().canEdit 을 재사용하지 않는다.
+   *  canEdit 은 `ownerOk || canEditUnassigned` 라서, 정상적인 법무 검토 요청(담당자가 배정된
+   *  일반 계약)의 담당자(owner)도 canEdit=true 를 받는다. 만약 여기서 canEdit 을 그대로 썼다면,
+   *  담당자가 role=signed 파일 하나 첨부하고 이 엔드포인트를 호출하는 것만으로 ALLOWED_TRANSITIONS·
+   *  updateStatus 가드·결재 게이트를 전부 건너뛰고 계약을 signed 로 만들 수 있었다 — 이 기능
+   *  전체가 막으려던 그 우회를 finalize 자신이 다시 열어버리는 셈이다. 그래서 여기서는
+   *  "미배정 + 생성자 본인" 두 조건을 authz 모듈을 거치지 않고 직접 확인한다. */
   async finalizeRegistration(
     req: FinalizeRegistrationRequest,
   ): Promise<FinalizeRegistrationResult> {
     const ctx = req.tenantContext!;
     const row = await this.ensureExists(req.contractId, ctx);
 
-    const viewer = await this.loadViewer(req.viewerId, ctx);
-    const authz = evaluate(viewer, this.toAuthzContract(row));
-    if (!authz.canEdit) {
+    if (row.ownerId !== null || req.viewerId !== row.createdById) {
       throw new RpcException({ status: 403, message: "등록 확정 권한이 없습니다" });
     }
     if (row.status !== "unassigned") {

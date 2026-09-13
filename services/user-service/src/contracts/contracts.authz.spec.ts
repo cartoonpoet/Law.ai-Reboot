@@ -42,6 +42,7 @@ describe("contracts.authz evaluate", () => {
       expect(r).toEqual({
         canView: true,
         canEdit: true,
+        editIsAdditiveOnly: false, // 정식 담당(owner) 편집 — 완화 경로 아님
         canAssign: true,
         canTransition: true,
         canDelete: false, // TenantRole 기준 delete=false (admin 전용 로직은 service 레이어)
@@ -266,12 +267,16 @@ describe("contracts.authz evaluate", () => {
     const unassigned = (over: Partial<AuthzContract> = {}) =>
       makeContract({ ownerId: null, status: "unassigned", ...over });
 
-    it("생성자 + 미배정 → canEdit=true", () => {
+    it("생성자 + 미배정 → canEdit=true, 이 경로로만 얻었으니 editIsAdditiveOnly=true", () => {
       const r = evaluate(
         makeViewer("inHouseCounsel", CREATOR_ID),
         unassigned({ createdById: CREATOR_ID }),
       );
       expect(r.canEdit).toBe(true);
+      // inHouseCounsel 이라도 아직 담당(owner)이 아니라 정식 edit(ownerOk)은 성립하지 않는다 —
+      // 그래서 이 canEdit 은 전부 미배정 완화에서 나온 것이고, editIsAdditiveOnly 는 역할과
+      // 무관하게 true 다(이 완화를 쓴 사람은 누구든 "추가만" 가능해야 한다).
+      expect(r.editIsAdditiveOnly).toBe(true);
     });
 
     // 담당자가 배정되는 즉시(생성자 본인이라도) 완화가 사라지고 원래 규칙(담당자만)으로
@@ -283,6 +288,15 @@ describe("contracts.authz evaluate", () => {
         makeContract({ createdById: CREATOR_ID, ownerId: "the-assigned-owner" }),
       );
       expect(r.canEdit).toBe(false);
+    });
+
+    it("생성자가 담당자로 배정되면 정식 edit(ownerOk)이 성립해 editIsAdditiveOnly=false(파일 교체 포함 전부 허용)", () => {
+      const r = evaluate(
+        makeViewer("inHouseCounsel", CREATOR_ID),
+        makeContract({ createdById: CREATOR_ID, ownerId: CREATOR_ID }),
+      );
+      expect(r.canEdit).toBe(true);
+      expect(r.editIsAdditiveOnly).toBe(false);
     });
 
     it("생성자가 아닌 비담당자는 미배정 건이라도 canEdit=false", () => {
@@ -324,12 +338,30 @@ describe("contracts.authz evaluate", () => {
       expect(r.canDelete).toBe(false);
     });
 
-    it("edit 권한이 아예 없는 역할(general)은 생성자 + 미배정이어도 canEdit=false", () => {
+    // B: general 은 registerAs=signed 로 등록하는 "의도된 기본 사용자"일 수 있다(등록 폼 자체가
+    // 누가 만들든 파일 첨부를 요구한다) — policy.edit=false 라고 이 완화까지 막으면 그 역할은
+    // 이 기능을 아예 못 쓴다. 그래서 이 완화는 policy.edit 을 우회한다(대신 추가 전용으로 좁힌다).
+    it("edit 권한이 아예 없는 역할(general)도 생성자+미배정이면 canEdit=true(단, 추가 전용)", () => {
       const r = evaluate(
         makeViewer("general", CREATOR_ID),
         unassigned({ createdById: CREATOR_ID }),
       );
-      expect(r.canEdit).toBe(false);
+      expect(r.canEdit).toBe(true);
+      expect(r.editIsAdditiveOnly).toBe(true);
+    });
+
+    it("general 은 미배정이 아니거나 생성자가 아니면 여전히 canEdit=false(과확대 없음)", () => {
+      const notCreator = evaluate(
+        makeViewer("general", "other-1"),
+        unassigned({ createdById: CREATOR_ID }),
+      );
+      expect(notCreator.canEdit).toBe(false);
+
+      const alreadyOwned = evaluate(
+        makeViewer("general", CREATOR_ID),
+        makeContract({ createdById: CREATOR_ID, ownerId: "someone-else" }),
+      );
+      expect(alreadyOwned.canEdit).toBe(false);
     });
 
     it("outsideCounsel 은 미배정 건을 애초에 볼 수 없어(view=owned) canEdit 완화가 무의미하다", () => {
@@ -348,6 +380,7 @@ describe("contracts.authz evaluate", () => {
       expect(r).toEqual({
         canView: false,
         canEdit: false,
+        editIsAdditiveOnly: false,
         canAssign: false,
         canTransition: false,
         canDelete: false,
