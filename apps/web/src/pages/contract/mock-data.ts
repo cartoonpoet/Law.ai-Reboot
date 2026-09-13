@@ -96,6 +96,7 @@ export interface ContractDetail {
   ccUser: CcRecipientView[]; // 참조수신자(사용자, !isSecret)
   ccSecret: CcRecipientView[]; // 참조수신자(비밀, 백엔드가 권한 따라 마스킹)
   approvalLine: ApprovalStepView[] | null; // 결재선(approvalLine.steps, null→빈 상태)
+  signedAt: string | null; // 체결일(코어 signedAt, ISO). 체결 전이면 null.
 }
 
 export const CONTRACTS_FULL: ContractRow[] = [
@@ -175,6 +176,7 @@ const SAMPLE_DETAIL: ContractDetail = {
   ccUser: [],
   ccSecret: [],
   approvalLine: null,
+  signedAt: null,
 };
 
 export function getContractDetail(id: string): ContractDetail {

@@ -208,5 +208,6 @@ export const toDetailView = (c: ContractResponse): ContractDetail => {
     approvalLine: c.approvalLine
       ? c.approvalLine.steps.map((s) => toApprovalStep(s, c.approvalLine!.currentStepId))
       : null,
+    signedAt: c.signedAt,
   };
 };

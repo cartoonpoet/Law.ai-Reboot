@@ -251,6 +251,9 @@ const toPreviewRef = (f: DocFile): PreviewFileRef => ({
 });
 
 function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) {
+  // 서명본은 계약서보다 위(체결 완료 계약에서 가장 권위 있는 문서). 없으면 블록 자체를 렌더하지 않는다
+  // (검토 단계 계약은 서명본이 없는 게 정상 — 빈 섹션을 만들지 않는다).
+  const signeds = d.files.filter((f) => f.kind === "서명본");
   const contracts = d.files.filter((f) => f.kind === "계약서");
   const attachs = d.files.filter((f) => f.kind === "첨부");
   const refs = d.files.filter((f) => f.kind === "참고");
@@ -294,6 +297,20 @@ function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) 
         문서
       </header>
       <div className={cx(css.cbody, css.docGroup)}>
+        {signeds.length > 0 && (
+          <div>
+            <div className={css.docGroupLabel}>서명본</div>
+            {signeds.map((f, i) => (
+              <DocFileRow
+                key={i}
+                file={f}
+                showCompare
+                onPreview={handlePreview}
+                onCompare={handleCompare}
+              />
+            ))}
+          </div>
+        )}
         <div>
           <div className={css.docGroupLabel}>
             계약서 <span className={css.minitag}>필수</span>
@@ -440,7 +457,7 @@ export function ContractDetailPage() {
         onClick={() => navigate("/contract/list")}
       >
         <Icon name="chevronLeft" size="sm" className={css.backIcon} />
-        계약서 검토 조회
+        계약 조회
       </button>
 
       {/* lawkit Alert 는 warning/error 타입이 없다(info/confirm/secret/saveTemporarily 뿐) —
@@ -708,15 +725,22 @@ export function ContractDetailPage() {
         {/* 우측 레일(sticky) */}
         <div className={cx(css.stack, css.sticky)}>
           <ReviewActionPanel
+            contractId={id}
             status={data.status}
             can={can}
             ownerName={d.owner}
             approvalLine={d.approvalLine}
+            signedAt={d.signedAt}
             isUpdating={isUpdating}
             onReject={() => changeStatus("requesterReview")}
             onReviewDone={() => changeStatus("reviewDone")}
             onAssign={() => setIsAssignOpen(true)}
-            approval={{ isRequester, isMyTurn, canSubmit: precheck.canSubmit }}
+            approval={{
+              isRequester,
+              isMyTurn,
+              canSubmit: precheck.canSubmit,
+              isApprovalComplete: data.approvalLine?.status === "approved",
+            }}
             precheckItems={precheck.items}
             onSubmitApproval={submitApproval}
             isSubmitting={isSubmitting}

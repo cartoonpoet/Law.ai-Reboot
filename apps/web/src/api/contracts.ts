@@ -81,10 +81,11 @@ export const submitContractApproval = (id: string): Promise<ContractResponse> =>
     method: "POST",
   });
 
-// 체결 처리 — 인감 담당 + 결재 전원 승인 상태에서만.
+// 체결 처리 — 인감 담당 + 결재 전원 승인 상태에서만. fileId 는 필수(서버가 실제 바이트가 있는
+// 서명본을 요구한다 — client/server 비대칭 방지를 위해 이 계층부터 required 로 맞춘다).
 export const completeSigning = (
   id: string,
-  body: { signedAt: string; fileId?: string | null; note?: string | null },
+  body: { signedAt: string; fileId: string; note?: string | null },
 ): Promise<ContractResponse> =>
   apiFetch<ContractResponse>(`/contracts/${id}/complete-signing`, {
     method: "POST",

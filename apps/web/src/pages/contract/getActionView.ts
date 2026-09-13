@@ -16,7 +16,8 @@ export type ActionButtonKind =
   | "assign" // 담당자 배정 → AssignModal
   | "submitApproval" // 체결 품의 상신 → submitContractApproval
   | "approveStep" // 결재 승인 → decideApproval(approve)
-  | "rejectStep"; // 결재 반려 → ApprovalRejectModal → decideApproval(reject)
+  | "rejectStep" // 결재 반려 → ApprovalRejectModal → decideApproval(reject)
+  | "completeSigning"; // 체결 처리 → CompleteSigningModal → completeSigning API
 
 export interface ActionButton {
   kind: ActionButtonKind;
@@ -77,12 +78,15 @@ export interface ApprovalActionContext {
   isMyTurn: boolean;
   /** 상신 사전점검(getSubmitPrecheck) 통과 여부. */
   canSubmit: boolean;
+  /** 활성 결재 라인이 전원 승인(approved) 되었는지. 체결 처리 게이트. */
+  isApprovalComplete: boolean;
 }
 
 const NO_APPROVAL: ApprovalActionContext = {
   isRequester: false,
   isMyTurn: false,
   canSubmit: false,
+  isApprovalComplete: false,
 };
 
 export const getActionView = (
@@ -117,6 +121,27 @@ export const getActionView = (
         ],
       };
     }
+    // 결재 전원 승인 + 전이 권한(=sealManager 이고 signing) → 체결 처리.
+    if (status === "signing" && approval.isApprovalComplete && can.transition) {
+      return {
+        head: "체결 처리",
+        isApprovalMode: true,
+        isSubmitMode: false,
+        isDecideMode: false,
+        showAssignee: false,
+        notice:
+          "모든 결재가 완료되었습니다. 서명·날인이 끝난 계약서를 등록하면 체결 완료로 확정됩니다.",
+        buttons: [
+          {
+            kind: "completeSigning",
+            label: "체결 처리",
+            color: "primary",
+            variant: "default",
+          },
+        ],
+      };
+    }
+
     return {
       head: "결재 현황",
       isApprovalMode: true,

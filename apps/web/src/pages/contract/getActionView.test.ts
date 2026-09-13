@@ -11,6 +11,7 @@ describe("getActionView", () => {
       isRequester: true,
       isMyTurn: false,
       canSubmit: false,
+      isApprovalComplete: false,
     });
     expect(view.isSubmitMode).toBe(true);
     expect(view.head).toBe("체결 품의");
@@ -23,6 +24,7 @@ describe("getActionView", () => {
       isRequester: true,
       isMyTurn: false,
       canSubmit: true,
+      isApprovalComplete: false,
     });
     expect(view.buttons[0].disabled).toBe(false);
   });
@@ -32,6 +34,7 @@ describe("getActionView", () => {
       isRequester: false,
       isMyTurn: false,
       canSubmit: false,
+      isApprovalComplete: false,
     });
     expect(view.isSubmitMode).toBe(false);
     expect(view.head).toBe("검토 액션");
@@ -42,6 +45,7 @@ describe("getActionView", () => {
       isRequester: false,
       isMyTurn: true,
       canSubmit: false,
+      isApprovalComplete: false,
     });
     expect(view.isDecideMode).toBe(true);
     expect(view.isApprovalMode).toBe(true);
@@ -53,6 +57,7 @@ describe("getActionView", () => {
       isRequester: false,
       isMyTurn: false,
       canSubmit: false,
+      isApprovalComplete: false,
     });
     expect(view.isDecideMode).toBe(false);
     expect(view.buttons).toHaveLength(0);
@@ -80,5 +85,37 @@ describe("getActionView", () => {
   it("approval 인자 생략 시 기본값(비요청자·내 차례 아님)으로 동작한다", () => {
     const view = getActionView("reviewDone", CAN_NONE);
     expect(view.isSubmitMode).toBe(false);
+  });
+});
+
+describe("signing - 체결 처리", () => {
+  const can = { view: true, edit: false, assign: false, transition: true, delete: false, maskSecret: false };
+
+  it("결재가 완료되고 전이 권한이 있으면 체결 처리 버튼이 뜬다", () => {
+    const v = getActionView("signing", can, {
+      isRequester: false, isMyTurn: false, canSubmit: false, isApprovalComplete: true,
+    });
+    expect(v.buttons.map((b) => b.kind)).toContain("completeSigning");
+  });
+
+  it("결재가 완료되지 않으면 버튼이 없다", () => {
+    const v = getActionView("signing", can, {
+      isRequester: false, isMyTurn: false, canSubmit: false, isApprovalComplete: false,
+    });
+    expect(v.buttons).toHaveLength(0);
+  });
+
+  it("전이 권한이 없으면 결재가 완료돼도 버튼이 없다", () => {
+    const v = getActionView("signing", { ...can, transition: false }, {
+      isRequester: false, isMyTurn: false, canSubmit: false, isApprovalComplete: true,
+    });
+    expect(v.buttons).toHaveLength(0);
+  });
+
+  it("내 차례면 기존 승인/반려가 우선한다", () => {
+    const v = getActionView("signing", can, {
+      isRequester: false, isMyTurn: true, canSubmit: false, isApprovalComplete: false,
+    });
+    expect(v.buttons.map((b) => b.kind)).toEqual(["rejectStep", "approveStep"]);
   });
 });
