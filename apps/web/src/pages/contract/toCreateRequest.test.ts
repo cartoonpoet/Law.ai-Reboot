@@ -50,7 +50,13 @@ describe("toCreateRequest", () => {
     expect(req.securityLevel).toBe("top");
     expect(req.reviewType).toBe("std");
     expect(req.categoryId).toBe("cat-saas");
-    expect(req.ownerId).toBe("lee");
+    expect(req.dueDate).toBe("2026-07-10");
+  });
+
+  it("업무담당자(form.owner)는 details.owner 로만 보내고 ownerId(법무 담당자)는 보내지 않는다", () => {
+    const req = toCreateRequest(form);
+    expect(req).not.toHaveProperty("ownerId");
+    expect(req.details.owner).toEqual({ id: "lee", name: "이법무" });
     expect(req.dueDate).toBe("2026-07-10");
     expect(req.schemaVersion).toBe(1);
   });

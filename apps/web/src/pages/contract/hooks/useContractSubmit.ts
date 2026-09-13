@@ -31,7 +31,7 @@ const toUpdatePayload = (payload: CreateContractInput): UpdateContractInput => (
   party: payload.party,
   categoryId: payload.categoryId,
   requesterId: payload.requesterId,
-  ownerId: payload.ownerId,
+  // ownerId 는 의도적으로 제외 — 편집 저장이 실제 법무 담당자를 덮어쓰면 안 된다(배정은 AssignModal 전용).
   periodStart: payload.periodStart,
   periodEnd: payload.periodEnd,
   dueDate: payload.dueDate,
