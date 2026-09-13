@@ -28,6 +28,13 @@ export const uploadNotice = style({
   margin: "0 0 8px",
 });
 
+export const warnNotice = style({
+  fontSize: 12,
+  color: c.accentWarningActive,
+  lineHeight: 1.5,
+  margin: "6px 0 0",
+});
+
 export const fileList = style({
   display: "flex",
   flexDirection: "column",

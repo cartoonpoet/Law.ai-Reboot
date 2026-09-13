@@ -19,26 +19,35 @@ interface CompleteSigningModalProps {
  * 있는 계약을 다시 열었을 때(검토 모드) 편집 화면이 영구히 저장 불가능해지기 때문이다
  * (서버 completeSigning 도 동일하게 role="contract" 파일의 승격을 거부한다 — 이중 방어).
  *
- * 파일은 정확히 한 건만 받고, 업로드가 끝난(done) 뒤에는 제거를 제공하지 않는다 — 리뷰에서 짚힌
- * 문제: files.service 의 confirm 은 업로드가 끝나는 즉시 File 행(role=attach)을 만드는데, 삭제
- * API 가 없어 "잘못 올린 파일 X → 다시 업로드"를 허용하면 첫 파일이 계약에 영구히 첨부로 남는다
- * (완료된 계약에서 사용자가 지울 방법도 없어진다). pending/uploading/error 상태는 아직 서버에
- * 행이 생기기 전(또는 애초에 실패해 행이 없는) 상태라 제거해도 고아를 만들지 않는다.
+ * 파일은 정확히 한 건만 받고, 업로드가 실패(error)하지 않는 한 제거를 제공하지 않는다 — 리뷰에서
+ * 짚힌 문제: files.service 의 confirm 은 presign→PUT 이 끝난 뒤 곧바로(=uploading 상태로 표시되는
+ * 동안) File 행(role=attach)을 만들고, useFileUpload 에는 그 진행 중인 요청을 취소할 수단
+ * (AbortController 등)이 없다. 즉 "pending/uploading 이면 서버에 아직 행이 없다"는 보장이 없다
+ * — uploading 중에 제거해도 그 사이 confirm 이 이미 성공해 행이 생겼을 수 있고, 로컬 상태만
+ * 지워질 뿐이라 드롭존이 다시 열려 두 번째 파일을 올리면 첫 파일이 고아로 영구히 남는다. 오직
+ * error 상태만 confirm 이 끝내 성공하지 못했음이 확정된 상태라 안전하게 제거할 수 있다. (한 번
+ * 진짜로 멈춰버린(reject 도 resolve 도 안 하는) 요청은 이 훅 구조상 새로고침 없이는 취소할
+ * 수 없다는 트레이드오프가 남지만, 실패는 전부 error 로 귀결되므로 실제로 걸리는 경우는 진짜
+ * 행이 멎는 극단적 상황뿐이다 — useFileUpload.ts 는 코멘트 첨부와 공유하므로 여기서 고치지
+ * 않는다.)
  */
 export const CompleteSigningModal = ({ contractId, onClose }: CompleteSigningModalProps) => {
   const upload = useFileUpload({ contractId });
   const { submit, isPending, error } = useCompleteSigning(contractId);
   const [signedAt, setSignedAt] = useState(() => toISODate(new Date()));
   const [note, setNote] = useState("");
+  const [hasExtraFiles, setHasExtraFiles] = useState(false);
 
   // 정확히 한 건만 다룬다 — 드롭존은 파일이 하나라도 있으면 사라지므로 구조적으로 1개를 넘지 않는다.
   const attachment = upload.attachments[0] ?? null;
-  const canRemove = attachment ? attachment.status !== "done" : false;
+  const canRemove = attachment?.status === "error";
   const fileId = attachment?.status === "done" ? (attachment.attachment?.id ?? null) : null;
   const canConfirm = Boolean(signedAt) && Boolean(fileId) && !isPending;
 
   const handleAddFiles = (files: File[]) => {
-    // 한 건 초과분은 애초에 받지 않는다(다중 업로드가 남기는 고아 첨부 방지).
+    // 한 건 초과분은 애초에 받지 않는다(다중 업로드가 남기는 고아 첨부 방지) — 대신 잘렸다는
+    // 사실을 사용자에게 알린다(조용히 버리지 않는다).
+    setHasExtraFiles(files.length > 1);
     void upload.addFiles(files.slice(0, 1));
   };
 
@@ -89,6 +98,11 @@ export const CompleteSigningModal = ({ contractId, onClose }: CompleteSigningMod
                 onFilesAdded={handleAddFiles}
               />
             </>
+          )}
+          {hasExtraFiles && (
+            <p className={css.warnNotice}>
+              서명본은 한 건만 첨부할 수 있어 첫 번째 파일만 사용했습니다.
+            </p>
           )}
           {attachment && (
             <div className={css.fileList}>
