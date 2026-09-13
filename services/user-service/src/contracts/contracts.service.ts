@@ -860,30 +860,43 @@ export class ContractsService {
       throw new RpcException({ status: 400, message: "결재가 완료되지 않았습니다" });
     }
 
-    // 서명본 파일은 반드시 이 계약의 "본문" 파일이어야 한다. commentId:null 이 없으면
+    // 서명본 파일은 반드시 이 계약의 "본문" 파일이어야 한다(commentId:null). 그렇지 않으면
     // 코멘트 첨부(File.commentId != null)도 통과해 signed 로 승격될 수 있다 — 코멘트
     // 첨부는 contractInclude.files 에서 걸러지므로(commentId:null 필터) 그렇게 승격된
     // 파일은 계약의 files 목록에 다시는 나타나지 않는, 눈에 보이지 않는 서명본이 된다.
-    if (req.fileId) {
-      const file = await this.prisma.file.findFirst({
-        where: { id: req.fileId, contractId: row.id, commentId: null },
-        select: { id: true },
+    // fileId 는 필수다(게이트웨이 DTO 도 동일) — 그래도 방어적으로 다시 확인한다.
+    // finalizeRegistration 과 같은 형태의 게이트: 실제 바이트가 있어야(storageKey not null)
+    // 하고(메타데이터-only "있는 척"을 signed 로 확정할 수 없게), 검토본(role:"contract")을
+    // 그대로 승격할 수 없다 — 그러면 계약의 유일한 계약서 파일이 사라져, 결재 라인이 있는
+    // 계약을 다시 열었을 때(검토 모드로 열림) 편집 화면이 영구히 저장 불가능해진다.
+    if (!req.fileId) {
+      throw new RpcException({ status: 400, message: "최종 서명본을 첨부하세요" });
+    }
+    const file = await this.prisma.file.findFirst({
+      where: { id: req.fileId, contractId: row.id, commentId: null },
+      select: { id: true, role: true, storageKey: true },
+    });
+    if (!file) {
+      throw new RpcException({ status: 400, message: "잘못된 파일입니다" });
+    }
+    if (!file.storageKey) {
+      throw new RpcException({ status: 400, message: "최종 서명본을 첨부하세요" });
+    }
+    if (file.role === "contract") {
+      throw new RpcException({
+        status: 400,
+        message: "검토본은 서명본으로 지정할 수 없습니다. 서명본을 새로 첨부하세요",
       });
-      if (!file) {
-        throw new RpcException({ status: 400, message: "잘못된 파일입니다" });
-      }
     }
 
     // 파일 승격 + 상태 확정을 한 트랜잭션으로 묶는다 — 도중에 실패하면 파일만 signed 로
     // 남고 계약은 signing 에 머무는 절반 반영을 막는다(signing→reviewDone 은 허용된 역방향
     // 전이라 그 상태로 검토에 돌아가면 유령 서명본이 남는다).
     // where 에 status:"signing" 을 넣어 동시 요청 중 하나만 성공하도록(CAS) 방어한다.
-    const fileUpdate = req.fileId
-      ? this.prisma.file.update({
-          where: { id: req.fileId, contractId: row.id, commentId: null },
-          data: { role: "signed" },
-        })
-      : null;
+    const fileUpdate = this.prisma.file.update({
+      where: { id: req.fileId, contractId: row.id, commentId: null },
+      data: { role: "signed" },
+    });
     const contractUpdate = this.prisma.contract.update({
       where: { id: row.id, status: "signing", ...tenantScope(ctx) },
       data: { status: "signed", signedAt },
@@ -892,16 +905,11 @@ export class ContractsService {
 
     let updated: ContractWithRelations;
     try {
-      if (fileUpdate) {
-        const [, updatedRow] = await this.prisma.$transaction([
-          fileUpdate,
-          contractUpdate,
-        ]);
-        updated = updatedRow;
-      } else {
-        const [updatedRow] = await this.prisma.$transaction([contractUpdate]);
-        updated = updatedRow;
-      }
+      const [, updatedRow] = await this.prisma.$transaction([
+        fileUpdate,
+        contractUpdate,
+      ]);
+      updated = updatedRow;
     } catch (error) {
       // 동시 요청 등으로 그 사이 signing 상태가 아니게 된 경우(CAS 실패) — P2025: 대상 행 없음.
       if (

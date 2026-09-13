@@ -216,8 +216,10 @@ export interface CompleteSigningRequest {
   viewerId: string;
   /** 실제 서명 완료일(ISO 8601). */
   signedAt: string;
-  /** 사전 업로드된 서명본 File.id. 주어지면 role 을 signed 로 승격한다. */
-  fileId?: string | null;
+  /** 사전 업로드된 서명본 File.id. 필수 — 서버가 실제 바이트가 있는(storageKey not null) 파일을
+   *  요구하므로 옵셔널이 아니다(client/server 비대칭 방지: 이 계층부터 게이트웨이·API 클라이언트·
+   *  훅까지 전부 required 로 맞춘다). */
+  fileId: string;
   /** 비고 — 감사 로그에만 남는다. */
   note?: string | null;
   tenantContext?: TenantContext;

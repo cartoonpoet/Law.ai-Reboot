@@ -230,10 +230,12 @@ export class CompleteSigningDto {
   @IsISO8601()
   signedAt!: string;
 
-  @ApiPropertyOptional({ description: "사전 업로드된 서명본 File.id" })
-  @IsOptional()
+  // 필수 — 서버(completeSigning)가 실제 바이트가 있는(storageKey not null) 서명본을 요구한다.
+  // 옵셔널로 두면 게이트웨이가 서비스에서 거부될 요청을 형식 검증 없이 통과시킨다.
+  @ApiProperty({ description: "사전 업로드된 서명본 File.id" })
   @IsString()
-  fileId?: string;
+  @IsNotEmpty()
+  fileId!: string;
 
   @ApiPropertyOptional({ description: "비고 - 감사 로그에만 남는다" })
   @IsOptional()

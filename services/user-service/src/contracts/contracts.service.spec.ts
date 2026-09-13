@@ -1405,6 +1405,7 @@ describe("ContractsService", () => {
           contractId: "c1",
           viewerId: "u-x",
           signedAt: "2026-09-12",
+          fileId: "f1",
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 403 } });
@@ -1427,6 +1428,7 @@ describe("ContractsService", () => {
           contractId: "c1",
           viewerId: "u-seal",
           signedAt: "2026-09-12",
+          fileId: "f1",
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 400 } });
@@ -1446,6 +1448,7 @@ describe("ContractsService", () => {
           contractId: "c1",
           viewerId: "u-seal",
           signedAt: "2026-09-12",
+          fileId: "f1",
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 400 } });
@@ -1535,6 +1538,7 @@ describe("ContractsService", () => {
           contractId: "c1",
           viewerId: "u-legal",
           signedAt: "2026-09-12",
+          fileId: "f1",
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 400, message: "체결 진행 상태가 아닙니다" } });
@@ -1553,7 +1557,13 @@ describe("ContractsService", () => {
         line: { id: "l1", status: "approved", steps: [] },
         historyCount: 0,
       });
-      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f1", contractId: "c1" });
+      // storageKey 를 채워야 새 게이트(실제 바이트 존재 확인)를 통과한다.
+      prismaMock.file.findFirst.mockResolvedValueOnce({
+        id: "f1",
+        contractId: "c1",
+        role: "attach",
+        storageKey: "k-f1",
+      });
       prismaMock.contract.update.mockResolvedValueOnce({
         ...baseRow,
         status: "signed",
@@ -1606,6 +1616,7 @@ describe("ContractsService", () => {
           contractId: "c1",
           viewerId: "u-seal",
           signedAt: "",
+          fileId: "f1",
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 400, message: "체결일이 올바르지 않습니다" } });
@@ -1627,6 +1638,13 @@ describe("ContractsService", () => {
         line: { id: "l1", status: "approved", steps: [] },
         historyCount: 0,
       });
+      // 파일 게이트를 통과시켜 트랜잭션까지 도달해야 CAS 실패(P2025)를 재현할 수 있다.
+      prismaMock.file.findFirst.mockResolvedValueOnce({
+        id: "f1",
+        contractId: "c1",
+        role: "attach",
+        storageKey: "k-f1",
+      });
       const notFound = new Prisma.PrismaClientKnownRequestError(
         "An operation failed because it depends on one or more records that were required but not found.",
         { code: "P2025", clientVersion: "6.19.3" },
@@ -1638,9 +1656,103 @@ describe("ContractsService", () => {
           contractId: "c1",
           viewerId: "u-seal",
           signedAt: "2026-09-12",
+          fileId: "f1",
           tenantContext: { tenantId: "t1", isSystemAdmin: false },
         }),
       ).rejects.toMatchObject({ error: { status: 409 } });
+    });
+
+    // fileId 를 아예 주지 않으면(형식 검증을 우회한 malformed RPC 라도) 승격 대상이 없으므로
+    // 400 이어야 한다 — 게이트웨이 DTO 는 required 지만, 서비스 스스로도 방어해야 한다.
+    it("fileId 를 주지 않으면 400 (쓰기 없음)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
+        role: "sealManager",
+        user: { departmentId: null },
+      });
+      approvalsMock.getActive.mockResolvedValueOnce({
+        line: { id: "l1", status: "approved", steps: [] },
+        historyCount: 0,
+      });
+      await expect(
+        service.completeSigning({
+          contractId: "c1",
+          viewerId: "u-seal",
+          signedAt: "2026-09-12",
+          tenantContext: { tenantId: "t1", isSystemAdmin: false },
+        } as never),
+      ).rejects.toMatchObject({ error: { status: 400, message: "최종 서명본을 첨부하세요" } });
+      expect(prismaMock.file.findFirst).not.toHaveBeenCalled();
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
+    });
+
+    // finalizeRegistration 과 대칭인 게이트: 메타데이터-only(storageKey null) 파일을 signed 로
+    // 확정할 수 없다 — "서명본이 실은 빈 파일"인 상태를 막는다.
+    it("storageKey 가 없는(업로드 안 된) 파일을 지정하면 400 (쓰기 없음)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
+        role: "sealManager",
+        user: { departmentId: null },
+      });
+      approvalsMock.getActive.mockResolvedValueOnce({
+        line: { id: "l1", status: "approved", steps: [] },
+        historyCount: 0,
+      });
+      prismaMock.file.findFirst.mockResolvedValueOnce({
+        id: "f-empty",
+        contractId: "c1",
+        role: "attach",
+        storageKey: null,
+      });
+      await expect(
+        service.completeSigning({
+          contractId: "c1",
+          viewerId: "u-seal",
+          signedAt: "2026-09-12",
+          fileId: "f-empty",
+          tenantContext: { tenantId: "t1", isSystemAdmin: false },
+        }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "최종 서명본을 첨부하세요" } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
+    });
+
+    // Task 7 이월(Ruling 30): 계약의 유일한 검토본(role:"contract")을 그대로 서명본으로 승격시키면
+    // 계약에 role:"contract" 파일이 0개가 되어, 결재 라인이 있는 계약을 다시 열었을 때(검토 모드)
+    // 편집 화면이 영구히 저장 불가능해진다 — 클라이언트뿐 아니라 서버에서도 막아야 한다.
+    it("검토본(role=contract) 파일을 서명본으로 지정하면 400 (쓰기 없음)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce(baseRow);
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({
+        role: "sealManager",
+        user: { departmentId: null },
+      });
+      approvalsMock.getActive.mockResolvedValueOnce({
+        line: { id: "l1", status: "approved", steps: [] },
+        historyCount: 0,
+      });
+      prismaMock.file.findFirst.mockResolvedValueOnce({
+        id: "f-contract",
+        contractId: "c1",
+        role: "contract",
+        storageKey: "k-contract",
+      });
+      await expect(
+        service.completeSigning({
+          contractId: "c1",
+          viewerId: "u-seal",
+          signedAt: "2026-09-12",
+          fileId: "f-contract",
+          tenantContext: { tenantId: "t1", isSystemAdmin: false },
+        }),
+      ).rejects.toMatchObject({
+        error: {
+          status: 400,
+          message: "검토본은 서명본으로 지정할 수 없습니다. 서명본을 새로 첨부하세요",
+        },
+      });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(prismaMock.file.update).not.toHaveBeenCalled();
     });
   });
 

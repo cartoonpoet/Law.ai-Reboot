@@ -219,7 +219,7 @@ export class ContractsController {
       contractId: id,
       viewerId: sub,
       signedAt: body.signedAt,
-      fileId: body.fileId ?? null,
+      fileId: body.fileId,
       note: body.note ?? null,
       tenantContext: extractTenantContext(req),
     };
