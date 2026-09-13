@@ -29,6 +29,7 @@ const summary: ContractSummary = {
   ownerId: null,
   ownerName: null,
   dueDate: "2026-06-11T00:00:00.000Z",
+  signedAt: null,
   createdById: "u1",
   updatedAt: "2026-06-09T00:00:00.000Z",
 };
@@ -57,7 +58,7 @@ describe("ContractListPage", () => {
 
   it("헤더와 목록 API 계약 행을 렌더한다", async () => {
     renderPage();
-    expect(screen.getByText("계약서 검토 조회")).toBeInTheDocument();
+    expect(screen.getByText("계약 조회")).toBeInTheDocument();
     expect(
       await screen.findByText("한라산 EV 충전기 공급계약"),
     ).toBeInTheDocument();

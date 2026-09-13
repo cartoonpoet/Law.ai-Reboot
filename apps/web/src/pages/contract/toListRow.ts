@@ -22,6 +22,7 @@ export const toListRow = (s: ContractSummary): ContractRow => ({
   counter: s.counterpartyName ?? "-",
   requester: s.requesterName ?? s.requesterId ?? "-",
   owner: s.ownerName ?? s.ownerId ?? "미배정",
+  signedAt: s.signedAt ? s.signedAt.slice(0, 10) : null,
   updated: fmtDate(s.updatedAt),
   due: fmtDate(s.dueDate),
   dleft: daysLeft(s.dueDate),

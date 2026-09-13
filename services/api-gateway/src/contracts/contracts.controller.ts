@@ -82,12 +82,14 @@ export class ContractsController {
     );
   }
 
-  @ApiOperation({ summary: "계약 목록 조회", description: "필터(q·status·party·categoryId·mine)·페이지네이션" })
+  @ApiOperation({ summary: "계약 목록 조회", description: "필터(q·status/statuses·expiry·party·categoryId·mine)·페이지네이션" })
   @Get()
   list(
     @Req() req: Request,
     @Query("q") q?: string,
     @Query("status") status?: ContractStatus,
+    @Query("statuses") statuses?: string,
+    @Query("expiry") expiry?: string,
     @Query("party") party?: string,
     @Query("categoryId") categoryId?: string,
     @Query("mine") mine?: string,
@@ -98,6 +100,8 @@ export class ContractsController {
     const payload: ListContractsRequest = {
       q: q || undefined,
       status: status || undefined,
+      statuses: statuses || undefined,
+      expiry: (expiry || undefined) as ListContractsRequest["expiry"],
       party: party || undefined,
       categoryId: categoryId || undefined,
       mineOf: mine === "true" ? sub : undefined,

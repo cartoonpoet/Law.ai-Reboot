@@ -349,6 +349,7 @@ export interface ContractSummary {
   ownerId: string | null;
   ownerName: string | null;
   dueDate: string | null;
+  signedAt: string | null;
   createdById: string;
   updatedAt: string;
 }
@@ -356,6 +357,10 @@ export interface ContractSummary {
 export interface ListContractsRequest {
   q?: string;
   status?: ContractStatus;
+  // 콤마 분리 상태 목록(2단 그룹 필터). status 가 있으면 무시된다.
+  statuses?: string;
+  // 만료 기준(체결일 기준 X, periodEnd 기준). d90/d180=이내, expired=지남.
+  expiry?: "d90" | "d180" | "expired";
   party?: string;
   categoryId?: string;
   // createdById 지정 시 "내 업무만"(gateway 가 JWT sub 주입).

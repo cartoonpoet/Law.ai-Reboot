@@ -49,6 +49,8 @@ export function updateContractStatus(
 export interface ListContractsParams {
   q?: string;
   status?: ContractStatus;
+  statuses?: string;
+  expiry?: "d90" | "d180" | "expired";
   party?: string;
   categoryId?: string;
   mine?: boolean;
@@ -62,6 +64,8 @@ export function listContracts(
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
   if (params.status) search.set("status", params.status);
+  if (params.statuses) search.set("statuses", params.statuses);
+  if (params.expiry) search.set("expiry", params.expiry);
   if (params.party) search.set("party", params.party);
   if (params.categoryId) search.set("categoryId", params.categoryId);
   if (params.mine) search.set("mine", "true");

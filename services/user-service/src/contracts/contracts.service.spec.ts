@@ -362,6 +362,75 @@ describe("ContractsService", () => {
     expect(findArg.where.categoryId).toBeUndefined();
   });
 
+  it("list statuses=signing,signed 는 status.in 필터를 적용한다(그룹 필터)", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+
+    await service.list({ statuses: "signing,signed", page: 1, pageSize: 20, ...makeCtx() });
+
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    expect(findArg.where.status).toEqual({ in: ["signing", "signed"] });
+  });
+
+  it("list status 와 statuses 가 함께 오면 status(단일)가 우선하고 statuses 는 무시된다(기존 동작 보존)", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+
+    await service.list({
+      status: "legalReview",
+      statuses: "signing,signed",
+      page: 1,
+      pageSize: 20,
+      ...makeCtx(),
+    });
+
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    expect(findArg.where.status).toBe("legalReview");
+  });
+
+  it("list statuses 에 알 수 없는 상태 값이 섞이면 400 을 던진다(조용히 전체 조회로 새지 않는다)", async () => {
+    await expect(
+      service.list({ statuses: "signing,bogus", page: 1, pageSize: 20, ...makeCtx() }),
+    ).rejects.toMatchObject({ error: { status: 400 } });
+  });
+
+  it("list expiry=d90 은 periodEnd 를 오늘~90일 이내로 필터링한다", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+
+    const before = Date.now();
+    await service.list({ expiry: "d90", page: 1, pageSize: 20, ...makeCtx() });
+    const after = Date.now();
+
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    const { gte, lte } = findArg.where.periodEnd;
+    expect(gte.getTime()).toBeGreaterThanOrEqual(before);
+    expect(gte.getTime()).toBeLessThanOrEqual(after);
+    expect(lte.getTime() - gte.getTime()).toBe(90 * 86_400_000);
+  });
+
+  it("list expiry=expired 는 periodEnd lt 지금으로 필터링한다", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+
+    await service.list({ expiry: "expired", page: 1, pageSize: 20, ...makeCtx() });
+
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    expect(findArg.where.periodEnd.lt).toBeInstanceOf(Date);
+  });
+
+  it("list expiry 가 알 수 없는 값이면 400 을 던진다", async () => {
+    await expect(
+      service.list({
+        // 게이트웨이는 원시 쿼리 문자열을 그대로 전달하므로 타입을 우회해 검증한다.
+        expiry: "bogus" as unknown as "d90",
+        page: 1,
+        pageSize: 20,
+        ...makeCtx(),
+      }),
+    ).rejects.toMatchObject({ error: { status: 400 } });
+  });
+
   // toResponse 가 요구하는 관계 배열을 포함한 최소 행
   const fullRow = (status: string) => ({
     id: "ct-1",

@@ -106,6 +106,37 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
 // (requesterReview 는 legalReview 로 되돌아갈 수 있는 같은 루프의 반대편이다.)
 const RISK_RECHECK_STATUSES: ContractStatus[] = ["legalReview", "requesterReview"];
 
+// list() 2단 상태 필터 검증용 — ALLOWED_TRANSITIONS 키가 전체 ContractStatus 를 이미 망라한다.
+const VALID_STATUSES = new Set<string>(Object.keys(ALLOWED_TRANSITIONS));
+
+const EXPIRY_WINDOW_DAYS: Record<"d90" | "d180", number> = { d90: 90, d180: 180 };
+const DAY_MS = 86_400_000;
+
+// "signing,signed" → ["signing","signed"]. 미지원 상태 값이 섞여 있으면 400(전체 조회로 조용히
+// 새는 것을 막는다 — 잘못된 필터가 "필터 없음"처럼 동작하면 발견하기 어려운 버그가 된다).
+const parseStatusesParam = (raw: string): ContractStatus[] => {
+  const values = raw
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (values.length === 0 || values.some((v) => !VALID_STATUSES.has(v))) {
+    throw new RpcException({ status: 400, message: "유효하지 않은 statuses 값입니다" });
+  }
+  return values as ContractStatus[];
+};
+
+// expiry → periodEnd where 절. d90/d180 은 [지금, 지금+N일], expired 는 (~, 지금).
+const parseExpiryFilter = (
+  expiry: string,
+): NonNullable<Prisma.ContractWhereInput["periodEnd"]> => {
+  const now = new Date();
+  if (expiry === "expired") return { lt: now };
+  if (expiry === "d90" || expiry === "d180") {
+    return { gte: now, lte: new Date(now.getTime() + EXPIRY_WINDOW_DAYS[expiry] * DAY_MS) };
+  }
+  throw new RpcException({ status: 400, message: "유효하지 않은 expiry 값입니다" });
+};
+
 // role="contract"(계약서 본문) 파일이 실제로 교체됐는지 판정.
 // 추가(신규 업로드) / 제거 / 다른 파일의 role 을 contract 로 승격 — 셋 다 "문서가 바뀜"으로 본다.
 // 파일을 건드리지 않은 수정(제목/기간 등)이나 이름·정렬만 바뀐 경우는 false.
@@ -411,13 +442,23 @@ export class ContractsService {
     const pageSize = Math.min(100, Math.max(1, req.pageSize ?? 20));
     const q = req.q?.trim();
 
+    // status(단일)가 있으면 항상 우선한다 — statuses(그룹)는 그때 무시(기존 단일 필터 동작 보존).
+    const statusesFilter =
+      !req.status && req.statuses ? parseStatusesParam(req.statuses) : undefined;
+    const expiryFilter = req.expiry ? parseExpiryFilter(req.expiry) : undefined;
+
     const where: Prisma.ContractWhereInput = {
       deletedAt: null,
       ...tenantScope(ctx),
-      ...(req.status ? { status: req.status } : {}),
+      ...(req.status
+        ? { status: req.status }
+        : statusesFilter
+          ? { status: { in: statusesFilter } }
+          : {}),
       ...(req.party ? { party: req.party } : {}),
       ...(req.categoryId ? { categoryId: req.categoryId } : {}),
       ...(req.mineOf ? { createdById: req.mineOf } : {}),
+      ...(expiryFilter ? { periodEnd: expiryFilter } : {}),
       ...(q
         ? {
             OR: [
@@ -469,6 +510,7 @@ export class ContractsService {
         ownerId: r.ownerId,
         ownerName: r.owner?.name ?? null,
         dueDate: r.dueDate?.toISOString() ?? null,
+        signedAt: r.signedAt ? r.signedAt.toISOString() : null,
         createdById: r.createdById,
         updatedAt: r.updatedAt.toISOString(),
       };
