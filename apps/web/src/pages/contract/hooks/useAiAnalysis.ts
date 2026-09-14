@@ -12,6 +12,7 @@ export const useAiAnalysis = (targetId: string, kind: string | null) => {
       const status = q.state.data?.status;
       return status === "pending" || status === "running" ? 2000 : false;
     },
+    meta: { errorTitle: "AI 분석 결과를 불러오지 못했어요" },
   });
   return { analysis: query.data ?? null, isLoading: query.isLoading };
 };

@@ -32,6 +32,7 @@ export function DocxRenderer({ fileId }: DocxRendererProps) {
     queryFn: () => convertDocxToHtml(presigned.data!.url),
     enabled: Boolean(presigned.data?.url),
     staleTime: 5 * 60 * 1000,
+    meta: { errorMode: "silent" },
   });
 
   if (presigned.isLoading)

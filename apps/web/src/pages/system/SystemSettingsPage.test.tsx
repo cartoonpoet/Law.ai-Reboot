@@ -6,8 +6,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AiModelOption } from "@lawai/contracts";
+import { MemoryRouter } from "react-router-dom";
 import { SystemSettingsPage } from "./SystemSettingsPage";
 import * as aiApi from "../../api/ai";
+import { ApiError } from "../../api/apiError";
+import { createQueryClient } from "../../lib/queryClient";
+import { RouteErrorBoundary } from "../../components/feedback/RouteErrorBoundary";
 
 // api/ai 계층에서만 mock 한다(ContractDetailPage.test.tsx 와 같은 층위) — useMyAiCredential
 // 훅과 react-query 배선은 실제로 돌려서, 훅이나 API 모듈이 깨지면 이 테스트가 잡는다.
@@ -81,10 +85,19 @@ describe("SystemSettingsPage", () => {
     expect(await screen.findByText("정상")).toBeInTheDocument();
   });
 
-  it("자격증명 조회가 실패하면 에러 상태를 렌더한다", async () => {
-    vi.mocked(aiApi.getMyAiCredential).mockRejectedValue(new Error("네트워크 오류"));
-    renderPage();
-    expect(await screen.findByText("AI 연동 설정을 불러오지 못했습니다.")).toBeInTheDocument();
+  it("자격증명 조회가 실패하면 앱 에러 경계가 본문을 오류 페이지로 바꾼다", async () => {
+    vi.mocked(aiApi.getMyAiCredential).mockRejectedValue(new ApiError(503, "점검 중입니다"));
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <MemoryRouter>
+          <RouteErrorBoundary>
+            <SystemSettingsPage />
+          </RouteErrorBoundary>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("일시적인 오류가 발생했어요", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText("점검 중입니다")).toBeInTheDocument();
   });
 
   it("API 키 없이 저장하면 저장 요청을 보내지 않고 에러를 보여준다", async () => {

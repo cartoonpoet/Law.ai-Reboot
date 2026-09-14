@@ -17,4 +17,6 @@ export const useFilePreviewUrl = (fileId: string | null) =>
     enabled: Boolean(fileId),
     staleTime: STALE_MS,
     retry: 1,
+    // 미리보기 영역이 실패 상태를 직접 그린다.
+    meta: { errorMode: "silent" },
   });

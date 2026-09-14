@@ -9,6 +9,8 @@ export const useApprovalInbox = () => {
   const query = useQuery({
     queryKey: APPROVAL_INBOX_QUERY_KEY,
     queryFn: getApprovalInbox,
+    // 대기함 화면의 주 데이터 — 실패하면 본문을 오류 페이지로.
+    meta: { errorMode: "page" },
   });
   return {
     pending: query.data?.pending ?? [],
