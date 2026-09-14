@@ -8,6 +8,9 @@ import "./style.css";
 import { AppRoutes } from "./routes";
 import { queryClient } from "./lib/queryClient";
 import { NewVersionBanner } from "./components/layout/NewVersionBanner";
+import { AppToaster } from "./components/feedback/AppToaster";
+import { ErrorPage } from "./components/feedback/ErrorPage";
+import { ErrorBoundary } from "react-error-boundary";
 
 // 테마 토큰(--surface 등)을 body에도 적용한다. lawkit Modal/Popover는 document.body로
 // portal되므로, 테마 클래스가 래퍼 div에만 있으면 portal된 모달이 테마 변수를 못 받아
@@ -20,7 +23,11 @@ createRoot(document.getElementById("app")!).render(
       <BrowserRouter>
         <div className={lightThemeClass} style={{ height: "100%" }}>
           <NewVersionBanner />
-          <AppRoutes />
+          {/* 최후 방어선 — 레이아웃 밖(인증 화면·AppShell 자체) 크래시. 본문 오류는 AppShell 의 RouteErrorBoundary 가 먼저 잡는다. */}
+          <ErrorBoundary fallbackRender={({ error, resetErrorBoundary }) => <ErrorPage error={error} onRetry={resetErrorBoundary} />}>
+            <AppRoutes />
+          </ErrorBoundary>
+          <AppToaster />
         </div>
       </BrowserRouter>
     </QueryClientProvider>

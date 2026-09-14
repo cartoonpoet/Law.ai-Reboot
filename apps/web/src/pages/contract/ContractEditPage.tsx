@@ -12,6 +12,7 @@ export function ContractEditPage() {
     queryKey: ["contract", id],
     queryFn: () => getContract(id),
     enabled: Boolean(id),
+    meta: { errorMode: "page" },
   });
 
   if (!data) {

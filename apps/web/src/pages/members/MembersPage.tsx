@@ -9,27 +9,24 @@ import * as css from "./members.css";
 const formatDate = (iso: string): string => new Date(iso).toLocaleDateString("ko-KR");
 
 export function MembersPage() {
-  const { members, invites, isLoading, isError, invite, isInviting, resend, cancel } =
-    useMembers();
+  // 목록 조회 실패는 에러 경계가 본문을 오류 페이지로 바꾼다(useMembers meta: page).
+  const { members, invites, isLoading, invite, isInviting, resend, cancel } = useMembers();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [resentInviteId, setResentInviteId] = useState<string | null>(null);
 
   const handleResend = async (inviteId: string) => {
-    await resend(inviteId);
-    setResentInviteId(inviteId);
+    try {
+      await resend(inviteId);
+      setResentInviteId(inviteId);
+    } catch {
+      // 실패는 전역 토스트가 알린다 — "재발송됨" 표시만 건너뛴다.
+    }
   };
 
   if (isLoading) {
     return (
       <div className={css.page}>
         <Spinner label="불러오는 중..." />
-      </div>
-    );
-  }
-  if (isError) {
-    return (
-      <div className={css.page}>
-        <p className={css.empty}>멤버 목록을 불러오지 못했습니다.</p>
       </div>
     );
   }

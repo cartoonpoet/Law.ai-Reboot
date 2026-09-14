@@ -34,6 +34,8 @@ export const useVersionCheck = (): boolean => {
     refetchOnWindowFocus: true,
     staleTime: 0,
     retry: 1,
+    // 백그라운드 폴링 — 실패해도 다음 폴링에서 회복하므로 알리지 않는다.
+    meta: { errorMode: "silent" },
   });
   return Boolean(data && data.buildId !== __BUILD_ID__);
 };
