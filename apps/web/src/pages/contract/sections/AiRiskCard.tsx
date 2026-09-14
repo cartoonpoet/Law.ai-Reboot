@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import type { ContractStatus } from "@lawai/contracts";
 import { Icon, Button, Skeleton, Alert } from "@lawkit/ui";
+import { parseAiResult } from "../../../components/ai/parseAiResult";
+import type { AiResultRisk, AiRiskLevelTypes } from "../../../components/ai/parseAiResult";
 import { getActiveAiKind } from "../getActiveAiKind";
 import { useAiAnalysis } from "../hooks/useAiAnalysis";
 import { useRetryAiAnalysis } from "../hooks/useRetryAiAnalysis";
@@ -10,70 +12,19 @@ import * as css from "../contractDetail.css";
 /* =========================================================================
  * AiRiskCard — "AI 계약 리스크" 카드(실동작). 상태(status)에서 파생한 kind 로
  * useAiAnalysis 를 폴링하고, AiAnalysisDto.status(pending/running/succeeded/
- * failed/skipped) 에 따라 분기 렌더한다.
- * result 는 unknown(ai-service KIND_PROMPT 가 kind 별로 다른 JSON 을 요청) —
- * 타입가드로 안전하게 파싱해서 표시(임의 캐스팅 금지).
+ * failed/skipped) 에 따라 분기 렌더한다. 결과 해석은 components/ai/parseAiResult 공용.
  * ======================================================================= */
 
-type AiResultRiskLevel = "low" | "medium" | "high";
-
-interface AiResultRisk {
-  level: AiResultRiskLevel;
-  clause: string;
-  finding: string;
-}
-
-interface AiResultKeyFact {
-  label: string;
-  value: string;
-}
-
-interface ParsedAiResult {
-  summary: string | null;
-  risks: AiResultRisk[];
-  keyFacts: AiResultKeyFact[];
-}
-
 // ai-service KIND_PROMPT 의 level("low"|"medium"|"high") → 기존 리스크 카드 CSS 변형 키.
-const RISK_LEVEL_TO_CSS: Record<AiResultRiskLevel, "high" | "mid" | "low"> = {
+const RISK_LEVEL_TO_CSS: Record<AiRiskLevelTypes, "high" | "mid" | "low"> = {
   high: "high",
   medium: "mid",
   low: "low",
 };
-const RISK_LEVEL_LABEL: Record<AiResultRiskLevel, string> = {
+const RISK_LEVEL_LABEL: Record<AiRiskLevelTypes, string> = {
   high: "고위험",
   medium: "주의",
   low: "참고",
-};
-
-const isAiResultRisk = (value: unknown): value is AiResultRisk => {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  return (
-    (v.level === "low" || v.level === "medium" || v.level === "high") &&
-    typeof v.clause === "string" &&
-    typeof v.finding === "string"
-  );
-};
-
-const isAiResultKeyFact = (value: unknown): value is AiResultKeyFact => {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.label === "string" && typeof v.value === "string";
-};
-
-// AiAnalysisDto.result(unknown)를 kind 무관하게 최소 표시 가능한 형태로 파싱한다.
-// 알 수 없는 필드/형태는 조용히 무시(런타임 크래시 대신 빈 섹션으로 처리).
-const parseAiResult = (result: unknown): ParsedAiResult => {
-  if (!result || typeof result !== "object") {
-    return { summary: null, risks: [], keyFacts: [] };
-  }
-  const v = result as Record<string, unknown>;
-  return {
-    summary: typeof v.summary === "string" ? v.summary : null,
-    risks: Array.isArray(v.risks) ? v.risks.filter(isAiResultRisk) : [],
-    keyFacts: Array.isArray(v.keyFacts) ? v.keyFacts.filter(isAiResultKeyFact) : [],
-  };
 };
 
 function AiResultRiskCard({ risk }: { risk: AiResultRisk }) {

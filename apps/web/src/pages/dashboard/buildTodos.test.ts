@@ -84,6 +84,19 @@ describe("buildTodos", () => {
     expect(todo).toMatchObject({ type: "결재", title: "NDA 체결 품의", action: "결재하기", path: "/approvals/inbox", status: "1/2단계 · 김요청" });
   });
 
+  it("계약 단계에 맞는 AI 분석을, 결재는 결재 브리핑을 붙일 대상으로 넣는다", () => {
+    const contracts = [
+      createContract({ id: "risk", status: "legalReview", ownerId: ME }),
+      createContract({ id: "none", status: "requesterReview", requesterId: ME }),
+    ];
+    const todos = buildTodos({ contracts, approvals: [createApproval({})], viewer: { id: ME, canAssign: false }, now: NOW });
+    expect(todos.map((t) => [t.key, t.aiTarget])).toEqual([
+      ["contract-risk", { contractId: "risk", kind: "risk" }],
+      ["contract-none", null],
+      ["approval-l1", { contractId: "c9", kind: "approvalBriefing" }],
+    ]);
+  });
+
   it("기한이 가까운 순, 기한 없는 일은 뒤로 정렬한다", () => {
     const contracts = [
       createContract({ id: "late", ownerId: ME, dueDate: new Date(2026, 8, 20).toISOString() }),

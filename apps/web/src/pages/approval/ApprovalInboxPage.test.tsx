@@ -3,10 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApprovalInboxItem } from "@lawai/contracts";
+import { useAiInsights } from "../../components/ai/useAiInsights";
 import { ApprovalInboxPage } from "./ApprovalInboxPage";
 import { useApprovalInbox } from "./hooks/useApprovalInbox";
 
 vi.mock("./hooks/useApprovalInbox");
+vi.mock("../../components/ai/useAiInsights", async (orig) => {
+  const actual = await orig<typeof import("../../components/ai/useAiInsights")>();
+  return { ...actual, useAiInsights: vi.fn() };
+});
 
 const DAY_MS = 86_400_000;
 
@@ -43,6 +48,7 @@ const renderPage = () =>
 
 describe("ApprovalInboxPage", () => {
   beforeEach(() => {
+    vi.mocked(useAiInsights).mockReturnValue({ "C1:approvalBriefing": { text: "주의 1 — 손해배상 상한", tone: "warning" } });
     vi.mocked(useApprovalInbox).mockReturnValue({
       pending: PENDING,
       upcoming: [createItem({ lineId: "up", title: "예정 계약", myStepOrder: 2 })],
@@ -69,6 +75,11 @@ describe("ApprovalInboxPage", () => {
     expect(within(rows[0]).getByText("체결 품의")).toBeInTheDocument();
     expect(within(rows[0]).getByText("C20260908-0142 · 계약")).toBeInTheDocument();
     expect(within(rows[1]).getByText("오늘")).toBeInTheDocument();
+  });
+
+  it("처리할 결재에 AI 브리핑 한 줄을 붙인다", () => {
+    renderPage();
+    expect(screen.getAllByText("주의 1 — 손해배상 상한").length).toBeGreaterThan(0);
   });
 
   it("예정 탭에는 내 차례를 기다리는 결재가 보기 버튼과 함께 나온다", async () => {
