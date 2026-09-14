@@ -24,6 +24,7 @@ const TODO: TodoItem = {
   action: "법무 검토",
   daysLeft: 2,
   path: "/contract/c1",
+  aiTarget: { contractId: "c1", kind: "risk" },
 };
 
 const DEADLINE: DeadlineItem = {
@@ -39,6 +40,7 @@ const DEADLINE: DeadlineItem = {
 const mockDashboard = (overrides: Partial<ReturnType<typeof useDashboard>> = {}) =>
   vi.mocked(useDashboard).mockReturnValue({
     todos: [TODO],
+    insights: { "c1:risk": { text: "고위험 1 — 손해배상 한도", tone: "danger" } },
     isTodosLoading: false,
     stages: buildPipeline({ unassigned: 3, legalReview: 5 }),
     isPipelineLoading: false,
@@ -66,6 +68,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText("진행 중 8건")).toBeInTheDocument();
     expect(screen.getByText("가장 많음")).toBeInTheDocument();
     expect(screen.getByText(TODO.title)).toBeInTheDocument();
+    expect(screen.getByText("고위험 1 — 손해배상 한도")).toBeInTheDocument();
     expect(screen.getByText(DEADLINE.title)).toBeInTheDocument();
   });
 

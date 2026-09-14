@@ -2,6 +2,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import type { ContractStatus, TenantRole } from "@lawai/contracts";
 import { getApprovalInbox } from "../../../api/approvals";
 import { listContracts } from "../../../api/contracts";
+import { useAiInsights } from "../../../components/ai/useAiInsights";
 import { useMe } from "../../../components/layout/hooks/useMe";
 import { useTenantSwitcher } from "../../../components/layout/hooks/useTenantSwitcher";
 import { buildPipeline, PIPELINE_STATUSES } from "../buildPipeline";
@@ -52,8 +53,13 @@ export const useDashboard = () => {
     PIPELINE_STATUSES.map((status, i) => [status, countQueries[i].data?.total ?? 0]),
   ) as Record<ContractStatus, number>;
 
+  const todos = me ? buildTodos({ contracts, approvals: inboxQuery.data?.pending ?? [], viewer: { id: viewerId, canAssign }, now }) : [];
+  // 할 일마다 실제 AI 분석 결과 한 줄(기한 가까운 할 일부터)
+  const insights = useAiInsights(todos.flatMap((t) => (t.aiTarget ? [t.aiTarget] : [])));
+
   return {
-    todos: me ? buildTodos({ contracts, approvals: inboxQuery.data?.pending ?? [], viewer: { id: viewerId, canAssign }, now }) : [],
+    todos,
+    insights,
     isTodosLoading: contractsQuery.isLoading || inboxQuery.isLoading || !me,
     stages: buildPipeline(counts),
     isPipelineLoading: countQueries.some((q) => q.isLoading),

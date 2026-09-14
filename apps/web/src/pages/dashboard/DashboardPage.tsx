@@ -31,7 +31,12 @@ export const DashboardPage = () => {
       <PipelineStrip stages={dashboard.stages} isLoading={dashboard.isPipelineLoading} />
 
       <div className={css.bodyGrid}>
-        <TodoPanel todos={dashboard.todos} isLoading={dashboard.isTodosLoading} onOpen={(todo) => navigate(todo.path)} />
+        <TodoPanel
+          todos={dashboard.todos}
+          insights={dashboard.insights}
+          isLoading={dashboard.isTodosLoading}
+          onOpen={(todo) => navigate(todo.path)}
+        />
         <DeadlinePanel deadlines={dashboard.deadlines} isLoading={dashboard.isDeadlinesLoading} onOpen={(d) => navigate(d.path)} />
       </div>
     </div>
