@@ -1,24 +1,20 @@
 import { useNavigate } from "react-router-dom";
-import { AiBrief } from "./AiBrief";
-import { getTodoPath } from "./getTodoPath";
+import { DeadlinePanel } from "./DeadlinePanel";
+import { useDashboard } from "./hooks/useDashboard";
 import { PipelineStrip } from "./PipelineStrip";
-import { SideRail } from "./SideRail";
 import { TodoPanel } from "./TodoPanel";
-import { TODAY_LABEL } from "./mock-data";
-import type { TodoItem } from "./mock-data";
 import * as css from "./dashboard.css";
 
+const formatToday = (date: Date) =>
+  date.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
+
 /**
- * 홈 대시보드 — AI 요약 → 업무 파이프라인 → 내 할일 | 일정·공지.
- * 사이드바에 있는 액션(검토 요청 등)은 두지 않고, 항목마다 AI 판단·준비물을 붙인다. AI 비서는 AppShell 이 모든 화면에 띄운다.
+ * 홈 대시보드 — 계약 검토 파이프라인 → 내 할일 | 기한 임박. 모두 실제 계약·결재 데이터.
+ * 사이드바에 있는 액션(검토 요청 등)은 두지 않는다. AI 비서는 AppShell 이 모든 화면에 띄운다.
  */
 export const DashboardPage = () => {
   const navigate = useNavigate();
-
-  const handleOpenTodo = (todo: TodoItem) => {
-    const path = getTodoPath(todo);
-    if (path) navigate(path);
-  };
+  const dashboard = useDashboard();
 
   return (
     <div className={css.dash}>
@@ -28,17 +24,15 @@ export const DashboardPage = () => {
           <h1 className={css.h1}>업무 요약</h1>
         </div>
         <div className={css.headerMeta}>
-          <div className={css.headerDate}>{TODAY_LABEL}</div>
-          <div className={css.headerSync}>마지막 동기화 09:42</div>
+          <div className={css.headerDate}>{formatToday(new Date())}</div>
         </div>
       </header>
 
-      <AiBrief />
-      <PipelineStrip />
+      <PipelineStrip stages={dashboard.stages} isLoading={dashboard.isPipelineLoading} />
 
       <div className={css.bodyGrid}>
-        <TodoPanel onOpen={handleOpenTodo} />
-        <SideRail />
+        <TodoPanel todos={dashboard.todos} isLoading={dashboard.isTodosLoading} onOpen={(todo) => navigate(todo.path)} />
+        <DeadlinePanel deadlines={dashboard.deadlines} isLoading={dashboard.isDeadlinesLoading} onOpen={(d) => navigate(d.path)} />
       </div>
     </div>
   );
