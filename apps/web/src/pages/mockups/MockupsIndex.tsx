@@ -4,6 +4,12 @@ import * as css from "./mockups.css";
 export function MockupsIndex() {
   return (
     <div className={css.indexWrap}>
+      <h2 className={css.indexHero}>홈 대시보드 개편</h2>
+      <Link to="/mockups/dashboard" className={css.indexCard}>
+        <h3>대시보드 시안 3종 (lawkit 컴포넌트)</h3>
+        <p>A. 오늘 할 일 중심 · B. 파이프라인 보드 · C. 위젯 그리드</p>
+      </Link>
+
       <h2 className={css.indexHero}>계약 상세 진행 단계 바</h2>
       <Link to="/mockups/contract-lifecycle" className={css.indexCard}>
         <h3>D. 링 게이지 요약형 (채택)</h3>

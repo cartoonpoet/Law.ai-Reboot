@@ -22,6 +22,7 @@ import { CompareDirectMock } from "./pages/mockups/CompareDirectMock";
 import { CompareSwapMock } from "./pages/mockups/CompareSwapMock";
 import { ComparePickerMock } from "./pages/mockups/ComparePickerMock";
 import { ContractLifecycleMock } from "./pages/mockups/lifecycle/ContractLifecycleMock";
+import { DashboardMock } from "./pages/mockups/dashboard/DashboardMock";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!localStorage.getItem("accessToken")) {
@@ -43,6 +44,7 @@ export function AppRoutes() {
         <Route path="/mockups/compare-swap" element={<CompareSwapMock />} />
         <Route path="/mockups/compare-picker" element={<ComparePickerMock />} />
         <Route path="/mockups/contract-lifecycle" element={<ContractLifecycleMock />} />
+        <Route path="/mockups/dashboard" element={<DashboardMock />} />
       </Route>
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
