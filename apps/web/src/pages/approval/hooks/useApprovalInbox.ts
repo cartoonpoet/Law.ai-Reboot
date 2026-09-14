@@ -3,7 +3,7 @@ import { getApprovalInbox } from "../../../api/approvals";
 
 export const APPROVAL_INBOX_QUERY_KEY = ["approvalInbox"] as const;
 
-// 결재 대기함 조회 — pending(내 차례)/processed(처리한 결재) 원본을 그대로 노출.
+// 결재 대기함 조회 — pending(내 차례)/upcoming(내 차례 예정)/processed(처리한 결재) 원본을 그대로 노출.
 // 행 매핑(toInboxRow)은 렌더 중 파생한다.
 export const useApprovalInbox = () => {
   const query = useQuery({
@@ -14,6 +14,7 @@ export const useApprovalInbox = () => {
   });
   return {
     pending: query.data?.pending ?? [],
+    upcoming: query.data?.upcoming ?? [],
     processed: query.data?.processed ?? [],
     isLoading: query.isLoading,
   };

@@ -8,6 +8,7 @@ const PRIMARY = c.accentPrimary;
 const PRIMARY_DARK = c.accentPrimaryActive;
 const PRIMARY_SOFT = `color-mix(in srgb, ${c.accentPrimary} 10%, ${c.neutralSurface})`;
 const PRIMARY_TINT = `color-mix(in srgb, ${c.accentPrimary} 6%, ${c.neutralSurface})`;
+const PRIMARY_BORDER = `color-mix(in srgb, ${c.accentPrimary} 35%, ${c.neutralSurface})`;
 const WARNING_DARK = c.accentWarningActive;
 const WARNING_TINT = `color-mix(in srgb, ${c.accentWarning} 16%, ${c.neutralSurface})`;
 const SUCCESS = c.accentSuccessActive;
@@ -38,11 +39,44 @@ export const title = style({
   letterSpacing: "-0.025em",
 });
 
+export const pdesc = style({ margin: "6px 0 0", fontSize: 13, color: MUTED });
+
+/* --- 통계 --- */
+export const stats = style({ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 });
+
+export const stat = style({
+  background: SURFACE,
+  border: `1px solid ${BORDER}`,
+  borderRadius: themeVars.radius.lg,
+  padding: "13px 18px",
+  minWidth: 150,
+  boxShadow: themeVars.shadow.raised,
+});
+
+export const statHot = style({
+  borderColor: PRIMARY_BORDER,
+  background: `linear-gradient(180deg, ${SURFACE}, ${PRIMARY_TINT})`,
+});
+
+export const statLabel = style({ fontSize: 12, fontWeight: 600, color: MUTED });
+
+export const statValue = style({
+  fontSize: 22,
+  fontWeight: 800,
+  color: HEADING,
+  marginTop: 3,
+  fontVariantNumeric: "tabular-nums",
+});
+
+export const statValueHot = style({ color: PRIMARY });
+export const statUnit = style({ fontSize: 12, fontWeight: 600, color: FAINT, marginLeft: 2 });
+
+/* --- 표 --- */
 export const card = style({
   background: SURFACE,
   border: `1px solid ${BORDER}`,
   borderRadius: themeVars.radius.lg,
-  boxShadow: "0 1px 2px rgba(17,24,39,.05)",
+  boxShadow: themeVars.shadow.raised,
   overflow: "hidden",
 });
 
@@ -113,6 +147,8 @@ export const td = style({
 
 export const rowHot = style({ background: PRIMARY_TINT });
 
+export const doc = style({ display: "flex", flexDirection: "column", gap: 3 });
+
 export const docTitle = style({
   display: "inline-flex",
   alignItems: "center",
@@ -125,12 +161,12 @@ export const docTitle = style({
   },
 });
 
-export const docMeta = style({ fontSize: 12, color: FAINT, marginTop: 3 });
+export const docMeta = style({ fontSize: 12, color: FAINT, fontVariantNumeric: "tabular-nums" });
 
 const dotPulse = keyframes({
-  "0%": { boxShadow: "0 0 0 0 rgba(33,81,236,.4)" },
-  "70%": { boxShadow: "0 0 0 7px rgba(33,81,236,0)" },
-  "100%": { boxShadow: "0 0 0 0 rgba(33,81,236,0)" },
+  "0%": { boxShadow: `0 0 0 0 color-mix(in srgb, ${PRIMARY} 40%, transparent)` },
+  "70%": { boxShadow: `0 0 0 7px color-mix(in srgb, ${PRIMARY} 0%, transparent)` },
+  "100%": { boxShadow: `0 0 0 0 color-mix(in srgb, ${PRIMARY} 0%, transparent)` },
 });
 
 // 내 차례 라이브 점 — 부드러운 펄스(reduced-motion 존중).
@@ -171,10 +207,20 @@ export const personName = style({ fontWeight: 600, color: HEADING });
 
 export const personDept = style({ fontSize: 12, color: FAINT });
 
+export const stepCell = style({ display: "inline-flex", alignItems: "center", gap: 6 });
+
 export const stepPos = style({
   fontVariantNumeric: "tabular-nums",
   fontWeight: 600,
   color: HEADING,
+});
+
+export const stepTotal = style({ fontSize: "inherit", color: FAINT, fontWeight: 500 });
+
+// 경과 — 당일은 흐리게, 하루 이상 지난 결재는 경고색.
+export const elapsed = styleVariants({
+  today: { fontSize: 12, fontWeight: 500, color: FAINT },
+  overdue: { fontSize: 12, fontWeight: 700, color: WARNING_DARK },
 });
 
 export const empty = style({
