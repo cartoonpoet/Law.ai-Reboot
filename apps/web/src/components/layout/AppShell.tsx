@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { AiAssistant } from "../assistant/AiAssistant";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { RouteErrorBoundary } from "../feedback/RouteErrorBoundary";
@@ -28,6 +29,7 @@ export function AppShell() {
           </RouteErrorBoundary>
         </main>
       </div>
+      <AiAssistant />
     </div>
   );
 }
