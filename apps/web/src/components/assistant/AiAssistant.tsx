@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Icon } from "@lawkit/ui";
 import { useLocation } from "react-router-dom";
+import { cx } from "../../pages/contract/cx";
+import { useMe } from "../layout/hooks/useMe";
 import { AssistantChat } from "./AssistantChat";
 import { AssistantHome } from "./AssistantHome";
 import { ASSISTANT_POPUP, ASSISTANT_PROFILE } from "./assistantData";
@@ -16,6 +18,7 @@ type ViewTypes = "home" | "chat";
  */
 export const AiAssistant = () => {
   const { pathname } = useLocation();
+  const { me } = useMe();
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<ViewTypes>("home");
   const [isPopupDismissed, setIsPopupDismissed] = useState(false);
@@ -57,6 +60,7 @@ export const AiAssistant = () => {
         <section className={css.panel} aria-label="AI 비서">
           {view === "home" ? (
             <AssistantHome
+              userName={me?.name ?? null}
               contextLabel={getScreenLabel(pathname)}
               onClose={() => setIsOpen(false)}
               onStartChat={() => handleOpen("chat")}
@@ -76,7 +80,7 @@ export const AiAssistant = () => {
 
       <button
         type="button"
-        className={css.launcher}
+        className={cx(css.launcher, isOpen && css.launcherOpen)}
         onClick={() => (isOpen ? setIsOpen(false) : handleOpen(view))}
         aria-label={isOpen ? "AI 비서 닫기" : "AI 비서 열기"}
         aria-expanded={isOpen}

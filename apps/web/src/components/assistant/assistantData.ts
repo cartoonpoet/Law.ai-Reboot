@@ -14,7 +14,7 @@ export const ASSISTANT_PROFILE = {
   status: "보통 즉시 답변해요",
 };
 
-export const ASSISTANT_POPUP = "손준호 님, 오늘 챙길 일이 3건 있어요. 급한 배정부터 같이 처리할까요?";
+export const ASSISTANT_POPUP = "오늘 챙길 일이 3건 있어요. 급한 배정부터 같이 처리할까요?";
 
 export const ASSISTANT_RECENT = {
   preview: "한라산 EV 계약 리스크 요약을 정리해 뒀어요.",
@@ -24,7 +24,7 @@ export const ASSISTANT_RECENT = {
 export const ASSISTANT_GREETING: ChatMessage = {
   id: "greeting",
   role: "assistant",
-  text: "안녕하세요, 손준호 님. 지금 보고 있는 화면을 알고 있어요. 궁금한 걸 묻거나 시킬 일을 말씀해 주세요.",
+  text: "안녕하세요. 지금 보고 있는 화면을 알고 있어요. 궁금한 걸 묻거나 시킬 일을 말씀해 주세요.",
   time: "오전 9:42",
 };
 
@@ -49,4 +49,4 @@ export const ASSISTANT_COMMANDS = [
 ];
 
 export const ASSISTANT_FALLBACK =
-  "알겠어요. 실제 서비스에서는 권한 안의 계약·자문·송무 데이터를 찾아 답하거나, 실행 전 확인을 받고 처리해요. (시안에서는 추천 명령만 답변이 준비돼 있어요)";
+  "알겠어요. 실제 서비스에서는 권한 안의 계약·자문·송무 데이터를 찾아 답하거나, 실행 전 확인을 받고 처리해요. (지금은 추천 명령에만 답변이 준비돼 있어요)";

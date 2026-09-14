@@ -35,6 +35,9 @@ export const launcher = style({
   },
 });
 
+// 모바일에선 패널이 화면을 덮으므로 열려 있는 동안 런처를 숨긴다(입력창 보내기 버튼을 가리지 않게).
+export const launcherOpen = style({ "@media": { [MOBILE]: { display: "none" } } });
+
 export const launcherIcon = style({ width: 26, height: 26, color: c.textInverse });
 
 export const unreadBadge = style({

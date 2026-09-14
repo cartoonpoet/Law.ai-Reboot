@@ -30,7 +30,7 @@ export interface BriefPoint {
 }
 
 export const AI_BRIEF: { headline: string; points: BriefPoint[] } = {
-  headline: "오늘 손준호 님이 챙겨야 할 일은 3건입니다.",
+  headline: "오늘 챙겨야 할 일은 3건입니다.",
   points: [
     {
       id: "b1",

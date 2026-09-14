@@ -1,9 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useMe } from "../layout/hooks/useMe";
 import { AiAssistant } from "./AiAssistant";
 import { ASSISTANT_COMMANDS, ASSISTANT_GREETING, ASSISTANT_POPUP } from "./assistantData";
+
+vi.mock("../layout/hooks/useMe");
+
+const ME = { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x" };
 
 const renderAssistant = (path = "/") =>
   render(
@@ -13,6 +18,23 @@ const renderAssistant = (path = "/") =>
   );
 
 describe("AiAssistant", () => {
+  beforeEach(() => {
+    vi.mocked(useMe).mockReturnValue({ me: ME });
+  });
+
+  it("홈 인사에 로그인 사용자 이름을 쓰고, 불러오기 전엔 이름 없이 인사한다", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderAssistant();
+    await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+    expect(screen.getByText(/안녕하세요, 김지원 님/)).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(useMe).mockReturnValue({ me: null });
+    renderAssistant();
+    await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+    expect(screen.getByRole("heading", { name: /^안녕하세요\s*무엇을 도와드릴까요\?$/ })).toBeInTheDocument();
+  });
+
   it("닫혀 있을 때 먼저 말 거는 말풍선을 띄우고, 닫으면 사라진다", async () => {
     const user = userEvent.setup();
     renderAssistant();

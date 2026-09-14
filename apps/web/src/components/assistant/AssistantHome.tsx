@@ -3,6 +3,8 @@ import { ASSISTANT_COMMANDS, ASSISTANT_PROFILE, ASSISTANT_RECENT } from "./assis
 import * as css from "./aiAssistant.css";
 
 interface AssistantHomeProps {
+  // 로그인 사용자 이름 — 불러오기 전·실패 시 null 이면 이름 없이 인사
+  userName: string | null;
   contextLabel: string;
   onClose: () => void;
   onStartChat: () => void;
@@ -10,7 +12,7 @@ interface AssistantHomeProps {
 }
 
 /** AI 비서 홈 — 인사 헤더 위에 카드가 겹쳐 올라온다(새 대화 · 자주 시키는 일 · 최근 대화). */
-export const AssistantHome = ({ contextLabel, onClose, onStartChat, onQuickCommand }: AssistantHomeProps) => (
+export const AssistantHome = ({ userName, contextLabel, onClose, onStartChat, onQuickCommand }: AssistantHomeProps) => (
   <>
     <div className={css.homeScroll}>
       <header className={css.homeHero}>
@@ -21,7 +23,7 @@ export const AssistantHome = ({ contextLabel, onClose, onStartChat, onQuickComma
           </button>
         </div>
         <h2 className={css.heroTitle}>
-          안녕하세요, 손준호 님
+          {userName ? `안녕하세요, ${userName} 님` : "안녕하세요"}
           <br />
           무엇을 도와드릴까요?
         </h2>

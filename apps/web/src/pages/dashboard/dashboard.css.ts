@@ -8,7 +8,6 @@ const c = themeVars.color;
 const NARROW = "screen and (max-width: 1100px)";
 const FAINT = c.neutralBorderStrong;
 
-
 /* --- 대시보드 골격 --- */
 export const dash = style({ display: "flex", flexDirection: "column", gap: 16 });
 
