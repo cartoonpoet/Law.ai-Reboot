@@ -14,17 +14,25 @@ import {
   AUTH_REFRESH_PATH,
   SESSION_EXPIRED_REDIRECT,
 } from "./tokens";
+import { ApiError, NETWORK_ERROR_MESSAGE, NETWORK_ERROR_STATUS, toResponseError } from "./apiError";
 
-function doFetch(path: string, options: RequestInit): Promise<Response> {
+const SESSION_EXPIRED_MESSAGE = "세션이 만료되었습니다. 다시 로그인해 주세요";
+
+// 서버에 닿지 못한 실패(오프라인·CORS·DNS)는 fetch 가 TypeError 를 던진다 → status 0 ApiError 로 통일.
+async function doFetch(path: string, options: RequestInit): Promise<Response> {
   const token = getAccessToken();
-  return fetch(`${getApiBaseUrl()}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers ?? {}),
-    },
-  });
+  try {
+    return await fetch(`${getApiBaseUrl()}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers ?? {}),
+      },
+    });
+  } catch {
+    throw new ApiError(NETWORK_ERROR_STATUS, NETWORK_ERROR_MESSAGE);
+  }
 }
 
 export async function apiFetch<T>(
@@ -48,13 +56,12 @@ export async function apiFetch<T>(
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = SESSION_EXPIRED_REDIRECT;
       }
-      throw new Error("세션이 만료되었습니다. 다시 로그인해 주세요");
+      throw new ApiError(401, SESSION_EXPIRED_MESSAGE);
     }
   }
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string };
-    throw new Error(body.message ?? `요청 실패 (${res.status})`);
+    throw await toResponseError(res);
   }
   return res.json() as Promise<T>;
 }
@@ -79,13 +86,12 @@ export async function apiFetchVoid(
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = SESSION_EXPIRED_REDIRECT;
       }
-      throw new Error("세션이 만료되었습니다. 다시 로그인해 주세요");
+      throw new ApiError(401, SESSION_EXPIRED_MESSAGE);
     }
   }
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string };
-    throw new Error(body.message ?? `요청 실패 (${res.status})`);
+    throw await toResponseError(res);
   }
 }
 
@@ -110,13 +116,12 @@ export async function apiFetchNullable<T>(
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = SESSION_EXPIRED_REDIRECT;
       }
-      throw new Error("세션이 만료되었습니다. 다시 로그인해 주세요");
+      throw new ApiError(401, SESSION_EXPIRED_MESSAGE);
     }
   }
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string };
-    throw new Error(body.message ?? `요청 실패 (${res.status})`);
+    throw await toResponseError(res);
   }
 
   const text = await res.text();

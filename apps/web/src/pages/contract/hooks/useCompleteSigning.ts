@@ -17,6 +17,8 @@ export const useCompleteSigning = (contractId: string) => {
       void qc.invalidateQueries({ queryKey: ["contract", contractId] });
       void qc.invalidateQueries({ queryKey: ["contracts"] });
     },
+    // 체결 처리 모달이 실패 사유를 인라인으로 보여준다.
+    meta: { errorMode: "silent" },
   });
   return {
     submit: mutation.mutate,

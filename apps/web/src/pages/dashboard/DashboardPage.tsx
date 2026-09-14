@@ -1,143 +1,45 @@
-import { Icon, Button } from "@lawkit/ui";
 import { useNavigate } from "react-router-dom";
-import { T } from "../../design/tokens";
-import { Eyebrow } from "../../components/ui/Eyebrow";
-import { PipelineStrip } from "./PipelineStrip";
 import { AiBrief } from "./AiBrief";
-import { TodoPanel } from "./TodoPanel";
+import { getTodoPath } from "./getTodoPath";
+import { PipelineStrip } from "./PipelineStrip";
 import { SideRail } from "./SideRail";
+import { TodoPanel } from "./TodoPanel";
+import { TODAY_LABEL } from "./mock-data";
+import type { TodoItem } from "./mock-data";
+import * as css from "./dashboard.css";
 
-export function DashboardPage() {
+/**
+ * 홈 대시보드 — AI 요약 → 업무 파이프라인 → 내 할일 | 일정·공지.
+ * 사이드바에 있는 액션(검토 요청 등)은 두지 않고, 항목마다 AI 판단·준비물을 붙인다. AI 비서는 AppShell 이 모든 화면에 띄운다.
+ */
+export const DashboardPage = () => {
   const navigate = useNavigate();
+
+  const handleOpenTodo = (todo: TodoItem) => {
+    const path = getTodoPath(todo);
+    if (path) navigate(path);
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-          paddingBottom: 12,
-          borderBottom: `1px solid ${T.border}`,
-        }}
-      >
+    <div className={css.dash}>
+      <header className={css.header}>
         <div>
-          <Eyebrow>법무 대시보드</Eyebrow>
-          <h1
-            style={{
-              margin: "7px 0 0",
-              fontSize: 22,
-              fontWeight: 800,
-              color: T.heading,
-              letterSpacing: "-0.025em",
-            }}
-          >
-            업무 요약
-          </h1>
+          <div className={css.eyebrow}>법무 대시보드</div>
+          <h1 className={css.h1}>업무 요약</h1>
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            paddingBottom: 2,
-          }}
-        >
-          <div style={{ textAlign: "right" }}>
-            <div
-              style={{
-                fontSize: 11,
-                color: T.faint,
-                fontWeight: 600,
-                marginBottom: 1,
-              }}
-            >
-              처리 대기
-            </div>
-            <div
-              style={{
-                fontSize: 20,
-                fontWeight: 800,
-                color: T.heading,
-                letterSpacing: "-0.02em",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              5
-            </div>
-          </div>
-          <div
-            style={{ width: 1, height: 26, background: T.border }}
-          />
-          <div style={{ textAlign: "right" }}>
-            <div
-              style={{
-                fontSize: 11,
-                color: T.faint,
-                fontWeight: 600,
-                marginBottom: 1,
-              }}
-            >
-              기한 임박
-            </div>
-            <div
-              style={{
-                fontSize: 20,
-                fontWeight: 800,
-                color: T.danger,
-                letterSpacing: "-0.02em",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              2
-            </div>
-          </div>
-          <div
-            style={{ width: 1, height: 26, background: T.border }}
-          />
-          <div style={{ textAlign: "right" }}>
-            <div
-              style={{
-                fontSize: 12.5,
-                fontWeight: 600,
-                color: T.body,
-              }}
-            >
-              2026.06.09 (화)
-            </div>
-            <div style={{ fontSize: 11, color: T.faint, marginTop: 2 }}>
-              마지막 동기화 09:42
-            </div>
-          </div>
-          <Button
-            size="small"
-            iconLeft={
-              <Icon
-                name="contractEdit"
-                size="sm"
-                style={{ width: 13, height: 13 }}
-              />
-            }
-            onClick={() => navigate("/contract/request")}
-          >
-            검토 요청
-          </Button>
+        <div className={css.headerMeta}>
+          <div className={css.headerDate}>{TODAY_LABEL}</div>
+          <div className={css.headerSync}>마지막 동기화 09:42</div>
         </div>
-      </div>
+      </header>
 
       <AiBrief />
       <PipelineStrip />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 312px",
-          gap: 16,
-          alignItems: "start",
-        }}
-      >
-        <TodoPanel onOpen={(id) => navigate(`/contract/${id}`)} />
+      <div className={css.bodyGrid}>
+        <TodoPanel onOpen={handleOpenTodo} />
         <SideRail />
       </div>
     </div>
   );
-}
+};

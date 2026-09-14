@@ -13,6 +13,7 @@ export const useTenantSwitcher = () => {
   const query = useQuery({
     queryKey: MY_TENANTS_QUERY_KEY,
     queryFn: getMyTenants,
+    meta: { errorMode: "silent" },
   });
 
   const switchMutation = useMutation({
@@ -21,6 +22,8 @@ export const useTenantSwitcher = () => {
       setTokens(res.tokens.accessToken, res.tokens.refreshToken);
       window.location.assign("/");
     },
+    // 실패는 TenantSwitcher 가 인라인(isSwitchError)으로 보여준다.
+    meta: { errorMode: "silent" },
   });
 
   // 파생 값은 렌더 중 계산(useMemo 미사용 — 컨벤션).

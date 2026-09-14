@@ -9,6 +9,7 @@ interface DecideVars {
 }
 
 // 체결 품의 상신 + 결재 승인/반려. 성공 시 계약 상세·대기함 캐시 무효화로 재조회.
+// 실패는 전역 토스트(queryClient MutationCache)가 알린다.
 export const useContractApproval = (contractId: string) => {
   const queryClient = useQueryClient();
 
@@ -18,6 +19,7 @@ export const useContractApproval = (contractId: string) => {
       queryClient.invalidateQueries({ queryKey: ["contract", contractId] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
     },
+    meta: { errorTitle: "체결 품의를 상신하지 못했어요" },
   });
 
   const decide = useMutation({
@@ -27,6 +29,7 @@ export const useContractApproval = (contractId: string) => {
       queryClient.invalidateQueries({ queryKey: ["contract", contractId] });
       queryClient.invalidateQueries({ queryKey: ["approvalInbox"] });
     },
+    meta: { errorTitle: "결재를 처리하지 못했어요" },
   });
 
   return {

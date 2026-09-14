@@ -18,7 +18,6 @@ const mockHook = (over: Partial<ReturnType<typeof useMembers>> = {}) => {
       { id: "i1", email: "p@d.com", role: "general", expiresAt: "2026-09-17T00:00:00.000Z", createdAt: "2026-09-10T00:00:00.000Z" },
     ],
     isLoading: false,
-    isError: false,
     invite,
     isInviting: false,
     resend,

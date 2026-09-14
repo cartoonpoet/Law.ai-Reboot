@@ -358,6 +358,8 @@ export function ContractDetailPage() {
     queryKey: ["contract", id],
     queryFn: () => getContract(id),
     enabled: Boolean(id),
+    // 상세의 주 데이터 — 없음(404)·권한 없음(403)·서버 오류는 본문을 오류 페이지로.
+    meta: { errorMode: "page" },
   });
   const { changeStatus, isUpdating } = useContractStatus(id);
   const { me } = useMe();

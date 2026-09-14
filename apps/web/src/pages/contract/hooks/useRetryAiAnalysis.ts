@@ -9,6 +9,7 @@ export const useRetryAiAnalysis = (targetId: string, kind: string | null) => {
     mutationFn: () => retryAiAnalysis("contract", targetId, kind ?? ""),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["aiAnalysis", "contract", targetId, kind] }),
+    meta: { errorTitle: "AI 분석을 다시 요청하지 못했어요" },
   });
 
   return {
