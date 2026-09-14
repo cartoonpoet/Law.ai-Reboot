@@ -64,68 +64,85 @@ export const AI_BRIEF: { headline: string; points: BriefPoint[] } = {
   ],
 };
 
-/* --- 업무 현황: 계약 전용 파이프라인 대신 업무 종류별 한 줄 + 막힌 단계 + AI 판단 --- */
-export type StageToneTypes = "danger" | "warning" | "default";
+/* --- 파이프라인: 현재 계약 검토 파이프라인 UI 그대로, 업무 종류만 바꿔 볼 수 있게 + AI 병목 분석 --- */
+export type StageToneTypes = "danger" | "primary" | "success" | "neutral";
 
-export interface WorkStage {
+export interface FlowStage {
   label: string;
   count: number;
+  bottleneck: boolean;
   tone: StageToneTypes;
 }
 
-export interface WorkStatusEntry {
+export interface Pipeline {
   domain: DomainTypes;
-  stages: WorkStage[];
-  ai: string | null;
+  title: string;
+  stages: FlowStage[];
+  ai: { text: string; action: string } | null;
 }
 
-export const WORK_STATUS: WorkStatusEntry[] = [
+export const PIPELINES: Pipeline[] = [
   {
     domain: "계약",
+    title: "계약 검토 파이프라인",
     stages: [
-      { label: "검토 의뢰", count: 6, tone: "default" },
-      { label: "배정", count: 12, tone: "danger" },
-      { label: "법무 검토", count: 22, tone: "warning" },
-      { label: "요청자 검토", count: 9, tone: "default" },
-      { label: "체결 진행", count: 7, tone: "default" },
+      { label: "검토 의뢰", count: 6, bottleneck: false, tone: "neutral" },
+      { label: "배정", count: 12, bottleneck: true, tone: "danger" },
+      { label: "법무 검토", count: 22, bottleneck: true, tone: "primary" },
+      { label: "요청자 검토", count: 9, bottleneck: false, tone: "neutral" },
+      { label: "검토 완료", count: 18, bottleneck: false, tone: "success" },
+      { label: "체결 진행", count: 7, bottleneck: false, tone: "neutral" },
     ],
-    ai: "배정이 평균 3.2일로 1.5일 늘었어요 · 김법무·이법무에게 나눠 배정 추천",
+    ai: {
+      text: "배정 단계가 평균 3.2일로 지난달보다 1.5일 늘었어요. IT 용역 계약이 몰려 있어 김법무·이법무에게 나눠 배정하는 걸 추천해요.",
+      action: "추천 배정안 보기",
+    },
   },
   {
     domain: "자문",
+    title: "법률자문 파이프라인",
     stages: [
-      { label: "접수", count: 4, tone: "default" },
-      { label: "검토 중", count: 7, tone: "default" },
-      { label: "회신 대기", count: 3, tone: "warning" },
+      { label: "접수", count: 4, bottleneck: false, tone: "neutral" },
+      { label: "배정", count: 2, bottleneck: false, tone: "neutral" },
+      { label: "검토 중", count: 7, bottleneck: false, tone: "neutral" },
+      { label: "회신 대기", count: 9, bottleneck: true, tone: "primary" },
+      { label: "회신 완료", count: 11, bottleneck: false, tone: "success" },
     ],
-    ai: "회신 대기 3건 중 2건은 유사 자문이 있어 초안 준비됨",
+    ai: { text: "회신 대기 9건 중 5건은 유사 자문 이력이 있어 회신 초안을 준비해 뒀어요.", action: "회신 초안 보기" },
   },
   {
     domain: "송무",
+    title: "송무 파이프라인",
     stages: [
-      { label: "소송 준비", count: 2, tone: "default" },
-      { label: "진행 중", count: 9, tone: "default" },
-      { label: "기일 7일 이내", count: 2, tone: "danger" },
+      { label: "사건 접수", count: 2, bottleneck: false, tone: "neutral" },
+      { label: "소송 준비", count: 3, bottleneck: false, tone: "neutral" },
+      { label: "1심", count: 6, bottleneck: false, tone: "neutral" },
+      { label: "기일 임박", count: 4, bottleneck: true, tone: "danger" },
+      { label: "종결", count: 5, bottleneck: false, tone: "success" },
     ],
-    ai: "물품대금 청구 변론기일 D-3 · 준비서면 쟁점 정리됨",
+    ai: { text: "7일 안에 기일이 4건 몰려 있어요. 준비서면 쟁점 요약 3건을 먼저 만들어 뒀어요.", action: "쟁점 요약 보기" },
   },
   {
     domain: "인감",
+    title: "인감 사용 신청 파이프라인",
     stages: [
-      { label: "신청", count: 5, tone: "default" },
-      { label: "결재 중", count: 3, tone: "default" },
-      { label: "날인 대기", count: 2, tone: "default" },
+      { label: "신청", count: 5, bottleneck: false, tone: "neutral" },
+      { label: "결재 중", count: 3, bottleneck: false, tone: "neutral" },
+      { label: "날인 대기", count: 2, bottleneck: false, tone: "neutral" },
+      { label: "날인 완료", count: 14, bottleneck: false, tone: "success" },
     ],
     ai: null,
   },
   {
     domain: "지식재산",
+    title: "지식재산권 파이프라인",
     stages: [
-      { label: "출원 준비", count: 1, tone: "default" },
-      { label: "심사 중", count: 6, tone: "default" },
-      { label: "갱신 30일 이내", count: 2, tone: "warning" },
+      { label: "출원 준비", count: 1, bottleneck: false, tone: "neutral" },
+      { label: "심사 중", count: 6, bottleneck: false, tone: "neutral" },
+      { label: "등록", count: 21, bottleneck: false, tone: "success" },
+      { label: "갱신 임박", count: 2, bottleneck: true, tone: "danger" },
     ],
-    ai: "상표 2건 갱신기한 임박 · 갱신 신청서 초안 준비됨",
+    ai: { text: "상표 2건의 갱신기한이 30일 안에 끝나요. 갱신 신청서 초안을 준비해 뒀어요.", action: "갱신 신청서 보기" },
   },
 ];
 

@@ -147,51 +147,71 @@ export const briefBar = styleVariants({
 
 export const briefText = style({ flex: 1, fontSize: 12.5, color: c.textSecondary, lineHeight: 1.5 });
 
-/* --- 업무 현황 --- */
-export const statusRow = style({
-  display: "grid",
-  gridTemplateColumns: "88px minmax(0, 1fr)",
-  gap: 14,
-  alignItems: "start",
-  padding: "11px 16px",
-  borderBottom: `1px solid ${c.neutralBorder}`,
-  selectors: { "&:last-child": { borderBottom: "none" } },
+/* --- 파이프라인 --- */
+export const pipelineTabs = style({ padding: "8px 16px 0", borderBottom: `1px solid ${c.neutralBorder}` });
+
+export const stageRow = style({ display: "flex" });
+export const stageWrap = style({ display: "flex", alignItems: "center", flex: 1 });
+export const stage = style({ flex: 1, padding: "13px 14px 12px", position: "relative" });
+
+export const stageBottleneck = styleVariants({
+  danger: { background: `color-mix(in srgb, ${c.accentDanger} 6%, ${c.neutralSurface})` },
+  primary: { background: `color-mix(in srgb, ${c.accentPrimary} 6%, ${c.neutralSurface})` },
+  success: {},
+  neutral: {},
 });
 
-export const statusDomain = style({ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3, paddingTop: 3 });
-export const statusTotal = style({ fontSize: 12, fontWeight: 700, color: c.textMuted, fontVariantNumeric: "tabular-nums" });
-export const statusMain = style({ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 });
-export const statusStages = style({ display: "flex", flexWrap: "wrap", alignItems: "center", rowGap: 6 });
-export const statusStageWrap = style({ display: "inline-flex", alignItems: "center" });
-
-export const stageChip = style({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "3px 10px",
-  borderRadius: 6,
+export const bottleneckTag = style({
+  position: "absolute",
+  top: 7,
+  right: 8,
+  fontSize: 9.5,
+  fontWeight: 700,
+  background: c.neutralSurface,
   border: `1px solid ${c.neutralBorder}`,
-  fontSize: 12,
-  color: c.textSecondary,
-  whiteSpace: "nowrap",
+  padding: "1px 5px",
+  borderRadius: 3,
 });
 
-export const stageChipTone = styleVariants({
-  default: { background: c.neutralSurfaceAlt },
-  warning: {
-    background: `color-mix(in srgb, ${c.accentWarning} 12%, ${c.neutralSurface})`,
-    borderColor: `color-mix(in srgb, ${c.accentWarning} 40%, ${c.neutralSurface})`,
-    color: c.accentWarningActive,
-  },
-  danger: {
-    background: `color-mix(in srgb, ${c.accentDanger} 8%, ${c.neutralSurface})`,
-    borderColor: `color-mix(in srgb, ${c.accentDanger} 35%, ${c.neutralSurface})`,
-    color: c.accentDangerActive,
-  },
+export const stageLabel = style({ fontSize: 11, fontWeight: 600, color: FAINT, marginBottom: 8, whiteSpace: "nowrap" });
+export const barBox = style({ display: "flex", alignItems: "flex-end", height: 28, marginBottom: 7 });
+
+const barBase = style({ width: "55%", borderRadius: 3 });
+
+export const barTone = styleVariants({
+  danger: [barBase, { background: c.accentDanger }],
+  primary: [barBase, { background: c.accentPrimary }],
+  success: [barBase, { background: c.accentSuccess }],
+  neutral: [barBase, { background: FAINT }],
 });
 
-export const stageChipCount = style({ fontSize: 13, fontWeight: 800, fontVariantNumeric: "tabular-nums" });
-export const chevron = style({ width: 11, height: 11, color: FAINT, flexShrink: 0, margin: "0 3px" });
+export const barFaint = style({ opacity: 0.35 });
+
+// 막대 높이(3~26px) — 인라인 스타일 없이 값별 클래스로.
+export const barHeight = styleVariants(
+  Object.fromEntries(Array.from({ length: 27 }, (_, h) => [String(h), { height: Math.max(3, h) }])),
+);
+
+export const stageCount = style({ fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" });
+
+export const countTone = styleVariants({
+  danger: { color: c.accentDanger },
+  primary: { color: c.accentPrimary },
+  success: { color: c.textHeading },
+  neutral: { color: c.textHeading },
+});
+
+export const stageUnit = style({ fontSize: 11, color: FAINT, marginTop: 1 });
+export const chevron = style({ width: 11, height: 11, color: FAINT, flexShrink: 0 });
+
+export const pipelineAi = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "10px 16px",
+  borderTop: `1px solid ${c.neutralBorder}`,
+});
 
 /* --- 할 일 패널 --- */
 export const filterBar = style({
