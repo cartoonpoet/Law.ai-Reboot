@@ -65,6 +65,10 @@ const response: ContractResponse = {
   updatedAt: "2026-06-08T00:00:00.000Z",
 };
 
+// AI 카드는 계약 조회 → AI 분석 조회 두 번의 비동기를 거쳐 그려진다. CI(lint·test·build 동시 실행)에서
+// 기본 1초 대기로는 가끔 모자라 실패했으므로 AI 카드 결과는 넉넉히 기다린다.
+const AI_CARD_WAIT = { timeout: 5000 };
+
 function renderAt(id: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -116,7 +120,7 @@ describe("ContractDetailPage", () => {
     renderAt("uuid-1");
     expect(await screen.findByText("AI 계약 리스크")).toBeInTheDocument();
     expect(aiApi.getAiAnalysis).toHaveBeenCalledWith("contract", "uuid-1", "risk");
-    expect(await screen.findByText("아직 AI 분석이 시작되지 않았습니다.")).toBeInTheDocument();
+    expect(await screen.findByText("아직 AI 분석이 시작되지 않았습니다.", {}, AI_CARD_WAIT)).toBeInTheDocument();
   });
 
   it("AI 계약 리스크: succeeded 상태면 kind별 result(risks)를 렌더한다", async () => {
@@ -129,7 +133,7 @@ describe("ContractDetailPage", () => {
       updatedAt: "2026-06-09T00:00:00.000Z",
     } satisfies AiAnalysisDto);
     renderAt("uuid-1");
-    expect(await screen.findByText("손해배상 한도")).toBeInTheDocument();
+    expect(await screen.findByText("손해배상 한도", {}, AI_CARD_WAIT)).toBeInTheDocument();
     expect(screen.getByText("고위험")).toBeInTheDocument();
     expect(screen.getByText(/고위험 1/)).toBeInTheDocument();
   });
@@ -144,7 +148,7 @@ describe("ContractDetailPage", () => {
       updatedAt: "2026-06-09T00:00:00.000Z",
     } satisfies AiAnalysisDto);
     renderAt("uuid-1");
-    expect(await screen.findByText("AI 분석 진행 중입니다…")).toBeInTheDocument();
+    expect(await screen.findByText("AI 분석 진행 중입니다…", {}, AI_CARD_WAIT)).toBeInTheDocument();
   });
 
   it("AI 계약 리스크: skipped 상태면 AI 설정 안내와 /system 링크를 렌더한다", async () => {
@@ -157,7 +161,7 @@ describe("ContractDetailPage", () => {
       updatedAt: "2026-06-09T00:00:00.000Z",
     } satisfies AiAnalysisDto);
     renderAt("uuid-1");
-    expect(await screen.findByText(/AI 설정이 필요합니다/)).toBeInTheDocument();
+    expect(await screen.findByText(/AI 설정이 필요합니다/, {}, AI_CARD_WAIT)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "설정하러 가기" })).toBeInTheDocument();
   });
 
@@ -172,7 +176,7 @@ describe("ContractDetailPage", () => {
     } satisfies AiAnalysisDto);
     const user = userEvent.setup();
     renderAt("uuid-1");
-    expect(await screen.findByText(/분석 실패/)).toBeInTheDocument();
+    expect(await screen.findByText(/분석 실패/, {}, AI_CARD_WAIT)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /다시 시도/ }));
     expect(aiApi.retryAiAnalysis).toHaveBeenCalledWith("contract", "uuid-1", "risk");
   });
@@ -181,7 +185,7 @@ describe("ContractDetailPage", () => {
     vi.mocked(api.getContract).mockResolvedValue({ ...response, status: "requesterReview" });
     vi.mocked(aiApi.getAiAnalysis).mockClear();
     renderAt("uuid-1");
-    expect(await screen.findByText("이 단계에서는 AI 분석을 제공하지 않습니다.")).toBeInTheDocument();
+    expect(await screen.findByText("이 단계에서는 AI 분석을 제공하지 않습니다.", {}, AI_CARD_WAIT)).toBeInTheDocument();
     expect(aiApi.getAiAnalysis).not.toHaveBeenCalled();
   });
 
