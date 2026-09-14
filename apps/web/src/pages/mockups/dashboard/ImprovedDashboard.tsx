@@ -1,14 +1,14 @@
 import { ImprovedAiBrief } from "./ImprovedAiBrief";
-import { ImprovedPipeline } from "./ImprovedPipeline";
 import { ImprovedSideRail } from "./ImprovedSideRail";
 import { ImprovedTodoPanel } from "./ImprovedTodoPanel";
+import { ImprovedWorkStatus } from "./ImprovedWorkStatus";
 import { TODAY_LABEL } from "./mockDashboardData";
 import * as css from "./dashboardMock.css";
 
 /**
  * 현재 대시보드(pages/dashboard/DashboardPage) 기준 개선안 — 배치·모양은 그대로 두고
- * 불필요한 것은 빼고(머리의 처리 대기·기한 임박 숫자와 검토 요청 버튼, 할 일 검색·페이지네이션),
- * AI 보조(항목별 AI 한 줄·바로 처리 액션·병목 분석)를 옮겨 심었다. AI 비서는 DashboardMock 이 띄운다.
+ * 불필요한 것은 빼고(머리 숫자·검토 요청 버튼, 계약 전용 파이프라인·진행 중 계약 탭, 할 일 검색·페이지네이션),
+ * 업무 종류와 무관한 구성(업무 현황·내 할일)에 AI 보조를 옮겨 심었다. AI 비서는 DashboardMock 이 띄운다.
  */
 export const ImprovedDashboard = () => (
   <div className={css.dash}>
@@ -24,7 +24,7 @@ export const ImprovedDashboard = () => (
     </header>
 
     <ImprovedAiBrief />
-    <ImprovedPipeline />
+    <ImprovedWorkStatus />
 
     <div className={css.bodyGrid}>
       <ImprovedTodoPanel />

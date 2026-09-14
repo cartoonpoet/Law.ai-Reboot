@@ -20,12 +20,16 @@ export const getDday = (daysLeft: number): { label: string; tone: DdayToneTypes 
   return { label: `D-${daysLeft}`, tone: "muted" };
 };
 
-export type DomainTypes = "계약" | "자문" | "송무";
+// 사이드바 법무 업무와 같은 단위. 기능이 늘면 여기에 한 줄씩 추가.
+export type DomainTypes = "계약" | "결재" | "자문" | "송무" | "인감" | "지식재산";
 
-export const DOMAIN_TAG_COLOR: Record<DomainTypes, "primary" | "secondary" | "neutral"> = {
+export const DOMAIN_TAG_COLOR: Record<DomainTypes, "primary" | "secondary" | "neutral" | "info" | "warning" | "success"> = {
   계약: "primary",
+  결재: "info",
   자문: "secondary",
   송무: "neutral",
+  인감: "warning",
+  지식재산: "success",
 };
 
 /* --- AI 요약: 공통 버튼 3개 대신 항목마다 바로 처리 액션 --- */
@@ -60,30 +64,72 @@ export const AI_BRIEF: { headline: string; points: BriefPoint[] } = {
   ],
 };
 
-/* --- 파이프라인(현재와 동일) + AI 병목 분석 --- */
-export interface FlowStage {
-  id: string;
+/* --- 업무 현황: 계약 전용 파이프라인 대신 업무 종류별 한 줄 + 막힌 단계 + AI 판단 --- */
+export type StageToneTypes = "danger" | "warning" | "default";
+
+export interface WorkStage {
   label: string;
   count: number;
-  bottleneck: boolean;
-  tone: "danger" | "primary" | "success" | "neutral";
+  tone: StageToneTypes;
 }
 
-export const FLOW_STAGES: FlowStage[] = [
-  { id: "request", label: "검토 의뢰", count: 6, bottleneck: false, tone: "neutral" },
-  { id: "assign", label: "배정", count: 12, bottleneck: true, tone: "danger" },
-  { id: "legal", label: "법무 검토", count: 22, bottleneck: true, tone: "primary" },
-  { id: "requester", label: "요청자 검토", count: 9, bottleneck: false, tone: "neutral" },
-  { id: "review", label: "검토 완료", count: 18, bottleneck: false, tone: "success" },
-  { id: "sign", label: "체결 진행", count: 7, bottleneck: false, tone: "neutral" },
+export interface WorkStatusEntry {
+  domain: DomainTypes;
+  stages: WorkStage[];
+  ai: string | null;
+}
+
+export const WORK_STATUS: WorkStatusEntry[] = [
+  {
+    domain: "계약",
+    stages: [
+      { label: "검토 의뢰", count: 6, tone: "default" },
+      { label: "배정", count: 12, tone: "danger" },
+      { label: "법무 검토", count: 22, tone: "warning" },
+      { label: "요청자 검토", count: 9, tone: "default" },
+      { label: "체결 진행", count: 7, tone: "default" },
+    ],
+    ai: "배정이 평균 3.2일로 1.5일 늘었어요 · 김법무·이법무에게 나눠 배정 추천",
+  },
+  {
+    domain: "자문",
+    stages: [
+      { label: "접수", count: 4, tone: "default" },
+      { label: "검토 중", count: 7, tone: "default" },
+      { label: "회신 대기", count: 3, tone: "warning" },
+    ],
+    ai: "회신 대기 3건 중 2건은 유사 자문이 있어 초안 준비됨",
+  },
+  {
+    domain: "송무",
+    stages: [
+      { label: "소송 준비", count: 2, tone: "default" },
+      { label: "진행 중", count: 9, tone: "default" },
+      { label: "기일 7일 이내", count: 2, tone: "danger" },
+    ],
+    ai: "물품대금 청구 변론기일 D-3 · 준비서면 쟁점 정리됨",
+  },
+  {
+    domain: "인감",
+    stages: [
+      { label: "신청", count: 5, tone: "default" },
+      { label: "결재 중", count: 3, tone: "default" },
+      { label: "날인 대기", count: 2, tone: "default" },
+    ],
+    ai: null,
+  },
+  {
+    domain: "지식재산",
+    stages: [
+      { label: "출원 준비", count: 1, tone: "default" },
+      { label: "심사 중", count: 6, tone: "default" },
+      { label: "갱신 30일 이내", count: 2, tone: "warning" },
+    ],
+    ai: "상표 2건 갱신기한 임박 · 갱신 신청서 초안 준비됨",
+  },
 ];
 
-export const PIPELINE_AI = {
-  text: "배정 단계가 평균 3.2일로 지난달보다 1.5일 늘었어요. IT 용역 계약이 몰려 있어 김법무·이법무에게 나눠 배정하는 걸 추천해요.",
-  action: "추천 배정안 보기",
-};
-
-/* --- 내 할일(현재와 동일한 항목) + AI 이유·준비물 --- */
+/* --- 내 할일: 업무 종류 구분 없이 한 목록 + AI 이유·준비물 --- */
 export interface TodoItem {
   id: string;
   type: DomainTypes;
@@ -99,28 +145,10 @@ export const TODOS: TodoItem[] = [
   { id: "C20260609-0002", type: "계약", title: "[hkpark2] 유지보수계약서 검토 의뢰", status: "미배정", action: "배정 필요", daysLeft: 0, aiReason: "오늘이 검토기한", aiPrepared: "담당자 추천: 김법무" },
   { id: "C20250710-0004", type: "계약", title: "한라산 EV 충전기 공급계약 (AAA)", status: "법무 검토 중", action: "법무 검토", daysLeft: 2, aiReason: "손해배상 한도 300% 리스크", aiPrepared: "수정 문구 2건 준비" },
   { id: "A20260531-0011", type: "자문", title: "개인정보 위수탁 관련 자문 회신", status: "법무 검토 중", action: "회신 작성", daysLeft: 1, aiReason: "유사 자문 2건 발견", aiPrepared: "회신 초안 준비" },
-  { id: "C20260601-0007", type: "계약", title: "사후계약관리 표준 NDA 결재", status: "요청자 검토 중", action: "결재 대기", daysLeft: 3, aiReason: "표준 NDA 와 조항 차이 없음", aiPrepared: "승인 의견 초안 준비" },
+  { id: "AP20260601-0007", type: "결재", title: "사후계약관리 표준 NDA 결재", status: "요청자 검토 중", action: "결재하기", daysLeft: 3, aiReason: "표준 NDA 와 조항 차이 없음", aiPrepared: "승인 의견 초안 준비" },
   { id: "L20260520-0003", type: "송무", title: "물품대금 청구 사건 준비서면 검토", status: "법무 검토 중", action: "기일 준비", daysLeft: 1, aiReason: "변론기일 대비", aiPrepared: "쟁점 3개 요약 준비" },
-];
-
-/* --- 진행 중 계약(현재와 동일) + AI 한 줄 --- */
-export interface ContractRow {
-  id: string;
-  name: string;
-  counter: string;
-  owner: string;
-  due: string;
-  status: string;
-  secure: boolean;
-  aiHint: string;
-}
-
-export const CONTRACTS: ContractRow[] = [
-  { id: "C20250710-0004", name: "한라산 EV 충전기 공급계약", counter: "AAA", owner: "김기찬", due: "2025-09-22", status: "법무 검토 중", secure: true, aiHint: "손해배상 한도 리스크" },
-  { id: "C20250902-0001", name: "한라산용역계약서", counter: "AAA", owner: "김다함", due: "—", status: "법무 검토 중", secure: false, aiHint: "표준서식과 95% 일치" },
-  { id: "C20260609-0002", name: "[hkpark2] 통합검색 유지보수", counter: "휴맥스 테스트", owner: "미배정", due: "2026-07-06", status: "미배정", secure: true, aiHint: "김법무 배정 추천" },
-  { id: "C20260602-0018", name: "통합검색 다운로드 로직 계약서", counter: "휴맥스 테스트", owner: "박현경", due: "2026-05-12", status: "검토 완료", secure: false, aiHint: "상신만 남음 · 결재선 초안 준비" },
-  { id: "C20260601-0007", name: "사후계약관리 표준 NDA", counter: "(주)온테스트", owner: "이법무", due: "2026-06-18", status: "요청자 검토 중", secure: false, aiHint: "요청자 응답 3일째 없음" },
+  { id: "S20260608-0002", type: "인감", title: "법인인감 사용 신청 — 공급계약 날인", status: "요청자 검토 중", action: "승인 검토", daysLeft: 2, aiReason: "연결된 계약 검토 완료 확인", aiPrepared: "날인 대상 문서 대조 완료" },
+  { id: "IP20260415-0005", type: "지식재산", title: "상표 'LAWAI' 갱신 신청", status: "법무 검토 중", action: "갱신 신청", daysLeft: 12, aiReason: "갱신기한 30일 이내", aiPrepared: "갱신 신청서 초안 준비" },
 ];
 
 /* --- 일정(현재와 동일) + AI 준비물 --- */
