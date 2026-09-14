@@ -1,24 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { dday } from "./dday";
+import { getDday } from "./dday";
 
-describe("dday", () => {
-  it("0이면 D-DAY", () => {
-    expect(dday(0).t).toBe("D-DAY");
+describe("getDday", () => {
+  it("0이면 D-DAY, 빨강", () => {
+    expect(getDday(0)).toEqual({ label: "D-DAY", tone: "danger" });
   });
 
-  it("음수면 D+n (경과)", () => {
-    expect(dday(-3).t).toBe("D+3");
+  it("음수면 D+n (경과), 흐리게", () => {
+    expect(getDday(-3)).toEqual({ label: "D+3", tone: "faint" });
   });
 
   it("양수면 D-n", () => {
-    expect(dday(5).t).toBe("D-5");
+    expect(getDday(5).label).toBe("D-5");
   });
 
-  it("임박 정도에 따라 색이 달라진다(3일·7일 경계)", () => {
-    const c3 = dday(3).c;
-    const c5 = dday(5).c;
-    const c10 = dday(10).c;
-    expect(c3).not.toBe(c5);
-    expect(c5).not.toBe(c10);
+  it("3일 이내 빨강 · 7일 이내 주황 · 그 뒤 기본", () => {
+    expect(getDday(3).tone).toBe("danger");
+    expect(getDday(4).tone).toBe("warning");
+    expect(getDday(7).tone).toBe("warning");
+    expect(getDday(8).tone).toBe("muted");
   });
 });

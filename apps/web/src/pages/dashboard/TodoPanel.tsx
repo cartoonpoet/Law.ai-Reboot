@@ -1,313 +1,84 @@
 import { useState } from "react";
-import { Button, Icon, Tabs, ChipsNavigation, Input, DataTable, Pagination, PaginationCount, Avatar } from "@lawkit/ui";
-import type { ColumnDef } from "@lawkit/ui";
-import { T } from "../../design/tokens";
-import { Tag } from "../../components/ui/Tag";
+import type { MouseEvent } from "react";
+import { Button, ChipsNavigation, Icon } from "@lawkit/ui";
+import { AiNote } from "../../components/ui/AiNote";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { TODOS, CONTRACTS } from "./mock-data";
-import type { Todo, Contract } from "./mock-data";
-import { dday } from "./dday";
+import { Tag } from "../../components/ui/Tag";
+import { cx } from "../contract/cx";
+import { getDday } from "./dday";
+import { DOMAIN_TAG_COLOR, TODOS } from "./mock-data";
+import type { TodoItem } from "./mock-data";
+import * as css from "./dashboard.css";
 
-function TodoRow({ t, onOpen }: { t: Todo; onOpen?: (id: string) => void }) {
-  const [hover, setHover] = useState(false);
-  const d = dday(t.urgency);
-  const typeTone = (
-    { 계약: "primary", 자문: "secondary", 송무: "neutral" } as const
-  )[t.type] ?? ("neutral" as const);
+// 필터 칩은 할 일에 실제 있는 업무 종류에서 만든다 — 기능이 늘어도 여기를 고칠 필요가 없다.
+const FILTERS = [...new Set(TODOS.map((t) => t.type))].map((type) => ({ value: type, label: type }));
 
-  return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onClick={() => onOpen?.(t.id)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "10px 14px",
-        borderRadius: 6,
-        cursor: "pointer",
-        background: hover ? T.surfaceAlt : "transparent",
-        transition: "background .1s",
-      }}
-    >
-      <div style={{ width: 38, textAlign: "center", flexShrink: 0 }}>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 800,
-            color: d.c,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {d.t}
-        </div>
-      </div>
-      <div
-        style={{
-          width: 1,
-          height: 24,
-          background: T.border,
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            marginBottom: 3,
-          }}
-        >
-          <Tag color={typeTone}>{t.type}</Tag>
-          <span
-            style={{
-              fontSize: 11,
-              color: T.faint,
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {t.id}
-          </span>
-        </div>
-        <div
-          style={{
-            fontSize: 13.5,
-            fontWeight: 600,
-            color: T.heading,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {t.title}
-        </div>
-      </div>
-      <div
-        style={{
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <StatusBadge status={t.status} size="sm" />
-        <Button size="small" variant="outline" color="secondary" onClick={(e) => e.stopPropagation()}>
-          {t.action}
-        </Button>
-      </div>
-    </div>
-  );
+interface TodoPanelProps {
+  onOpen: (todo: TodoItem) => void;
 }
 
-function contractColumns(): ColumnDef<Contract>[] {
-  return [
-    {
-      accessorKey: "id",
-      header: "관리번호",
-      size: 130,
-      cell: (info) => (
-        <span
-          style={{
-            fontSize: 12,
-            color: T.muted,
-            fontWeight: 600,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {String(info.getValue())}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "name",
-      header: "계약명",
-      cell: (info) => (
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {info.row.original.secure && (
-            <Icon
-              name="lock"
-              size="sm"
-              style={{ width: 11, height: 11, color: T.warning, flexShrink: 0 }}
-            />
-          )}
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: T.heading,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {String(info.getValue())}
-          </span>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "counter",
-      header: "상대계약자",
-      size: 150,
-      cell: (info) => (
-        <span style={{ fontSize: 13, color: T.body }}>
-          {String(info.getValue())}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "owner",
-      header: "담당자",
-      size: 110,
-      cell: (info) => {
-        const v = String(info.getValue());
-        return v === "미배정" ? (
-          <span
-            style={{ fontSize: 12.5, color: T.danger, fontWeight: 700 }}
-          >
-            미배정
-          </span>
-        ) : (
-          <span
-            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-          >
-            <Avatar initials={v[0]} size="sm" />
-            <span style={{ fontSize: 13, color: T.body }}>{v}</span>
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: "due",
-      header: "기한",
-      size: 100,
-      cell: (info) => (
-        <span
-          style={{
-            fontSize: 12.5,
-            color: T.muted,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {String(info.getValue())}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "상태",
-      size: 130,
-      cell: (info) => (
-        <StatusBadge status={String(info.getValue())} size="sm" />
-      ),
-    },
-  ];
-}
-
-export function TodoPanel({ onOpen }: { onOpen?: (id: string) => void }) {
-  const [tab, setTab] = useState("todo");
+/** 내 할일 — 계약·결재·자문·송무·인감·지식재산을 한 목록에서 기한순으로, 행마다 AI 한 줄(왜 지금 · 준비된 것). */
+export const TodoPanel = ({ onOpen }: TodoPanelProps) => {
   const [filter, setFilter] = useState<string | string[]>("");
+  const selectedTypes = Array.isArray(filter) ? filter : [filter].filter(Boolean);
+  const todos = TODOS.filter((t) => selectedTypes.length === 0 || selectedTypes.includes(t.type)).toSorted(
+    (a, b) => a.daysLeft - b.daysLeft,
+  );
+
+  const handleActionClick = (todo: TodoItem) => (e: MouseEvent) => {
+    e.stopPropagation();
+    onOpen(todo);
+  };
 
   return (
-    <div
-      style={{
-        background: T.surface,
-        border: `1px solid ${T.border}`,
-        borderRadius: T.radius,
-        boxShadow: T.shadowCard,
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ padding: "10px 14px 0" }}>
-        <Tabs
-          size="medium"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { value: "todo", label: "내 할일", badge: TODOS.length },
-            { value: "contract", label: "진행 중 계약", badge: CONTRACTS.length },
-          ]}
-        />
+    <section className={css.card} aria-label="내 할일">
+      <header className={css.cardHead}>
+        <span className={css.cardTitle}>
+          <Icon name="checkCircle" size="sm" className={css.cardTitleIcon} />
+          내 할일
+          <span className={css.countPill}>{TODOS.length}</span>
+        </span>
+        <span className={css.cardMeta}>기한순</span>
+      </header>
+
+      <div className={css.filterBar}>
+        <ChipsNavigation allLabel="전체" value={filter} onChange={setFilter} items={FILTERS} />
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "10px 14px",
-          borderBottom: `1px solid ${T.border}`,
-          borderTop: `1px solid ${T.border}`,
-          marginTop: 10,
-        }}
-      >
-        <ChipsNavigation
-          allLabel="전체"
-          value={filter}
-          onChange={setFilter}
-          items={[
-            { value: "계약", label: "계약" },
-            { value: "송무", label: "송무" },
-            { value: "자문", label: "자문" },
-          ]}
-        />
-        <div style={{ flex: 1 }} />
-        <div style={{ width: 196 }}>
-          <Input
-            inputSize="small"
-            placeholder="관리번호·계약명 검색"
-            leftIcon={
-              <Icon
-                name="search"
-                size="sm"
-                style={{ width: 14, height: 14, color: T.faint }}
-              />
-            }
-          />
-        </div>
+      <div className={css.todoList}>
+        {todos.map((t) => {
+          const dday = getDday(t.daysLeft);
+          return (
+            <div key={t.id} className={css.todoRow} onClick={() => onOpen(t)}>
+              <div className={cx(css.ddayCol, css.ddayTone[dday.tone])}>{dday.label}</div>
+              <div className={css.divider} />
+              <div className={css.todoMain}>
+                <div className={css.todoMeta}>
+                  <Tag color={DOMAIN_TAG_COLOR[t.type]}>{t.type}</Tag>
+                  <span className={css.todoId}>{t.id}</span>
+                </div>
+                <div className={css.todoTitle}>{t.title}</div>
+                <AiNote>
+                  {t.aiReason} · {t.aiPrepared}
+                </AiNote>
+              </div>
+              <div className={css.todoSide}>
+                <StatusBadge status={t.status} size="sm" />
+                <Button size="small" variant="outline" color="secondary" onClick={handleActionClick(t)}>
+                  {t.action}
+                </Button>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {tab === "todo" ? (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 1,
-            padding: "5px 4px",
-          }}
-        >
-          {TODOS.map((t) => (
-            <TodoRow key={t.id} t={t} onOpen={onOpen} />
-          ))}
-        </div>
-      ) : (
-        <div style={{ padding: 8 }}>
-          <DataTable
-            data={CONTRACTS}
-            columns={contractColumns()}
-            getRowId={(r) => r.id}
-            emptyText="조회된 계약이 없습니다."
-            onRowClick={(r) => onOpen?.(r.id)}
-          />
-        </div>
-      )}
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "8px 14px 12px",
-          borderTop: `1px solid ${T.border}`,
-        }}
-      >
-        <PaginationCount
-          totalCount={tab === "todo" ? TODOS.length : CONTRACTS.length}
-        />
-        <Pagination page={1} totalPages={1} onPageChange={() => {}} />
+      <div className={css.panelFoot}>
+        <button type="button" className={css.linkMore}>
+          할 일 전체보기
+          <Icon name="chevronRight" size="sm" className={css.linkIcon} />
+        </button>
       </div>
-    </div>
+    </section>
   );
-}
+};

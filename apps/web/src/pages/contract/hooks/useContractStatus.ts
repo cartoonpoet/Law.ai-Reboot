@@ -18,6 +18,7 @@ export const useContractStatus = (id: string) => {
       queryClient.invalidateQueries({ queryKey: ["contract", id] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
     },
+    meta: { errorTitle: "계약 상태를 변경하지 못했어요" },
   });
 
   return {

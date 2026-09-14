@@ -19,6 +19,8 @@ export function InviteAcceptPage() {
     queryFn: () => getInviteInfo(token ?? ""),
     enabled: token !== null,
     retry: false,
+    // 만료·잘못된 초대 링크는 이 화면이 안내 문구로 보여준다.
+    meta: { errorMode: "silent" },
   });
 
   if (token === null || query.isError) {

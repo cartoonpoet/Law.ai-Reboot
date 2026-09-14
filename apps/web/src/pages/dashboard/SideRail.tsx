@@ -1,169 +1,67 @@
 import { Icon } from "@lawkit/ui";
-import { T } from "../../design/tokens";
-import { Panel } from "../../components/ui/Panel";
+import { AiNote } from "../../components/ui/AiNote";
 import { Tag } from "../../components/ui/Tag";
-import { SCHEDULE, NOTICES } from "./mock-data";
-import type { ScheduleItem, Notice } from "./mock-data";
-import { dday } from "./dday";
+import { cx } from "../contract/cx";
+import { getDday } from "./dday";
+import { DOMAIN_TAG_COLOR, NOTICES, SCHEDULE } from "./mock-data";
+import * as css from "./dashboard.css";
 
-function ScheduleRow({ item, last }: { item: ScheduleItem; last: boolean }) {
-  const d = dday(item.dleft);
-  const tagColor = (
-    { 송무: "neutral", 자문: "secondary", 계약: "primary" } as const
-  )[item.tag];
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 11,
-        padding: "10px 0",
-        borderBottom: last ? "none" : `1px solid ${T.border}`,
-      }}
-    >
-      <div style={{ width: 42, flexShrink: 0 }}>
-        <div
-          style={{
-            fontSize: 11,
-            color: T.faint,
-            fontWeight: 600,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {item.date.slice(5)}
-        </div>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 800,
-            color: d.c,
-            marginTop: 1,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {d.t}
-        </div>
-      </div>
-      <div
-        style={{
-          width: 2,
-          borderRadius: 1,
-          background: d.c === T.muted ? T.border : d.c,
-          flexShrink: 0,
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ marginBottom: 3 }}>
-          <Tag color={tagColor}>{item.tag}</Tag>
-        </div>
-        <div
-          style={{ fontSize: 13, fontWeight: 600, color: T.heading }}
-        >
-          {item.title}
-        </div>
-        <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>
-          {item.body}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NoticeRow({ item, last }: { item: Notice; last: boolean }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 9,
-        padding: "9px 0",
-        borderBottom: last ? "none" : `1px solid ${T.border}`,
-        cursor: "pointer",
-      }}
-    >
-      <Tag color={item.tag === "릴리즈" ? "primary" : "neutral"}>
-        {item.tag}
-      </Tag>
-      <span
-        style={{
-          flex: 1,
-          fontSize: 13,
-          color: T.body,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        {item.title}
-      </span>
-      {item.isNew && (
-        <span
-          style={{ fontSize: 9.5, fontWeight: 800, color: T.danger, flexShrink: 0 }}
-        >
-          N
+/** 오른쪽 레일 — 일정·기한 임박(AI 가 준비해 둔 것이 있으면 한 줄) + 공지·새소식. */
+export const SideRail = () => (
+  <div className={css.rail}>
+    <section className={css.card} aria-label="일정 · 기한 임박">
+      <header className={css.cardHead}>
+        <span className={css.cardTitle}>
+          <Icon name="calendar" size="sm" className={css.cardTitleIcon} />
+          일정 · 기한 임박
+          <span className={css.countPill}>{SCHEDULE.length}</span>
         </span>
-      )}
-      <span
-        style={{
-          fontSize: 11.5,
-          color: T.faint,
-          flexShrink: 0,
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {item.date}
-      </span>
-    </div>
-  );
-}
+      </header>
+      <div className={css.railBody}>
+        {SCHEDULE.map((s) => {
+          const dday = getDday(s.daysLeft);
+          return (
+            <div key={s.id} className={css.scheduleRow}>
+              <div className={css.scheduleDate}>
+                <div className={css.scheduleDay}>{s.date}</div>
+                <div className={cx(css.scheduleDday, css.ddayTone[dday.tone])}>{dday.label}</div>
+              </div>
+              <span className={css.scheduleBar[dday.tone]} />
+              <div className={css.scheduleMain}>
+                <div>
+                  <Tag color={DOMAIN_TAG_COLOR[s.tag]}>{s.tag}</Tag>
+                </div>
+                <div className={css.scheduleTitle}>{s.title}</div>
+                <div className={css.scheduleBody}>{s.body}</div>
+                {s.ai && <AiNote>{s.ai}</AiNote>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
 
-function LinkMore() {
-  return (
-    <button
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 2,
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        color: T.muted,
-        fontSize: 12,
-        fontWeight: 600,
-        fontFamily: "Pretendard",
-      }}
-    >
-      전체보기
-      <Icon
-        name="chevronRight"
-        size="sm"
-        style={{ width: 12, height: 12 }}
-      />
-    </button>
-  );
-}
-
-export function SideRail() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Panel title="일정 · 기한 임박" icon="calendar" badge={SCHEDULE.length}>
-        {SCHEDULE.map((s, i) => (
-          <ScheduleRow
-            key={i}
-            item={s}
-            last={i === SCHEDULE.length - 1}
-          />
+    <section className={css.card} aria-label="공지 · 새소식">
+      <header className={css.cardHead}>
+        <span className={css.cardTitle}>
+          <Icon name="bell" size="sm" className={css.cardTitleIcon} />
+          공지 · 새소식
+        </span>
+        <button type="button" className={css.linkMore}>
+          전체보기
+          <Icon name="chevronRight" size="sm" className={css.linkIcon} />
+        </button>
+      </header>
+      <div className={css.railBody}>
+        {NOTICES.map((n) => (
+          <div key={n.id} className={css.noticeRow}>
+            <Tag color={n.tag === "릴리즈" ? "primary" : "neutral"}>{n.tag}</Tag>
+            <span className={css.noticeTitle}>{n.title}</span>
+            {n.isNew && <span className={css.noticeNew}>N</span>}
+            <span className={css.noticeDate}>{n.date}</span>
+          </div>
         ))}
-      </Panel>
-
-      <Panel
-        title="공지 · 새소식"
-        icon="bell"
-        actions={<LinkMore />}
-      >
-        {NOTICES.map((n, i) => (
-          <NoticeRow key={i} item={n} last={i === NOTICES.length - 1} />
-        ))}
-      </Panel>
-    </div>
-  );
-}
+      </div>
+    </section>
+  </div>
+);
