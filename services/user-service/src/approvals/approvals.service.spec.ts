@@ -162,7 +162,7 @@ describe("ApprovalsService", () => {
 
     it("마지막 승인: 라인 approved + onApproved + 상신자 approval_completed", async () => {
       const onApproved = jest.fn().mockResolvedValue(undefined);
-      registry.register({ targetType: "contract", onApproved, onRejected: jest.fn() });
+      registry.register({ targetType: "contract", onApproved, onRejected: jest.fn(), getTargetCodes: jest.fn() });
       prisma.approvalLine.findUnique
         .mockResolvedValueOnce(
           makeLine([
@@ -196,7 +196,7 @@ describe("ApprovalsService", () => {
 
     it("반려: 라인 rejected + onRejected + 상신자 approval_rejected", async () => {
       const onRejected = jest.fn().mockResolvedValue(undefined);
-      registry.register({ targetType: "contract", onApproved: jest.fn(), onRejected });
+      registry.register({ targetType: "contract", onApproved: jest.fn(), onRejected, getTargetCodes: jest.fn() });
       prisma.approvalLine.findUnique
         .mockResolvedValueOnce(makeLine([step(0)]))
         .mockResolvedValueOnce(
@@ -245,6 +245,38 @@ describe("ApprovalsService", () => {
         .mockResolvedValueOnce([]);
       const res = await svc.inbox({ viewerId: "me", tenantContext: ctx });
       expect(res.pending).toHaveLength(0);
+    });
+
+    it("앞 단계가 진행 중이고 내 단계가 남아 있으면 upcoming(내 차례 예정)에 넣는다", async () => {
+      prisma.approvalLine.findMany
+        .mockResolvedValueOnce([
+          makeLine([step(0), step(1, { userId: "me" })], { id: "L-up" }),
+          makeLine([step(0, { userId: "me" }), step(1)], { id: "L-now" }),
+          // 참조로만 들어간 라인은 예정이 아니다
+          makeLine([step(0), step(1, { userId: "me", type: "refer" })], { id: "L-refer" }),
+        ])
+        .mockResolvedValueOnce([]);
+      const res = await svc.inbox({ viewerId: "me", tenantContext: ctx });
+      expect(res.pending.map((i) => i.lineId)).toEqual(["L-now"]);
+      expect(res.upcoming.map((i) => i.lineId)).toEqual(["L-up"]);
+      expect(res.upcoming[0].myStepOrder).toBe(1);
+    });
+
+    it("대상 도메인 핸들러에서 문서 번호를 받아 targetCode 로 채운다(핸들러 없으면 null)", async () => {
+      const getTargetCodes = jest.fn().mockResolvedValue({ C1: "C20260908-0142" });
+      registry.register({ targetType: "contract", onApproved: jest.fn(), onRejected: jest.fn(), getTargetCodes });
+      prisma.approvalLine.findMany
+        .mockResolvedValueOnce([
+          makeLine([step(0, { userId: "me" })]),
+          makeLine([step(0, { userId: "me" })], { id: "L-advice", targetType: "advice", targetId: "A1" }),
+        ])
+        .mockResolvedValueOnce([]);
+      const res = await svc.inbox({ viewerId: "me", tenantContext: ctx });
+      expect(getTargetCodes).toHaveBeenCalledWith(["C1"]);
+      expect(res.pending.map((i) => [i.lineId, i.targetCode])).toEqual([
+        ["L1", "C20260908-0142"],
+        ["L-advice", null],
+      ]);
     });
   });
 
