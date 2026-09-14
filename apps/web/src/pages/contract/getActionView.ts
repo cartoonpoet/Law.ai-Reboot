@@ -13,6 +13,7 @@ import type { ContractCan } from "@lawai/contracts";
 export type ActionButtonKind =
   | "reject" // 반려 → changeStatus("requesterReview")
   | "reviewDone" // 검토 완료 → changeStatus("reviewDone")
+  | "startReview" // 검토 시작·다시 검토 → changeStatus("legalReview")
   | "assign" // 담당자 배정 → AssignModal
   | "submitApproval" // 체결 품의 상신 → submitContractApproval
   | "approveStep" // 결재 승인 → decideApproval(approve)
@@ -61,6 +62,29 @@ const ASSIGN: ActionButton = {
   label: "담당자 배정",
   color: "secondary",
   variant: "outline",
+};
+const START_REVIEW: ActionButton = {
+  kind: "startReview",
+  label: "검토 시작",
+  color: "primary",
+  variant: "default",
+};
+const RE_REVIEW: ActionButton = {
+  kind: "startReview",
+  label: "다시 검토",
+  color: "secondary",
+  variant: "outline",
+};
+
+// 검토 단계 전이 버튼 — 서버 ALLOWED_TRANSITIONS 와 1:1 이어야 한다. 허용되지 않는 전이 버튼은
+// 400 으로 막혀 프로세스가 멈춘다(배정 중에 반려/검토완료만 보이고 "검토 시작"이 없어 진행 불가였음).
+//  assigning → legalReview / legalReview → requesterReview·reviewDone
+//  requesterReview → legalReview·reviewDone / reviewDone → legalReview
+const TRANSITION_BUTTONS: Partial<Record<ContractStatus, ActionButton[]>> = {
+  assigning: [START_REVIEW],
+  legalReview: [REJECT, REVIEW_DONE],
+  requesterReview: [RE_REVIEW, REVIEW_DONE],
+  reviewDone: [RE_REVIEW],
 };
 
 // 결재(체결 품의) 단계 이후 — 읽기 위주의 결재 현황 패널.
@@ -177,16 +201,14 @@ export const getActionView = (
     };
   }
 
-  // 검토 단계: can 게이팅으로 반려/검토완료/배정 노출.
-  const buttons: ActionButton[] = [];
-  if (can.transition) {
-    buttons.push(REJECT, REVIEW_DONE);
-  }
-  if (can.assign) {
-    buttons.push(ASSIGN);
-  }
+  // 검토 단계: 현재 상태에서 허용된 전이 버튼(can.transition) + 배정(can.assign).
+  const buttons: ActionButton[] = [
+    ...(can.transition ? (TRANSITION_BUTTONS[status] ?? []) : []),
+    ...(can.assign ? [ASSIGN] : []),
+  ];
 
-  const isUnassigned = status === "unassigned" || status === "assigning";
+  // 배정 중(assigning)은 이미 담당자가 정해진 상태 — 배정 필요 안내는 미배정일 때만.
+  const isUnassigned = status === "unassigned";
   return {
     head: "검토 액션",
     isApprovalMode: false,

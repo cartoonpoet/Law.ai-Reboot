@@ -711,6 +711,7 @@ export function ContractDetailPage() {
             isUpdating={isUpdating}
             onReject={() => changeStatus("requesterReview")}
             onReviewDone={() => changeStatus("reviewDone")}
+            onStartReview={() => changeStatus("legalReview")}
             onAssign={() => setIsAssignOpen(true)}
             approval={{
               isRequester,

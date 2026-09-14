@@ -6,7 +6,7 @@ import type { PrecheckItem } from "../getSubmitPrecheck";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { getStatusLabel } from "../contractStatus";
 import { getActionView } from "../getActionView";
-import type { ApprovalActionContext } from "../getActionView";
+import type { ActionButton, ActionButtonKind, ApprovalActionContext } from "../getActionView";
 import { CompleteSigningModal } from "./CompleteSigningModal";
 import { ApprovalStepRows } from "./ApprovalStepRows";
 import { cx } from "../cx";
@@ -23,6 +23,8 @@ interface ReviewActionPanelProps {
   isUpdating: boolean;
   onReject: () => void;
   onReviewDone: () => void;
+  // 검토 시작(배정 중 → 법무 검토) · 다시 검토(요청자 검토/검토 완료 → 법무 검토)
+  onStartReview: () => void;
   onAssign: () => void;
   // 체결 품의(상신/결재 처리) — 결재 모듈 전용.
   approval: ApprovalActionContext;
@@ -50,6 +52,7 @@ export function ReviewActionPanel({
   isUpdating,
   onReject,
   onReviewDone,
+  onStartReview,
   onAssign,
   approval,
   precheckItems,
@@ -66,6 +69,7 @@ export function ReviewActionPanel({
   const handlers = {
     reject: onReject,
     reviewDone: onReviewDone,
+    startReview: onStartReview,
     assign: onAssign,
     submitApproval: onSubmitApproval,
     approveStep: () => onApproveStep(comment),
@@ -240,6 +244,7 @@ interface ReviewActionButtonsProps {
   handlers: {
     reject: () => void;
     reviewDone: () => void;
+    startReview: () => void;
     assign: () => void;
     submitApproval: () => void;
     approveStep: () => void;
@@ -248,30 +253,30 @@ interface ReviewActionButtonsProps {
   };
 }
 
-/** 반려/검토완료는 2열 그리드, 배정·상신·체결 처리는 전체폭(시안 액션패널). */
+const TRANSITION_KINDS: ReadonlySet<ActionButtonKind> = new Set<ActionButtonKind>(["reject", "reviewDone", "startReview"]);
+
+/** 검토 전이 버튼은 2개면 2열 그리드·1개면 전체폭, 배정·상신·체결 처리는 전체폭(시안 액션패널). */
 function ReviewActionButtons({ buttons, isUpdating, handlers }: ReviewActionButtonsProps) {
-  const pair = buttons.filter((b) => b.kind === "reject" || b.kind === "reviewDone");
+  const transitions = buttons.filter((b) => TRANSITION_KINDS.has(b.kind));
   const assign = buttons.find((b) => b.kind === "assign");
   const submit = buttons.find((b) => b.kind === "submitApproval");
   const complete = buttons.find((b) => b.kind === "completeSigning");
+  const renderTransition = (b: ActionButton) => (
+    <Button
+      key={b.label}
+      size="medium"
+      color={b.color}
+      variant={b.variant}
+      disabled={isUpdating}
+      onClick={handlers[b.kind]}
+    >
+      {b.label}
+    </Button>
+  );
   return (
     <>
-      {pair.length > 0 && (
-        <div className={css.actionGrid}>
-          {pair.map((b) => (
-            <Button
-              key={b.kind}
-              size="medium"
-              color={b.color}
-              variant={b.variant}
-              disabled={isUpdating}
-              onClick={handlers[b.kind]}
-            >
-              {b.label}
-            </Button>
-          ))}
-        </div>
-      )}
+      {transitions.length > 1 && <div className={css.actionGrid}>{transitions.map(renderTransition)}</div>}
+      {transitions.length === 1 && renderTransition(transitions[0])}
       {assign && (
         <Button
           size="medium"
