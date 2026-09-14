@@ -102,7 +102,13 @@ export const NOTIFICATION_PATTERNS = {
 
 export const AI_PATTERNS = {
   ANALYZE: "ai.analyze",
+  CHAT: "ai.chat",
   LIST_MODELS: "ai.listModels",
+} as const;
+
+// AI 비서(user-service) — 사용자 업무 데이터를 모아 ai.chat 을 부르고 제안을 검증한다.
+export const ASSISTANT_PATTERNS = {
+  CHAT: "assistant.chat",
 } as const;
 
 export const AI_CREDENTIAL_PATTERNS = {

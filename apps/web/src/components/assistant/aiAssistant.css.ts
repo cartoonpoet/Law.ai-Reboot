@@ -1,4 +1,4 @@
-import { keyframes, style } from "@vanilla-extract/css";
+import { keyframes, style, styleVariants } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
 import { AI_BORDER, AI_GRADIENT, AI_TEXT, AI_TINT } from "../ui/aiTone";
 
@@ -267,3 +267,65 @@ export const composerInput = style({
 export const sendButton = style([resetButton, { width: 32, height: 32, borderRadius: "50%", background: AI_TEXT, display: "flex", alignItems: "center", justifyContent: "center" }]);
 export const sendIcon = style({ width: 14, height: 14, color: c.textInverse });
 export const composerHint = style({ marginTop: 6, textAlign: "center", fontSize: 10.5, color: FAINT });
+
+/* 제안 행동 — 화면 열기 버튼, 실행 전 확인 카드 */
+export const actionList = style({ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 });
+
+export const actionOpen = style([
+  resetButton,
+  {
+    alignSelf: "flex-start",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "5px 11px",
+    borderRadius: 999,
+    border: `1px solid ${AI_BORDER}`,
+    background: c.neutralSurface,
+    color: AI_TEXT,
+    fontSize: 12.5,
+    fontWeight: 600,
+    selectors: { "&:hover": { background: AI_TINT } },
+  },
+]);
+
+export const actionCard = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  padding: "10px 12px",
+  borderRadius: 12,
+  border: `1px solid ${AI_BORDER}`,
+  background: AI_TINT,
+});
+
+export const actionCardText = style({ fontSize: 13, lineHeight: 1.5, color: c.textHeading });
+export const actionCardButtons = style({ display: "flex", gap: 6 });
+
+const actionButtonBase = style([
+  resetButton,
+  { padding: "5px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, selectors: { "&:disabled": { opacity: 0.5, cursor: "default" } } },
+]);
+
+export const actionButton = styleVariants({
+  confirm: [actionButtonBase, { background: AI_TEXT, color: c.textInverse }],
+  cancel: [actionButtonBase, { background: c.neutralSurface, color: c.textMuted, border: `1px solid ${c.neutralBorder}` }],
+});
+
+export const actionResult = style({ fontSize: 12, fontWeight: 600, color: c.textMuted });
+
+/* 답 준비 중 */
+const typingBounce = keyframes({ "0%, 80%, 100%": { opacity: 0.3, transform: "translateY(0)" }, "40%": { opacity: 1, transform: "translateY(-3px)" } });
+
+export const typing = style({ display: "inline-flex", alignItems: "center", gap: 4, padding: "11px 14px" });
+
+export const typingDot = style({
+  width: 6,
+  height: 6,
+  borderRadius: "50%",
+  background: AI_TEXT,
+  animation: `${typingBounce} 1.2s ease-in-out infinite`,
+  selectors: { "&:nth-child(2)": { animationDelay: ".15s" }, "&:nth-child(3)": { animationDelay: ".3s" } },
+  "@media": { "(prefers-reduced-motion: reduce)": { animation: "none" } },
+});
+

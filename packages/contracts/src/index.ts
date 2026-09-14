@@ -11,5 +11,6 @@ export * from "./dto/contractCategory.dto";
 export * from "./dto/notification.dto";
 export * from "./dto/admin.dto";
 export * from "./dto/ai.dto";
+export * from "./dto/assistant.dto";
 export * from "./dto/tenant.dto";
 export * from "./dto/invite.dto";
