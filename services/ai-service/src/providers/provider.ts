@@ -1,3 +1,5 @@
+import type { AiChatMessage } from "@lawai/contracts";
+
 export interface AiModelOption {
   id: string;
   label: string;
@@ -9,10 +11,18 @@ export interface AiAnalyzeInput {
   payload: unknown;
   apiKey: string;
 }
+export interface AiChatInput {
+  model: string;
+  apiKey: string;
+  system: string;
+  messages: AiChatMessage[];
+}
 export interface AiProvider {
   id: string;
   listModels(): Promise<AiModelOption[]>;
   analyze(input: AiAnalyzeInput): Promise<{ result: unknown }>;
+  // 대화 — 모델이 돌려준 JSON 문자열을 그대로 반환(해석은 호출한 서비스가 한다).
+  chat(input: AiChatInput): Promise<{ content: string }>;
 }
 
 export class AiProviderRegistry {

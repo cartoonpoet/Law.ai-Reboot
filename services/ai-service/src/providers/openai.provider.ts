@@ -1,4 +1,4 @@
-import { AiAnalyzeInput, AiModelOption, AiProvider } from "./provider";
+import { AiAnalyzeInput, AiChatInput, AiModelOption, AiProvider } from "./provider";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -39,7 +39,35 @@ export class OpenAiProvider implements AiProvider {
   async analyze(input: AiAnalyzeInput): Promise<{ result: unknown }> {
     const { kind, model, payload, apiKey } = input;
     const systemPrompt = KIND_PROMPT[kind] ?? DEFAULT_PROMPT;
+    const content = await this.requestJsonCompletion(apiKey, model, [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: JSON.stringify(payload) },
+    ]);
 
+    let result: unknown;
+    try {
+      result = JSON.parse(content);
+    } catch {
+      throw new Error("OpenAI 응답 JSON 파싱 실패");
+    }
+
+    return { result };
+  }
+
+  // AI 비서 대화 — 시스템 지시 + 대화 기록을 보내고 JSON 문자열을 그대로 돌려준다(해석은 user-service).
+  async chat(input: AiChatInput): Promise<{ content: string }> {
+    const content = await this.requestJsonCompletion(input.apiKey, input.model, [
+      { role: "system", content: input.system },
+      ...input.messages,
+    ]);
+    return { content };
+  }
+
+  private async requestJsonCompletion(
+    apiKey: string,
+    model: string,
+    messages: { role: string; content: string }[],
+  ): Promise<string> {
     const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
       method: "POST",
       headers: {
@@ -48,10 +76,7 @@ export class OpenAiProvider implements AiProvider {
       },
       body: JSON.stringify({
         model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: JSON.stringify(payload) },
-        ],
+        messages,
         response_format: { type: "json_object" },
       }),
     });
@@ -74,14 +99,6 @@ export class OpenAiProvider implements AiProvider {
     if (typeof content !== "string") {
       throw new Error("OpenAI 응답에 컨텐츠가 없습니다");
     }
-
-    let result: unknown;
-    try {
-      result = JSON.parse(content);
-    } catch {
-      throw new Error("OpenAI 응답 JSON 파싱 실패");
-    }
-
-    return { result };
+    return content;
   }
 }

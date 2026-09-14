@@ -5,6 +5,8 @@ import {
   AI_PATTERNS,
   type AiAnalyzeRequest,
   type AiAnalyzeResult,
+  type AiChatRequest,
+  type AiChatResult,
   type AiListModelsRequest,
   type AiListModelsResult,
 } from "@lawai/contracts";
@@ -27,6 +29,10 @@ export class AiServiceClient implements AiCredentialVerifier {
 
   analyze(req: AiAnalyzeRequest): Promise<AiAnalyzeResult> {
     return firstValueFrom(this.client.send<AiAnalyzeResult>(AI_PATTERNS.ANALYZE, req));
+  }
+
+  chat(req: AiChatRequest): Promise<AiChatResult> {
+    return firstValueFrom(this.client.send<AiChatResult>(AI_PATTERNS.CHAT, req));
   }
 
   listModels(req: AiListModelsRequest): Promise<AiListModelsResult> {
