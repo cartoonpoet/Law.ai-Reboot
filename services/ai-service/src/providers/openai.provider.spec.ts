@@ -47,4 +47,34 @@ describe("OpenAiProvider", () => {
       provider.analyze({ kind: "risk", model: "gpt-4o-mini", apiKey: "sk-x", payload: {} }),
     ).rejects.toThrow(/429|rate/i);
   });
+
+  it("chat: 시스템 지시를 맨 앞에 두고 대화를 보내, 모델 컨텐츠 문자열을 그대로 반환", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{"reply":"안녕하세요","actions":[]}' } }] }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const provider = new OpenAiProvider();
+    const { content } = await provider.chat({
+      model: "gpt-4o-mini",
+      apiKey: "sk-test",
+      system: "비서 규칙",
+      messages: [{ role: "user", content: "할 일 알려줘" }],
+    });
+    expect(content).toBe('{"reply":"안녕하세요","actions":[]}');
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.messages).toEqual([
+      { role: "system", content: "비서 규칙" },
+      { role: "user", content: "할 일 알려줘" },
+    ]);
+    expect(body.response_format).toEqual({ type: "json_object" });
+  });
+
+  it("chat: 401 응답이면 인증 실패 에러를 던진다", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401, text: async () => "invalid api key" }) as unknown as typeof fetch;
+    const provider = new OpenAiProvider();
+    await expect(
+      provider.chat({ model: "gpt-4o-mini", apiKey: "sk-bad", system: "s", messages: [{ role: "user", content: "hi" }] }),
+    ).rejects.toThrow(/401|인증/);
+  });
 });

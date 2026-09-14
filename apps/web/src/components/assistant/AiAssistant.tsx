@@ -14,7 +14,7 @@ type ViewTypes = "home" | "chat";
 
 /**
  * 항상 떠 있는 AI 비서(채널톡 스타일) — AppShell 이 모든 화면에 띄운다.
- * 동그란 런처 + 먼저 말 거는 말풍선 → 홈(인사·새 대화·자주 시키는 일·최근 대화) → 대화(빠른 답장·실행 전 확인).
+ * 동그란 런처 + 먼저 말 거는 말풍선 → 홈(인사·추천 질문·이어서 대화) → 대화(실제 AI 답변·실행 전 확인).
  */
 export const AiAssistant = () => {
   const { pathname } = useLocation();
@@ -22,8 +22,10 @@ export const AiAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<ViewTypes>("home");
   const [isPopupDismissed, setIsPopupDismissed] = useState(false);
-  const chat = useAssistantChat();
+  const screenLabel = getScreenLabel(pathname);
+  const chat = useAssistantChat(screenLabel);
   const hasPopup = !isOpen && !isPopupDismissed;
+  const lastMessage = chat.messages.length > 1 ? (chat.messages.at(-1) ?? null) : null;
 
   const handleOpen = (nextView: ViewTypes) => {
     setView(nextView);
@@ -46,7 +48,6 @@ export const AiAssistant = () => {
                 <Icon name="autoAwesome" size="sm" className={css.botAvatarIcon} />
               </span>
               <span className={css.popupName}>{ASSISTANT_PROFILE.name}</span>
-              <span className={css.popupTime}>방금</span>
             </span>
             <span className={css.popupText}>{ASSISTANT_POPUP}</span>
           </button>
@@ -61,7 +62,8 @@ export const AiAssistant = () => {
           {view === "home" ? (
             <AssistantHome
               userName={me?.name ?? null}
-              contextLabel={getScreenLabel(pathname)}
+              contextLabel={screenLabel}
+              lastMessage={lastMessage}
               onClose={() => setIsOpen(false)}
               onStartChat={() => handleOpen("chat")}
               onQuickCommand={handleStartWith}
@@ -70,7 +72,11 @@ export const AiAssistant = () => {
             <AssistantChat
               messages={chat.messages}
               quickReplies={chat.quickReplies}
+              isReplying={chat.isReplying}
+              actionStates={chat.actionStates}
               onSend={chat.sendMessage}
+              onRunAction={chat.runAction}
+              onDismissAction={chat.dismissAction}
               onBack={() => setView("home")}
               onClose={() => setIsOpen(false)}
             />

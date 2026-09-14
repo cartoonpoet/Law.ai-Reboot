@@ -4,6 +4,8 @@ import {
   AI_PATTERNS,
   type AiAnalyzeRequest,
   type AiAnalyzeResult,
+  type AiChatRequest,
+  type AiChatResult,
   type AiListModelsRequest,
   type AiListModelsResult,
 } from "@lawai/contracts";
@@ -24,6 +26,17 @@ export class AiController {
       model: req.model,
       payload: req.payload,
       apiKey: req.apiKey,
+    });
+  }
+
+  @MessagePattern(AI_PATTERNS.CHAT)
+  async chat(@Payload() req: AiChatRequest): Promise<AiChatResult> {
+    const provider = this.registry.get("openai");
+    return provider.chat({
+      model: req.model,
+      apiKey: req.apiKey,
+      system: req.system,
+      messages: req.messages,
     });
   }
 
