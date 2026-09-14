@@ -1,8 +1,7 @@
 import { createVar, keyframes, style, styleVariants } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
-import { AI_BORDER, AI_TEXT, AI_TINT } from "../../components/ui/aiTone";
 
-/* 홈 대시보드 — AI 가 항목마다 판단·준비물을 붙이는 법무 대시보드. */
+/* 홈 대시보드 — 계약 검토 파이프라인, 내 할일, 기한 임박. */
 
 const c = themeVars.color;
 const NARROW = "screen and (max-width: 1100px)";
@@ -23,7 +22,6 @@ export const eyebrow = style({ fontSize: 11, fontWeight: 700, color: FAINT, lett
 export const h1 = style({ margin: "7px 0 0", fontSize: 22, fontWeight: 800, color: c.textHeading, letterSpacing: "-0.025em" });
 export const headerMeta = style({ textAlign: "right", paddingBottom: 2 });
 export const headerDate = style({ fontSize: 12.5, fontWeight: 600, color: c.textSecondary });
-export const headerSync = style({ fontSize: 11, color: FAINT, marginTop: 2 });
 
 export const bodyGrid = style({
   display: "grid",
@@ -32,8 +30,6 @@ export const bodyGrid = style({
   alignItems: "start",
   "@media": { [NARROW]: { gridTemplateColumns: "minmax(0, 1fr)" } },
 });
-
-export const rail = style({ display: "flex", flexDirection: "column", gap: 16 });
 
 export const card = style({
   background: c.neutralSurface,
@@ -57,64 +53,9 @@ export const cardTitleIcon = style({ width: 14, height: 14, color: c.textMuted }
 export const cardMeta = style({ fontSize: 11.5, color: FAINT });
 export const countPill = style({ fontSize: 11.5, fontWeight: 700, color: c.textMuted });
 
-export const linkMore = style({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 2,
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  color: c.textMuted,
-  fontSize: 12,
-  fontWeight: 600,
-  fontFamily: "inherit",
-});
-
-export const linkIcon = style({ width: 12, height: 12 });
-
-/* --- AI 보조 공통 --- */
-export const aiLabel = style({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 4,
-  fontSize: 10.5,
-  fontWeight: 700,
-  color: AI_TEXT,
-  background: AI_TINT,
-  border: `1px solid ${AI_BORDER}`,
-  padding: "2px 7px",
-  borderRadius: 4,
-  letterSpacing: "0.04em",
-});
-
-/* --- AI 요약 --- */
-export const brief = style([card, { padding: "14px 16px 16px" }]);
-export const briefTop = style({ display: "flex", alignItems: "center", gap: 8, marginBottom: 11 });
-export const briefHeadline = style({ fontSize: 14.5, fontWeight: 700, color: c.textHeading, letterSpacing: "-0.015em", marginBottom: 11 });
-export const briefList = style({ display: "flex", flexDirection: "column", gap: 7 });
-
-export const briefRow = style({
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  padding: "9px 12px",
-  borderRadius: 6,
-  background: c.neutralSurfaceAlt,
-  border: `1px solid ${c.neutralBorder}`,
-});
-
-const briefBarBase = style({ width: 2.5, alignSelf: "stretch", borderRadius: 2, flexShrink: 0 });
-
-export const briefBar = styleVariants({
-  danger: [briefBarBase, { background: c.accentDanger }],
-  primary: [briefBarBase, { background: c.accentPrimary }],
-  warning: [briefBarBase, { background: c.accentWarning }],
-});
-
-export const briefText = style({ flex: 1, fontSize: 12.5, color: c.textSecondary, lineHeight: 1.5 });
+export const emptyState = style({ padding: "28px 16px", textAlign: "center", fontSize: 13, color: c.textMuted });
 
 /* --- 파이프라인 (움직임) --- */
-// 탭을 바꾸면 stageRow 가 key 로 다시 그려져 아래 등장 애니메이션이 매번 재생된다.
 const REDUCED = "(prefers-reduced-motion: reduce)";
 const stageDelay = createVar();
 
@@ -123,13 +64,10 @@ const riseIn = keyframes({ from: { opacity: 0, transform: "translateY(6px)" }, t
 const flowDots = keyframes({ from: { backgroundPosition: "0 0" }, to: { backgroundPosition: "24px 0" } });
 const nudge = keyframes({ "0%, 70%, 100%": { transform: "translateX(0)", opacity: 0.5 }, "85%": { transform: "translateX(3px)", opacity: 1 } });
 const tagPulse = keyframes({ "0%, 100%": { transform: "scale(1)" }, "50%": { transform: "scale(1.08)" } });
-const bottleneckGlow = (color: string) =>
-  keyframes({
-    "0%, 100%": { boxShadow: `inset 0 -2px 0 ${color}` },
-    "50%": { boxShadow: `inset 0 -2px 0 ${color}, inset 0 0 0 999px color-mix(in srgb, ${color} 6%, transparent)` },
-  });
-
-export const pipelineTabs = style({ padding: "8px 16px 0", borderBottom: `1px solid ${c.neutralBorder}` });
+const busiestGlow = keyframes({
+  "0%, 100%": { boxShadow: `inset 0 -2px 0 ${c.accentDanger}` },
+  "50%": { boxShadow: `inset 0 -2px 0 ${c.accentDanger}, inset 0 0 0 999px color-mix(in srgb, ${c.accentDanger} 6%, transparent)` },
+});
 
 export const stageRow = style({ display: "flex", position: "relative" });
 
@@ -163,27 +101,19 @@ export const stage = style({
   selectors: { "&:hover": { transform: "translateY(-2px)", background: c.neutralSurfaceAlt } },
 });
 
-export const stageBottleneck = styleVariants({
-  danger: {
-    background: `color-mix(in srgb, ${c.accentDanger} 6%, ${c.neutralSurface})`,
-    animation: `${bottleneckGlow(c.accentDanger)} 2.4s ease-in-out infinite`,
-    "@media": { [REDUCED]: { animation: "none" } },
-  },
-  primary: {
-    background: `color-mix(in srgb, ${c.accentPrimary} 6%, ${c.neutralSurface})`,
-    animation: `${bottleneckGlow(c.accentPrimary)} 2.4s ease-in-out infinite`,
-    "@media": { [REDUCED]: { animation: "none" } },
-  },
-  success: {},
-  neutral: {},
+export const stageBusiest = style({
+  background: `color-mix(in srgb, ${c.accentDanger} 6%, ${c.neutralSurface})`,
+  animation: `${busiestGlow} 2.4s ease-in-out infinite`,
+  "@media": { [REDUCED]: { animation: "none" } },
 });
 
-export const bottleneckTag = style({
+export const busiestTag = style({
   position: "absolute",
   top: 7,
   right: 8,
   fontSize: 9.5,
   fontWeight: 700,
+  color: c.accentDanger,
   background: c.neutralSurface,
   border: `1px solid ${c.neutralBorder}`,
   padding: "1px 5px",
@@ -206,7 +136,6 @@ const barBase = style({
 
 export const barTone = styleVariants({
   danger: [barBase, { background: c.accentDanger }],
-  primary: [barBase, { background: c.accentPrimary }],
   success: [barBase, { background: c.accentSuccess }],
   neutral: [barBase, { background: FAINT }],
 });
@@ -222,19 +151,14 @@ export const stageCount = style({
   fontSize: 22,
   fontWeight: 800,
   letterSpacing: "-0.03em",
+  color: c.textHeading,
   fontVariantNumeric: "tabular-nums",
   animation: `${riseIn} .45s ease-out both`,
   animationDelay: `calc(${stageDelay} + 250ms)`,
   "@media": { [REDUCED]: { animation: "none" } },
 });
 
-export const countTone = styleVariants({
-  danger: { color: c.accentDanger },
-  primary: { color: c.accentPrimary },
-  success: { color: c.textHeading },
-  neutral: { color: c.textHeading },
-});
-
+export const stageCountBusiest = style({ color: c.accentDanger });
 export const stageUnit = style({ fontSize: 11, color: FAINT, marginTop: 1 });
 
 export const chevron = style({
@@ -247,16 +171,7 @@ export const chevron = style({
   "@media": { [REDUCED]: { animation: "none" } },
 });
 
-export const pipelineAi = style({
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 12,
-  padding: "10px 16px",
-  borderTop: `1px solid ${c.neutralBorder}`,
-});
-
-/* --- 할 일 패널 --- */
+/* --- 내 할일 --- */
 export const filterBar = style({
   display: "flex",
   alignItems: "center",
@@ -302,19 +217,28 @@ export const todoTitle = style({
 });
 
 export const todoSide = style({ flexShrink: 0, display: "flex", alignItems: "center", gap: 10 });
-export const panelFoot = style({ display: "flex", justifyContent: "flex-end", padding: "8px 14px 10px", borderTop: `1px solid ${c.neutralBorder}` });
-/* --- 오른쪽 레일 --- */
+
+/* --- 기한 임박 --- */
 export const railBody = style({ padding: "0 14px" });
 
-export const scheduleRow = style({
+export const deadlineRow = style({
   display: "flex",
   gap: 11,
+  width: "100%",
   padding: "10px 0",
+  border: "none",
   borderBottom: `1px solid ${c.neutralBorder}`,
-  selectors: { "&:last-child": { borderBottom: "none" } },
+  background: "none",
+  font: "inherit",
+  textAlign: "left",
+  cursor: "pointer",
+  selectors: {
+    "&:last-child": { borderBottom: "none" },
+    "&:hover": { background: c.neutralSurfaceAlt },
+  },
 });
 
-export const scheduleDate = style({ width: 42, flexShrink: 0 });
+export const scheduleDate = style({ display: "flex", flexDirection: "column", width: 42, flexShrink: 0 });
 export const scheduleDay = style({ fontSize: 11, color: FAINT, fontWeight: 600, fontVariantNumeric: "tabular-nums" });
 export const scheduleDday = style({ fontSize: 12, fontWeight: 800, marginTop: 1, fontVariantNumeric: "tabular-nums" });
 
@@ -330,19 +254,3 @@ export const scheduleBar = styleVariants({
 export const scheduleMain = style({ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 });
 export const scheduleTitle = style({ fontSize: 13, fontWeight: 600, color: c.textHeading });
 export const scheduleBody = style({ fontSize: 12, color: c.textMuted });
-
-export const noticeRow = style({
-  display: "flex",
-  alignItems: "center",
-  gap: 9,
-  padding: "9px 0",
-  borderBottom: `1px solid ${c.neutralBorder}`,
-  cursor: "pointer",
-  selectors: { "&:last-child": { borderBottom: "none" } },
-});
-
-export const noticeTitle = style({ flex: 1, minWidth: 0, fontSize: 13, color: c.textSecondary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" });
-export const noticeNew = style({ fontSize: 9.5, fontWeight: 800, color: c.accentDanger, flexShrink: 0 });
-export const noticeDate = style({ fontSize: 11.5, color: FAINT, flexShrink: 0, fontVariantNumeric: "tabular-nums" });
-
-export const aiLabelIcon = style({ width: 12, height: 12, color: AI_TEXT });
