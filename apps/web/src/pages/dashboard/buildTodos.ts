@@ -1,4 +1,5 @@
 import type { ApprovalInboxItem, ContractStatus, ContractSummary } from "@lawai/contracts";
+import { getActiveAiKind } from "../contract/getActiveAiKind";
 import { getStatusLabel } from "../contract/contractStatus";
 import type { TodoItem } from "./dashboardTypes";
 import { getDaysLeft } from "./getDaysLeft";
@@ -40,6 +41,7 @@ export const buildTodos = (params: {
   const contractTodos = contracts.flatMap((c): TodoItem[] => {
     const rule = CONTRACT_TODO_RULES[c.status];
     if (!rule || !rule.isMine(c, viewer)) return [];
+    const aiKind = getActiveAiKind(c.status);
     return [
       {
         key: `contract-${c.id}`,
@@ -50,6 +52,7 @@ export const buildTodos = (params: {
         action: rule.action,
         daysLeft: getDaysLeft(c.dueDate, now),
         path: `/contract/${c.id}`,
+        aiTarget: aiKind ? { contractId: c.id, kind: aiKind } : null,
       },
     ];
   });
@@ -64,6 +67,8 @@ export const buildTodos = (params: {
       action: "결재하기",
       daysLeft: null,
       path: "/approvals/inbox",
+      // 계약 체결 품의는 상신 시 결재자용 AI 브리핑(approvalBriefing)이 만들어진다.
+      aiTarget: a.targetType === "contract" ? { contractId: a.targetId, kind: "approvalBriefing" } : null,
     }),
   );
 

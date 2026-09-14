@@ -1,4 +1,5 @@
 import type { ApprovalInboxItem, ApproverType, StepStatus } from "@lawai/contracts";
+import type { AiInsightTarget } from "../../components/ai/useAiInsights";
 import { getDaysLeft } from "../dashboard/getDaysLeft";
 
 // targetType → 상세 딥링크. 새 도메인이 결재를 쓰면 여기에 경로만 추가한다.
@@ -54,6 +55,8 @@ export interface InboxRow {
   myStatus: StepStatus;
   myStatusLabel: string;
   myDecidedAtLabel: string | null;
+  // 결재자용 AI 브리핑 — 계약 체결 품의는 상신 시 approvalBriefing 이 만들어진다. 다른 도메인은 아직 없음.
+  aiTarget: AiInsightTarget | null;
 }
 
 export const toInboxRow = (item: ApprovalInboxItem, now: Date): InboxRow => {
@@ -77,5 +80,6 @@ export const toInboxRow = (item: ApprovalInboxItem, now: Date): InboxRow => {
     myStatus: item.myStatus,
     myStatusLabel: MY_STATUS_LABEL[item.myStatus],
     myDecidedAtLabel: item.myDecidedAt ? toMonthDay(item.myDecidedAt) : null,
+    aiTarget: item.targetType === "contract" ? { contractId: item.targetId, kind: "approvalBriefing" } : null,
   };
 };

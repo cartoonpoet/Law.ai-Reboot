@@ -51,6 +51,11 @@ describe("toInboxRow", () => {
     });
   });
 
+  it("계약 결재는 결재 브리핑 AI 분석을 붙일 대상으로, 다른 도메인은 없음", () => {
+    expect(toInboxRow(item, NOW).aiTarget).toEqual({ contractId: "C1", kind: "approvalBriefing" });
+    expect(toInboxRow({ ...item, targetType: "advice" }, NOW).aiTarget).toBeNull();
+  });
+
   it("상신일은 MM-DD 로 표기한다", () => {
     expect(toInboxRow({ ...item, submittedAt: "2026-09-11T01:00:00.000Z" }, NOW).submittedAtLabel).toBe("09-11");
   });
