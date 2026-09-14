@@ -14,7 +14,8 @@ const TIER_LABEL: Record<string, string> = {
 const formatDateTime = (iso: string): string => new Date(iso).toLocaleString("ko-KR");
 
 export function SystemSettingsPage() {
-  const { credential, isLoading, isError, models, save, isSaving } = useMyAiCredential();
+  // 설정 조회 실패는 에러 경계가 본문을 오류 페이지로 바꾼다(useMyAiCredential meta: page).
+  const { credential, isLoading, models, save, isSaving } = useMyAiCredential();
   const [modelOverride, setModelOverride] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -50,13 +51,6 @@ export function SystemSettingsPage() {
     return (
       <div className={css.page}>
         <Spinner label="불러오는 중..." />
-      </div>
-    );
-  }
-  if (isError) {
-    return (
-      <div className={css.page}>
-        <p className={css.empty}>AI 연동 설정을 불러오지 못했습니다.</p>
       </div>
     );
   }

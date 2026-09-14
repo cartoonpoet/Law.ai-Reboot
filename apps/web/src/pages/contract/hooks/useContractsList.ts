@@ -21,6 +21,8 @@ export const useContractsList = () => {
   const [page, setPage] = useState(1);
 
   const { data, isFetching } = useQuery({
+    // 목록 화면의 주 데이터 — 첫 조회 실패는 오류 페이지, 필터 변경 후 재조회 실패는 토스트.
+    meta: { errorMode: "page" },
     queryKey: ["contracts", { q, status, group, expiry, party, categoryId, mine, page }],
     queryFn: () =>
       listContracts({

@@ -29,6 +29,8 @@ export const useComments = (contractId: string) => {
     queryKey: ["comments", contractId],
     queryFn: () => listComments(contractId),
     enabled: Boolean(contractId),
+    // CommentPanel 이 조회 실패를 패널 안에 보여준다.
+    meta: { errorMode: "silent" },
   });
 
   const invalidate = () =>
@@ -45,17 +47,21 @@ export const useComments = (contractId: string) => {
     mutationFn: ({ body, mentions, attachmentIds }: AddCommentInput) =>
       createComment(contractId, body, mentions, attachmentIds),
     onSuccess: invalidateComments,
+    // 작성·수정·삭제 실패는 CommentForm / CommentItem 이 인라인으로 보여준다.
+    meta: { errorMode: "silent" },
   });
 
   const editMutation = useMutation({
     mutationFn: ({ commentId, body, mentions, attachmentIds }: EditCommentInput) =>
       updateComment(contractId, commentId, body, mentions, attachmentIds),
     onSuccess: invalidateComments,
+    meta: { errorMode: "silent" },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (commentId: string) => deleteComment(contractId, commentId),
     onSuccess: invalidate,
+    meta: { errorMode: "silent" },
   });
 
   return {

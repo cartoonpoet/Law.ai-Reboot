@@ -21,6 +21,8 @@ export const useNotifications = () => {
     queryKey: NOTIFICATIONS_QUERY_KEY,
     queryFn: () => listNotifications(NOTIFICATIONS_LIMIT),
     refetchInterval: POLL_INTERVAL_MS,
+    // 폴링 — 실패할 때마다 토스트가 쌓이지 않도록 알리지 않는다(다음 폴링에서 회복).
+    meta: { errorMode: "silent" },
   });
 
   const invalidate = () =>
@@ -29,11 +31,13 @@ export const useNotifications = () => {
   const markReadMutation = useMutation({
     mutationFn: (id: string) => markNotificationRead(id),
     onSuccess: invalidate,
+    meta: { errorTitle: "알림을 읽음 처리하지 못했어요" },
   });
 
   const markAllReadMutation = useMutation({
     mutationFn: () => markAllNotificationsRead(),
     onSuccess: invalidate,
+    meta: { errorTitle: "알림을 읽음 처리하지 못했어요" },
   });
 
   // unreadCount/notifications 는 렌더 중 파생(useMemo 미사용).

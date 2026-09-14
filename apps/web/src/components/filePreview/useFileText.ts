@@ -24,5 +24,7 @@ export const useFileText = (
     enabled: Boolean(fileId && url.data?.url),
     staleTime: STALE_MS,
     retry: 1,
+    // 비교 뷰가 실패 상태를 직접 그린다.
+    meta: { errorMode: "silent" },
   });
 };

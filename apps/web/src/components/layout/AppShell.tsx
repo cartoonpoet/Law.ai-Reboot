@@ -1,6 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { RouteErrorBoundary } from "../feedback/RouteErrorBoundary";
 
 export function AppShell() {
   return (
@@ -22,7 +23,9 @@ export function AppShell() {
             padding: "22px 24px 48px",
           }}
         >
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
     </div>
