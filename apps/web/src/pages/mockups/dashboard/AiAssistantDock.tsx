@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { KeyboardEvent } from "react";
-import { Button, Chip, FloatingModal, Icon, Input } from "@lawkit/ui";
-import { ASSISTANT_COMMANDS, ASSISTANT_FALLBACK, ASSISTANT_GREETING } from "./mockDashboardData";
-import type { ChatMessage } from "./mockDashboardData";
+import { Icon } from "@lawkit/ui";
+import { AssistantChat } from "./AssistantChat";
+import { AssistantHome } from "./AssistantHome";
+import { ASSISTANT_POPUP, ASSISTANT_PROFILE } from "./mockDashboardData";
+import { useAssistantChat } from "./useAssistantChat";
 import * as css from "./dashboardMock.css";
 
 interface AiAssistantDockProps {
@@ -10,79 +11,80 @@ interface AiAssistantDockProps {
   contextLabel: string;
 }
 
+type ViewTypes = "home" | "chat";
+
 /**
- * G. 항상 떠 있는 AI 비서 — 어느 화면에서든 우측 하단 버튼으로 열리는 비차단 대화창(lawkit FloatingModal).
- * 질문뿐 아니라 "배정해줘 / 초안 써줘 / 리마인드 보내줘" 같은 지시를 받고, 실행 전엔 항상 확인을 받는 형태.
+ * 항상 떠 있는 AI 비서 — 채널톡 스타일.
+ * 동그란 런처 + 먼저 말 거는 말풍선 → 홈(인사·새 대화·자주 시키는 일·최근 대화) → 대화(아바타·시간·빠른 답장·입력창).
  */
 export const AiAssistantDock = ({ contextLabel }: AiAssistantDockProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([ASSISTANT_GREETING]);
+  const [view, setView] = useState<ViewTypes>("home");
+  const [isPopupDismissed, setIsPopupDismissed] = useState(false);
+  const chat = useAssistantChat();
 
-  const handleSend = (text: string) => {
-    const reply = ASSISTANT_COMMANDS.find((c) => c.prompt === text)?.reply ?? ASSISTANT_FALLBACK;
-    const nextId = messages.length;
-    setMessages([
-      ...messages,
-      { id: `u${nextId}`, role: "user", text },
-      { id: `a${nextId}`, role: "assistant", text: reply },
-    ]);
+  const handleOpen = (nextView: ViewTypes) => {
+    setView(nextView);
+    setIsOpen(true);
+    setIsPopupDismissed(true);
   };
 
-  // React 19 폼 액션 — 제출 후 입력은 자동으로 비워진다.
-  const handleSubmit = (formData: FormData) => {
-    const text = String(formData.get("message") ?? "").trim();
-    if (text) handleSend(text);
-  };
-
-  const handleChipKeyDown = (prompt: string) => (e: KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleSend(prompt);
-    }
+  const handleStartWith = (prompt: string) => {
+    chat.sendMessage(prompt);
+    handleOpen("chat");
   };
 
   return (
     <>
-      {!isOpen && (
-        <button type="button" className={css.fab} onClick={() => setIsOpen(true)} aria-label="AI 비서 열기">
-          <Icon name="autoAwesome" size="sm" className={css.fabIcon} />
-          AI 비서
-        </button>
-      )}
-      <FloatingModal
-        open={isOpen}
-        onClose={() => setIsOpen(false)}
-        title="AI 비서"
-        position="bottom-right"
-        collapsible
-        closeOnEscape
-        footer={
-          <form action={handleSubmit} className={css.promptForm}>
-            <Input name="message" placeholder="질문하거나 시킬 일을 입력하세요" inputSize="small" wrapperClassName={css.promptInput} aria-label="AI 비서에게 메시지" />
-            <Button type="submit" size="small">
-              보내기
-            </Button>
-          </form>
-        }
-      >
-        <div className={css.dockBody}>
-          <span className={css.chatContext}>보고 있는 화면: {contextLabel}</span>
-          <div className={css.chatLog} aria-live="polite">
-            {[...messages].reverse().map((m) => (
-              <div key={m.id} className={css.bubble[m.role]}>
-                {m.text}
-              </div>
-            ))}
-          </div>
-          <div className={css.chipRow}>
-            {ASSISTANT_COMMANDS.map((c) => (
-              <Chip key={c.prompt} role="button" tabIndex={0} className={css.chip} onClick={() => handleSend(c.prompt)} onKeyDown={handleChipKeyDown(c.prompt)}>
-                {c.prompt}
-              </Chip>
-            ))}
-          </div>
+      {!isOpen && !isPopupDismissed && (
+        <div className={css.popup}>
+          <button type="button" className={css.popupBody} onClick={() => handleOpen("chat")}>
+            <span className={css.popupHead}>
+              <span className={css.botAvatar}>
+                <Icon name="autoAwesome" size="sm" className={css.botAvatarIcon} />
+              </span>
+              <span className={css.popupName}>{ASSISTANT_PROFILE.name}</span>
+              <span className={css.popupTime}>방금</span>
+            </span>
+            <span className={css.popupText}>{ASSISTANT_POPUP}</span>
+          </button>
+          <button type="button" className={css.popupClose} onClick={() => setIsPopupDismissed(true)} aria-label="말풍선 닫기">
+            <Icon name="close" size="sm" />
+          </button>
         </div>
-      </FloatingModal>
+      )}
+
+      {isOpen && (
+        <section className={css.panel} aria-label="AI 비서">
+          {view === "home" ? (
+            <AssistantHome
+              contextLabel={contextLabel}
+              onClose={() => setIsOpen(false)}
+              onStartChat={() => handleOpen("chat")}
+              onQuickCommand={handleStartWith}
+            />
+          ) : (
+            <AssistantChat
+              messages={chat.messages}
+              quickReplies={chat.quickReplies}
+              onSend={chat.sendMessage}
+              onBack={() => setView("home")}
+              onClose={() => setIsOpen(false)}
+            />
+          )}
+        </section>
+      )}
+
+      <button
+        type="button"
+        className={css.launcher}
+        onClick={() => (isOpen ? setIsOpen(false) : handleOpen(view))}
+        aria-label={isOpen ? "AI 비서 닫기" : "AI 비서 열기"}
+        aria-expanded={isOpen}
+      >
+        <Icon name={isOpen ? "close" : "messageCircle"} size="md" className={css.launcherIcon} />
+        {!isOpen && !isPopupDismissed && <span className={css.unreadBadge}>1</span>}
+      </button>
     </>
   );
 };

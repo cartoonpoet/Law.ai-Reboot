@@ -204,12 +204,27 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  time: string;
 }
+
+// 채널톡처럼 — 런처 위에 먼저 말을 거는 말풍선, 홈 화면, 대화 화면
+export const ASSISTANT_PROFILE = {
+  name: "Law.ai AI 비서",
+  status: "보통 즉시 답변해요",
+};
+
+export const ASSISTANT_POPUP = "손준호 님, 오늘 챙길 일이 3건 있어요. 급한 배정부터 같이 처리할까요?";
+
+export const ASSISTANT_RECENT = {
+  preview: "한라산 EV 계약 리스크 요약을 정리해 뒀어요.",
+  time: "어제",
+};
 
 export const ASSISTANT_GREETING: ChatMessage = {
   id: "greeting",
   role: "assistant",
   text: "안녕하세요, 손준호 님. 지금 보고 있는 화면을 알고 있어요. 궁금한 걸 묻거나 시킬 일을 말씀해 주세요.",
+  time: "오전 9:42",
 };
 
 // 추천 명령 — 질문뿐 아니라 "시키는" 명령(배정·초안 작성·리마인드)도 받는다는 걸 보여준다.
