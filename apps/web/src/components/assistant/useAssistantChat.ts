@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ASSISTANT_COMMANDS, ASSISTANT_FALLBACK, ASSISTANT_GREETING } from "./mockDashboardData";
-import type { ChatMessage } from "./mockDashboardData";
+import { ASSISTANT_COMMANDS, ASSISTANT_FALLBACK, ASSISTANT_GREETING } from "./assistantData";
+import type { ChatMessage } from "./assistantData";
 
-/** AI 비서 대화 상태 — 목업이라 추천 명령에만 준비된 답을 돌려준다. */
+/** AI 비서 대화 상태 — 대화 API 전까지는 추천 명령에만 준비된 답을 돌려준다. */
 export const useAssistantChat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([ASSISTANT_GREETING]);
 

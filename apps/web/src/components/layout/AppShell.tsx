@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { AiAssistant } from "../assistant/AiAssistant";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -25,6 +26,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <AiAssistant />
     </div>
   );
 }

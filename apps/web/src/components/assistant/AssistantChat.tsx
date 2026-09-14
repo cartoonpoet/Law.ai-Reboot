@@ -1,7 +1,7 @@
 import { Icon } from "@lawkit/ui";
-import { ASSISTANT_PROFILE } from "./mockDashboardData";
-import type { ChatMessage } from "./mockDashboardData";
-import * as css from "./dashboardMock.css";
+import { ASSISTANT_PROFILE } from "./assistantData";
+import type { ChatMessage } from "./assistantData";
+import * as css from "./aiAssistant.css";
 
 interface AssistantChatProps {
   messages: ChatMessage[];
@@ -11,7 +11,7 @@ interface AssistantChatProps {
   onClose: () => void;
 }
 
-/** AI 비서 대화 — 채널톡 대화창처럼 아바타·이름·시간이 붙은 말풍선, 마지막 답 아래 빠른 답장, 둥근 입력창. */
+/** AI 비서 대화 — 아바타·이름·시간이 붙은 말풍선, 마지막 답 아래 빠른 답장, 둥근 입력창. */
 export const AssistantChat = ({ messages, quickReplies, onSend, onBack, onClose }: AssistantChatProps) => {
   const isLastFromAssistant = messages.at(-1)?.role === "assistant";
 

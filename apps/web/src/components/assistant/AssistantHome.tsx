@@ -1,6 +1,6 @@
 import { Icon } from "@lawkit/ui";
-import { ASSISTANT_COMMANDS, ASSISTANT_PROFILE, ASSISTANT_RECENT } from "./mockDashboardData";
-import * as css from "./dashboardMock.css";
+import { ASSISTANT_COMMANDS, ASSISTANT_PROFILE, ASSISTANT_RECENT } from "./assistantData";
+import * as css from "./aiAssistant.css";
 
 interface AssistantHomeProps {
   contextLabel: string;
@@ -9,7 +9,7 @@ interface AssistantHomeProps {
   onQuickCommand: (prompt: string) => void;
 }
 
-/** AI 비서 홈 — 채널톡 첫 화면처럼 인사 헤더 위에 카드가 겹쳐 올라온다. */
+/** AI 비서 홈 — 인사 헤더 위에 카드가 겹쳐 올라온다(새 대화 · 자주 시키는 일 · 최근 대화). */
 export const AssistantHome = ({ contextLabel, onClose, onStartChat, onQuickCommand }: AssistantHomeProps) => (
   <>
     <div className={css.homeScroll}>
@@ -77,8 +77,7 @@ export const AssistantHome = ({ contextLabel, onClose, onStartChat, onQuickComma
 
     <nav className={css.bottomNav} aria-label="AI 비서 메뉴">
       <button type="button" className={`${css.navButton} ${css.navActive}`} aria-current="page">
-        <Icon name="autoAwesome" size="sm" />
-        홈
+        <Icon name="autoAwesome" size="sm" />홈
       </button>
       <button type="button" className={css.navButton} onClick={onStartChat}>
         <Icon name="messageCircle" size="sm" />

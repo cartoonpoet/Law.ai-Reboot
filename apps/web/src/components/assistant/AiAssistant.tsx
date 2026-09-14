@@ -1,27 +1,26 @@
 import { useState } from "react";
 import { Icon } from "@lawkit/ui";
+import { useLocation } from "react-router-dom";
 import { AssistantChat } from "./AssistantChat";
 import { AssistantHome } from "./AssistantHome";
-import { ASSISTANT_POPUP, ASSISTANT_PROFILE } from "./mockDashboardData";
+import { ASSISTANT_POPUP, ASSISTANT_PROFILE } from "./assistantData";
+import { getScreenLabel } from "./getScreenLabel";
 import { useAssistantChat } from "./useAssistantChat";
-import * as css from "./dashboardMock.css";
-
-interface AiAssistantDockProps {
-  // 지금 사용자가 보고 있는 화면 — 비서가 맥락으로 쓴다.
-  contextLabel: string;
-}
+import * as css from "./aiAssistant.css";
 
 type ViewTypes = "home" | "chat";
 
 /**
- * 항상 떠 있는 AI 비서 — 채널톡 스타일.
- * 동그란 런처 + 먼저 말 거는 말풍선 → 홈(인사·새 대화·자주 시키는 일·최근 대화) → 대화(아바타·시간·빠른 답장·입력창).
+ * 항상 떠 있는 AI 비서(채널톡 스타일) — AppShell 이 모든 화면에 띄운다.
+ * 동그란 런처 + 먼저 말 거는 말풍선 → 홈(인사·새 대화·자주 시키는 일·최근 대화) → 대화(빠른 답장·실행 전 확인).
  */
-export const AiAssistantDock = ({ contextLabel }: AiAssistantDockProps) => {
+export const AiAssistant = () => {
+  const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<ViewTypes>("home");
   const [isPopupDismissed, setIsPopupDismissed] = useState(false);
   const chat = useAssistantChat();
+  const hasPopup = !isOpen && !isPopupDismissed;
 
   const handleOpen = (nextView: ViewTypes) => {
     setView(nextView);
@@ -36,7 +35,7 @@ export const AiAssistantDock = ({ contextLabel }: AiAssistantDockProps) => {
 
   return (
     <>
-      {!isOpen && !isPopupDismissed && (
+      {hasPopup && (
         <div className={css.popup}>
           <button type="button" className={css.popupBody} onClick={() => handleOpen("chat")}>
             <span className={css.popupHead}>
@@ -58,7 +57,7 @@ export const AiAssistantDock = ({ contextLabel }: AiAssistantDockProps) => {
         <section className={css.panel} aria-label="AI 비서">
           {view === "home" ? (
             <AssistantHome
-              contextLabel={contextLabel}
+              contextLabel={getScreenLabel(pathname)}
               onClose={() => setIsOpen(false)}
               onStartChat={() => handleOpen("chat")}
               onQuickCommand={handleStartWith}
@@ -83,7 +82,7 @@ export const AiAssistantDock = ({ contextLabel }: AiAssistantDockProps) => {
         aria-expanded={isOpen}
       >
         <Icon name={isOpen ? "close" : "messageCircle"} size="md" className={css.launcherIcon} />
-        {!isOpen && !isPopupDismissed && <span className={css.unreadBadge}>1</span>}
+        {hasPopup && <span className={css.unreadBadge}>1</span>}
       </button>
     </>
   );
