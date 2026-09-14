@@ -1095,13 +1095,17 @@ export class ContractsService {
 
     const isTransition = current.status !== req.status;
     const isAssign = req.ownerId !== undefined;
+    // 배정(미배정 → 배정 중 + 담당자 지정)은 담당자를 "정하는" 행위다. 전이 권한(canTransition)은
+    // 담당자 본인에게만 주므로(requiresOwner) 아직 담당자가 없는 미배정 건에 적용하면 누구도 배정할 수
+    // 없어 프로세스가 첫 단계에서 멈춘다 — 이 전이는 배정 권한(canAssign: 미배정 건은 assign 역할 픽업)으로 판정한다.
+    const isAssignTransition = isAssign && current.status === "unassigned" && req.status === "assigning";
 
     // 역할 전이 권한 가드. 통과 후 from→to 전이맵(ALLOWED_TRANSITIONS) 이중 결합.
     if (isTransition) {
-      if (!authz.canTransition) {
+      if (isAssignTransition ? !authz.canAssign : !authz.canTransition) {
         throw new RpcException({
           status: 403,
-          message: "상태 전이 권한이 없습니다",
+          message: isAssignTransition ? "배정 권한이 없습니다" : "상태 전이 권한이 없습니다",
         });
       }
       const allowed = ALLOWED_TRANSITIONS[current.status];

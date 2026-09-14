@@ -76,10 +76,37 @@ describe("getActionView", () => {
     expect(view.buttons.map((b) => b.kind)).toEqual(["reject", "reviewDone", "assign"]);
   });
 
-  it("unassigned: 담당자 배정 안내(기존 동작 유지)", () => {
+  it("unassigned: 담당자 배정 안내 + 배정 버튼만(전이 버튼 없음)", () => {
     const view = getActionView("unassigned", CAN_ALL);
     expect(view.showAssignee).toBe(false);
     expect(view.notice).toBe("법무팀 담당자 배정이 필요합니다.");
+    expect(view.buttons.map((b) => b.kind)).toEqual(["assign"]);
+  });
+
+  // 버튼은 서버 ALLOWED_TRANSITIONS 와 1:1 이어야 한다 — 허용되지 않는 전이 버튼은 400 으로 막혀
+  // 프로세스가 멈춘다(배정 중에 반려/검토완료만 보이고 "검토 시작"이 없어 진행 불가였음).
+  it("assigning(담당자 배정됨): 검토 시작 버튼 — 배정 필요 안내는 더 이상 띄우지 않는다", () => {
+    const view = getActionView("assigning", CAN_ALL);
+    expect(view.buttons.map((b) => b.kind)).toEqual(["startReview", "assign"]);
+    expect(view.buttons[0].label).toBe("검토 시작");
+    expect(view.showAssignee).toBe(true);
+    expect(view.notice).toBeNull();
+  });
+
+  it("requesterReview: 다시 검토 / 검토 완료", () => {
+    const view = getActionView("requesterReview", CAN_ALL);
+    expect(view.buttons.map((b) => b.kind)).toEqual(["startReview", "reviewDone", "assign"]);
+    expect(view.buttons[0].label).toBe("다시 검토");
+  });
+
+  it("reviewDone + 비요청자 담당자: 다시 검토만(검토 완료로의 재전이·반려는 허용되지 않음)", () => {
+    const view = getActionView("reviewDone", CAN_ALL);
+    expect(view.buttons.map((b) => b.kind)).toEqual(["startReview", "assign"]);
+  });
+
+  it("전이 권한이 없으면 전이 버튼은 숨긴다", () => {
+    const view = getActionView("assigning", { ...CAN_ALL, transition: false });
+    expect(view.buttons.map((b) => b.kind)).toEqual(["assign"]);
   });
 
   it("approval 인자 생략 시 기본값(비요청자·내 차례 아님)으로 동작한다", () => {

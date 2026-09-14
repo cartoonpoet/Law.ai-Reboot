@@ -26,6 +26,7 @@ const baseProps = {
   isUpdating: false,
   onReject: vi.fn(),
   onReviewDone: vi.fn(),
+  onStartReview: vi.fn(),
   onAssign: vi.fn(),
   approval: { isRequester: false, isMyTurn: false, canSubmit: false, isApprovalComplete: true },
   precheckItems: [],
@@ -35,6 +36,23 @@ const baseProps = {
   onOpenRejectModal: vi.fn(),
   isDeciding: false,
 };
+
+describe("ReviewActionPanel — 검토 시작", () => {
+  it("배정 중 계약의 담당자가 '검토 시작'을 누르면 onStartReview 를 호출한다", async () => {
+    const user = userEvent.setup();
+    const onStartReview = vi.fn();
+    render(
+      <ReviewActionPanel
+        {...baseProps}
+        status="assigning"
+        can={{ edit: true, assign: false, transition: true, delete: false }}
+        onStartReview={onStartReview}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "검토 시작" }));
+    expect(onStartReview).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("ReviewActionPanel — 체결 처리 모달", () => {
   it("초기에는 모달이 닫혀 있다가, '체결 처리' 버튼 클릭 시 열린다", async () => {
