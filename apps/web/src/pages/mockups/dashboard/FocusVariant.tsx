@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
-import { Badge, Button, Callout, DdayBadge, ListGroup, ListGroupItem, StatCell, StatGrid, Widget } from "@lawkit/ui";
+import { Badge, Button, Callout, DdayBadge, Icon, ListGroup, ListGroupItem, StatCell, StatGrid, Widget } from "@lawkit/ui";
+import { AiNote } from "./AiNote";
 import { DashboardHeader } from "./DashboardHeader";
 import { NoticeWidget, ScheduleWidget } from "./DashboardSideWidgets";
 import { AI_BRIEF, KPIS, TASKS } from "./mockDashboardData";
@@ -9,14 +10,10 @@ import * as css from "./dashboardMock.css";
 
 const WEEK_DAYS = 7;
 
-const isWithinWeek = (ymd: string) => {
-  const days = Math.ceil((new Date(ymd).getTime() - Date.now()) / 86_400_000);
-  return days <= WEEK_DAYS;
-};
+const isWithinWeek = (ymd: string) => Math.ceil((new Date(ymd).getTime() - Date.now()) / 86_400_000) <= WEEK_DAYS;
 
 /**
- * A. 오늘 할 일 중심 — "지금 무엇을 해야 하나"에 답하는 한 줄 흐름.
- * 통계 칸이 곧 필터, 할 일 목록 하나에 D-day 와 바로가기 액션을 모았다. AI 브리핑은 한 줄 Callout 으로 줄였다.
+ * A. 할 일 + AI 이유 — 통계 4칸이 곧 필터. 할 일마다 AI 가 "왜 지금인지"와 "준비해 둔 것"을 한 줄로 붙인다.
  */
 export const FocusVariant = () => {
   const [filter, setFilter] = useState<KpiItem["kind"] | null>(null);
@@ -34,6 +31,10 @@ export const FocusVariant = () => {
   return (
     <div className={css.page}>
       <DashboardHeader />
+
+      <Callout intent="info" title="AI 오늘의 브리핑" icon={<Icon name="autoAwesome" size="sm" />}>
+        {AI_BRIEF}
+      </Callout>
 
       <StatGrid>
         {KPIS.map((k) => (
@@ -53,13 +54,9 @@ export const FocusVariant = () => {
         ))}
       </StatGrid>
 
-      <Callout intent="info" title="AI 오늘의 브리핑">
-        {AI_BRIEF}
-      </Callout>
-
       <div className={css.mainGrid}>
         <Widget
-          title={selected ? `지금 처리할 일 · ${selected.label}` : "지금 처리할 일"}
+          title={selected ? `지금 처리할 일 · ${selected.label}` : "지금 처리할 일 · AI 우선순위"}
           badge={tasks.length}
           flush
           extra={
@@ -70,35 +67,34 @@ export const FocusVariant = () => {
             )
           }
         >
-          {tasks.length === 0 ? (
-            <p className={css.emptyText}>해당하는 할 일이 없어요</p>
-          ) : (
-            <ListGroup variant="flush">
-              {tasks.map((t) => (
-                <ListGroupItem
-                  key={t.id}
-                  leading={
-                    <Badge tone={t.domain === "계약" ? "primary" : "neutral"} variant="muted">
-                      {t.domain}
-                    </Badge>
-                  }
-                  trailing={
-                    <span className={css.trailing}>
-                      <DdayBadge date={t.due} />
-                      <Button size="small" variant={t.kind === "approval" ? "default" : "outline"}>
-                        {t.action}
-                      </Button>
-                    </span>
-                  }
-                >
-                  <span className={css.taskMain}>
-                    <span className={css.taskTitle}>{t.title}</span>
-                    <span className={css.taskSub}>{t.sub}</span>
+          <ListGroup variant="flush">
+            {tasks.map((t) => (
+              <ListGroupItem
+                key={t.id}
+                leading={
+                  <Badge tone={t.domain === "계약" ? "primary" : "neutral"} variant="muted">
+                    {t.domain}
+                  </Badge>
+                }
+                trailing={
+                  <span className={css.trailing}>
+                    <DdayBadge date={t.due} />
+                    <Button size="small" variant={t.kind === "approval" ? "default" : "outline"}>
+                      {t.action}
+                    </Button>
                   </span>
-                </ListGroupItem>
-              ))}
-            </ListGroup>
-          )}
+                }
+              >
+                <span className={css.taskMain}>
+                  <span className={css.taskTitle}>{t.title}</span>
+                  <span className={css.taskSub}>{t.sub}</span>
+                  <AiNote>
+                    {t.aiReason} · {t.aiPrepared}
+                  </AiNote>
+                </span>
+              </ListGroupItem>
+            ))}
+          </ListGroup>
         </Widget>
 
         <aside className={css.rail}>
