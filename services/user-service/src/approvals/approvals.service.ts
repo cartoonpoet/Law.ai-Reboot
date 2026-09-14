@@ -75,6 +75,9 @@ const currentStepOf = (steps: StepRow[]): StepRow | null =>
 
 const PROCESSED_WINDOW_DAYS = 30;
 
+// 도메인이 달라도 targetId 가 겹칠 수 있어 targetType 과 묶은 키로 문서 번호를 찾는다.
+const targetKeyOf = (targetType: string, targetId: string): string => `${targetType}:${targetId}`;
+
 @Injectable()
 export class ApprovalsService {
   constructor(
@@ -252,7 +255,11 @@ export class ApprovalsService {
     return { line: dto, notifications };
   }
 
-  private toInboxItem(row: LineRow, viewerId: string): ApprovalInboxItem | null {
+  private toInboxItem(
+    row: LineRow,
+    viewerId: string,
+    targetCodes: Record<string, string>,
+  ): ApprovalInboxItem | null {
     const decisionSteps = row.steps.filter((s) => isDecisionStep(s.type));
     const mine =
       decisionSteps.find((s) => s.userId === viewerId) ??
@@ -263,6 +270,7 @@ export class ApprovalsService {
       lineId: row.id,
       targetType: row.targetType,
       targetId: row.targetId,
+      targetCode: targetCodes[targetKeyOf(row.targetType, row.targetId)] ?? null,
       title: row.title,
       submittedById: row.submittedById,
       submittedByName: row.submittedBy?.name ?? "",
@@ -307,14 +315,44 @@ export class ApprovalsService {
       orderBy: { submittedAt: "desc" },
     })) as unknown as LineRow[];
 
-    const pending = pendingRows
-      .filter((row) => currentStepOf(row.steps)?.userId === viewerId)
-      .map((row) => this.toInboxItem(row, viewerId))
-      .filter((item): item is ApprovalInboxItem => item !== null);
-    const processed = processedRows
-      .map((row) => this.toInboxItem(row, viewerId))
-      .filter((item): item is ApprovalInboxItem => item !== null);
-    return { pending, processed };
+    const isMyTurn = (row: LineRow) => currentStepOf(row.steps)?.userId === viewerId;
+    // 내 결재 단계가 아직 남아 있지만 앞 단계가 먼저인 라인 = 내 차례 예정.
+    const hasMyPendingDecision = (row: LineRow) =>
+      row.steps.some(
+        (s) => s.userId === viewerId && isDecisionStep(s.type) && s.status === "pending",
+      );
+
+    const targetCodes = await this.resolveTargetCodes([...pendingRows, ...processedRows]);
+    const toItems = (rows: LineRow[]) =>
+      rows
+        .map((row) => this.toInboxItem(row, viewerId, targetCodes))
+        .filter((item): item is ApprovalInboxItem => item !== null);
+
+    return {
+      pending: toItems(pendingRows.filter(isMyTurn)),
+      upcoming: toItems(pendingRows.filter((row) => !isMyTurn(row) && hasMyPendingDecision(row))),
+      processed: toItems(processedRows),
+    };
+  }
+
+  // targetType 별로 한 번씩 도메인 핸들러에 문서 번호를 묻는다. 핸들러가 없는 도메인은 번호 없음.
+  private async resolveTargetCodes(rows: LineRow[]): Promise<Record<string, string>> {
+    const idsByType = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const ids = idsByType.get(row.targetType) ?? new Set<string>();
+      ids.add(row.targetId);
+      idsByType.set(row.targetType, ids);
+    }
+    const entries = await Promise.all(
+      [...idsByType].map(async ([targetType, ids]) => {
+        const handler = this.registry.get(targetType);
+        const codes = handler ? await handler.getTargetCodes([...ids]) : {};
+        return Object.entries(codes).map(
+          ([targetId, code]) => [targetKeyOf(targetType, targetId), code] as const,
+        );
+      }),
+    );
+    return Object.fromEntries(entries.flat());
   }
 
   /** target 의 최신 라인 + 이전 라인 수. */

@@ -60,6 +60,8 @@ export interface ApprovalInboxItem {
   lineId: string;
   targetType: string;
   targetId: string;
+  // 대상 문서 번호(계약 관리번호 등). 대상 도메인 핸들러가 없으면 null.
+  targetCode: string | null;
   title: string;
   submittedById: string;
   submittedByName: string;
@@ -78,6 +80,8 @@ export interface ApprovalInboxItem {
 export interface ApprovalInboxResponse {
   // 내 차례인 진행 중 라인.
   pending: ApprovalInboxItem[];
+  // 내 결재 단계가 남아 있지만 아직 앞 단계가 진행 중인 라인(내 차례 예정).
+  upcoming: ApprovalInboxItem[];
   // 내가 승인/반려한 라인(최근 30일).
   processed: ApprovalInboxItem[];
 }

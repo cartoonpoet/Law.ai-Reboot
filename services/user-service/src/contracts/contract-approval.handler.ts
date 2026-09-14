@@ -36,4 +36,14 @@ export class ContractApprovalOutcomeHandler
       data: { status: "reviewDone" },
     });
   }
+
+  // 결재 대기함의 "관리번호 · 계약" 표시용. 대기함 라인은 이미 테넌트로 한정돼 있어 id 로만 조회한다.
+  async getTargetCodes(targetIds: string[]): Promise<Record<string, string>> {
+    if (targetIds.length === 0) return {};
+    const rows = await this.prisma.contract.findMany({
+      where: { id: { in: targetIds } },
+      select: { id: true, code: true },
+    });
+    return Object.fromEntries(rows.map((r) => [r.id, r.code]));
+  }
 }
