@@ -968,6 +968,63 @@ describe("ContractsService", () => {
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
 
+  // 배정(미배정 → 배정 중 + 담당자 지정)은 "담당자를 정하는" 행위라 담당자 본인에게만 주는 전이 권한으로
+  // 막으면 안 된다. 미배정 건은 아직 담당자가 없으므로 전이 권한으로 판정하면 누구도 배정할 수 없어
+  // 계약 프로세스가 첫 단계에서 멈춘다(dev 서버에서 배정 버튼 → 403 "상태 전이 권한이 없습니다").
+  describe("updateStatus: 미배정 계약 배정", () => {
+    it("법무 역할(담당자 아님)이 미배정 계약을 배정하면 배정 중 + 담당자로 반영된다", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: null });
+      prismaMock.contract.update.mockResolvedValue({ ...fullRow("assigning"), status: "assigning", ownerId: "lawyer-2" });
+      const res = await service.updateStatus({ id: "ct-1", status: "assigning", ownerId: "lawyer-2", viewerId: "lawyer-1", ...makeCtx() });
+      expect(prismaMock.contract.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: "assigning", ownerId: "lawyer-2" }) }),
+      );
+      expect(res.status).toBe("assigning");
+    });
+
+    it("시스템 관리자도 미배정 계약을 배정할 수 있다", async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({ id: "sys-admin", departmentId: null });
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: null });
+      prismaMock.contract.update.mockResolvedValue({ ...fullRow("assigning"), status: "assigning", ownerId: "sys-admin" });
+      await service.updateStatus({
+        id: "ct-1",
+        status: "assigning",
+        ownerId: "sys-admin",
+        viewerId: "sys-admin",
+        tenantContext: { tenantId: "t1", isSystemAdmin: true },
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalled();
+    });
+
+    it("배정 권한이 없는 기본 역할은 403 배정 권한 없음", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "general", user: { departmentId: "dept-1" } });
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: null, createdById: "g-1" });
+      await expect(
+        service.updateStatus({ id: "ct-1", status: "assigning", ownerId: "g-1", viewerId: "g-1", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 403, message: "배정 권한이 없습니다" } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+    });
+
+    it("담당자 지정 없이 미배정에서 바로 전이하는 건 여전히 담당자 전이 권한이 필요하다(403)", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: null });
+      await expect(
+        service.updateStatus({ id: "ct-1", status: "legalReview", viewerId: "lawyer-1", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 403, message: "상태 전이 권한이 없습니다" } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+    });
+
+    it("이미 배정된 계약은 담당자가 아니면 다시 배정할 수 없다(403)", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("assigning"), status: "assigning", ownerId: "lawyer-2" });
+      await expect(
+        service.updateStatus({ id: "ct-1", status: "assigning", ownerId: "lawyer-1", viewerId: "lawyer-1", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 403, message: "배정 권한이 없습니다" } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+    });
+  });
+
   it("updateStatus: 역할 통과 + 전이맵 위반 → 400", async () => {
     prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview", ownerId: "admin-1" });
