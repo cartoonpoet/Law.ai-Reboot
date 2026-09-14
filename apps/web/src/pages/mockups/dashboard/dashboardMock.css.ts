@@ -1,4 +1,4 @@
-import { style, styleVariants } from "@vanilla-extract/css";
+import { createVar, keyframes, style, styleVariants } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
 
 /* =========================================================================
@@ -147,16 +147,67 @@ export const briefBar = styleVariants({
 
 export const briefText = style({ flex: 1, fontSize: 12.5, color: c.textSecondary, lineHeight: 1.5 });
 
-/* --- 파이프라인 --- */
+/* --- 파이프라인 (움직임) --- */
+// 탭을 바꾸면 stageRow 가 key 로 다시 그려져 아래 등장 애니메이션이 매번 재생된다.
+const REDUCED = "(prefers-reduced-motion: reduce)";
+const stageDelay = createVar();
+
+const barGrow = keyframes({ from: { transform: "scaleY(0)" }, to: { transform: "scaleY(1)" } });
+const riseIn = keyframes({ from: { opacity: 0, transform: "translateY(6px)" }, to: { opacity: 1, transform: "translateY(0)" } });
+const flowDots = keyframes({ from: { backgroundPosition: "0 0" }, to: { backgroundPosition: "24px 0" } });
+const nudge = keyframes({ "0%, 70%, 100%": { transform: "translateX(0)", opacity: 0.5 }, "85%": { transform: "translateX(3px)", opacity: 1 } });
+const tagPulse = keyframes({ "0%, 100%": { transform: "scale(1)" }, "50%": { transform: "scale(1.08)" } });
+const bottleneckGlow = (color: string) =>
+  keyframes({
+    "0%, 100%": { boxShadow: `inset 0 -2px 0 ${color}` },
+    "50%": { boxShadow: `inset 0 -2px 0 ${color}, inset 0 0 0 999px color-mix(in srgb, ${color} 6%, transparent)` },
+  });
+
 export const pipelineTabs = style({ padding: "8px 16px 0", borderBottom: `1px solid ${c.neutralBorder}` });
 
-export const stageRow = style({ display: "flex" });
+export const stageRow = style({ display: "flex", position: "relative" });
+
+// 단계 사이로 흘러가는 점선 — 일이 왼쪽에서 오른쪽으로 흐른다는 느낌
+export const flowTrack = style({
+  position: "absolute",
+  left: 14,
+  right: 14,
+  bottom: 6,
+  height: 2,
+  backgroundImage: `radial-gradient(circle, ${c.neutralBorderStrong} 1px, transparent 1.5px)`,
+  backgroundSize: "12px 2px",
+  opacity: 0.7,
+  animation: `${flowDots} 1.2s linear infinite`,
+  pointerEvents: "none",
+  "@media": { [REDUCED]: { animation: "none" } },
+});
+
 export const stageWrap = style({ display: "flex", alignItems: "center", flex: 1 });
-export const stage = style({ flex: 1, padding: "13px 14px 12px", position: "relative" });
+
+export const stageDelayVariants = styleVariants(
+  Object.fromEntries(Array.from({ length: 10 }, (_, i) => [String(i), { vars: { [stageDelay]: `${i * 90}ms` } }])),
+);
+
+export const stage = style({
+  flex: 1,
+  padding: "13px 14px 12px",
+  position: "relative",
+  borderRadius: 6,
+  transition: "transform .15s ease, background .15s ease",
+  selectors: { "&:hover": { transform: "translateY(-2px)", background: c.neutralSurfaceAlt } },
+});
 
 export const stageBottleneck = styleVariants({
-  danger: { background: `color-mix(in srgb, ${c.accentDanger} 6%, ${c.neutralSurface})` },
-  primary: { background: `color-mix(in srgb, ${c.accentPrimary} 6%, ${c.neutralSurface})` },
+  danger: {
+    background: `color-mix(in srgb, ${c.accentDanger} 6%, ${c.neutralSurface})`,
+    animation: `${bottleneckGlow(c.accentDanger)} 2.4s ease-in-out infinite`,
+    "@media": { [REDUCED]: { animation: "none" } },
+  },
+  primary: {
+    background: `color-mix(in srgb, ${c.accentPrimary} 6%, ${c.neutralSurface})`,
+    animation: `${bottleneckGlow(c.accentPrimary)} 2.4s ease-in-out infinite`,
+    "@media": { [REDUCED]: { animation: "none" } },
+  },
   success: {},
   neutral: {},
 });
@@ -171,12 +222,21 @@ export const bottleneckTag = style({
   border: `1px solid ${c.neutralBorder}`,
   padding: "1px 5px",
   borderRadius: 3,
+  animation: `${tagPulse} 1.6s ease-in-out infinite`,
+  "@media": { [REDUCED]: { animation: "none" } },
 });
 
 export const stageLabel = style({ fontSize: 11, fontWeight: 600, color: FAINT, marginBottom: 8, whiteSpace: "nowrap" });
 export const barBox = style({ display: "flex", alignItems: "flex-end", height: 28, marginBottom: 7 });
 
-const barBase = style({ width: "55%", borderRadius: 3 });
+const barBase = style({
+  width: "55%",
+  borderRadius: 3,
+  transformOrigin: "bottom",
+  animation: `${barGrow} .6s cubic-bezier(.2,.8,.2,1) both`,
+  animationDelay: stageDelay,
+  "@media": { [REDUCED]: { animation: "none" } },
+});
 
 export const barTone = styleVariants({
   danger: [barBase, { background: c.accentDanger }],
@@ -192,7 +252,15 @@ export const barHeight = styleVariants(
   Object.fromEntries(Array.from({ length: 27 }, (_, h) => [String(h), { height: Math.max(3, h) }])),
 );
 
-export const stageCount = style({ fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" });
+export const stageCount = style({
+  fontSize: 22,
+  fontWeight: 800,
+  letterSpacing: "-0.03em",
+  fontVariantNumeric: "tabular-nums",
+  animation: `${riseIn} .45s ease-out both`,
+  animationDelay: `calc(${stageDelay} + 250ms)`,
+  "@media": { [REDUCED]: { animation: "none" } },
+});
 
 export const countTone = styleVariants({
   danger: { color: c.accentDanger },
@@ -202,7 +270,16 @@ export const countTone = styleVariants({
 });
 
 export const stageUnit = style({ fontSize: 11, color: FAINT, marginTop: 1 });
-export const chevron = style({ width: 11, height: 11, color: FAINT, flexShrink: 0 });
+
+export const chevron = style({
+  width: 11,
+  height: 11,
+  color: FAINT,
+  flexShrink: 0,
+  animation: `${nudge} 2s ease-in-out infinite`,
+  animationDelay: stageDelay,
+  "@media": { [REDUCED]: { animation: "none" } },
+});
 
 export const pipelineAi = style({
   display: "flex",

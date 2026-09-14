@@ -37,9 +37,11 @@ export const ImprovedPipeline = () => {
         <Tabs items={DOMAIN_TABS} value={domain} onChange={setDomain} />
       </div>
 
-      <div className={css.stageRow}>
+      {/* key 로 탭 전환 시 다시 그려 등장 애니메이션을 재생 */}
+      <div key={pipeline.domain} className={css.stageRow}>
+        <span className={css.flowTrack} aria-hidden />
         {pipeline.stages.map((stage, i) => (
-          <div key={stage.label} className={css.stageWrap}>
+          <div key={stage.label} className={cx(css.stageWrap, css.stageDelayVariants[String(i)])}>
             <div className={cx(css.stage, stage.bottleneck && css.stageBottleneck[stage.tone])}>
               {stage.bottleneck && <span className={cx(css.bottleneckTag, css.countTone[stage.tone])}>병목</span>}
               <div className={css.stageLabel}>{stage.label}</div>
