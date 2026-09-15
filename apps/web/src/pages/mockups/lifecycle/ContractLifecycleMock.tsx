@@ -27,6 +27,7 @@ const STATUS_OPTIONS = STATUSES.map((status, i) => ({ value: status, label: `${i
 const createStep = (id: string, type: ApprovalStepResponse["type"], status: ApprovalStepResponse["status"]): ApprovalStepResponse => ({
   id,
   stepOrder: 0,
+  avatarUrl: null,
   userId: null,
   name: "홍길동",
   dept: "법무팀",

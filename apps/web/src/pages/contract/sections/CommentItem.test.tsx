@@ -53,6 +53,7 @@ const makeComment = (over: Partial<CommentDto> = {}): CommentDto => ({
   contractId: "k1",
   authorId: "u1",
   authorName: "이법무",
+  authorAvatarUrl: null,
   role: "inHouseCounsel",
   body: "<p>검토 의견입니다</p>",
   createdAt: "2026-06-22T01:00:00.000Z",

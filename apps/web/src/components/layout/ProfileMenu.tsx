@@ -51,7 +51,7 @@ export const ProfileMenu = () => {
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
       >
-        <UserAvatar name={me?.name ?? null} avatarUrl={me?.avatarUrl ?? null} size="small" />
+        <UserAvatar name={me?.name ?? null} avatarUrl={me?.avatarUrl ?? null} size="small" isDecorative />
         <span className={css.main}>
           <span className={css.name}>{me?.name ?? ""}</span>
           <span className={css.sub}>{summary}</span>

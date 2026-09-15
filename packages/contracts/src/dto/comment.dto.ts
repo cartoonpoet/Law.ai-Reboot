@@ -14,6 +14,8 @@ export interface CommentDto {
   contractId: string;
   authorId: string;
   authorName: string;
+  // 작성자 프로필 사진(API 기준 경로). 사진이 없으면 null — 화면은 이름 첫 글자로 대신한다.
+  authorAvatarUrl: string | null;
   // 작성 시점 작성자 role 스냅(표시용).
   role: string;
   body: string;

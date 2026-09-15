@@ -40,6 +40,7 @@ const COMMENTS: CommentDto[] = [
     contractId: "k1",
     authorId: "u1",
     authorName: "이법무",
+    authorAvatarUrl: null,
     role: "inHouseCounsel",
     body: "<p>손해배상 한도 확인 필요</p>",
     createdAt: "2026-06-22T01:00:00.000Z",
@@ -54,6 +55,7 @@ const COMMENTS: CommentDto[] = [
     contractId: "k1",
     authorId: "u2",
     authorName: "박외주",
+    authorAvatarUrl: "/users/u2/avatar/p.png",
     role: "outsideCounsel",
     body: "<p>수정안 첨부드립니다</p>",
     createdAt: "2026-06-22T02:00:00.000Z",
@@ -89,6 +91,8 @@ describe("CommentPanel", () => {
     expect(screen.getByText("박외주")).toBeInTheDocument();
     expect(screen.getByText("사내변호사")).toBeInTheDocument();
     expect(screen.getByText("사외변호사")).toBeInTheDocument();
+    // 작성자 프로필 사진이 있으면 이미지로, 없으면 이름 첫 글자로 보여준다.
+    expect(document.querySelector('img[src*="/users/u2/avatar/p.png"]')).not.toBeNull();
   });
 
   it("코멘트가 없으면 시안 빈 상태 카드(제목+설명)를 렌더한다", async () => {
@@ -124,6 +128,7 @@ describe("CommentPanel", () => {
         contractId: "k1",
         authorId: "me",
         authorName: "나작성",
+        authorAvatarUrl: null,
         role: "inHouseCounsel",
         body: '<p><span data-mention data-id="owner-1">@오너</span> 확인 부탁</p>',
         createdAt: "2026-06-22T01:00:00.000Z",
@@ -150,6 +155,7 @@ describe("CommentPanel", () => {
         contractId: "k1",
         authorId: "me",
         authorName: "나작성",
+        authorAvatarUrl: null,
         role: "inHouseCounsel",
         body: "",
         createdAt: "2026-06-22T01:00:00.000Z",

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { UserAvatar } from "../../../components/ui/UserAvatar";
 import type { ApprovalStepView } from "../mock-data";
 import { cx } from "../cx";
 import * as css from "../contractDetail.css";
@@ -25,6 +26,7 @@ export const ApprovalStepRows = ({ steps, currentStepExtra }: ApprovalStepRowsPr
           >
             {step.statusKind === "done" ? "✓" : step.order + 1}
           </span>
+          <UserAvatar name={step.name} avatarUrl={step.avatarUrl} size="small" isDecorative />
           <span>
             <span className={css.apvname}>{step.name}</span>
             <span className={css.apvdept}>{step.dept}</span>

@@ -11,6 +11,16 @@
             "statusMessage": "인라인 스타일 검사 중"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/require-code-review.sh\"",
+            "statusMessage": "커밋 전 코드리뷰 확인 중"
+          }
+        ]
       }
     ]
   }

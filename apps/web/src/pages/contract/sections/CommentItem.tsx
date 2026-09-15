@@ -9,6 +9,7 @@ import { sanitizeCommentHtml } from "../utils/sanitizeCommentHtml";
 import { AVATAR_COLOR, ROLE_TAG_CLASS, type RoleVariant } from "./commentRole";
 import { IconFile } from "../../../components/ui/EditorIcons";
 import { formatBytes } from "../utils/formatBytes";
+import { toApiUrl } from "../../../api/apiUrl";
 import {
   FilePreviewModal,
   type PreviewFileRef,
@@ -103,6 +104,7 @@ export function CommentItem({
   return (
     <div className={panelCss.row}>
       <Avatar
+        src={comment.authorAvatarUrl ? toApiUrl(comment.authorAvatarUrl) : undefined}
         initials={comment.authorName[0] ?? "?"}
         size="sm"
         color={AVATAR_COLOR[roleVariant]}

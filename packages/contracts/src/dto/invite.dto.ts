@@ -23,6 +23,8 @@ export interface AdminCreateTenantResponse {
 export interface TenantMemberRow {
   userId: string;
   name: string;
+  // 프로필 사진(API 기준 경로). 없으면 null.
+  avatarUrl: string | null;
   email: string;
   role: TenantRole;
   joinedAt: string;

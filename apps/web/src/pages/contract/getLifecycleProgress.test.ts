@@ -18,6 +18,7 @@ const baseInput: LifecycleProgressInput = {
 const step = (type: ApprovalStepResponse["type"], status: ApprovalStepResponse["status"]): ApprovalStepResponse => ({
   id: `${type}-${status}-${Math.random()}`,
   stepOrder: 0,
+  avatarUrl: null,
   userId: null,
   name: "홍길동",
   dept: "법무팀",

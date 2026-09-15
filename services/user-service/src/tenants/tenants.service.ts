@@ -9,6 +9,7 @@ import type {
   ListTenantMembersResponse,
   TenantDto,
 } from "@lawai/contracts";
+import { toAvatarPath } from "@lawai/contracts";
 
 @Injectable()
 export class TenantsService {
@@ -61,7 +62,7 @@ export class TenantsService {
     const [rows, invites] = await Promise.all([
       this.prisma.userTenant.findMany({
         where: { tenantId },
-        include: { user: { select: { id: true, name: true, email: true } } },
+        include: { user: { select: { id: true, name: true, email: true, avatarKey: true } } },
         orderBy: { joinedAt: "asc" },
       }),
       this.prisma.invitation.findMany({
@@ -78,6 +79,7 @@ export class TenantsService {
       members: rows.map((r) => ({
         userId: r.user.id,
         name: r.user.name,
+        avatarUrl: toAvatarPath(r.user.id, r.user.avatarKey),
         email: r.user.email,
         role: r.role,
         joinedAt: r.joinedAt.toISOString(),

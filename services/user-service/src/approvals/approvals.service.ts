@@ -12,6 +12,7 @@ import type {
   GetActiveApprovalResponse,
   PushNotification,
 } from "@lawai/contracts";
+import { toAvatarPath } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationService } from "../notifications/notifications.service";
 import type { CreateNotificationInput } from "../notifications/notifications.service";
@@ -34,7 +35,8 @@ export interface SubmitApprovalInput {
 
 const lineInclude = {
   submittedBy: { select: { id: true, name: true } },
-  steps: { orderBy: { stepOrder: "asc" as const } },
+  // 결재자 프로필 사진 — 스텝의 이름·부서는 상신 시점 스냅이지만 사진은 현재 값을 보여준다.
+  steps: { orderBy: { stepOrder: "asc" as const }, include: { user: { select: { avatarKey: true } } } },
 };
 
 type StepRow = {
@@ -48,6 +50,8 @@ type StepRow = {
   status: string;
   comment: string | null;
   decidedAt: Date | null;
+  // lineInclude 로 조회한 경우에만 채워진다(없으면 사진 없음으로 본다).
+  user?: { avatarKey: string | null } | null;
 };
 
 type LineRow = {
@@ -92,6 +96,7 @@ export class ApprovalsService {
       stepOrder: row.stepOrder,
       userId: row.userId,
       name: row.name,
+      avatarUrl: row.userId ? toAvatarPath(row.userId, row.user?.avatarKey) : null,
       dept: row.dept,
       type: row.type as ApprovalStepDto["type"],
       status: row.status as ApprovalStepDto["status"],

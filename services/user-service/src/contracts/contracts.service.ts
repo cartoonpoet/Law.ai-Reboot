@@ -1431,6 +1431,7 @@ export class ContractsService {
               stepOrder: s.stepOrder,
               userId: s.userId,
               name: s.name,
+              avatarUrl: s.avatarUrl,
               dept: s.dept,
               type: s.type,
               status: s.status,
