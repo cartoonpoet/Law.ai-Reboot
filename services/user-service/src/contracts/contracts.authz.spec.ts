@@ -46,8 +46,29 @@ describe("contracts.authz evaluate", () => {
         canAssign: true,
         canTransition: true,
         canDelete: false, // TenantRole 기준 delete=false (admin 전용 로직은 service 레이어)
+        canReplaceSignedFile: false, // 체결 전(legalReview)이라 서명본 교체 대상 아님
         maskSecret: false, // 특권 역할
       });
+    });
+  });
+
+  describe("서명본 교체(canReplaceSignedFile): 법무팀 + 체결된 계약", () => {
+    it("사내 변호사·계약 관리자는 담당자가 아니어도 체결된 계약의 서명본을 교체할 수 있다", () => {
+      for (const status of ["signed", "fulfilling", "closed"] as const) {
+        expect(evaluate(makeViewer("inHouseCounsel", "other-1"), makeContract({ status })).canReplaceSignedFile).toBe(true);
+        expect(evaluate(makeViewer("contractManager", "other-2"), makeContract({ status, ownerId: null })).canReplaceSignedFile).toBe(true);
+      }
+    });
+
+    it("체결 전 상태(signing 포함)에서는 법무팀도 교체할 수 없다", () => {
+      expect(evaluate(makeViewer("inHouseCounsel", OWNER_ID), makeContract({ status: "signing" })).canReplaceSignedFile).toBe(false);
+      expect(evaluate(makeViewer("inHouseCounsel", OWNER_ID), makeContract({ status: "reviewDone" })).canReplaceSignedFile).toBe(false);
+    });
+
+    it("법무팀이 아니면 담당자·생성자여도 교체할 수 없다", () => {
+      expect(evaluate(makeViewer("outsideCounsel", OWNER_ID), makeContract({ status: "signed" })).canReplaceSignedFile).toBe(false);
+      expect(evaluate(makeViewer("general", CREATOR_ID), makeContract({ status: "signed" })).canReplaceSignedFile).toBe(false);
+      expect(evaluate(makeViewer("sealManager", "seal-1"), makeContract({ status: "signed" })).canReplaceSignedFile).toBe(false);
     });
   });
 
@@ -384,6 +405,7 @@ describe("contracts.authz evaluate", () => {
         canAssign: false,
         canTransition: false,
         canDelete: false,
+        canReplaceSignedFile: false,
         maskSecret: true,
       });
     });

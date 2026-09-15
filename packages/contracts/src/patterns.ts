@@ -58,6 +58,8 @@ export const CONTRACT_PATTERNS = {
   // 체결 완료 등록(registerAs=signed) 확정 — completeSigning 과 별개(결재 라인 없음, 미배정
   // 생성자 권한으로 게이트).
   FINALIZE_REGISTRATION: "contract.finalizeRegistration",
+  // 서명본 교체 — 체결된 계약, 법무팀 전용. 기존 서명본은 첨부로 내려 이력 보존.
+  REPLACE_SIGNED_FILE: "contract.replaceSignedFile",
 } as const;
 
 export const APPROVAL_PATTERNS = {

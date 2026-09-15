@@ -14,7 +14,7 @@ vi.mock("./CompleteSigningModal", () => ({
   ),
 }));
 
-const CAN: ContractCan = { edit: false, assign: false, transition: true, delete: false };
+const CAN: ContractCan = { edit: false, assign: false, transition: true, delete: false, replaceSignedFile: false };
 
 const baseProps = {
   contractId: "c1",
@@ -45,7 +45,7 @@ describe("ReviewActionPanel — 검토 시작", () => {
       <ReviewActionPanel
         {...baseProps}
         status="assigning"
-        can={{ edit: true, assign: false, transition: true, delete: false }}
+        can={{ edit: true, assign: false, transition: true, delete: false, replaceSignedFile: false }}
         onStartReview={onStartReview}
       />,
     );

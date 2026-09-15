@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import type { ContractCan } from "@lawai/contracts";
 import { getActionView } from "./getActionView";
 
-const CAN_NONE: ContractCan = { edit: false, assign: false, transition: false, delete: false };
-const CAN_ALL: ContractCan = { edit: true, assign: true, transition: true, delete: true };
+const CAN_NONE: ContractCan = { edit: false, assign: false, transition: false, delete: false, replaceSignedFile: false };
+const CAN_ALL: ContractCan = { edit: true, assign: true, transition: true, delete: true, replaceSignedFile: true };
 
 describe("getActionView", () => {
   it("reviewDone + 요청자 본인: 상신 모드, canSubmit=false 면 버튼 disabled", () => {
@@ -116,7 +116,7 @@ describe("getActionView", () => {
 });
 
 describe("signing - 체결 처리", () => {
-  const can = { view: true, edit: false, assign: false, transition: true, delete: false, maskSecret: false };
+  const can = { view: true, edit: false, assign: false, transition: true, delete: false, replaceSignedFile: false, maskSecret: false };
 
   it("결재가 완료되고 전이 권한이 있으면 체결 처리 버튼이 뜬다", () => {
     const v = getActionView("signing", can, {
