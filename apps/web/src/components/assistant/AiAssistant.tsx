@@ -1,48 +1,92 @@
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { Icon } from "@lawkit/ui";
-import { useLocation } from "react-router-dom";
 import { cx } from "../../pages/contract/cx";
 import { useMe } from "../layout/hooks/useMe";
+import { AssistantBottomNav } from "./AssistantBottomNav";
 import { AssistantChat } from "./AssistantChat";
 import { AssistantHome } from "./AssistantHome";
+import { AssistantNoticeCard } from "./AssistantNoticeCard";
+import { AssistantNotifications } from "./AssistantNotifications";
 import { ASSISTANT_POPUP, ASSISTANT_PROFILE } from "./assistantData";
-import { getScreenLabel } from "./getScreenLabel";
-import { useAssistantChat } from "./useAssistantChat";
+import { useAssistant } from "./useAssistant";
+import type { AssistantViewTypes } from "./useAssistantState";
+import { useAssistantNotifications } from "./useAssistantNotifications";
 import * as css from "./aiAssistant.css";
 
-type ViewTypes = "home" | "chat";
+const getLauncherLabel = (isOpen: boolean, badgeLabel: string | null) => {
+  if (isOpen) return "AI 비서 닫기";
+  return badgeLabel ? `AI 비서 열기, 안 읽은 알림 ${badgeLabel}건` : "AI 비서 열기";
+};
 
 /**
  * 항상 떠 있는 AI 비서(채널톡 스타일) — AppShell 이 모든 화면에 띄운다.
- * 동그란 런처 + 먼저 말 거는 말풍선 → 홈(인사·추천 질문·이어서 대화) → 대화(실제 AI 답변·실행 전 확인).
+ * 헤더 알림 종을 흡수했다: 런처 숫자 = 안 읽은 알림 수, 홈 맨 위 새 알림 카드, 하단 탭 홈 · 대화 · 알림.
  */
 export const AiAssistant = () => {
-  const { pathname } = useLocation();
   const { me } = useMe();
-  const [isOpen, setIsOpen] = useState(false);
-  const [view, setView] = useState<ViewTypes>("home");
-  const [isPopupDismissed, setIsPopupDismissed] = useState(false);
-  const screenLabel = getScreenLabel(pathname);
-  const chat = useAssistantChat(screenLabel);
-  const hasPopup = !isOpen && !isPopupDismissed;
+  const assistant = useAssistant();
+  const notifications = useAssistantNotifications(assistant.close);
+  const { chat, view, isOpen } = assistant;
+  const hasPopup = !isOpen && !assistant.isPopupDismissed;
   const lastMessage = chat.messages.length > 1 ? (chat.messages.at(-1) ?? null) : null;
 
-  const handleOpen = (nextView: ViewTypes) => {
-    setView(nextView);
-    setIsOpen(true);
-    setIsPopupDismissed(true);
-  };
+  const bottomNav = (
+    <AssistantBottomNav view={view} badgeLabel={notifications.badgeLabel} onSelect={assistant.showView} />
+  );
 
-  const handleStartWith = (prompt: string) => {
-    chat.sendMessage(prompt);
-    handleOpen("chat");
+  const noticeCard =
+    notifications.badgeLabel && notifications.noticeItems.length > 0 ? (
+      <AssistantNoticeCard
+        items={notifications.noticeItems}
+        badgeLabel={notifications.badgeLabel}
+        onSelect={notifications.select}
+        onOpenAll={() => assistant.showView("notifications")}
+      />
+    ) : null;
+
+  const panelViews: Record<AssistantViewTypes, ReactNode> = {
+    home: (
+      <AssistantHome
+        userName={me?.name ?? null}
+        contextLabel={assistant.screenLabel}
+        lastMessage={lastMessage}
+        noticeCard={noticeCard}
+        bottomNav={bottomNav}
+        onClose={assistant.close}
+        onStartChat={() => assistant.open("chat")}
+        onQuickCommand={assistant.ask}
+      />
+    ),
+    chat: (
+      <AssistantChat
+        messages={chat.messages}
+        quickReplies={chat.quickReplies}
+        isReplying={chat.isReplying}
+        actionStates={chat.actionStates}
+        onSend={chat.sendMessage}
+        onRunAction={chat.runAction}
+        onDismissAction={chat.dismissAction}
+        onBack={() => assistant.showView("home")}
+        onClose={assistant.close}
+      />
+    ),
+    notifications: (
+      <AssistantNotifications
+        notifications={notifications.notifications}
+        unreadCount={notifications.unreadCount}
+        onSelect={notifications.select}
+        onMarkAllRead={notifications.markAllRead}
+        onClose={assistant.close}
+        bottomNav={bottomNav}
+      />
+    ),
   };
 
   return (
     <>
       {hasPopup && (
         <div className={css.popup}>
-          <button type="button" className={css.popupBody} onClick={() => handleOpen("chat")}>
+          <button type="button" className={css.popupBody} onClick={() => assistant.open("chat")}>
             <span className={css.popupHead}>
               <span className={css.botAvatar}>
                 <Icon name="autoAwesome" size="sm" className={css.botAvatarIcon} />
@@ -51,7 +95,7 @@ export const AiAssistant = () => {
             </span>
             <span className={css.popupText}>{ASSISTANT_POPUP}</span>
           </button>
-          <button type="button" className={css.popupClose} onClick={() => setIsPopupDismissed(true)} aria-label="말풍선 닫기">
+          <button type="button" className={css.popupClose} onClick={assistant.dismissPopup} aria-label="말풍선 닫기">
             <Icon name="close" size="sm" />
           </button>
         </div>
@@ -59,40 +103,19 @@ export const AiAssistant = () => {
 
       {isOpen && (
         <section className={css.panel} aria-label="AI 비서">
-          {view === "home" ? (
-            <AssistantHome
-              userName={me?.name ?? null}
-              contextLabel={screenLabel}
-              lastMessage={lastMessage}
-              onClose={() => setIsOpen(false)}
-              onStartChat={() => handleOpen("chat")}
-              onQuickCommand={handleStartWith}
-            />
-          ) : (
-            <AssistantChat
-              messages={chat.messages}
-              quickReplies={chat.quickReplies}
-              isReplying={chat.isReplying}
-              actionStates={chat.actionStates}
-              onSend={chat.sendMessage}
-              onRunAction={chat.runAction}
-              onDismissAction={chat.dismissAction}
-              onBack={() => setView("home")}
-              onClose={() => setIsOpen(false)}
-            />
-          )}
+          {panelViews[view]}
         </section>
       )}
 
       <button
         type="button"
         className={cx(css.launcher, isOpen && css.launcherOpen)}
-        onClick={() => (isOpen ? setIsOpen(false) : handleOpen(view))}
-        aria-label={isOpen ? "AI 비서 닫기" : "AI 비서 열기"}
+        onClick={() => (isOpen ? assistant.close() : assistant.open(view))}
+        aria-label={getLauncherLabel(isOpen, notifications.badgeLabel)}
         aria-expanded={isOpen}
       >
         <Icon name={isOpen ? "close" : "messageCircle"} size="md" className={css.launcherIcon} />
-        {hasPopup && <span className={css.unreadBadge}>1</span>}
+        {notifications.badgeLabel && <span className={css.unreadBadge}>{notifications.badgeLabel}</span>}
       </button>
     </>
   );
