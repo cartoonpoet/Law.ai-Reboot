@@ -40,6 +40,8 @@ export interface RelatedDocView {
   name: string;
   sub: string;
   date: string;
+  // 열 수 있는 문서(실제 계약)면 상세 경로, 아니면 null.
+  href: string | null;
 }
 
 // 참조수신자 뷰모델(references 에서 파생).

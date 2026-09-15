@@ -1,6 +1,11 @@
 import type { MouseEvent } from "react";
 import { Modal, Button, Input, Checkbox, Icon } from "@lawkit/ui";
-import { RELATED_DOC_CATEGORIES, categoryLabel, type RelatedDoc } from "../../../api/relatedDocs";
+import {
+  RELATED_DOC_CATEGORIES,
+  categoryLabel,
+  isRelatedDocCategoryReady,
+  type RelatedDoc,
+} from "../../../api/relatedDocs";
 import { useRelatedDocsBrowser } from "../hooks/useRelatedDocsBrowser";
 import * as css from "./relatedDocsModal.css";
 
@@ -19,7 +24,7 @@ const stopBubble = (e: MouseEvent) => e.stopPropagation();
  * '선택 완료' 시 고른 문서를 onConfirm으로 넘긴다(취소 시 폐기).
  */
 export function RelatedDocsModal({ selected, onClose, onConfirm }: RelatedDocsModalProps) {
-  const { results, counts, categories, checked, search, toggleCategory, toggleDoc, isChecked } =
+  const { results, contractTotal, categories, checked, search, toggleCategory, toggleDoc, isChecked } =
     useRelatedDocsBrowser(selected);
 
   return (
@@ -42,7 +47,7 @@ export function RelatedDocsModal({ selected, onClose, onConfirm }: RelatedDocsMo
     >
       <div className={css.wrap}>
         <Input
-          placeholder="문서명 · 계약명 · 사건번호로 검색"
+          placeholder="계약명 · 관리번호 · 상대계약자로 검색"
           rightIcon={<Icon name="search" size="sm" />}
           onChange={(e) => search(e.target.value)}
         />
@@ -50,18 +55,28 @@ export function RelatedDocsModal({ selected, onClose, onConfirm }: RelatedDocsMo
         <div className={css.panel}>
           <aside className={css.cats}>
             <p className={css.catsHead}>분류</p>
-            {RELATED_DOC_CATEGORIES.map(({ value, label }) => (
-              <div key={value} className={css.cat} onClick={() => toggleCategory(value)}>
-                <Checkbox
-                  checked={categories.includes(value)}
-                  onCheckedChange={() => toggleCategory(value)}
-                  onClick={stopBubble}
-                />
-                <span className={css.dot[value]} />
-                <span className={css.catName}>{label}</span>
-                <span className={css.catCount}>{counts[value]}</span>
-              </div>
-            ))}
+            {RELATED_DOC_CATEGORIES.map(({ value, label }) =>
+              isRelatedDocCategoryReady(value) ? (
+                <div key={value} className={css.cat} onClick={() => toggleCategory(value)}>
+                  <Checkbox
+                    checked={categories.includes(value)}
+                    onCheckedChange={() => toggleCategory(value)}
+                    onClick={stopBubble}
+                  />
+                  <span className={css.dot[value]} />
+                  <span className={css.catName}>{label}</span>
+                  <span className={css.catCount}>{contractTotal ?? "-"}</span>
+                </div>
+              ) : (
+                // 자문·송무·법무프로젝트는 아직 저장된 문서가 없어 고를 수 없다.
+                <div key={value} className={`${css.cat} ${css.catDisabled}`}>
+                  <Checkbox checked={false} disabled />
+                  <span className={css.dot[value]} />
+                  <span className={css.catName}>{label}</span>
+                  <span className={css.catCount}>준비 중</span>
+                </div>
+              ),
+            )}
           </aside>
 
           <div className={css.docs}>
