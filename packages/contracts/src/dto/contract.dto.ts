@@ -264,6 +264,19 @@ export interface ReplaceSignedFileResult {
   contract: ContractResponse;
 }
 
+/** 계약 삭제(소프트 삭제 — deletedAt). 담당자 배정 전 생성자 본인 또는 시스템 관리자.
+ *  체결 결재 진행 중(signing)에는 막는다. 파일·변경 기록은 보존한다. */
+export interface DeleteContractRequest {
+  id: string;
+  /** gateway 가 JWT sub 를 주입. */
+  viewerId: string;
+  tenantContext?: TenantContext;
+}
+
+export interface DeleteContractResult {
+  ok: true;
+}
+
 export interface UpdateContractStatusRequest {
   id: string;
   status: ContractStatus;

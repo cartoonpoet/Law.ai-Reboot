@@ -13,6 +13,7 @@ import { CommentPanel } from "./sections/CommentPanel";
 import { ReviewActionPanel } from "./sections/ReviewActionPanel";
 import { ApprovalRejectModal } from "./sections/ApprovalRejectModal";
 import { ReplaceSignedFileModal } from "./sections/ReplaceSignedFileModal";
+import { DeleteContractModal } from "./sections/DeleteContractModal";
 import { ApprovalStepRows } from "./sections/ApprovalStepRows";
 import { ContractDetailSkeleton } from "./sections/ContractDetailSkeleton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -400,6 +401,7 @@ export function ContractDetailPage() {
   } = useContractApproval(id);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   // 로딩 중에는 재설계된 상세 레이아웃 형태의 스켈레톤(loading-state-convention: 상세=스켈레톤).
   if (isLoading) {
@@ -515,8 +517,26 @@ export function ContractDetailPage() {
             </Button>
           )}
           <Button size="medium">코멘트 추가</Button>
+          {can.delete && (
+            <Button
+              variant="outline"
+              color="secondary"
+              size="medium"
+              onClick={() => setIsDeleteOpen(true)}
+            >
+              계약 삭제
+            </Button>
+          )}
         </div>
       </header>
+
+      {isDeleteOpen && (
+        <DeleteContractModal
+          contractId={id}
+          contractName={d.name}
+          onClose={() => setIsDeleteOpen(false)}
+        />
+      )}
 
       {/* at-a-glance */}
       <GlanceStrip d={d} />

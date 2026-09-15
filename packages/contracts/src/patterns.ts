@@ -60,6 +60,8 @@ export const CONTRACT_PATTERNS = {
   FINALIZE_REGISTRATION: "contract.finalizeRegistration",
   // 서명본 교체 — 체결된 계약, 법무팀 전용. 기존 서명본은 첨부로 내려 이력 보존.
   REPLACE_SIGNED_FILE: "contract.replaceSignedFile",
+  // 계약 삭제(소프트 삭제) — 배정 전 생성자 본인 또는 시스템 관리자, 체결 결재 중 불가.
+  DELETE: "contract.delete",
 } as const;
 
 export const APPROVAL_PATTERNS = {

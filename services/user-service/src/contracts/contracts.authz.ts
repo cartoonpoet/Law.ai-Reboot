@@ -285,7 +285,8 @@ export const evaluate = (
   // 그 계약 생애주기와 무관한 시점에 재부팅된다 — "생성 직후의 짧은 구간"이라는 이 완화의
   // 전제 자체가 깨진다. draft/unassigned 로 묶으면 실제로 아직 아무도 손대지 않은(또는
   // 확정 전) 초기 구간에만 적용된다.
-  // canAssign/canTransition/canDelete 는 이 완화의 영향을 받지 않는다(ownerOk 그대로 사용).
+  // canAssign/canTransition 은 이 완화의 영향을 받지 않는다(ownerOk 그대로 사용).
+  // canDelete 는 이 초기 구간을 그대로 쓴다(아래 return 참고).
   //
   // 이 완화는 policy.edit 을 우회한다(&& 로 안 묶는다) — general 처럼 policy.edit=false 인
   // 역할의 생성자도 받아야 하기 때문이다. 등록 폼 자체가 "누가 만들든" 파일 첨부를 요구하므로
@@ -313,7 +314,9 @@ export const evaluate = (
     editIsAdditiveOnly,
     canAssign,
     canTransition,
-    canDelete: policy.delete, // delete 는 admin 전용(requiresOwner 무관)
+    // 삭제: 담당자 배정 전(draft/unassigned) 생성자 본인 — 잘못 만든 요청을 스스로 정리하는 구간.
+    // 시스템 관리자 전권은 viewer 에 드러나지 않으므로(inHouseCounsel 로 매핑) service 가 ctx.isSystemAdmin 으로 더한다.
+    canDelete: policy.delete || canEditUnassigned,
     canReplaceSignedFile:
       SIGNED_FILE_REPLACER_ROLES.has(viewer.role) && SIGNED_STATUSES.has(contract.status),
     maskSecret,
