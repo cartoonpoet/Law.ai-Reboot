@@ -1,7 +1,8 @@
 import { createVar, keyframes, style, styleVariants } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
+import { AI_BORDER, AI_TEXT, AI_TINT } from "../../components/ui/aiTone";
 
-/* 홈 대시보드 — 계약 검토 파이프라인, 내 할일, 기한 임박. */
+/* 홈 대시보드 — AI 브리핑, 계약 검토 파이프라인, 내 할일, 기한 임박. */
 
 const c = themeVars.color;
 const NARROW = "screen and (max-width: 1100px)";
@@ -54,6 +55,81 @@ export const cardMeta = style({ fontSize: 11.5, color: FAINT });
 export const countPill = style({ fontSize: 11.5, fontWeight: 700, color: c.textMuted });
 
 export const emptyState = style({ padding: "28px 16px", textAlign: "center", fontSize: 13, color: c.textMuted });
+
+/* --- AI 브리핑 --- */
+export const brief = style([card, { padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 11 }]);
+export const briefTop = style({ display: "flex", alignItems: "center", gap: 8 });
+
+export const aiLabel = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  fontSize: 10.5,
+  fontWeight: 700,
+  color: AI_TEXT,
+  background: AI_TINT,
+  border: `1px solid ${AI_BORDER}`,
+  padding: "2px 7px",
+  borderRadius: 4,
+  letterSpacing: "0.04em",
+});
+
+export const aiLabelIcon = style({ width: 12, height: 12, color: AI_TEXT });
+
+export const briefRefresh = style({
+  marginLeft: "auto",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  border: "none",
+  background: "none",
+  font: "inherit",
+  fontSize: 12,
+  fontWeight: 600,
+  color: c.textMuted,
+  cursor: "pointer",
+  selectors: { "&:hover": { color: AI_TEXT }, "&:disabled": { cursor: "default", opacity: 0.6 } },
+});
+
+export const briefRefreshIcon = style({ width: 12, height: 12 });
+
+export const briefHeadline = style({ fontSize: 14.5, fontWeight: 700, color: c.textHeading, letterSpacing: "-0.015em" });
+export const briefMuted = style({ fontSize: 12.5, color: c.textMuted });
+
+export const briefLink = style({
+  border: "none",
+  background: "none",
+  padding: 0,
+  font: "inherit",
+  color: AI_TEXT,
+  fontWeight: 600,
+  textDecoration: "underline",
+  cursor: "pointer",
+});
+
+export const briefList = style({ display: "flex", flexDirection: "column", gap: 7 });
+
+export const briefRow = style({
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "9px 12px",
+  borderRadius: 6,
+  background: c.neutralSurfaceAlt,
+  border: `1px solid ${c.neutralBorder}`,
+});
+
+const briefBarBase = style({ width: 2.5, alignSelf: "stretch", borderRadius: 2, flexShrink: 0 });
+
+export const briefBar = styleVariants({
+  danger: [briefBarBase, { background: c.accentDanger }],
+  warning: [briefBarBase, { background: c.accentWarning }],
+  info: [briefBarBase, { background: AI_TEXT }],
+});
+
+export const briefText = style({ flex: 1, fontSize: 12.5, color: c.textSecondary, lineHeight: 1.5 });
+export const briefDone = style({ fontSize: 12, fontWeight: 600, color: c.accentSuccessActive, flexShrink: 0 });
+export const briefConfirm = style({ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: c.textSecondary, flexShrink: 0 });
 
 /* --- 파이프라인 (움직임) --- */
 const REDUCED = "(prefers-reduced-motion: reduce)";

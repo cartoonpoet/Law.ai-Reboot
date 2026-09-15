@@ -102,6 +102,63 @@ describe("AssistantService", () => {
     expect(sent[sent.length - 1].content).toHaveLength(2000);
   });
 
+  describe("brief", () => {
+    const BRIEF = { headline: "오늘 챙길 일은 1건이에요.", points: [{ tone: "danger", text: "유지보수 계약이 미배정이에요.", action: { type: "assign", contractId: "c-un", ownerId: "u-kim" } }] };
+    const getBrief = (refresh = false) => svc.brief({ viewerId: "me", tenantContext: ctx, refresh });
+
+    beforeEach(() => {
+      aiClient.chat.mockResolvedValue({ content: JSON.stringify(BRIEF) });
+    });
+
+    it("키가 없으면 AI 를 부르지 않고 설정 안내", async () => {
+      credentials.getDecryptedKeyFor.mockResolvedValue(null);
+      const res = await getBrief();
+      expect(res).toMatchObject({ needsSetup: true, points: [] });
+      expect(aiClient.chat).not.toHaveBeenCalled();
+    });
+
+    it("처리할 계약·결재가 없으면 AI 를 부르지 않는다", async () => {
+      prisma.contract.findMany.mockResolvedValue([]);
+      const res = await getBrief();
+      expect(res.headline).toBe("지금 처리할 계약이나 결재가 없어요.");
+      expect(aiClient.chat).not.toHaveBeenCalled();
+    });
+
+    it("내 데이터로 브리핑을 만들고, 행동은 검증해 채운다", async () => {
+      const res = await getBrief();
+      expect(aiClient.chat.mock.calls[0][0].system).toContain("오늘의 브리핑");
+      expect(res.headline).toBe("오늘 챙길 일은 1건이에요.");
+      expect(res.points[0].action).toEqual({ type: "assign", contractId: "c-un", contractTitle: "유지보수 계약", ownerId: "u-kim", ownerName: "김법무" });
+    });
+
+    it("데이터가 그대로면 캐시를 쓰고, 새로 정리(refresh)나 데이터 변경 시 다시 만든다", async () => {
+      await getBrief();
+      await getBrief();
+      expect(aiClient.chat).toHaveBeenCalledTimes(1);
+
+      await getBrief(true);
+      expect(aiClient.chat).toHaveBeenCalledTimes(2);
+
+      prisma.contract.findMany.mockResolvedValue([]);
+      approvals.inbox.mockResolvedValue({ pending: [{ lineId: "l1", targetType: "contract", targetId: "c9", title: "품의", submittedByName: "박", myStepOrder: 0, totalSteps: 1 }], processed: [] });
+      await getBrief();
+      expect(aiClient.chat).toHaveBeenCalledTimes(3);
+    });
+
+    it("AI 응답 형식이 틀리면 안내를 돌려주고 캐시하지 않는다", async () => {
+      aiClient.chat.mockResolvedValue({ content: "not json" });
+      const res = await getBrief();
+      expect(res.headline).toMatch(/만들지 못했어요/);
+      await getBrief();
+      expect(aiClient.chat).toHaveBeenCalledTimes(2);
+    });
+
+    it("AI 호출 실패는 502", async () => {
+      aiClient.chat.mockRejectedValue(new Error("OpenAI 레이트리밋(429)"));
+      await expect(getBrief()).rejects.toMatchObject({ error: { status: 502 } });
+    });
+  });
+
   it("AI 호출이 실패하면 502 로 사유를 알린다", async () => {
     aiClient.chat.mockRejectedValue(new Error("OpenAI 레이트리밋(429)"));
     await expect(ask()).rejects.toMatchObject({ error: { status: 502, message: expect.stringContaining("429") } });

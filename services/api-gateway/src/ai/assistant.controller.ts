@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { firstValueFrom } from "rxjs";
@@ -7,6 +7,8 @@ import {
   ASSISTANT_PATTERNS,
   type AssistantChatRequest,
   type AssistantChatResponse,
+  type DashboardBriefRequest,
+  type DashboardBriefResponse,
   type JwtPayload,
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -36,6 +38,23 @@ export class AssistantController {
     };
     return firstValueFrom(
       this.userClient.send<AssistantChatResponse>(ASSISTANT_PATTERNS.CHAT, payload).pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({
+    summary: "대시보드 AI 브리핑",
+    description: "내 AI 연동 키로 오늘 챙길 일을 정리한다. 업무 데이터가 그대로면 30분간 같은 결과(refresh=true 면 다시 생성).",
+  })
+  @Get("brief")
+  brief(@Query("refresh") refresh: string | undefined, @Req() req: Request): Promise<DashboardBriefResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: DashboardBriefRequest = {
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+      refresh: refresh === "true",
+    };
+    return firstValueFrom(
+      this.userClient.send<DashboardBriefResponse>(ASSISTANT_PATTERNS.BRIEF, payload).pipe(rpcToHttp()),
     );
   }
 }
