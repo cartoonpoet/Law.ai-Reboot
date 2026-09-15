@@ -1,6 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
-import type { AiChatMessage, AssistantChatRequest, AssistantChatResponse, TenantContext, TenantRole } from "@lawai/contracts";
+import type {
+  AiChatMessage,
+  AssistantChatRequest,
+  AssistantChatResponse,
+  DashboardBriefRequest,
+  DashboardBriefResponse,
+  TenantContext,
+  TenantRole,
+} from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { tenantScope } from "../common/tenant-scope";
 import { AiCredentialsService } from "../ai-credentials/ai-credentials.service";
@@ -12,9 +20,20 @@ import {
   ASSIGNER_ROLES,
   MAX_HISTORY_MESSAGES,
   buildAssistantSystemPrompt,
+  buildBriefSystemPrompt,
+  getContextSignature,
 } from "./assistant-context";
 import type { AssistantContext } from "./assistant-context";
-import { parseAssistantReply } from "./assistant-reply";
+import { parseAssistantReply, parseBriefReply } from "./assistant-reply";
+
+// 업무 데이터가 그대로면 이 시간 동안 같은 브리핑을 다시 쓴다(대시보드를 열 때마다 유료 AI 호출 방지).
+const BRIEF_CACHE_MS = 30 * 60 * 1000;
+
+interface BriefCacheEntry {
+  signature: string;
+  expiresAt: number;
+  response: DashboardBriefResponse;
+}
 
 const MAX_CONTEXT_CONTRACTS = 40;
 const MAX_ASSIGNEES = 50;
@@ -44,6 +63,9 @@ const sanitizeMessages = (messages: AiChatMessage[]): AiChatMessage[] =>
 
 @Injectable()
 export class AssistantService {
+  // 사용자(테넌트)별 최근 브리핑 — 프로세스 메모리. 서버가 재시작되면 비워지고 다음 조회 때 다시 만든다.
+  private readonly briefCache = new Map<string, BriefCacheEntry>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly credentials: AiCredentialsService,
@@ -80,6 +102,52 @@ export class AssistantService {
       throw new RpcException({ status: 502, message: `AI 응답을 받지 못했어요: ${getErrorMessage(err)}` });
     }
     return parseAssistantReply(content, context);
+  }
+
+  /** 대시보드 AI 브리핑 — 내 업무 데이터로 오늘 챙길 일을 정리. 데이터가 그대로면 30분간 캐시를 쓴다. */
+  async brief(req: DashboardBriefRequest): Promise<DashboardBriefResponse> {
+    const viewerId = req.viewerId;
+    const ctx = req.tenantContext;
+    if (!viewerId || !ctx) {
+      throw new RpcException({ status: 401, message: "인증이 필요합니다" });
+    }
+    const generatedAt = new Date().toISOString();
+
+    const credential = await this.credentials.getDecryptedKeyFor(viewerId);
+    if (!credential) {
+      return { headline: "AI 브리핑을 보려면 먼저 내 AI 연동(API 키)을 설정해 주세요.", points: [], needsSetup: true, generatedAt };
+    }
+
+    const context = await this.loadContext(viewerId, ctx);
+    if (context.contracts.length === 0 && context.approvals.length === 0) {
+      return { headline: "지금 처리할 계약이나 결재가 없어요.", points: [], needsSetup: false, generatedAt };
+    }
+
+    const cacheKey = `${ctx.tenantId ?? "all"}:${viewerId}`;
+    const signature = getContextSignature(context);
+    const cached = this.briefCache.get(cacheKey);
+    if (!req.refresh && cached && cached.signature === signature && cached.expiresAt > Date.now()) {
+      return cached.response;
+    }
+
+    let content: string;
+    try {
+      ({ content } = await this.aiClient.chat({
+        model: credential.model,
+        apiKey: credential.apiKey,
+        system: buildBriefSystemPrompt({ context, today: generatedAt.slice(0, 10) }),
+        messages: [{ role: "user", content: "오늘 브리핑을 만들어 주세요." }],
+      }));
+    } catch (err) {
+      throw new RpcException({ status: 502, message: `AI 브리핑을 받지 못했어요: ${getErrorMessage(err)}` });
+    }
+
+    const { headline, points, isValid } = parseBriefReply(content, context);
+    const response: DashboardBriefResponse = { headline, points, needsSetup: false, generatedAt };
+    if (isValid) {
+      this.briefCache.set(cacheKey, { signature, expiresAt: Date.now() + BRIEF_CACHE_MS, response });
+    }
+    return response;
   }
 
   private async loadRole(viewerId: string, ctx: TenantContext): Promise<TenantRole> {

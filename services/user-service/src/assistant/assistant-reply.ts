@@ -1,4 +1,4 @@
-import type { AssistantAction, AssistantChatResponse } from "@lawai/contracts";
+import type { AssistantAction, AssistantChatResponse, BriefToneTypes, DashboardBriefPoint } from "@lawai/contracts";
 import type { AssistantContext } from "./assistant-context";
 
 const MAX_ACTIONS = 3;
@@ -17,7 +17,7 @@ const parseJson = (content: string): unknown => {
 };
 
 // 모델이 제안한 행동 하나를 실제 데이터·권한으로 검증해 확정한다. 근거가 없으면 버린다.
-const toVerifiedAction = (raw: unknown, context: AssistantContext): AssistantAction | null => {
+export const toVerifiedAction =(raw: unknown, context: AssistantContext): AssistantAction | null => {
   if (!isRecord(raw)) return null;
   const contract = typeof raw.contractId === "string" ? context.contracts.find((c) => c.id === raw.contractId) : undefined;
 
@@ -45,6 +45,30 @@ const toVerifiedAction = (raw: unknown, context: AssistantContext): AssistantAct
 
 const getActionKey = (action: AssistantAction) =>
   action.type === "open" ? `open:${action.path}` : `${action.type}:${action.contractId}`;
+
+const MAX_BRIEF_POINTS = 3;
+const BRIEF_TONES: BriefToneTypes[] = ["danger", "warning", "info"];
+const UNREADABLE_BRIEF = "AI 브리핑을 만들지 못했어요. 잠시 후 다시 정리해 주세요.";
+
+/** 모델 응답(JSON 문자열) → 대시보드 브리핑. 형식이 틀리면 isValid=false(캐시하지 않음), 행동은 검증된 것만. */
+export const parseBriefReply = (
+  content: string,
+  context: AssistantContext,
+): { headline: string; points: DashboardBriefPoint[]; isValid: boolean } => {
+  const parsed = parseJson(content);
+  if (!isRecord(parsed) || typeof parsed.headline !== "string" || !parsed.headline.trim()) {
+    return { headline: UNREADABLE_BRIEF, points: [], isValid: false };
+  }
+  const rawPoints = Array.isArray(parsed.points) ? parsed.points : [];
+  const points = rawPoints
+    .flatMap((raw): DashboardBriefPoint[] => {
+      if (!isRecord(raw) || typeof raw.text !== "string" || !raw.text.trim()) return [];
+      const tone = BRIEF_TONES.includes(raw.tone as BriefToneTypes) ? (raw.tone as BriefToneTypes) : "info";
+      return [{ tone, text: raw.text.trim(), action: raw.action ? toVerifiedAction(raw.action, context) : null }];
+    })
+    .slice(0, MAX_BRIEF_POINTS);
+  return { headline: parsed.headline.trim(), points, isValid: true };
+};
 
 /** 모델 응답(JSON 문자열) → 비서 응답. 형식이 틀리면 안내 문구, 행동은 검증된 것만 최대 3개. */
 export const parseAssistantReply = (content: string, context: AssistantContext): AssistantChatResponse => {

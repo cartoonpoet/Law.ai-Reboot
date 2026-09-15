@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { AiBriefCard } from "./AiBriefCard";
 import { DeadlinePanel } from "./DeadlinePanel";
 import { useDashboard } from "./hooks/useDashboard";
 import { PipelineStrip } from "./PipelineStrip";
@@ -9,7 +10,7 @@ const formatToday = (date: Date) =>
   date.toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
 
 /**
- * 홈 대시보드 — 계약 검토 파이프라인 → 내 할일 | 기한 임박. 모두 실제 계약·결재 데이터.
+ * 홈 대시보드 — AI 브리핑 → 계약 검토 파이프라인 → 내 할일 | 기한 임박. 모두 실제 계약·결재 데이터.
  * 사이드바에 있는 액션(검토 요청 등)은 두지 않는다. AI 비서는 AppShell 이 모든 화면에 띄운다.
  */
 export const DashboardPage = () => {
@@ -27,6 +28,8 @@ export const DashboardPage = () => {
           <div className={css.headerDate}>{formatToday(new Date())}</div>
         </div>
       </header>
+
+      <AiBriefCard />
 
       <PipelineStrip stages={dashboard.stages} isLoading={dashboard.isPipelineLoading} />
 
