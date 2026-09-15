@@ -20,7 +20,13 @@ const TYPE_LABEL: Record<string, string> = {
   approval_rejected: "결재가 반려됐어요",
   approval_completed: "결재가 끝났어요",
   comment_mention: "나를 언급했어요",
+  contract_expiring_90: "계약 만료 90일 전이에요",
+  contract_expiring_30: "계약 만료 30일 전이에요",
+  contract_expiring_7: "계약 만료가 7일 안으로 다가왔어요",
 };
+
+// 사람이 아닌 시스템 알림(만료 임박 등)은 보낸 사람 이름이 없다.
+const SYSTEM_SENDER_NAME = "Law.ai";
 
 // detail 은 Record<string, unknown> | null — 글자 값만 안전 추출(string 가드).
 const getDetailText = (detail: NotificationDto["detail"], key: string): string => {
@@ -38,7 +44,7 @@ export const NotificationItem = ({ notification, onSelect }: NotificationItemPro
   return (
     <button type="button" className={itemClass} onClick={() => onSelect(notification)}>
       <span className={css.itemTop}>
-        <span className={css.actorName}>{notification.actorName}</span>
+        <span className={css.actorName}>{notification.actorName || SYSTEM_SENDER_NAME}</span>
         {typeLabel ? <span className={css.typeLabel}>{typeLabel}</span> : null}
         {notification.isRead ? null : <span className={css.unreadDot} />}
       </span>

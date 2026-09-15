@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ScheduleModule } from "@nestjs/schedule";
 import { PrismaModule } from "./prisma/prisma.module";
 import { UsersModule } from "./users/users.module";
 import { CompaniesModule } from "./companies/companies.module";
@@ -18,6 +19,8 @@ import { AssistantModule } from "./assistant/assistant.module";
 
 @Module({
   imports: [
+    // 매일 도는 작업(계약 만료 임박 알림) 스케줄러.
+    ScheduleModule.forRoot(),
     PrismaModule,
     UsersModule,
     CompaniesModule,
