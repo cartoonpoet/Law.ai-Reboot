@@ -158,7 +158,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     section: "관리",
     items: [
       { icon: "users", label: "사용자" },
-      { icon: "fileText", label: "계약" },
+      { icon: "fileText", label: "삭제된 계약", path: "/contracts/deleted" },
       { icon: "folder", label: "표준양식" },
       { icon: "tag", label: "카테고리" },
     ],

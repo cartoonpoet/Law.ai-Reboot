@@ -78,3 +78,32 @@ export interface AdminTenantUpdateRequest {
   status?: import("./tenant.dto").TenantStatus;
   trialEndsAt?: string | null; // trial 전환 시 설정, null 로 해제
 }
+
+// ── 삭제된 계약 복구 (어드민 콘솔) ──────────────────────────────
+
+export interface AdminDeletedContractItem {
+  id: string;
+  code: string;
+  title: string;
+  status: import("./contract.dto").ContractStatus;
+  tenantId: string;
+  tenantName: string;
+  createdByName: string | null;
+  // 가장 최근에 삭제한 사람(감사 기록 기준). 기록이 없으면 null.
+  deletedByName: string | null;
+  deletedAt: string;
+}
+
+export interface AdminDeletedContractListResponse {
+  items: AdminDeletedContractItem[];
+}
+
+export interface AdminRestoreContractRequest {
+  contractId: string;
+  // gateway 가 JWT sub 를 주입.
+  actorId: string;
+}
+
+export interface AdminRestoreContractResult {
+  ok: true;
+}

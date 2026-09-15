@@ -10,6 +10,9 @@ import {
   type AdminTenantListItem,
   type AdminTenantListResponse,
   type AdminTenantUpdateRequest,
+  type AdminDeletedContractListResponse,
+  type AdminRestoreContractRequest,
+  type AdminRestoreContractResult,
 } from "@lawai/contracts";
 import { AdminService } from "./admin.service";
 
@@ -46,5 +49,17 @@ export class AdminController {
     @Payload() req: AdminTenantUpdateRequest & { actorId: string },
   ): Promise<AdminTenantListItem> {
     return this.admin.updateTenant(req);
+  }
+
+  @MessagePattern(ADMIN_PATTERNS.LIST_DELETED_CONTRACTS)
+  listDeletedContracts(): Promise<AdminDeletedContractListResponse> {
+    return this.admin.listDeletedContracts();
+  }
+
+  @MessagePattern(ADMIN_PATTERNS.RESTORE_CONTRACT)
+  restoreContract(
+    @Payload() req: AdminRestoreContractRequest,
+  ): Promise<AdminRestoreContractResult> {
+    return this.admin.restoreContract(req);
   }
 }

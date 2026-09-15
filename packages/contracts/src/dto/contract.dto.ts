@@ -24,6 +24,8 @@ export type AuditAction =
   | "delete"
   | "transition"
   | "view"
+  // 삭제된 계약 복구(시스템 관리자).
+  | "restore"
   // 두 파일 비교 결과 PDF 다운로드 — 결재 첨부·감사 보관용. detail 에 두 파일 메타와 변경 요약.
   | "compare_report_download";
 

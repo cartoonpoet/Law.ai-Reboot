@@ -2,6 +2,10 @@ import { Injectable } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import type {
+  AdminDeletedContractListResponse,
+  AdminRestoreContractRequest,
+  AdminRestoreContractResult,
+  ContractStatus,
   AdminAuditEntry,
   AdminAuditListResponse,
   AdminStatsResponse,
@@ -17,6 +21,9 @@ const SIGNED_STATUSES = ["signed", "fulfilling", "closed"] as const;
 const TENANT_AUDIT_LIMIT = 10;
 const AUDIT_MAX_LIMIT = 100;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+// 삭제된 계약 목록에 한 번에 보여줄 최대 건수(최근 삭제 순).
+const DELETED_CONTRACT_LIMIT = 200;
+const RESTORE_NOT_FOUND_MESSAGE = "삭제된 계약을 찾을 수 없습니다. 이미 복구됐을 수 있어요";
 
 @Injectable()
 export class AdminService {
@@ -182,6 +189,93 @@ export class AdminService {
   }
 
   /** 요금제/상태/체험판만료 변경 + 감사 기록(action=update, targetType=Tenant). */
+  /** 삭제된 계약 목록(전 고객사, 최근 삭제 순) — 회사 이름·작성자·삭제한 사람(감사 기록)·삭제 시각. */
+  async listDeletedContracts(): Promise<AdminDeletedContractListResponse> {
+    const rows = await this.prisma.contract.findMany({
+      where: { deletedAt: { not: null } },
+      orderBy: { deletedAt: "desc" },
+      take: DELETED_CONTRACT_LIMIT,
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        status: true,
+        tenantId: true,
+        deletedAt: true,
+        createdBy: { select: { name: true } },
+      },
+    });
+    if (rows.length === 0) return { items: [] };
+
+    const [tenants, deleteLogs] = await Promise.all([
+      this.prisma.tenant.findMany({
+        where: { id: { in: Array.from(new Set(rows.map((row) => row.tenantId))) } },
+        select: { id: true, name: true },
+      }),
+      this.prisma.auditLog.findMany({
+        where: { targetType: "Contract", action: "delete", targetId: { in: rows.map((row) => row.id) } },
+        orderBy: { at: "desc" },
+        select: { targetId: true, actorId: true },
+      }),
+    ]);
+    // 지웠다 복구했다 다시 지운 계약은 가장 최근 삭제 기록을 쓴다(at desc 라 처음 만난 기록).
+    const deleterIdByContractId = new Map<string, string>();
+    for (const log of deleteLogs) {
+      if (!deleterIdByContractId.has(log.targetId)) deleterIdByContractId.set(log.targetId, log.actorId);
+    }
+    const deleters = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(new Set(deleterIdByContractId.values())) } },
+      select: { id: true, name: true },
+    });
+
+    const tenantNameById = new Map(tenants.map((tenant) => [tenant.id, tenant.name]));
+    const userNameById = new Map(deleters.map((user) => [user.id, user.name]));
+    return {
+      items: rows.map((row) => {
+        const deleterId = deleterIdByContractId.get(row.id);
+        return {
+          id: row.id,
+          code: row.code,
+          title: row.title,
+          status: row.status as ContractStatus,
+          tenantId: row.tenantId,
+          tenantName: tenantNameById.get(row.tenantId) ?? "",
+          createdByName: row.createdBy?.name ?? null,
+          deletedByName: deleterId ? (userNameById.get(deleterId) ?? null) : null,
+          deletedAt: (row.deletedAt as Date).toISOString(),
+        };
+      }),
+    };
+  }
+
+  /** 삭제된 계약 복구 — 삭제 표시를 지우고 감사 기록. 없거나 이미 복구된 계약은 404. */
+  async restoreContract(req: AdminRestoreContractRequest): Promise<AdminRestoreContractResult> {
+    const row = await this.prisma.contract.findFirst({
+      where: { id: req.contractId, deletedAt: { not: null } },
+      select: { id: true, code: true, title: true, tenantId: true },
+    });
+    if (!row) throw new RpcException({ status: 404, message: RESTORE_NOT_FOUND_MESSAGE });
+
+    // 두 관리자가 동시에 누른 경우에 대비해 "아직 삭제 상태일 때만" 되돌린다.
+    const { count } = await this.prisma.contract.updateMany({
+      where: { id: row.id, deletedAt: { not: null } },
+      data: { deletedAt: null },
+    });
+    if (count === 0) throw new RpcException({ status: 404, message: RESTORE_NOT_FOUND_MESSAGE });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: "restore",
+        actorId: req.actorId,
+        targetType: "Contract",
+        targetId: row.id,
+        tenantId: row.tenantId,
+        detail: { code: row.code, title: row.title },
+      },
+    });
+    return { ok: true };
+  }
+
   async updateTenant(
     req: AdminTenantUpdateRequest & { actorId: string },
   ): Promise<AdminTenantListItem> {
