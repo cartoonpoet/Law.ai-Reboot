@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Icon, Button, ProgressBar, Alert } from "@lawkit/ui";
 import type { ApproverSnapshot } from "@lawai/contracts";
@@ -700,9 +700,15 @@ export function ContractDetailPage() {
                 <Fact label="관련문서">
                   {d.relatedDocs.length > 0 ? (
                     <span className={css.linkList}>
-                      {d.relatedDocs.map((doc) => (
-                        <span key={doc.id}>{doc.name}</span>
-                      ))}
+                      {d.relatedDocs.map((doc) =>
+                        doc.href ? (
+                          <Link key={doc.id} to={doc.href} className={css.flink}>
+                            {doc.name}
+                          </Link>
+                        ) : (
+                          <span key={doc.id}>{doc.name}</span>
+                        ),
+                      )}
                     </span>
                   ) : (
                     <EmptyChip />

@@ -145,6 +145,9 @@ const toApprovalStep = (
 // 계약 단건 응답(ContractResponse) → 상세 화면 뷰모델(ContractDetail).
 // 코멘트는 별도 조회(useComments)로 분리됨 — detailView 에 포함하지 않는다.
 // AI 리스크·라이프사이클은 아직 별도 기능이라 매핑 대상 아님(상세 페이지가 mock 유지).
+// 실제 계약 id(uuid) 판별.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // 계약 단계 → 한글 라벨.
 const STAGE_LABEL: Record<ContractStage, string> = {
   new: "신규계약",
@@ -181,6 +184,8 @@ export const toDetailView = (c: ContractResponse): ContractDetail => {
     name: doc.name,
     sub: doc.sub,
     date: doc.date,
+    // 예전 목업에서 고른 문서(id "d1" 등)는 실제 계약이 아니라 링크를 달지 않는다.
+    href: doc.category === "contract" && UUID_PATTERN.test(doc.id) ? `/contract/${doc.id}` : null,
   }));
   return {
     id: c.code,

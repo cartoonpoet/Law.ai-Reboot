@@ -45,6 +45,12 @@ export const cat = style({
   cursor: "pointer",
   selectors: { "&:hover": { background: themeVars.color.neutralSurface } },
 });
+// 아직 문서가 없는 분류(준비 중) — 누를 수 없음을 흐리게 보인다.
+export const catDisabled = style({
+  cursor: "default",
+  opacity: 0.55,
+  selectors: { "&:hover": { background: "transparent" } },
+});
 export const catName = style({ flex: 1, fontSize: 13, fontWeight: 600, color: themeVars.color.textHeading });
 export const catCount = style({ fontSize: 11, fontWeight: 700, color: themeVars.color.textMuted });
 export const dot = styleVariants(CAT_COLORS, (color) => ({
