@@ -3,6 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import * as mammoth from "mammoth";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.js";
 import { R2Client } from "../files/r2.client";
+import { readHwpText, readHwpxText } from "./hwp-text";
 
 // AI 에 넘길 본문 최대 길이 — 모델 입력 한도·비용을 넘지 않게 자른다(자른 경우 표시).
 export const MAX_CONTRACT_TEXT_LENGTH = 60_000;
@@ -20,15 +21,36 @@ export interface ContractFileLike {
   storageKey: string | null;
 }
 
-type ReadableKindTypes = "pdf" | "docx" | "text";
+type ReadableKindTypes = "pdf" | "docx" | "hwp" | "hwpx" | "text";
+
+const HWP_MIME_TYPES = ["application/x-hwp", "application/haansofthwp"];
+const HWPX_MIME_TYPES = ["application/vnd.hancom.hwpx", "application/x-hwpx"];
 
 const getReadableKind = (file: ContractFileLike): ReadableKindTypes | null => {
   const name = file.name.toLowerCase();
-  if (file.mimeType === "application/pdf" || name.endsWith(".pdf")) return "pdf";
-  if (file.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || name.endsWith(".docx")) return "docx";
-  if (file.mimeType === "text/plain" || name.endsWith(".txt")) return "text";
-  // 한글(hwp)·구형 워드(doc)·스캔 이미지는 아직 읽지 못한다.
+  const mimeType = file.mimeType ?? "";
+  if (mimeType === "application/pdf" || name.endsWith(".pdf")) return "pdf";
+  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || name.endsWith(".docx")) return "docx";
+  if (HWPX_MIME_TYPES.includes(mimeType) || name.endsWith(".hwpx")) return "hwpx";
+  if (HWP_MIME_TYPES.includes(mimeType) || name.endsWith(".hwp")) return "hwp";
+  if (mimeType === "text/plain" || name.endsWith(".txt")) return "text";
+  // 구형 워드(doc)·스캔 이미지는 아직 읽지 못한다.
   return null;
+};
+
+const readRawText = async (kind: ReadableKindTypes, bytes: Uint8Array): Promise<string> => {
+  switch (kind) {
+    case "pdf":
+      return readPdfText(bytes);
+    case "docx":
+      return (await mammoth.extractRawText({ buffer: Buffer.from(bytes) })).value;
+    case "hwp":
+      return readHwpText(bytes);
+    case "hwpx":
+      return readHwpxText(bytes);
+    case "text":
+      return Buffer.from(bytes).toString("utf8");
+  }
 };
 
 // 줄 안의 연속 공백·3줄 이상 빈 줄을 줄여 모델 입력을 아낀다.
@@ -65,7 +87,7 @@ export const readPdfText = async (bytes: Uint8Array): Promise<string> => {
 };
 
 /**
- * 계약서 원본(role=contract) 파일에서 AI 분석용 본문을 뽑는다 — PDF·워드(docx)·텍스트.
+ * 계약서 원본(role=contract) 파일에서 AI 분석용 본문을 뽑는다 — PDF·워드(docx)·한글(hwp·hwpx)·텍스트.
  * 파일 하나가 실패해도 나머지는 계속 읽고, 읽을 수 있는 게 없으면 null(메타데이터만으로 분석).
  */
 @Injectable()
@@ -97,13 +119,8 @@ export class ContractTextExtractor {
       const bytes = await this.r2.getObjectBytes(file.storageKey as string);
       if (!bytes) return null;
       const kind = getReadableKind(file);
-      const raw =
-        kind === "pdf"
-          ? await readPdfText(bytes)
-          : kind === "docx"
-            ? (await mammoth.extractRawText({ buffer: Buffer.from(bytes) })).value
-            : Buffer.from(bytes).toString("utf8");
-      const text = normalizeText(raw);
+      if (!kind) return null;
+      const text = normalizeText(await readRawText(kind, bytes));
       return text || null;
     } catch (error) {
       this.logger.warn(`[ai] 계약서 본문 추출 실패 (${file.name}): ${error instanceof Error ? error.message : String(error)}`);
