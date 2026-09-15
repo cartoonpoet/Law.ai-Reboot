@@ -11,6 +11,7 @@ import type {
   CompleteSigningRequest,
   FinalizeRegistrationRequest,
   ReplaceSignedFileRequest,
+  DeleteContractRequest,
 } from "@lawai/contracts";
 import { ContractsService } from "./contracts.service";
 
@@ -61,5 +62,10 @@ export class ContractsController {
   @MessagePattern(CONTRACT_PATTERNS.REPLACE_SIGNED_FILE)
   replaceSignedFile(@Payload() req: ReplaceSignedFileRequest) {
     return this.contracts.replaceSignedFile(req);
+  }
+
+  @MessagePattern(CONTRACT_PATTERNS.DELETE)
+  remove(@Payload() req: DeleteContractRequest) {
+    return this.contracts.remove(req);
   }
 }

@@ -347,16 +347,31 @@ describe("contracts.authz evaluate", () => {
       expect(r.canEdit).toBe(false);
     });
 
-    it("이 완화는 canEdit 에만 적용되고 canAssign/canTransition/canDelete 는 그대로다(과확대 없음)", () => {
+    it("이 완화는 canTransition 을 넓히지 않는다(과확대 없음) — 삭제만 같은 초기 구간을 쓴다", () => {
       const r = evaluate(
         makeViewer("inHouseCounsel", CREATOR_ID),
         unassigned({ createdById: CREATOR_ID }),
       );
       expect(r.canEdit).toBe(true);
-      // canAssign 은 이미 "미배정이면 아무 담당 역할이나 가능"이라 true 인 게 정상(기존 완화) —
-      // 여기서 확인하려는 건 canTransition/canDelete 가 이번 변경으로 새로 true 가 되지 않았는지다.
+      // canAssign 은 이미 "미배정이면 아무 담당 역할이나 가능"이라 true 인 게 정상(기존 완화).
       expect(r.canTransition).toBe(false);
-      expect(r.canDelete).toBe(false);
+      // 삭제는 의도적으로 같은 구간(배정 전 생성자 본인)을 허용한다 — 잘못 만든 요청을 스스로 정리.
+      expect(r.canDelete).toBe(true);
+    });
+
+    it("삭제 권한은 담당자가 배정되거나 초기 구간을 지나면 사라지고, 생성자가 아니면 처음부터 없다", () => {
+      expect(
+        evaluate(makeViewer("general", CREATOR_ID), unassigned({ createdById: CREATOR_ID })).canDelete,
+      ).toBe(true);
+      expect(
+        evaluate(makeViewer("general", CREATOR_ID), unassigned({ createdById: CREATOR_ID, ownerId: OWNER_ID })).canDelete,
+      ).toBe(false);
+      expect(
+        evaluate(makeViewer("general", CREATOR_ID), unassigned({ createdById: CREATOR_ID, status: "signed" })).canDelete,
+      ).toBe(false);
+      expect(
+        evaluate(makeViewer("inHouseCounsel", "other-1"), unassigned({ createdById: CREATOR_ID })).canDelete,
+      ).toBe(false);
     });
 
     // B: general 은 registerAs=signed 로 등록하는 "의도된 기본 사용자"일 수 있다(등록 폼 자체가

@@ -42,6 +42,8 @@ import type {
   FinalizeRegistrationResult,
   ReplaceSignedFileRequest,
   ReplaceSignedFileResult,
+  DeleteContractRequest,
+  DeleteContractResult,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -470,7 +472,8 @@ export class ContractsService {
       edit: authz.canEdit,
       assign: authz.canAssign,
       transition: authz.canTransition,
-      delete: authz.canDelete,
+      // 시스템 관리자 전권은 evaluate 에 드러나지 않으므로 여기서 더한다(remove() 와 같은 규칙 — 체결 결재 중 불가).
+      delete: authz.canDelete || (Boolean(ctx.isSystemAdmin) && row.status !== "signing"),
       replaceSignedFile: authz.canReplaceSignedFile,
     };
 
@@ -1033,6 +1036,56 @@ export class ContractsService {
       },
     });
     return { contract: this.toResponse(updated, active.line) };
+  }
+
+  /** 계약 삭제(소프트 삭제) — deletedAt 을 채워 목록·상세·검색·코멘트·파일 다운로드·AI 비서에서 제외한다.
+   *  파일(R2)·변경 기록은 보존한다(잘못 지웠을 때 관리자가 되살릴 수 있게).
+   *  권한: 담당자 배정 전 생성자 본인(authz.canDelete — 잘못 만든 요청 정리) 또는 시스템 관리자.
+   *  체결 결재 진행 중(signing)에는 막는다 — 결재자 대기함에 삭제된 계약의 결재가 남기 때문이다. */
+  async remove(req: DeleteContractRequest): Promise<DeleteContractResult> {
+    const ctx = req.tenantContext!;
+    const row = await this.ensureExists(req.id, ctx);
+
+    const viewer = await this.loadViewer(req.viewerId, ctx);
+    const authz = evaluate(viewer, this.toAuthzContract(row));
+    if (!viewer || !(authz.canDelete || ctx.isSystemAdmin)) {
+      throw new RpcException({ status: 403, message: "계약 삭제 권한이 없습니다" });
+    }
+    if (row.status === "signing") {
+      throw new RpcException({
+        status: 400,
+        message: "체결 결재가 진행 중인 계약은 삭제할 수 없습니다. 결재를 끝내거나 반려한 뒤 삭제하세요",
+      });
+    }
+
+    // where 에 deletedAt:null·status≠signing 을 다시 넣어(CAS) 동시 삭제·그 사이 상신에 대비한다.
+    try {
+      await this.prisma.contract.update({
+        where: { id: row.id, deletedAt: null, status: { not: "signing" }, ...tenantScope(ctx) },
+        data: { deletedAt: new Date() },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        throw new RpcException({
+          status: 409,
+          message: "이미 삭제되었거나 상태가 변경된 계약입니다",
+        });
+      }
+      throw error;
+    }
+
+    await this.audit.record({
+      action: "delete",
+      targetType: "Contract",
+      targetId: row.id,
+      actorId: viewer.id,
+      tenantId: row.tenantId,
+      detail: { code: row.code, title: row.title, status: row.status },
+    });
+    return { ok: true };
   }
 
   /** 서명본 교체 — 체결된 계약의 서명본을 잘못 올렸을 때 법무팀이 새 파일로 바꾼다.

@@ -29,6 +29,8 @@ import {
   type CreateCommentResult,
   type CreateContractRequest,
   type DeleteCommentRequest,
+  type DeleteContractRequest,
+  type DeleteContractResult,
   type JwtPayload,
   type ListCommentsRequest,
   type ListContractsRequest,
@@ -290,6 +292,26 @@ export class ContractsController {
           rpcToHttp(),
           map((result: ReplaceSignedFileResult) => result.contract),
         ),
+    );
+  }
+
+  @ApiOperation({
+    summary: "계약 삭제",
+    description:
+      "소프트 삭제(deletedAt) — 파일·변경 기록은 보존. 담당자 배정 전 생성자 본인 또는 시스템 관리자. 체결 결재 진행 중(signing)에는 불가.",
+  })
+  @Delete(":id")
+  remove(@Param("id") id: string, @Req() req: Request): Promise<DeleteContractResult> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: DeleteContractRequest = {
+      id,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<DeleteContractResult>(CONTRACT_PATTERNS.DELETE, payload)
+        .pipe(rpcToHttp()),
     );
   }
 
