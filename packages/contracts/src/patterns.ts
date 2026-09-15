@@ -77,6 +77,8 @@ export const FILE_PATTERNS = {
   PRESIGN: "file.presign",
   CONFIRM: "file.confirm",
   GET_DOWNLOAD_URL: "file.getDownloadUrl",
+  // 게이트웨이 파일 중계 — 다운로드 주소 토큰 확인 후 서버가 받아올 R2 단기 주소.
+  GET_CONTENT_SOURCE: "file.getContentSource",
   // 두 파일 비교 결과 PDF 다운로드 — 감사 로그용 best-effort 기록. 응답은 빈 객체.
   AUDIT_COMPARE_REPORT: "file.auditCompareReport",
 } as const;

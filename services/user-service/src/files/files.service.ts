@@ -19,6 +19,8 @@ import {
   type FileAttachmentDto,
   type GetDownloadUrlRequest,
   type GetDownloadUrlResponse,
+  type GetFileContentSourceRequest,
+  type GetFileContentSourceResponse,
   type PresignUploadRequest,
   type PresignUploadResponse,
   type TenantContext,
@@ -33,8 +35,11 @@ import type {
 import { tenantScope, resolveTenantId } from "../common/tenant-scope";
 import { R2Client } from "./r2.client";
 import { signUploadToken, verifyUploadToken } from "./uploadToken";
+import { checkContentToken, signContentToken } from "./contentToken";
 
 const PRESIGN_TTL_SEC = 900;
+// 게이트웨이가 받자마자 곧바로 R2 에 요청하므로 짧게 둔다.
+const CONTENT_SOURCE_TTL_SEC = 60;
 
 const contractAuthzInclude = {
   references: true,
@@ -395,16 +400,54 @@ export class FilesService {
       });
     }
 
-    const encodedName = encodeURIComponent(file.name);
+    // R2 주소를 바로 주지 않고 우리 서버(게이트웨이)를 거치는 주소를 준다.
+    // 회사망 등에서 브라우저가 R2(cloudflarestorage.com)에 닿지 못해도 파일이 열리게 하기 위함.
+    const token = signContentToken(file.id, PRESIGN_TTL_SEC);
+    return {
+      url: `/files/${file.id}/content?token=${encodeURIComponent(token)}`,
+      expiresIn: PRESIGN_TTL_SEC,
+    };
+  }
+
+  // 게이트웨이 파일 중계용 — 다운로드 주소 토큰을 확인하고, 서버가 R2 에서 받아올 단기 주소를 만든다.
+  // 열람 권한은 토큰 발급(getDownloadUrl) 때 이미 확인했으므로 여기선 토큰과 파일 상태만 본다.
+  async getContentSource(
+    req: GetFileContentSourceRequest,
+  ): Promise<GetFileContentSourceResponse> {
+    this.ensureEnabled();
+    if (!checkContentToken(req.token, req.fileId)) {
+      throw new RpcException({
+        status: 401,
+        message: "파일 주소가 만료되었거나 유효하지 않습니다",
+      });
+    }
+    const file = await this.prisma.file.findFirst({
+      where: { id: req.fileId },
+      include: {
+        contract: { select: { deletedAt: true } },
+        comment: { select: { deletedAt: true } },
+      },
+    });
+    if (
+      !file ||
+      !file.storageKey ||
+      file.contract.deletedAt ||
+      file.comment?.deletedAt
+    ) {
+      throw new RpcException({
+        status: 404,
+        message: "파일을 찾을 수 없습니다",
+      });
+    }
     const cmd = new GetObjectCommand({
       Bucket: this.r2.bucket as string,
       Key: file.storageKey,
-      ResponseContentDisposition: `attachment; filename*=UTF-8''${encodedName}`,
+      ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
     });
     const url = await getSignedUrl(this.r2.client as never, cmd, {
-      expiresIn: PRESIGN_TTL_SEC,
+      expiresIn: CONTENT_SOURCE_TTL_SEC,
     });
-    return { url, expiresIn: PRESIGN_TTL_SEC };
+    return { url };
   }
 
   /**
