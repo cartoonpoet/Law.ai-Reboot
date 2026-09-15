@@ -822,6 +822,63 @@ describe("ContractsService", () => {
     });
   });
 
+  // 웹은 계약을 파일 없이 먼저 만들고 계약서를 나중에 붙인다 — 그때 사전 점검이 돌아야 한다.
+  describe("update: 검토 전 계약서가 붙으면 사전 점검(precheck)", () => {
+    const unassignedRow = (files: { id: string; role: string }[]) => ({
+      ...fullRow("unassigned"),
+      status: "unassigned",
+      ownerId: "admin-1",
+      files,
+    });
+
+    beforeEach(() => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    });
+
+    it("미배정 계약에 업로드한 계약서를 붙이면 작성자 키로 사전 점검을 트리거한다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(unassignedRow([]));
+      prismaMock.contract.update.mockResolvedValue(unassignedRow([{ id: "f-new", role: "contract" }]));
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        files: [{ id: "f-new", role: "contract", name: "계약서.pdf", meta: "PDF", sortOrder: 0 }],
+      });
+      await flushAiTrigger();
+      expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+        expect.objectContaining({ targetId: "ct-1", kind: "precheck", triggeredByUserId: fullRow("unassigned").createdById }),
+      );
+    });
+
+    it("계약서는 그대로 두고 다른 항목만 수정하면 사전 점검을 다시 돌리지 않는다", async () => {
+      const row = unassignedRow([{ id: "f1", role: "contract" }]);
+      prismaMock.contract.findFirst.mockResolvedValue(row);
+      prismaMock.contract.update.mockResolvedValue(row);
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        files: [{ id: "f1", role: "contract", name: "계약서.pdf", meta: "PDF", sortOrder: 0 }],
+      });
+      await flushAiTrigger();
+      expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+    });
+
+    it("검토 중(legalReview)에 계약서를 바꾸면 사전 점검이 아니라 risk 만 돈다", async () => {
+      const row = { ...unassignedRow([{ id: "f1", role: "contract" }]), status: "legalReview" };
+      prismaMock.contract.findFirst.mockResolvedValue(row);
+      prismaMock.contract.update.mockResolvedValue(row);
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        files: [{ role: "contract", name: "revised.pdf", meta: "PDF", sortOrder: 0 }],
+      });
+      await flushAiTrigger();
+      expect(aiAnalysisMock.trigger).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "precheck" }));
+    });
+  });
+
   // spec §6: risk 는 "legalReview 진입 또는 계약서 파일 교체 시" 트리거된다.
   describe("update: 계약서 파일 교체 시 risk 재분석", () => {
     // 검토 중(legalReview)이고 계약서 본문 파일 f1 이 이미 붙어 있는 계약.
@@ -871,7 +928,7 @@ describe("ContractsService", () => {
       );
     });
 
-    it("risk 대상이 아닌 상태(unassigned)에서는 파일을 교체해도 트리거하지 않는다", async () => {
+    it("risk 대상이 아닌 상태(unassigned)에서는 파일을 교체해도 risk 는 트리거하지 않는다", async () => {
       const row = { ...rowInReview(), status: "unassigned" };
       prismaMock.contract.findFirst.mockResolvedValue(row);
       prismaMock.contract.update.mockResolvedValue(row);
@@ -882,7 +939,7 @@ describe("ContractsService", () => {
         files: [{ role: "contract", name: "revised.docx", meta: "DOCX", sortOrder: 0 }],
       });
       await flushAiTrigger();
-      expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+      expect(aiAnalysisMock.trigger).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "risk" }));
     });
 
     it("파일을 건드리지 않는 수정(제목 등)은 트리거하지 않는다", async () => {
