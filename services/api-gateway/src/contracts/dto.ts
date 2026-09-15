@@ -250,3 +250,17 @@ export class FinalizeRegistrationDto {
   @IsISO8601()
   signedAt!: string;
 }
+
+// 서명본 교체. contractId 는 @Param, viewerId(=처리자)는 JWT sub.
+export class ReplaceSignedFileDto {
+  @ApiProperty({ description: "새로 첨부(attach)한 서명본 File.id" })
+  @IsString()
+  @IsNotEmpty()
+  fileId!: string;
+
+  @ApiProperty({ description: "교체 사유 - 감사 로그에 남는다" })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason!: string;
+}

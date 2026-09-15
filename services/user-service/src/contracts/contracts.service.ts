@@ -40,6 +40,8 @@ import type {
   CompleteSigningResult,
   FinalizeRegistrationRequest,
   FinalizeRegistrationResult,
+  ReplaceSignedFileRequest,
+  ReplaceSignedFileResult,
 } from "@lawai/contracts";
 
 // Prisma 가 counterparties + 결재선(단계 포함)을 include 한 Contract 행
@@ -469,6 +471,7 @@ export class ContractsService {
       assign: authz.canAssign,
       transition: authz.canTransition,
       delete: authz.canDelete,
+      replaceSignedFile: authz.canReplaceSignedFile,
     };
 
     // view 감사: top/secure 보안등급 열람만 기록(normal 은 기록하지 않음).
@@ -1029,6 +1032,108 @@ export class ContractsService {
         note: req.note ?? null,
       },
     });
+    return { contract: this.toResponse(updated, active.line) };
+  }
+
+  /** 서명본 교체 — 체결된 계약의 서명본을 잘못 올렸을 때 법무팀이 새 파일로 바꾼다.
+   *  편집(PATCH)은 서명본 교체·삭제를 막으므로(§5.4) 이 전용 경로로만 바꿀 수 있다.
+   *  기존 서명본은 지우지 않고 첨부로 내려 이력으로 남기며(법적 원본 추적), 사유는 감사 로그에 남긴다.
+   *  권한·상태·파일 게이트를 모두 통과하기 전에는 어떤 쓰기도 하지 않는다. */
+  async replaceSignedFile(
+    req: ReplaceSignedFileRequest,
+  ): Promise<ReplaceSignedFileResult> {
+    const ctx = req.tenantContext!;
+    const row = await this.ensureExists(req.contractId, ctx);
+
+    if (!POST_SIGN_STATUSES.includes(row.status as ContractStatus)) {
+      throw new RpcException({ status: 400, message: "체결된 계약만 서명본을 교체할 수 있습니다" });
+    }
+    const viewer = await this.loadViewer(req.viewerId, ctx);
+    const authz = evaluate(viewer, this.toAuthzContract(row));
+    if (!authz.canReplaceSignedFile) {
+      throw new RpcException({ status: 403, message: "서명본 교체 권한이 없습니다" });
+    }
+    const reason = (req.reason ?? "").trim();
+    if (!reason) {
+      throw new RpcException({ status: 400, message: "교체 사유를 입력하세요" });
+    }
+
+    // 새 서명본은 이 계약 본문에 새로 첨부한 파일(role=attach)이어야 한다 — 계약서·참고서류를 서명본으로
+    // 바꾸면 그 문서가 목록에서 사라지고, 코멘트 첨부는 계약 파일 목록에 보이지 않는 서명본이 된다.
+    const file = await this.prisma.file.findFirst({
+      where: { id: req.fileId, contractId: row.id, commentId: null },
+      select: { id: true, role: true, storageKey: true },
+    });
+    if (!file) {
+      throw new RpcException({ status: 400, message: "잘못된 파일입니다" });
+    }
+    if (!file.storageKey) {
+      throw new RpcException({ status: 400, message: "새 서명본을 첨부하세요" });
+    }
+    if (file.role !== "attach") {
+      throw new RpcException({ status: 400, message: "새로 첨부한 파일만 서명본으로 지정할 수 있습니다" });
+    }
+
+    const previousSigned = await this.prisma.file.findMany({
+      where: { contractId: row.id, commentId: null, role: "signed" },
+      select: { id: true },
+    });
+    const replacedOn = new Date().toISOString().slice(0, 10);
+
+    // 기존 서명본 강등 + 새 파일 승격 + 계약 갱신을 한 트랜잭션으로 — 중간에 실패해 서명본이 0개나 2개가
+    // 되는 절반 반영을 막는다. 새 파일·계약 쪽 where 에 확인한 조건을 다시 넣어(CAS) 동시 요청·상태 변경에
+    // 대비하고, 대상이 사라지면 P2025 → 409.
+    let updated: ContractWithRelations;
+    try {
+      const [, , updatedRow] = await this.prisma.$transaction([
+        this.prisma.file.updateMany({
+          where: { contractId: row.id, commentId: null, role: "signed" },
+          data: { role: "attach", meta: `이전 서명본 · ${replacedOn} 교체` },
+        }),
+        this.prisma.file.update({
+          where: {
+            id: file.id,
+            contractId: row.id,
+            commentId: null,
+            role: "attach",
+            storageKey: { not: null },
+          },
+          data: { role: "signed" },
+        }),
+        this.prisma.contract.update({
+          where: { id: row.id, status: { in: POST_SIGN_STATUSES }, ...tenantScope(ctx) },
+          data: { updatedAt: new Date() },
+          include: contractInclude,
+        }),
+      ]);
+      updated = updatedRow;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2025"
+      ) {
+        throw new RpcException({
+          status: 409,
+          message: "이미 처리되었거나 상태가 변경된 계약입니다",
+        });
+      }
+      throw error;
+    }
+
+    await this.audit.record({
+      action: "update",
+      targetType: "Contract",
+      targetId: row.id,
+      actorId: req.viewerId,
+      tenantId: row.tenantId,
+      detail: {
+        kind: "replaceSignedFile",
+        previousFileIds: previousSigned.map((f) => f.id),
+        fileId: file.id,
+        reason,
+      },
+    });
+    const active = await this.approvals.getActive("contract", row.id);
     return { contract: this.toResponse(updated, active.line) };
   }
 

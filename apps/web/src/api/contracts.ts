@@ -102,3 +102,14 @@ export const finalizeRegistration = (
     method: "POST",
     body: JSON.stringify(body),
   });
+
+// 서명본 교체 — 체결된 계약에서 법무팀만. fileId 는 새로 첨부(attach)한 파일, reason 은 감사 로그에 남는다.
+// 기존 서명본은 서버가 첨부로 내려 이력으로 보존한다.
+export const replaceSignedFile = (
+  id: string,
+  body: { fileId: string; reason: string },
+): Promise<ContractResponse> =>
+  apiFetch<ContractResponse>(`/contracts/${id}/signed-file/replace`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });

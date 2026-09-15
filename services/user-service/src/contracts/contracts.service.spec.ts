@@ -123,6 +123,7 @@ describe("ContractsService", () => {
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
@@ -1120,13 +1121,14 @@ describe("ContractsService", () => {
     ).rejects.toBeInstanceOf(RpcException);
   });
 
-  it("get: 응답에 can 4필드(edit/assign/transition/delete)를 부착한다", async () => {
+  it("get: 응답에 can 필드(edit/assign/transition/delete/replaceSignedFile)를 부착한다", async () => {
     // inHouseCounsel 담당자 → edit/assign/transition=true, delete=false(TenantRole 기준).
     prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
     // viewer("owner-1")가 ownerId 와 일치해야 requiresOwner 통과.
     prismaMock.contract.findFirst.mockResolvedValue({ ...rowWithSecrets(), ownerId: "owner-1" });
     const res = await service.get({ id: "ct-1", viewerId: "owner-1", ...makeCtx() });
-    expect(res.can).toEqual({ edit: true, assign: true, transition: true, delete: false });
+    // 체결 전 계약이라 서명본 교체 대상이 아니다.
+    expect(res.can).toEqual({ edit: true, assign: true, transition: true, delete: false, replaceSignedFile: false });
   });
 
   // --- Gen-Phase 8: 가드 / 감사 케이스 ---
@@ -2051,6 +2053,120 @@ describe("ContractsService", () => {
       });
       expect(prismaMock.contract.update).not.toHaveBeenCalled();
       expect(prismaMock.file.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // 서명본 교체 — 체결된 계약, 법무팀 전용. 기존 서명본은 첨부로 내려 이력 보존 + 사유 감사 기록.
+  describe("replaceSignedFile", () => {
+    const signedContract = () => ({ ...fullRow("signed"), ownerId: "u-legal" });
+    const NEW_FILE = { id: "f-new", role: "attach", storageKey: "contracts/ct-1/u/new-signed.pdf" };
+    const req = (over: Record<string, unknown> = {}) => ({
+      contractId: "ct-1",
+      viewerId: "u-counsel",
+      fileId: "f-new",
+      reason: "날인 누락본을 잘못 올림",
+      ...makeCtx(),
+      ...over,
+    });
+    const asRole = (role: string) =>
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role, user: { departmentId: "dept-1" } });
+    const expectNoWrite = () => {
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+      expect(prismaMock.file.updateMany).not.toHaveBeenCalled();
+      expect(auditMock.record).not.toHaveBeenCalled();
+    };
+
+    it("체결 전 계약(legalReview)이면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("legalReview"));
+      await expect(service.replaceSignedFile(req())).rejects.toMatchObject({
+        error: { status: 400, message: "체결된 계약만 서명본을 교체할 수 있습니다" },
+      });
+      expectNoWrite();
+    });
+
+    it("법무팀이 아니면(일반 사용자) 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue({ ...signedContract(), createdById: "u-general" });
+      asRole("general");
+      await expect(service.replaceSignedFile(req({ viewerId: "u-general" }))).rejects.toMatchObject({
+        error: { status: 403 },
+      });
+      expectNoWrite();
+    });
+
+    it("사유가 비어 있으면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(signedContract());
+      asRole("inHouseCounsel");
+      await expect(service.replaceSignedFile(req({ reason: "   " }))).rejects.toMatchObject({
+        error: { status: 400, message: "교체 사유를 입력하세요" },
+      });
+      expectNoWrite();
+    });
+
+    it("새로 첨부한 파일이 아니라 계약서면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(signedContract());
+      asRole("contractManager");
+      prismaMock.file.findFirst.mockResolvedValueOnce({ ...NEW_FILE, role: "contract" });
+      await expect(service.replaceSignedFile(req())).rejects.toMatchObject({
+        error: { status: 400, message: "새로 첨부한 파일만 서명본으로 지정할 수 있습니다" },
+      });
+      expectNoWrite();
+    });
+
+    it("실제 바이트가 없는 파일이면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(signedContract());
+      asRole("inHouseCounsel");
+      prismaMock.file.findFirst.mockResolvedValueOnce({ ...NEW_FILE, storageKey: null });
+      await expect(service.replaceSignedFile(req())).rejects.toMatchObject({
+        error: { status: 400, message: "새 서명본을 첨부하세요" },
+      });
+      expectNoWrite();
+    });
+
+    it("정상: 기존 서명본은 첨부로 내리고 새 파일을 서명본으로 올린 뒤 사유를 감사에 남긴다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(signedContract());
+      asRole("inHouseCounsel");
+      prismaMock.file.findFirst.mockResolvedValueOnce(NEW_FILE);
+      prismaMock.file.findMany.mockResolvedValueOnce([{ id: "f-old-signed" }]);
+      prismaMock.contract.update.mockResolvedValue(signedContract());
+
+      const result = await service.replaceSignedFile(req());
+
+      expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+      expect(prismaMock.file.updateMany).toHaveBeenCalledWith({
+        where: { contractId: "ct-1", commentId: null, role: "signed" },
+        data: { role: "attach", meta: expect.stringMatching(/^이전 서명본 · \d{4}-\d{2}-\d{2} 교체$/) },
+      });
+      expect(prismaMock.file.update).toHaveBeenCalledWith({
+        where: { id: "f-new", contractId: "ct-1", commentId: null, role: "attach", storageKey: { not: null } },
+        data: { role: "signed" },
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: "ct-1", status: { in: ["signed", "fulfilling", "closed"] } }),
+        }),
+      );
+      expect(auditMock.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          detail: {
+            kind: "replaceSignedFile",
+            previousFileIds: ["f-old-signed"],
+            fileId: "f-new",
+            reason: "날인 누락본을 잘못 올림",
+          },
+        }),
+      );
+      expect(result.contract.id).toBe("ct-1");
+    });
+
+    it("그 사이 상태가 바뀌어 대상이 없으면(P2025) 409", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(signedContract());
+      asRole("inHouseCounsel");
+      prismaMock.file.findFirst.mockResolvedValueOnce(NEW_FILE);
+      prismaMock.$transaction.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError("not found", { code: "P2025", clientVersion: "test" }),
+      );
+      await expect(service.replaceSignedFile(req())).rejects.toMatchObject({ error: { status: 409 } });
+      expect(auditMock.record).not.toHaveBeenCalled();
     });
   });
 
