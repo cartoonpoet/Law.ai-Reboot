@@ -34,6 +34,8 @@ interface ReviewActionPanelProps {
   onAssign: () => void;
   // 체결 이후 진행(이행 시작·계약 종료) — 확인 창을 거쳐 호출된다.
   onProgress: (target: ContractProgressTargetTypes) => void;
+  // 이 계약을 원 계약으로 삼은 갱신·해지 검토 요청 폼으로 보낸다.
+  onRequestDerived: (stage: "renew" | "terminate") => void;
   // 체결 품의(상신/결재 처리) — 결재 모듈 전용.
   approval: ApprovalActionContext;
   precheckItems: PrecheckItem[];
@@ -64,6 +66,7 @@ export function ReviewActionPanel({
   onStartReview,
   onAssign,
   onProgress,
+  onRequestDerived,
   approval,
   precheckItems,
   onSubmitApproval,
@@ -96,7 +99,13 @@ export function ReviewActionPanel({
     startFulfilling: () => setProgressTarget("fulfilling"),
     closeContract: () => setProgressTarget("closed"),
     terminateContract: () => setIsTerminateOpen(true),
+    requestRenewal: () => onRequestDerived("renew"),
   } as const;
+
+  const handleRequestTerminationReview = () => {
+    setIsTerminateOpen(false);
+    onRequestDerived("terminate");
+  };
 
   return (
     <section className={cx(css.card, isCompleteSigningMode && css.actionPanelHighlight)}>
@@ -198,7 +207,11 @@ export function ReviewActionPanel({
       )}
 
       {isTerminateOpen && (
-        <TerminateContractModal contractId={contractId} onClose={() => setIsTerminateOpen(false)} />
+        <TerminateContractModal
+          contractId={contractId}
+          onRequestReview={handleRequestTerminationReview}
+          onClose={() => setIsTerminateOpen(false)}
+        />
       )}
     </section>
   );
@@ -301,12 +314,14 @@ interface ReviewActionButtonsProps {
     startFulfilling: () => void;
     closeContract: () => void;
     terminateContract: () => void;
+    requestRenewal: () => void;
   };
 }
 
 const PROGRESS_KINDS: ReadonlySet<ActionButtonKind> = new Set<ActionButtonKind>([
   "startFulfilling",
   "closeContract",
+  "requestRenewal",
   "terminateContract",
 ]);
 

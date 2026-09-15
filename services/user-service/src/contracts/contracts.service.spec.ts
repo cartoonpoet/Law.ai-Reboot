@@ -98,6 +98,8 @@ describe("ContractsService", () => {
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
+      // 갱신·해지 계약 체결 시 원 계약 종료(closeOriginOnSigning).
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     contractCategory: {
       findMany: jest.fn(() => Promise.resolve(categoryTree)),
@@ -303,6 +305,12 @@ describe("ContractsService", () => {
           orderBy: [{ role: "asc" }, { sortOrder: "asc" }],
         },
         references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
+        originContract: { select: { id: true, code: true, title: true, status: true, details: true, deletedAt: true } },
+        derivedContracts: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "asc" },
+          select: { id: true, code: true, title: true, status: true, details: true },
+        },
       },
     });
   });
@@ -547,6 +555,92 @@ describe("ContractsService", () => {
     expect(auditMock.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: "transition", detail: { from: "signed", to: "fulfilling" } }),
     );
+  });
+
+  describe("갱신·변경·해지 요청의 원 계약", () => {
+    const withStage = (stage: "renew" | "change" | "terminate", originContractId?: string) => ({
+      ...createReq,
+      details: { ...detailsV1, stage },
+      ...(originContractId ? { originContractId } : {}),
+      ...makeCtx(),
+    });
+
+    it("갱신·해지 요청은 원 계약이 없으면 400", async () => {
+      await expect(service.create(withStage("renew"))).rejects.toMatchObject({ error: { status: 400 } });
+      await expect(service.create(withStage("terminate"))).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.create).not.toHaveBeenCalled();
+    });
+
+    it("원 계약이 체결 완료·계약 이행이 아니면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce({ status: "legalReview" });
+      await expect(service.create(withStage("renew", "origin-1"))).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.findFirst).toHaveBeenCalledWith({
+        where: { id: "origin-1", deletedAt: null, tenantId: "t1" },
+        select: { status: true },
+      });
+    });
+
+    it("체결된 원 계약을 고른 갱신 요청은 원 계약 id 를 저장한다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValueOnce({ status: "fulfilling" });
+      prismaMock.contract.create.mockResolvedValue({ ...fullRow("unassigned"), originContractId: "origin-1" });
+      await service.create(withStage("renew", "origin-1"));
+      expect(prismaMock.contract.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ originContractId: "origin-1" }) }),
+      );
+    });
+
+    it("변경 요청은 원 계약 없이도 만들 수 있다", async () => {
+      prismaMock.contract.create.mockResolvedValue(fullRow("unassigned"));
+      await service.create(withStage("change"));
+      expect(prismaMock.contract.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ originContractId: null }) }),
+      );
+    });
+
+    const finalizeWith = async (stage: "renew" | "change" | "terminate") => {
+      const derived = {
+        ...fullRow("unassigned"),
+        code: "C20260916-0100",
+        originContractId: "origin-1",
+        details: { ...detailsV1, stage },
+      };
+      prismaMock.contract.findFirst.mockResolvedValue(derived);
+      prismaMock.file.findFirst.mockResolvedValue({ id: "f-signed" });
+      prismaMock.contract.update.mockResolvedValue({ ...derived, status: "signed" });
+      prismaMock.contract.updateMany.mockResolvedValueOnce({ count: 1 });
+      await service.finalizeRegistration({ contractId: "ct-1", viewerId: "u1", signedAt: "2026-09-16", ...makeCtx() });
+    };
+
+    it("갱신 계약이 체결되면 원 계약을 즉시 '종료(갱신)'로 바꾸고 원 계약에 감사 기록을 남긴다", async () => {
+      await finalizeWith("renew");
+      expect(prismaMock.contract.updateMany).toHaveBeenCalledWith({
+        where: { id: "origin-1", tenantId: "t1", deletedAt: null, status: { in: ["signed", "fulfilling"] } },
+        data: {
+          status: "closed",
+          closedReason: "renewed",
+          closedAt: new Date("2026-09-16"),
+          closedNote: "갱신 계약 C20260916-0100 체결로 종료",
+        },
+      });
+      expect(auditMock.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetId: "origin-1",
+          detail: expect.objectContaining({ kind: "closedByDerivedContract", closedReason: "renewed", derivedCode: "C20260916-0100" }),
+        }),
+      );
+    });
+
+    it("해지 계약이 체결되면 원 계약은 '종료(중도 해지)'", async () => {
+      await finalizeWith("terminate");
+      expect(prismaMock.contract.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ closedReason: "terminated" }) }),
+      );
+    });
+
+    it("변경 계약이 체결돼도 원 계약은 닫지 않는다", async () => {
+      await finalizeWith("change");
+      expect(prismaMock.contract.updateMany).not.toHaveBeenCalled();
+    });
   });
 
   it("updateStatus: 체결 계약과 관련 없는 일반 사용자는 이행 시작 403", async () => {
@@ -2427,7 +2521,7 @@ describe("ContractsService", () => {
     // (presign 은 contractId 가 있어야 가능해서 create 시점엔 실제 파일이 있을 수 없다).
     // 그 게이트 검증은 아래 "finalizeRegistration" describe 블록에서 한다.
 
-    it("변경·해지인데 원 계약이 없으면 400", async () => {
+    it("체결된 변경 계약인데 원 계약이 없으면 400", async () => {
       await expect(
         service.create({
           ...baseReq,

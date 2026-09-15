@@ -49,6 +49,15 @@ export interface CcRecipientView {
   isSecret: boolean;
 }
 
+// 연결된 계약 한 건(원 계약 또는 갱신·변경·해지 계약). status·stage 는 한글 라벨.
+export interface LinkedContractView {
+  id: string;
+  code: string;
+  title: string;
+  status: string;
+  stage: string;
+}
+
 export interface ContractDetail {
   id: string;
   name: string;
@@ -95,6 +104,7 @@ export interface ContractDetail {
   approvalLine: ApprovalStepView[] | null; // 결재선(approvalLine.steps, null→빈 상태)
   signedAt: string | null; // 체결일(코어 signedAt, ISO). 체결 전이면 null.
   closure: { reason: string; closedAt: string | null; note: string | null } | null; // 종료 정보(계약 종료일 때만)
+  linkedContracts: { origin: LinkedContractView | null; derived: LinkedContractView[] }; // 원 계약 · 갱신/변경/해지 계약
 }
 
 export const CONTRACTS_FULL: ContractRow[] = [
@@ -168,6 +178,7 @@ const SAMPLE_DETAIL: ContractDetail = {
   approvalLine: null,
   signedAt: null,
   closure: null,
+  linkedContracts: { origin: null, derived: [] },
 };
 
 export function getContractDetail(id: string): ContractDetail {

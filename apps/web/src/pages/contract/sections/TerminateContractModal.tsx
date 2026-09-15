@@ -9,6 +9,8 @@ import * as css from "./completeSigningModal.css";
 
 interface TerminateContractModalProps {
   contractId: string;
+  // 서명된 해지 서류가 아직 없을 때 — 해지 합의서를 법무 검토받는 요청 폼으로 보낸다.
+  onRequestReview: () => void;
   onClose: () => void;
 }
 
@@ -23,7 +25,7 @@ const REASON_OPTIONS: { value: TerminationReason; label: string }[] = [
  * 중도 해지 모달 — 해지일·사유·해지 합의서(통지서) 한 건·메모.
  * 파일은 체결 처리·서명본 교체 모달과 같은 이유로 한 건만, 업로드가 실패(error)한 경우에만 제거를 허용한다.
  */
-export const TerminateContractModal = ({ contractId, onClose }: TerminateContractModalProps) => {
+export const TerminateContractModal = ({ contractId, onRequestReview, onClose }: TerminateContractModalProps) => {
   const upload = useFileUpload({ contractId });
   const { submit, isPending, error } = useTerminateContract(contractId);
   const [terminatedOn, setTerminatedOn] = useState(() => toISODate(new Date()));
@@ -67,6 +69,13 @@ export const TerminateContractModal = ({ contractId, onClose }: TerminateContrac
         <Alert type="info" size="small">
           해지하면 계약이 <b>계약 종료(중도 해지)</b>로 바뀌고 되돌릴 수 없어요. 해지일은 계약의 실제 종료일로 남아요.
         </Alert>
+
+        <div className={css.footRow}>
+          <p className={css.uploadNotice}>서명된 해지 서류가 아직 없나요? 해지 합의서를 먼저 법무 검토받을 수 있어요.</p>
+          <Button type="button" size="small" variant="outline" color="secondary" onClick={onRequestReview}>
+            해지 합의서 검토 요청
+          </Button>
+        </div>
 
         <div>
           <div className={css.fieldLabel}>

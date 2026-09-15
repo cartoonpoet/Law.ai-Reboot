@@ -77,6 +77,7 @@ describe("getActionView", () => {
     expect(view.isApprovalMode).toBe(true);
     expect(view.buttons.map((b) => [b.kind, b.label])).toEqual([
       ["startFulfilling", "이행 시작"],
+      ["requestRenewal", "갱신 요청"],
       ["terminateContract", "중도 해지"],
     ]);
     expect(view.notice).toContain("이행을 시작하면");
@@ -86,6 +87,7 @@ describe("getActionView", () => {
     const view = getActionView("fulfilling", CAN_ALL);
     expect(view.buttons.map((b) => [b.kind, b.label])).toEqual([
       ["closeContract", "계약 종료"],
+      ["requestRenewal", "갱신 요청"],
       ["terminateContract", "중도 해지"],
     ]);
   });

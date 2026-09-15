@@ -13,6 +13,20 @@ import { SmartRail } from "./rail/SmartRail";
 import { useContractSubmit } from "./hooks/useContractSubmit";
 import * as css from "./contractRequest.css";
 
+// 계약 단계별 화면 제목 — 검토 요청 / 체결 계약 등록.
+const REVIEW_TITLE: Record<ContractRequestForm["stage"], string> = {
+  new: "계약서 검토 요청",
+  renew: "갱신 계약 검토 요청",
+  change: "변경 계약 검토 요청",
+  terminate: "해지 합의서 검토 요청",
+};
+const SIGNED_TITLE: Record<ContractRequestForm["stage"], string> = {
+  new: "체결 계약 등록",
+  renew: "체결 갱신계약 등록",
+  change: "체결 변경계약 등록",
+  terminate: "체결 해지 합의서 등록",
+};
+
 interface ContractRequestPageProps {
   mode?: "create" | "edit";
   contractId?: string;
@@ -41,9 +55,7 @@ export function ContractRequestPage({
   const registerAs = methods.watch("registerAs");
   const stage = methods.watch("stage");
   const isSigned = registerAs === "signed";
-  const pageTitle = isSigned
-    ? stage === "change" ? "체결 변경계약 등록" : "체결 계약 등록"
-    : "계약서 검토 요청";
+  const pageTitle = (isSigned ? SIGNED_TITLE : REVIEW_TITLE)[stage];
   const submitLabel = isSubmitting
     ? (isEdit ? "저장 중…" : "등록 중…")
     : isEdit ? "수정 저장" : isSigned ? "체결 계약 등록" : "검토요청 등록";

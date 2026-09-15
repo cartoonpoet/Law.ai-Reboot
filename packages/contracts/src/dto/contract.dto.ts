@@ -103,7 +103,9 @@ export interface CcRecipientInput {
  * 폼이 바뀌면 이 인터페이스를 새 버전으로 추가하고 schemaVersion 을 올린다.
  */
 export interface ContractDetailsV1 {
-  stage: "new" | "change";
+  // 계약 단계 — 신규 / 갱신 / 변경 / 해지. 갱신·변경·해지는 originContractId 로 원 계약을 가리킨다.
+  // (예전 "change" 는 "변경·해지"였고, 지금은 "변경"으로 읽는다.)
+  stage: ContractStage;
   periodText: string;
   periodManual: boolean;
   noEndDate: boolean;
@@ -151,6 +153,8 @@ export interface CreateContractRequest {
   registerAs?: "review" | "signed";
   /** 실제 서명 완료일(ISO 8601). registerAs="signed" 일 때 필수. */
   signedAt?: string | null;
+  /** 갱신·변경·해지 요청의 원 계약 id. 갱신·해지는 필수, 신규는 무시된다. */
+  originContractId?: string | null;
   details: ContractDetailsV1;
   counterparties: CounterpartyInput[];
   // 결재선: 폼 approvers 스냅샷을 배열 순서대로 단계로 정규화한다(빈 배열이면 결재선 미생성).
@@ -372,6 +376,17 @@ export interface CcRecipientResponse {
   name: string;
 }
 
+export type ContractStage = "new" | "renew" | "change" | "terminate";
+
+// 다른 계약을 가리키는 짧은 요약(원 계약 / 이 계약에서 나온 갱신·변경·해지 계약).
+export interface ContractLinkRef {
+  id: string;
+  code: string;
+  title: string;
+  status: ContractStatus;
+  stage: ContractStage;
+}
+
 export interface ContractResponse {
   id: string;
   code: string;
@@ -397,6 +412,10 @@ export interface ContractResponse {
   closedNote: string | null;
   // 갱신·변경·해지 요청이 가리키는 원 계약 id.
   originContractId: string | null;
+  // 원 계약 요약(삭제됐거나 없으면 null).
+  originContract: ContractLinkRef | null;
+  // 이 계약을 원 계약으로 삼은 갱신·변경·해지 계약들(삭제된 것 제외, 오래된 순).
+  derivedContracts: ContractLinkRef[];
   schemaVersion: number;
   details: ContractDetailsV1;
   counterparties: CounterpartyResponse[];

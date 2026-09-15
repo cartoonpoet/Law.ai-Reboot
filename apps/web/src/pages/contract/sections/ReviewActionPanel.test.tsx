@@ -39,6 +39,7 @@ const baseProps = {
   onStartReview: vi.fn(),
   onAssign: vi.fn(),
   onProgress: vi.fn(),
+  onRequestDerived: vi.fn(),
   approval: { isRequester: false, isMyTurn: false, canSubmit: false, isApprovalComplete: true },
   precheckItems: [],
   onSubmitApproval: vi.fn(),
@@ -101,6 +102,14 @@ describe("ReviewActionPanel — 중도 해지·종료 정보", () => {
     expect(screen.queryByRole("dialog", { name: "중도 해지 모달 스텁" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "중도 해지" }));
     expect(screen.getByRole("dialog", { name: "중도 해지 모달 스텁" })).toBeInTheDocument();
+  });
+
+  it("'갱신 요청'을 누르면 갱신 요청 폼으로 보낸다", async () => {
+    const user = userEvent.setup();
+    const onRequestDerived = vi.fn();
+    render(<ReviewActionPanel {...baseProps} status="signed" onRequestDerived={onRequestDerived} />);
+    await user.click(screen.getByRole("button", { name: "갱신 요청" }));
+    expect(onRequestDerived).toHaveBeenCalledWith("renew");
   });
 
   it("종료된 계약은 종료 사유·종료일·메모를 보여준다", () => {

@@ -45,6 +45,8 @@ import type {
   TerminateContractRequest,
   TerminateContractResult,
   TerminationReason,
+  ContractLinkRef,
+  ContractStage,
   DeleteContractRequest,
   DeleteContractResult,
 } from "@lawai/contracts";
@@ -61,7 +63,29 @@ const contractInclude = {
     orderBy: [{ role: "asc" }, { sortOrder: "asc" }],
   },
   references: { orderBy: [{ ccType: "asc" }, { isSecret: "asc" }] },
+  // 원 계약·파생 계약(갱신·변경·해지) 요약 — 상세 화면의 "연결된 계약".
+  originContract: { select: { id: true, code: true, title: true, status: true, details: true, deletedAt: true } },
+  derivedContracts: {
+    where: { deletedAt: null },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, code: true, title: true, status: true, details: true },
+  },
 } satisfies Prisma.ContractInclude;
+
+// 연결된 계약 행 → 짧은 요약. stage 는 details(JSONB)에 있어 꺼내 온다.
+const toContractLinkRef = (c: {
+  id: string;
+  code: string;
+  title: string;
+  status: ContractStatus;
+  details: Prisma.JsonValue;
+}): ContractLinkRef => ({
+  id: c.id,
+  code: c.code,
+  title: c.title,
+  status: c.status,
+  stage: ((c.details as { stage?: ContractStage } | null)?.stage ?? "new") as ContractStage,
+});
 
 type ContractWithRelations = Prisma.ContractGetPayload<{
   include: typeof contractInclude;
@@ -98,6 +122,15 @@ const maskCompany = (c: Company): Company => ({
 
 // 중도 해지할 수 있는 상태 — 체결 이후 아직 끝나지 않은 계약.
 const TERMINABLE_STATUSES: ContractStatus[] = ["signed", "fulfilling"];
+
+// 원 계약이 반드시 있어야 하는 계약 단계(변경은 선택).
+const ORIGIN_REQUIRED_STAGES: ReadonlySet<ContractStage> = new Set<ContractStage>(["renew", "terminate"]);
+
+// 파생 계약이 체결되면 원 계약을 닫는 사유와 메모 이름. 변경 계약은 원 계약을 닫지 않는다.
+const ORIGIN_CLOSE_BY_STAGE: Partial<Record<ContractStage, { reason: "renewed" | "terminated"; label: string }>> = {
+  renew: { reason: "renewed", label: "갱신" },
+  terminate: { reason: "terminated", label: "해지" },
+};
 
 // 중도 해지 사유 → 종료 메모 앞에 붙는 이름.
 const TERMINATION_REASON_LABEL: Record<TerminationReason, string> = {
@@ -253,6 +286,68 @@ export class ContractsService {
       );
   }
 
+  // 갱신·변경·해지 요청의 원 계약 확인. 신규는 무시(null), 갱신·해지는 필수, 변경은 선택.
+  // 원 계약은 같은 회사의 삭제 안 된 체결 완료·계약 이행 계약이어야 한다.
+  private async resolveOriginContractId(req: CreateContractRequest, ctx: TenantContext): Promise<string | null> {
+    const stage = req.details.stage;
+    if (stage === "new") return null;
+    if (!req.originContractId) {
+      if (ORIGIN_REQUIRED_STAGES.has(stage)) {
+        throw new RpcException({ status: 400, message: "갱신·해지 계약은 원 계약을 골라야 합니다" });
+      }
+      return null;
+    }
+    const origin = await this.prisma.contract.findFirst({
+      where: { id: req.originContractId, deletedAt: null, ...tenantScope(ctx) },
+      select: { status: true },
+    });
+    if (!origin) {
+      throw new RpcException({ status: 400, message: "원 계약을 찾을 수 없습니다" });
+    }
+    if (!TERMINABLE_STATUSES.includes(origin.status as ContractStatus)) {
+      throw new RpcException({ status: 400, message: "원 계약은 체결 완료·계약 이행 중인 계약만 고를 수 있습니다" });
+    }
+    return req.originContractId;
+  }
+
+  // 갱신·해지 계약이 체결되면 원 계약을 즉시 종료(갱신됨·중도 해지)한다. 원 계약이 이미 끝났거나 지워졌으면 그대로 둔다.
+  private async closeOriginOnSigning(signed: ContractWithRelations, signedAt: Date, actorId: string): Promise<void> {
+    const stage = (signed.details as { stage?: ContractStage } | null)?.stage;
+    const close = stage ? ORIGIN_CLOSE_BY_STAGE[stage] : undefined;
+    if (!close || !signed.originContractId) return;
+
+    const { count } = await this.prisma.contract.updateMany({
+      where: {
+        id: signed.originContractId,
+        tenantId: signed.tenantId,
+        deletedAt: null,
+        status: { in: TERMINABLE_STATUSES },
+      },
+      data: {
+        status: "closed",
+        closedReason: close.reason,
+        closedAt: signedAt,
+        closedNote: `${close.label} 계약 ${signed.code} 체결로 종료`,
+      },
+    });
+    if (count === 0) return;
+
+    await this.audit.record({
+      action: "transition",
+      targetType: "Contract",
+      targetId: signed.originContractId,
+      actorId,
+      tenantId: signed.tenantId,
+      detail: {
+        kind: "closedByDerivedContract",
+        to: "closed",
+        closedReason: close.reason,
+        derivedContractId: signed.id,
+        derivedCode: signed.code,
+      },
+    });
+  }
+
   // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
   // role 공급원: 활성 테넌트의 UserTenant.role(토큰 stale 방지). admin 은 inHouseCounsel 로 매핑.
   private async loadViewer(
@@ -350,13 +445,16 @@ export class ContractsService {
       if (!parseDate(req.signedAt)) {
         throw new RpcException({ status: 400, message: "체결일이 올바르지 않습니다" });
       }
-      if (req.details.stage === "change" && !req.details.relatedDocs?.length) {
+      // 체결된 변경 계약은 무엇을 바꾼 계약인지 알아야 한다(갱신·해지는 resolveOriginContractId 가 이미 필수로 막는다).
+      if (req.details.stage === "change" && !req.originContractId) {
         throw new RpcException({
           status: 400,
-          message: "변경·해지 계약은 원 계약을 연결해야 합니다",
+          message: "체결된 변경 계약은 원 계약을 골라야 합니다",
         });
       }
     }
+
+    const originContractId = await this.resolveOriginContractId(req, ctx);
 
     try {
       const row = await this.prisma.contract.create({
@@ -376,6 +474,7 @@ export class ContractsService {
           periodStart: parseDate(req.periodStart),
           periodEnd: parseDate(req.periodEnd),
           dueDate: parseDate(req.dueDate),
+          originContractId,
           // status 는 지정하지 않는다 — 체결 완료 등록이든 검토 요청이든 항상 스키마 기본값인
           // unassigned 로 시작한다(위 주석 참고). signedAt 은 finalizeRegistration() 이 확정한다.
           schemaVersion: req.schemaVersion,
@@ -1055,6 +1154,8 @@ export class ContractsService {
         note: req.note ?? null,
       },
     });
+    // 갱신·해지 계약이면 원 계약을 즉시 종료한다(체결 완료 등록과 같은 규칙).
+    await this.closeOriginOnSigning(updated, signedAt, req.viewerId);
     return { contract: this.toResponse(updated, active.line) };
   }
 
@@ -1371,6 +1472,8 @@ export class ContractsService {
       detail: { kind: "finalizeRegistration", from: "unassigned", to: "signed" },
     });
 
+    await this.closeOriginOnSigning(updated, signedAt, req.viewerId);
+
     const response = this.toResponse(updated);
     // create() 시점엔 미룬 risk 분석을 여기서 트리거한다 — 이제야 실제 서명본 내용이 있다.
     this.triggerWithContractText({
@@ -1524,6 +1627,9 @@ export class ContractsService {
       closedAt: row.closedAt?.toISOString() ?? null,
       closedNote: row.closedNote ?? null,
       originContractId: row.originContractId ?? null,
+      originContract:
+        row.originContract && !row.originContract.deletedAt ? toContractLinkRef(row.originContract) : null,
+      derivedContracts: (row.derivedContracts ?? []).map(toContractLinkRef),
       schemaVersion: row.schemaVersion,
       details: row.details as unknown as ContractDetailsV1,
       counterparties: row.counterparties.map((cp) => ({

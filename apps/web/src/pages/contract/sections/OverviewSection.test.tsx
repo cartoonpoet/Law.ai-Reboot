@@ -114,9 +114,14 @@ describe("OverviewSection", () => {
     expect(screen.queryByText("검토 요청자")).not.toBeInTheDocument();
   });
 
-  it("변경·해지를 고르면 원 계약 필드가 나타난다", async () => {
+  it("신규계약이면 원 계약을 묻지 않고, 갱신·변경·해지를 고르면 체결 계약을 찾는 원 계약 필드가 나타난다", async () => {
     renderSection();
-    await userEvent.click(screen.getByLabelText("변경·해지"));
-    expect(screen.getByText("원 계약")).toBeInTheDocument();
+    expect(screen.queryByText("원 계약")).not.toBeInTheDocument();
+
+    for (const label of ["갱신", "변경", "해지"]) {
+      await userEvent.click(screen.getByLabelText(label));
+      expect(screen.getByText("원 계약")).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "원 계약 검색" })).toBeInTheDocument();
+    }
   });
 });

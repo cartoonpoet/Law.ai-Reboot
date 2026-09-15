@@ -76,9 +76,17 @@ export const uploadedFileSchema = z.object({
   blob: z.unknown().optional(),
 });
 
+// 원 계약 선택값 — 갱신·변경·해지 요청이 가리키는 체결 계약.
+export const originContractSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  title: z.string(),
+});
+
 export const contractRequestSchema = z.object({
   // ① 계약 개요
-  stage: z.enum(["new", "change"]),
+  stage: z.enum(["new", "renew", "change", "terminate"]),
+  originContract: originContractSchema.nullable(),
   secure: z.enum(["top", "secure", "normal"]),
   name: z.string().min(1, "계약명을 입력하세요"),
   requester: z.string().min(1, "검토 요청자를 선택하세요"),
@@ -124,6 +132,10 @@ export const contractRequestSchema = z.object({
   signedAt: z.string(),
   signedFiles: z.array(uploadedFileSchema),
 }).superRefine((v, ctx) => {
+  // 갱신·해지는 검토 요청이든 체결 등록이든 원 계약이 있어야 체결 시 원 계약을 닫을 수 있다.
+  if ((v.stage === "renew" || v.stage === "terminate") && !v.originContract) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["originContract"], message: "갱신·해지 계약은 원 계약을 골라야 합니다" });
+  }
   if (v.registerAs === "signed") {
     if (!v.signedAt) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["signedAt"], message: "체결일을 입력하세요" });
@@ -131,8 +143,8 @@ export const contractRequestSchema = z.object({
     if (v.signedFiles.length === 0) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["signedFiles"], message: "최종 서명본을 첨부하세요" });
     }
-    if (v.stage === "change" && v.relatedDocs.length === 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["relatedDocs"], message: "변경·해지 계약은 원 계약을 연결해야 합니다" });
+    if (v.stage === "change" && !v.originContract) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["originContract"], message: "체결된 변경 계약은 원 계약을 골라야 합니다" });
     }
   } else if (v.contractFiles.length === 0) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["contractFiles"], message: "계약서를 첨부하세요" });
@@ -143,6 +155,7 @@ export type ContractRequestForm = z.infer<typeof contractRequestSchema>;
 
 export const contractRequestDefaults: ContractRequestForm = {
   stage: "new",
+  originContract: null,
   secure: "secure",
   name: "",
   requester: "",
