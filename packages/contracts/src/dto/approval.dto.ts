@@ -64,6 +64,8 @@ export interface ApprovalInboxItem {
   targetId: string;
   // 대상 문서 번호(계약 관리번호 등). 대상 도메인 핸들러가 없으면 null.
   targetCode: string | null;
+  // 대상 문서가 삭제됐는지(계약 삭제 등). 삭제된 대상은 화면에서 열 수 없다.
+  isTargetDeleted: boolean;
   title: string;
   submittedById: string;
   submittedByName: string;

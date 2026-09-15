@@ -17,6 +17,9 @@ const TARGET_DOMAIN_LABEL: Record<string, string> = {
   contract: "계약",
 };
 
+// 대상 문서가 삭제된 결재의 보조 줄 끝 표시.
+const DELETED_LABEL = "삭제됨";
+
 // 내 단계 옆 역할 배지.
 const ROLE_LABEL: Record<ApproverType, string> = {
   draft: "기안",
@@ -51,7 +54,8 @@ export interface InboxRow {
   // 상신 후 지난 날 — 당일은 "오늘", 하루 이상 지나면 D+n(경고색)
   elapsedLabel: string;
   elapsedTone: ElapsedToneTypes;
-  href: string;
+  // 대상 문서 화면 경로. 대상이 삭제됐으면 null(열 수 없음).
+  href: string | null;
   myStatus: StepStatus;
   myStatusLabel: string;
   myDecidedAtLabel: string | null;
@@ -66,7 +70,9 @@ export const toInboxRow = (item: ApprovalInboxItem, now: Date): InboxRow => {
     lineId: item.lineId,
     title: item.title,
     kindLabel: TARGET_KIND_LABEL[item.targetType] ?? "결재",
-    docMeta: item.targetCode ? `${item.targetCode} · ${domainLabel}` : domainLabel,
+    docMeta: [item.targetCode, domainLabel, item.isTargetDeleted ? DELETED_LABEL : null]
+      .filter((part): part is string => part !== null)
+      .join(" · "),
     submittedByName: item.submittedByName,
     submittedByDept: item.submittedByDept,
     stepNumber: item.myStepOrder + 1,
@@ -76,7 +82,7 @@ export const toInboxRow = (item: ApprovalInboxItem, now: Date): InboxRow => {
     submittedAtLabel: toMonthDay(item.submittedAt),
     elapsedLabel: elapsedDays <= 0 ? "오늘" : `D+${elapsedDays}`,
     elapsedTone: elapsedDays <= 0 ? "today" : "overdue",
-    href: TARGET_ROUTE[item.targetType]?.(item.targetId) ?? "/",
+    href: item.isTargetDeleted ? null : (TARGET_ROUTE[item.targetType]?.(item.targetId) ?? "/"),
     myStatus: item.myStatus,
     myStatusLabel: MY_STATUS_LABEL[item.myStatus],
     myDecidedAtLabel: item.myDecidedAt ? toMonthDay(item.myDecidedAt) : null,

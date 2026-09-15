@@ -11,6 +11,7 @@ import { useNotifications } from "../layout/hooks/useNotifications";
 import { AiAssistant } from "./AiAssistant";
 import { AssistantProvider } from "./AssistantProvider";
 import { ASSISTANT_GREETING, ASSISTANT_POPUP, ASSISTANT_SUGGESTIONS } from "./assistantData";
+import { getToasts } from "../../lib/toast/toastStore";
 
 vi.mock("../layout/hooks/useMe");
 vi.mock("../layout/hooks/useNotifications");
@@ -30,6 +31,7 @@ const noti = (over: Partial<NotificationDto> = {}): NotificationDto => ({
   targetId: "c-1",
   detail: { contractId: "k-1", preview: "검토 부탁드립니다" },
   isRead: false,
+  isTargetDeleted: false,
   createdAt: "2026-06-22T02:00:00.000Z",
   ...over,
 });
@@ -215,6 +217,20 @@ describe("AiAssistant", () => {
       expect(markRead).toHaveBeenCalledWith("n-1");
       expect(screen.getByTestId("location")).toHaveTextContent("/contract/k-1");
       expect(screen.queryByRole("region", { name: "AI 비서" })).not.toBeInTheDocument();
+    });
+
+    it("삭제된 계약 알림은 삭제됨 안내를 보이고, 누르면 읽음 처리만 하고 이동하지 않는다", async () => {
+      const user = userEvent.setup();
+      const { markRead } = mockNotifications({ notifications: [noti({ isTargetDeleted: true })], unreadCount: 1 });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      const card = within(screen.getByRole("region", { name: "새 알림" }));
+      expect(card.getByText("삭제된 계약이에요")).toBeInTheDocument();
+      await user.click(card.getByText("홍길동"));
+
+      expect(markRead).toHaveBeenCalledWith("n-1");
+      expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/);
+      expect(getToasts().map((toast) => toast.title)).toContain("삭제된 계약이라 열 수 없어요");
     });
 
     it("하단 알림 탭에서 모두 읽음을 누를 수 있고, 안 읽음 필터로 좁혀 본다", async () => {

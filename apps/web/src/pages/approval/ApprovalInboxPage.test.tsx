@@ -20,6 +20,7 @@ const createItem = (overrides: Partial<ApprovalInboxItem>): ApprovalInboxItem =>
   targetType: "contract",
   targetId: "C1",
   targetCode: "C20260908-0142",
+  isTargetDeleted: false,
   title: "클라우드 서비스 이용계약",
   submittedById: "u1",
   submittedByName: "한지원",
@@ -89,6 +90,19 @@ describe("ApprovalInboxPage", () => {
     expect(screen.getByText("예정 계약")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "보기" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "처리" })).not.toBeInTheDocument();
+  });
+
+  it("대상 계약이 삭제된 결재는 삭제됨으로 보이고 처리 버튼이 없다", () => {
+    vi.mocked(useApprovalInbox).mockReturnValue({
+      pending: [createItem({ lineId: "gone", title: "삭제된 계약 품의", isTargetDeleted: true })],
+      upcoming: [],
+      processed: [],
+      isLoading: false,
+    });
+    renderPage();
+    const row = screen.getAllByRole("row")[1];
+    expect(within(row).getByText("C20260908-0142 · 계약 · 삭제됨")).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "처리" })).not.toBeInTheDocument();
   });
 
   it("처리한 결재 탭은 처리 결과와 처리일을 보여준다", async () => {

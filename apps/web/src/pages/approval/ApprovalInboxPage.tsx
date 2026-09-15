@@ -148,6 +148,8 @@ export const ApprovalInboxPage = () => {
               </thead>
               <tbody>
                 {rows.map((row, i) => {
+                  // 대상 계약이 삭제된 결재는 열 수 없다(href null) — 제목 링크·처리/보기 버튼을 뺀다.
+                  const href = row.href;
                   const insight = row.aiTarget
                     ? insights[getAiTargetKey(row.aiTarget)]
                     : null;
@@ -161,8 +163,8 @@ export const ApprovalInboxPage = () => {
                       <td className={css.td}>
                         <div className={css.doc}>
                           <span
-                            className={css.docTitle}
-                            onClick={() => navigate(row.href)}
+                            className={href ? css.docTitle : css.docTitleDeleted}
+                            onClick={href ? () => navigate(href) : undefined}
                           >
                             {tab === "pending" && (
                               <span className={css.liveDot} />
@@ -225,20 +227,20 @@ export const ApprovalInboxPage = () => {
                         )}
                       </td>
                       <td className={css.td}>
-                        {tab === "pending" && (
+                        {tab === "pending" && href && (
                           <Button
                             size="small"
-                            onClick={() => navigate(row.href)}
+                            onClick={() => navigate(href)}
                           >
                             처리
                           </Button>
                         )}
-                        {tab === "upcoming" && (
+                        {tab === "upcoming" && href && (
                           <Button
                             size="small"
                             variant="outline"
                             color="secondary"
-                            onClick={() => navigate(row.href)}
+                            onClick={() => navigate(href)}
                           >
                             보기
                           </Button>
