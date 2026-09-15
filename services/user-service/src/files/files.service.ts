@@ -21,6 +21,8 @@ import {
   type GetDownloadUrlResponse,
   type GetFileContentSourceRequest,
   type GetFileContentSourceResponse,
+  type GetUploadTargetRequest,
+  type GetUploadTargetResponse,
   type PresignUploadRequest,
   type PresignUploadResponse,
   type TenantContext,
@@ -258,16 +260,6 @@ export class FilesService {
     const safeName = sanitizeFileName(req.fileName);
     const storageKey = `contracts/${req.contractId}/${randomUUID()}/${safeName}`;
 
-    // R2 PutObject presigned URL — Content-Type 만 강제(서명 일관성). 클라가 동일 ContentType 으로 PUT.
-    const command = new PutObjectCommand({
-      Bucket: this.r2.bucket as string,
-      Key: storageKey,
-      ContentType: req.mimeType,
-    });
-    const uploadUrl = await getSignedUrl(this.r2.client as never, command, {
-      expiresIn: PRESIGN_TTL_SEC,
-    });
-
     const uploadToken = signUploadToken(
       {
         sub: viewer.id,
@@ -285,7 +277,9 @@ export class FilesService {
     );
 
     return {
-      uploadUrl,
+      // 브라우저가 R2 에 직접 올리지 않고 게이트웨이를 거친다 — 회사망 등에서 R2 가 막혀도 올라가게.
+      // 실제 R2 PUT 주소는 게이트웨이가 getUploadTarget 으로 받는다.
+      uploadUrl: `/files/upload?token=${encodeURIComponent(uploadToken)}`,
       uploadToken,
       storageKey,
       expiresIn: PRESIGN_TTL_SEC,
@@ -448,6 +442,33 @@ export class FilesService {
       expiresIn: CONTENT_SOURCE_TTL_SEC,
     });
     return { url };
+  }
+
+  // 게이트웨이 업로드 중계용 — 업로드 토큰을 확인하고, 서버가 R2 로 올릴 단기 PUT 주소를 만든다.
+  // 열람 권한·파일 검증은 presign 때 끝났고, Content-Type 은 그때 검증한 값으로 서명한다.
+  // 게이트웨이가 본문을 다 받은 뒤 올리므로 느린 회선을 고려해 presign 과 같은 유효시간을 준다.
+  async getUploadTarget(
+    req: GetUploadTargetRequest,
+  ): Promise<GetUploadTargetResponse> {
+    this.ensureEnabled();
+    let claims;
+    try {
+      claims = verifyUploadToken(req.token);
+    } catch {
+      throw new RpcException({
+        status: 401,
+        message: "업로드 토큰이 만료되었거나 유효하지 않습니다",
+      });
+    }
+    const command = new PutObjectCommand({
+      Bucket: this.r2.bucket as string,
+      Key: claims.storageKey,
+      ContentType: claims.mimeType,
+    });
+    const url = await getSignedUrl(this.r2.client as never, command, {
+      expiresIn: PRESIGN_TTL_SEC,
+    });
+    return { url, size: claims.size, mimeType: claims.mimeType };
   }
 
   /**

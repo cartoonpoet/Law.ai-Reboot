@@ -11,7 +11,7 @@ const sha256Hex = async (file: File): Promise<string> => {
 };
 
 /**
- * presign → R2 PUT → confirm 한 사이클을 함수 한 개로.
+ * presign → 업로드(우리 서버 경유로 R2 에 저장) → confirm 한 사이클을 함수 한 개로.
  * FileUploadField 의 인라인 업로드와 useContractSubmit (create 모드 사후 업로드) 가
  * 같은 로직을 공유하도록 단일 출처로 추출.
  */

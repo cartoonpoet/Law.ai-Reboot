@@ -62,6 +62,7 @@ export interface PresignUploadRequest {
 
 // presign 응답 — uploadToken 으로 confirm 단계 위변조 방지.
 export interface PresignUploadResponse {
+  // R2 주소가 아니라 게이트웨이 업로드 중계 경로(/files/upload?token=)다 — API 기준 상대 경로.
   uploadUrl: string;
   uploadToken: string;
   storageKey: string;
@@ -112,6 +113,18 @@ export interface GetFileContentSourceRequest {
 
 export interface GetFileContentSourceResponse {
   url: string;
+}
+
+// 게이트웨이 업로드 중계(/files/upload) — 업로드 토큰을 확인하고
+// 서버가 R2 로 올릴 단기 presigned PUT URL 과 presign 때 검증한 크기·형식을 돌려준다.
+export interface GetUploadTargetRequest {
+  token: string;
+}
+
+export interface GetUploadTargetResponse {
+  url: string;
+  size: number;
+  mimeType: string;
 }
 
 // 비교 보고서 PDF 다운로드 감사 기록. 클라이언트가 PDF 생성 직후 best-effort 로 호출.

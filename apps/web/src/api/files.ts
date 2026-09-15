@@ -8,14 +8,21 @@ import type {
 } from "@lawai/contracts";
 import { apiFetch, getApiBaseUrl } from "./client";
 
+// 서버는 파일 업로드·다운로드 주소를 API 기준 경로(/files/...)로 주므로 API 주소를 앞에 붙인다.
+const toApiUrl = (url: string) =>
+  url.startsWith("/") ? `${getApiBaseUrl()}${url}` : url;
+
 // presign — 클라이언트가 SubtleCrypto 로 sha256 계산 후 호출.
-export const presignFile = (
+// uploadUrl 은 우리 서버를 거쳐 R2 로 올리는 주소다(회사망 등에서 R2 직접 접속이 막혀도 올라가게).
+export const presignFile = async (
   req: Omit<PresignUploadRequest, "viewerId">,
-): Promise<PresignUploadResponse> =>
-  apiFetch<PresignUploadResponse>("/files/presign", {
+): Promise<PresignUploadResponse> => {
+  const res = await apiFetch<PresignUploadResponse>("/files/presign", {
     method: "POST",
     body: JSON.stringify(req),
   });
+  return { ...res, uploadUrl: toApiUrl(res.uploadUrl) };
+};
 
 // confirm — R2 PUT 후 ETag 와 함께. 응답은 FileAttachmentDto(id 로 createComment 시 attachmentIds 전달).
 export const confirmFile = (
@@ -25,10 +32,6 @@ export const confirmFile = (
     method: "POST",
     body: JSON.stringify(req),
   });
-
-// 서버는 API 기준 경로(/files/:id/content?token=)를 주므로 API 주소를 앞에 붙인다.
-const toApiUrl = (url: string) =>
-  url.startsWith("/") ? `${getApiBaseUrl()}${url}` : url;
 
 // 다운로드 — 권한 확인 후 우리 서버를 거쳐 파일을 받는 단기 주소를 JSON 으로 받는다(302 리다이렉트 X).
 // 회사망 등에서 브라우저가 파일 저장소(R2)에 직접 닿지 못해도 열리도록 서버가 중계한다.

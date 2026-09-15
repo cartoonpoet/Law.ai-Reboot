@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDownloadUrl } from "./files";
+import { getDownloadUrl, presignFile } from "./files";
 import { apiFetch } from "./client";
 
 vi.mock("./client", () => ({
@@ -8,6 +8,37 @@ vi.mock("./client", () => ({
 }));
 
 const apiFetchMock = vi.mocked(apiFetch);
+
+describe("presignFile", () => {
+  beforeEach(() => {
+    apiFetchMock.mockReset();
+  });
+
+  it("서버가 준 업로드 중계 경로 앞에 API 주소를 붙인다", async () => {
+    apiFetchMock.mockResolvedValue({
+      uploadUrl: "/files/upload?token=up",
+      uploadToken: "up",
+      storageKey: "contracts/c/u/a.pdf",
+      expiresIn: 900,
+    });
+    const req = {
+      contractId: "c",
+      fileName: "a.pdf",
+      size: 8,
+      mimeType: "application/pdf",
+      sha256: "a".repeat(64),
+    };
+
+    const res = await presignFile(req);
+
+    expect(apiFetchMock).toHaveBeenCalledWith("/files/presign", {
+      method: "POST",
+      body: JSON.stringify(req),
+    });
+    expect(res.uploadUrl).toBe("/api/files/upload?token=up");
+    expect(res.uploadToken).toBe("up");
+  });
+});
 
 describe("getDownloadUrl", () => {
   beforeEach(() => {
