@@ -5,6 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { R2Client } from "./r2.client";
 import { AuditService } from "../contracts/contracts.audit";
 import { signUploadToken } from "./uploadToken";
+import { checkContentToken, signContentToken } from "./contentToken";
 
 /**
  * FilesService 단위 테스트 (R2 mock).
@@ -479,7 +480,7 @@ describe("FilesService", () => {
   });
 
   describe("getDownloadUrl", () => {
-    it("canView 통과 + 코멘트 미삭제면 presigned GET URL 반환 — UserTenant.role 공급", async () => {
+    it("canView 통과 + 코멘트 미삭제면 우리 서버를 거치는 다운로드 주소 반환 — UserTenant.role 공급", async () => {
       prismaMock.file.findFirst.mockResolvedValue({
         id: "file-1",
         name: "a.pdf",
@@ -496,7 +497,12 @@ describe("FilesService", () => {
         viewerId: "counsel-1",
         tenantContext: makeCtx(),
       });
-      expect(res.url).toBe("https://r2.example/signed-url");
+      // R2 주소가 아니라 게이트웨이 중계 경로 + 이 파일 전용 토큰.
+      expect(res.url).toMatch(/^\/files\/file-1\/content\?token=/);
+      expect(res.expiresIn).toBe(900);
+      const token = decodeURIComponent(res.url.split("token=")[1]);
+      expect(checkContentToken(token, "file-1")).toBe(true);
+      expect(checkContentToken(token, "file-2")).toBe(false);
       expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
     });
 
@@ -571,6 +577,82 @@ describe("FilesService", () => {
           where: expect.objectContaining({ tenantId: "tenant-2" }),
         }),
       );
+    });
+  });
+
+  describe("getContentSource (게이트웨이 파일 중계)", () => {
+    const makeFileRow = (over: Record<string, unknown> = {}) => ({
+      id: "file-1",
+      name: "계약서.pdf",
+      storageKey: "contracts/contract-1/uuid/a.pdf",
+      contract: { deletedAt: null },
+      comment: null,
+      ...over,
+    });
+
+    it("이 파일용 토큰이면 서버가 받아올 R2 단기 주소를 준다", async () => {
+      prismaMock.file.findFirst.mockResolvedValue(makeFileRow());
+      const res = await service.getContentSource({
+        fileId: "file-1",
+        token: signContentToken("file-1", 60),
+      });
+      expect(res.url).toBe("https://r2.example/signed-url");
+      const { getSignedUrl } = jest.requireMock("@aws-sdk/s3-request-presigner");
+      expect(getSignedUrl).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        { expiresIn: 60 },
+      );
+    });
+
+    it("다른 파일용 토큰이면 401 — 파일 조회도 하지 않는다", async () => {
+      await expect(
+        service.getContentSource({ fileId: "file-1", token: signContentToken("file-2", 60) }),
+      ).rejects.toMatchObject({ error: expect.objectContaining({ status: 401 }) });
+      expect(prismaMock.file.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("만료된 토큰이면 401", async () => {
+      await expect(
+        service.getContentSource({ fileId: "file-1", token: signContentToken("file-1", -10) }),
+      ).rejects.toMatchObject({ error: expect.objectContaining({ status: 401 }) });
+    });
+
+    it("업로드 토큰(용도가 다른 토큰)은 401", async () => {
+      const uploadToken = signUploadToken(
+        {
+          sub: "counsel-1",
+          contractId: "contract-1",
+          role: "contract",
+          storageKey: "contracts/contract-1/uuid/a.pdf",
+          fileName: "a.pdf",
+          sha256: VALID_SHA,
+          size: 10,
+          mimeType: VALID_MIME,
+        },
+        60,
+      );
+      await expect(
+        service.getContentSource({ fileId: "file-1", token: uploadToken }),
+      ).rejects.toMatchObject({ error: expect.objectContaining({ status: 401 }) });
+    });
+
+    it("계약이 삭제된 파일은 404", async () => {
+      prismaMock.file.findFirst.mockResolvedValue(
+        makeFileRow({ contract: { deletedAt: new Date() } }),
+      );
+      await expect(
+        service.getContentSource({ fileId: "file-1", token: signContentToken("file-1", 60) }),
+      ).rejects.toMatchObject({ error: expect.objectContaining({ status: 404 }) });
+    });
+
+    it("삭제된 코멘트의 첨부는 404", async () => {
+      prismaMock.file.findFirst.mockResolvedValue(
+        makeFileRow({ comment: { deletedAt: new Date() } }),
+      );
+      await expect(
+        service.getContentSource({ fileId: "file-1", token: signContentToken("file-1", 60) }),
+      ).rejects.toMatchObject({ error: expect.objectContaining({ status: 404 }) });
     });
   });
 

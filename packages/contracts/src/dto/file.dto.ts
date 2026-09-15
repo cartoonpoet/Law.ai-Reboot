@@ -97,9 +97,21 @@ export interface GetDownloadUrlRequest {
   tenantContext?: TenantContext;
 }
 
+// url 은 R2 주소가 아니라 게이트웨이 중계 경로(/files/:id/content?token=)다 — API 기준 상대 경로.
 export interface GetDownloadUrlResponse {
   url: string;
   expiresIn: number;
+}
+
+// 게이트웨이 파일 중계(/files/:id/content) — 다운로드 주소 토큰을 확인하고
+// 서버가 R2 에서 받아올 단기 presigned GET URL 을 돌려준다.
+export interface GetFileContentSourceRequest {
+  fileId: string;
+  token: string;
+}
+
+export interface GetFileContentSourceResponse {
+  url: string;
 }
 
 // 비교 보고서 PDF 다운로드 감사 기록. 클라이언트가 PDF 생성 직후 best-effort 로 호출.

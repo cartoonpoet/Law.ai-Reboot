@@ -7,6 +7,8 @@ import {
   type FileAttachmentDto,
   type GetDownloadUrlRequest,
   type GetDownloadUrlResponse,
+  type GetFileContentSourceRequest,
+  type GetFileContentSourceResponse,
   type PresignUploadRequest,
   type PresignUploadResponse,
 } from "@lawai/contracts";
@@ -35,6 +37,13 @@ export class FilesController {
     @Payload() req: GetDownloadUrlRequest,
   ): Promise<GetDownloadUrlResponse> {
     return this.files.getDownloadUrl(req);
+  }
+
+  @MessagePattern(FILE_PATTERNS.GET_CONTENT_SOURCE)
+  getContentSource(
+    @Payload() req: GetFileContentSourceRequest,
+  ): Promise<GetFileContentSourceResponse> {
+    return this.files.getContentSource(req);
   }
 
   @MessagePattern(FILE_PATTERNS.AUDIT_COMPARE_REPORT)

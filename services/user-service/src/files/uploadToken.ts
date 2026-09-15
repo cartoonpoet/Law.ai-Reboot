@@ -16,7 +16,8 @@ export interface UploadTokenClaims {
   mimeType: string;
 }
 
-const getSecret = (): string =>
+// 파일 토큰(업로드·다운로드 주소) 공용 비밀키.
+export const getFileTokenSecret = (): string =>
   process.env.FILE_UPLOAD_SECRET ||
   process.env.JWT_ACCESS_SECRET ||
   "dev-upload-secret";
@@ -25,10 +26,10 @@ export const signUploadToken = (
   claims: UploadTokenClaims,
   expiresInSec: number,
 ): string =>
-  jwt.sign(claims, getSecret(), { expiresIn: expiresInSec, algorithm: "HS256" });
+  jwt.sign(claims, getFileTokenSecret(), { expiresIn: expiresInSec, algorithm: "HS256" });
 
 export const verifyUploadToken = (token: string): UploadTokenClaims => {
-  const payload = jwt.verify(token, getSecret()) as jwt.JwtPayload &
+  const payload = jwt.verify(token, getFileTokenSecret()) as jwt.JwtPayload &
     UploadTokenClaims;
   return {
     sub: payload.sub,
