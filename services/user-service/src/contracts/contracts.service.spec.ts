@@ -557,6 +557,95 @@ describe("ContractsService", () => {
     expect(prismaMock.contract.update).not.toHaveBeenCalled();
   });
 
+  it("updateStatus: 계약 이행 → 종료는 종료 사유(기본 정상 종료)와 종료일을 남기고, 만료 종료는 expired", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("fulfilling"));
+    prismaMock.contract.update.mockResolvedValue(fullRow("closed"));
+
+    await service.updateStatus({ id: "ct-1", status: "closed", viewerId: "u1", ...makeCtx() });
+    expect(prismaMock.contract.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "closed", closedReason: "completed", closedAt: expect.any(Date) }) }),
+    );
+
+    await service.updateStatus({ id: "ct-1", status: "closed", closedReason: "expired", viewerId: "u1", ...makeCtx() });
+    expect(prismaMock.contract.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ closedReason: "expired" }) }),
+    );
+  });
+
+  describe("terminate (중도 해지)", () => {
+    const terminateReq = (over: Record<string, unknown> = {}) => ({
+      contractId: "ct-1",
+      viewerId: "u1",
+      terminatedOn: "2026-09-30",
+      reason: "agreement" as const,
+      note: "상대방 사업 철수",
+      fileId: "f-term",
+      ...makeCtx(),
+      ...over,
+    });
+
+    it("해지 서류를 표시하고 계약을 해지 사유·해지일과 함께 종료한 뒤 감사 기록을 남긴다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("fulfilling"));
+      prismaMock.file.findFirst.mockResolvedValue({ id: "f-term", role: "attach", storageKey: "k" });
+      prismaMock.file.update.mockResolvedValue({});
+      prismaMock.contract.update.mockResolvedValue({ ...fullRow("closed"), closedReason: "terminated" });
+
+      const res = await service.terminate(terminateReq());
+
+      expect(prismaMock.file.update).toHaveBeenCalledWith({
+        where: { id: "f-term", contractId: "ct-1", commentId: null, role: "attach", storageKey: { not: null } },
+        data: { meta: "해지 합의서·통지서 · 2026-09-30" },
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: "ct-1", status: { in: ["signed", "fulfilling"] }, tenantId: "t1" }),
+          data: {
+            status: "closed",
+            closedReason: "terminated",
+            closedAt: new Date("2026-09-30"),
+            closedNote: "합의 해지 — 상대방 사업 철수",
+          },
+        }),
+      );
+      expect(auditMock.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "transition",
+          detail: expect.objectContaining({ kind: "terminate", from: "fulfilling", to: "closed", reason: "agreement" }),
+        }),
+      );
+      expect(res.contract.closedReason).toBe("terminated");
+    });
+
+    it("체결 전 계약은 해지할 수 없다 — 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("legalReview"));
+      await expect(service.terminate(terminateReq())).rejects.toMatchObject({ error: { status: 400 } });
+    });
+
+    it("관련 없는 사용자는 해지할 수 없다 — 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("signed"));
+      await expect(service.terminate(terminateReq({ viewerId: "stranger" }))).rejects.toMatchObject({
+        error: { status: 403 },
+      });
+    });
+
+    it("해지 서류가 실제로 올라간 새 첨부가 아니면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("signed"));
+      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f-term", role: "attach", storageKey: null });
+      await expect(service.terminate(terminateReq())).rejects.toMatchObject({ error: { status: 400 } });
+
+      prismaMock.file.findFirst.mockResolvedValueOnce({ id: "f-term", role: "signed", storageKey: "k" });
+      await expect(service.terminate(terminateReq())).rejects.toMatchObject({ error: { status: 400 } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+    });
+
+    it("해지일이 잘못됐으면 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("signed"));
+      await expect(service.terminate(terminateReq({ terminatedOn: "" }))).rejects.toMatchObject({
+        error: { status: 400 },
+      });
+    });
+  });
+
   it("updateStatus: 체결 완료에서 곧바로 종료(signed→closed)는 400", async () => {
     prismaMock.contract.findFirst.mockResolvedValue(fullRow("signed"));
     await expect(

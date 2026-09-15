@@ -37,6 +37,10 @@ const response: ContractResponse = {
   periodEnd: null,
   dueDate: "2026-07-10T00:00:00.000Z",
   signedAt: null,
+  closedReason: null,
+  closedAt: null,
+  closedNote: null,
+  originContractId: null,
   schemaVersion: 1,
   details: {
     stage: "change",

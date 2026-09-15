@@ -204,6 +204,16 @@ enum ContractStatus {
   @@schema("contracts")
 }
 
+// 계약 종료 사유. closed 가 될 때 확정(그 전엔 Contract.closedReason = null).
+enum ContractClosedReason {
+  completed // 의무를 마쳐 정상 종료
+  expired // 기간 만료
+  renewed // 갱신 계약 체결로 종료
+  terminated // 중도 해지
+
+  @@schema("contracts")
+}
+
 // 계약 분류 트리(자기참조). 루트=parentId NULL. slug=계층 경로 dot-notation 영문 안정 식별자(전역 unique).
 model ContractCategory {
   id        String   @id @default(uuid())
@@ -250,6 +260,13 @@ model Contract {
   dueDate     DateTime?
   signedAt    DateTime? // 실제 서명 완료일. signed 상태 진입 시 확정.
 
+  // 종료 정보 — closed 가 될 때 채운다. closedAt 은 실제 종료일(해지일·갱신 계약 체결일).
+  closedReason ContractClosedReason?
+  closedAt     DateTime?
+  closedNote   String?
+  // 갱신·변경·해지 요청이 가리키는 원 계약(자기 참조). 원 계약이 지워지면 연결만 끊는다.
+  originContractId String?
+
   schemaVersion Int  @default(1)
   details       Json
 
@@ -266,8 +283,11 @@ model Contract {
   files          File[]
   references     ContractReference[]
   comments       Comment[]
+  originContract   Contract?  @relation("ContractOrigin", fields: [originContractId], references: [id], onDelete: SetNull)
+  derivedContracts Contract[] @relation("ContractOrigin")
 
   @@index([tenantId])
+  @@index([originContractId])
   @@index([createdById])
   @@index([requesterId])
   @@index([ownerId])

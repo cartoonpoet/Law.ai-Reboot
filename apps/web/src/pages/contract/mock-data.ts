@@ -94,6 +94,7 @@ export interface ContractDetail {
   ccSecret: CcRecipientView[]; // 참조수신자(비밀, 백엔드가 권한 따라 마스킹)
   approvalLine: ApprovalStepView[] | null; // 결재선(approvalLine.steps, null→빈 상태)
   signedAt: string | null; // 체결일(코어 signedAt, ISO). 체결 전이면 null.
+  closure: { reason: string; closedAt: string | null; note: string | null } | null; // 종료 정보(계약 종료일 때만)
 }
 
 export const CONTRACTS_FULL: ContractRow[] = [
@@ -166,6 +167,7 @@ const SAMPLE_DETAIL: ContractDetail = {
   ccSecret: [],
   approvalLine: null,
   signedAt: null,
+  closure: null,
 };
 
 export function getContractDetail(id: string): ContractDetail {

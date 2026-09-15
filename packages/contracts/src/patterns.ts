@@ -71,6 +71,8 @@ export const CONTRACT_PATTERNS = {
   REPLACE_SIGNED_FILE: "contract.replaceSignedFile",
   // 계약 삭제(소프트 삭제) — 배정 전 생성자 본인 또는 시스템 관리자, 체결 결재 중 불가.
   DELETE: "contract.delete",
+  // 중도 해지 — 체결 완료·계약 이행 계약을 해지일·사유·해지 합의서와 함께 종료(terminated).
+  TERMINATE: "contract.terminate",
   // 로그인 화면 공개 통계(검토된 계약 수) — 인증 없이 호출된다.
   PUBLIC_STATS: "contract.publicStats",
 } as const;
