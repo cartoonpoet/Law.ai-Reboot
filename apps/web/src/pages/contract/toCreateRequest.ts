@@ -21,6 +21,8 @@ export const toCreateRequest = (
   schemaVersion: 1,
   registerAs: form.registerAs,
   signedAt: form.signedAt || null,
+  // 신규 계약은 원 계약을 보내지 않는다(단계를 신규로 되돌려도 남은 선택값이 새지 않게).
+  originContractId: form.stage === "new" ? null : (form.originContract?.id ?? null),
   details: {
     stage: form.stage,
     periodText: form.periodText,

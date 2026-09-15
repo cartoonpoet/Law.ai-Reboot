@@ -93,6 +93,10 @@ export class CreateContractDto {
   @IsOptional() @IsString() @MaxLength(40)
   signedAt?: string | null;
 
+  @ApiPropertyOptional({ description: "갱신·변경·해지 요청의 원 계약 id. 갱신·해지는 필수(details.stage 기준)." })
+  @IsOptional() @IsString() @MaxLength(64)
+  originContractId?: string | null;
+
   @ApiProperty({ example: 1 })
   @IsInt()
   schemaVersion!: number;

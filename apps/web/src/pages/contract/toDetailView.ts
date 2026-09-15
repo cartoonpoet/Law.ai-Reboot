@@ -14,6 +14,8 @@ import type {
   CcRecipientView,
 } from "./mock-data";
 import { CLOSED_REASON_LABEL, getStatusLabel } from "./contractStatus";
+import type { ContractLinkRef, ContractStage } from "@lawai/contracts";
+import type { LinkedContractView } from "./mock-data";
 
 const LANG_LABEL: Record<string, string> = {
   ko: "국문",
@@ -143,6 +145,22 @@ const toApprovalStep = (
 // 계약 단건 응답(ContractResponse) → 상세 화면 뷰모델(ContractDetail).
 // 코멘트는 별도 조회(useComments)로 분리됨 — detailView 에 포함하지 않는다.
 // AI 리스크·라이프사이클은 아직 별도 기능이라 매핑 대상 아님(상세 페이지가 mock 유지).
+// 계약 단계 → 한글 라벨.
+const STAGE_LABEL: Record<ContractStage, string> = {
+  new: "신규계약",
+  renew: "갱신계약",
+  change: "변경계약",
+  terminate: "해지계약",
+};
+
+const toLinkedContractView = (ref: ContractLinkRef): LinkedContractView => ({
+  id: ref.id,
+  code: ref.code,
+  title: ref.title,
+  status: getStatusLabel(ref.status),
+  stage: STAGE_LABEL[ref.stage] ?? STAGE_LABEL.new,
+});
+
 export const toDetailView = (c: ContractResponse): ContractDetail => {
   const d = c.details;
   const labelParts = c.categoryLabel
@@ -169,7 +187,7 @@ export const toDetailView = (c: ContractResponse): ContractDetail => {
     name: c.title,
     status: getStatusLabel(c.status),
     secure: c.securityLevel !== "normal",
-    stage: d.stage === "new" ? "신규계약" : "변경·해지",
+    stage: STAGE_LABEL[d.stage] ?? STAGE_LABEL.new,
     requester: c.requesterName ?? c.requesterId ?? "-",
     owner: c.ownerName ?? c.ownerId ?? "미배정",
     catPath,
@@ -218,5 +236,9 @@ export const toDetailView = (c: ContractResponse): ContractDetail => {
             note: c.closedNote,
           }
         : null,
+    linkedContracts: {
+      origin: c.originContract ? toLinkedContractView(c.originContract) : null,
+      derived: c.derivedContracts.map(toLinkedContractView),
+    },
   };
 };

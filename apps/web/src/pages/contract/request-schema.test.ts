@@ -78,10 +78,11 @@ describe("contractRequestSchema - 등록 유형 교차 검증", () => {
     }
   });
 
-  it("변경·해지 + 체결 완료 등록인데 원 계약이 없으면 relatedDocs 에러로 실패한다", () => {
+  it("변경 + 체결 완료 등록인데 원 계약이 없으면 originContract 에러로 실패한다", () => {
     const r = contractRequestSchema.safeParse({
       ...signedBase,
       stage: "change" as const,
+      originContract: null,
       signedAt: "2025-12-18",
       signedFiles: [{ id: "f1", name: "a.pdf", meta: "", mimeType: null }],
       contractFiles: [],
@@ -89,7 +90,26 @@ describe("contractRequestSchema - 등록 유형 교차 검증", () => {
     });
     expect(r.success).toBe(false);
     if (!r.success) {
-      expect(r.error.issues.some((i) => i.path[0] === "relatedDocs")).toBe(true);
+      expect(r.error.issues.some((i) => i.path[0] === "originContract")).toBe(true);
+    }
+  });
+
+  it("갱신·해지는 검토 요청이어도 원 계약이 있어야 하고, 고르면 통과한다", () => {
+    const origin = { id: "o1", code: "C20251010-0412", title: "IDC 입주 계약" };
+    const base = {
+      ...signedBase,
+      registerAs: "review" as const,
+      signedAt: "",
+      signedFiles: [],
+      contractFiles: [{ id: "f1", name: "a.pdf", meta: "", mimeType: null }],
+    };
+    for (const stage of ["renew", "terminate"] as const) {
+      const missing = contractRequestSchema.safeParse({ ...base, stage, originContract: null });
+      expect(missing.success).toBe(false);
+      if (!missing.success) {
+        expect(missing.error.issues.some((i) => i.path[0] === "originContract")).toBe(true);
+      }
+      expect(contractRequestSchema.safeParse({ ...base, stage, originContract: origin }).success).toBe(true);
     }
   });
 

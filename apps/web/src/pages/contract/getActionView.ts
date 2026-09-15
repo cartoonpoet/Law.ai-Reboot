@@ -21,7 +21,8 @@ export type ActionButtonKind =
   | "completeSigning" // 체결 처리 → CompleteSigningModal → completeSigning API
   | "startFulfilling" // 이행 시작 → 확인 창 → changeStatus("fulfilling")
   | "closeContract" // 계약 종료 → 확인 창 → changeStatus("closed")
-  | "terminateContract"; // 중도 해지 → TerminateContractModal → terminateContract API
+  | "terminateContract" // 중도 해지 → TerminateContractModal → terminateContract API
+  | "requestRenewal"; // 갱신 요청 → 원 계약 내용을 채운 갱신 검토 요청 폼으로 이동
 
 export interface ActionButton {
   kind: ActionButtonKind;
@@ -92,15 +93,17 @@ const TRANSITION_BUTTONS: Partial<Record<ContractStatus, ActionButton[]>> = {
 
 // 중도 해지 — 체결 완료·계약 이행 어느 쪽에서든 해지 서류와 함께 곧바로 종료한다(서버 terminate).
 const TERMINATE: ActionButton = { kind: "terminateContract", label: "중도 해지", color: "danger", variant: "outline" };
+// 갱신 요청 — 이 계약을 원 계약으로 삼은 갱신 계약 검토 요청을 새로 쓴다(체결되면 이 계약은 종료).
+const REQUEST_RENEWAL: ActionButton = { kind: "requestRenewal", label: "갱신 요청", color: "secondary", variant: "outline" };
 
 // 체결 이후 진행 버튼 — 서버 ALLOWED_TRANSITIONS(signed→fulfilling, fulfilling→closed) + 중도 해지.
 const POST_SIGN_PROGRESS: Partial<Record<ContractStatus, { buttons: ActionButton[]; notice: string }>> = {
   signed: {
-    buttons: [{ kind: "startFulfilling", label: "이행 시작", color: "primary", variant: "default" }, TERMINATE],
+    buttons: [{ kind: "startFulfilling", label: "이행 시작", color: "primary", variant: "default" }, REQUEST_RENEWAL, TERMINATE],
     notice: "체결이 끝났어요. 계약 이행을 시작하면 '계약 이행' 단계로 넘어가요.",
   },
   fulfilling: {
-    buttons: [{ kind: "closeContract", label: "계약 종료", color: "secondary", variant: "outline" }, TERMINATE],
+    buttons: [{ kind: "closeContract", label: "계약 종료", color: "secondary", variant: "outline" }, REQUEST_RENEWAL, TERMINATE],
     notice: "계약을 이행하고 있어요. 기간이 끝났거나 의무를 모두 마쳤으면 계약을 종료하세요.",
   },
 };

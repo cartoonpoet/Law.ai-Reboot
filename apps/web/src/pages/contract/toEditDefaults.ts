@@ -40,6 +40,9 @@ export const toEditDefaults = (c: ContractResponse): ContractRequestForm => {
     ...contractRequestDefaults,
     // ① 개요
     stage: d.stage,
+    originContract: c.originContract
+      ? { id: c.originContract.id, code: c.originContract.code, title: c.originContract.title }
+      : null,
     secure: c.securityLevel,
     name: c.title,
     requester: c.requesterId ?? "",
