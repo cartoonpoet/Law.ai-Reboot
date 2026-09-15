@@ -3,10 +3,11 @@ import type {
   ContractStatus,
   CreateContractRequest,
   ListContractsResponse,
+  StatusCloseReason,
   TerminationReason,
   UpdateContractRequest,
 } from "@lawai/contracts";
-import { apiFetch } from "./client";
+import { apiFetch, apiFetchVoid } from "./client";
 
 // createdById 는 gateway 가 JWT 에서 주입하므로 클라이언트는 보내지 않는다.
 export type CreateContractInput = Omit<CreateContractRequest, "createdById">;
@@ -40,18 +41,30 @@ export function updateContractStatus(
   id: string,
   status: ContractStatus,
   ownerId?: string | null,
+  // closed 로 바꿀 때 종료 사유(없으면 서버 기본 completed). 만료 관리의 "만료로 종료"는 expired.
+  closedReason?: StatusCloseReason,
 ): Promise<ContractResponse> {
   return apiFetch<ContractResponse>(`/contracts/${id}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status, ...(ownerId !== undefined ? { ownerId } : {}) }),
+    body: JSON.stringify({
+      status,
+      ...(ownerId !== undefined ? { ownerId } : {}),
+      ...(closedReason ? { closedReason } : {}),
+    }),
   });
 }
+
+// 만료 관리 "AI로 읽기" — 자동갱신·해지 통지 조항 추출을 시작한다(결과는 getAiAnalysis kind=renewalTerms).
+export const analyzeRenewalTerms = (id: string): Promise<void> =>
+  apiFetchVoid(`/contracts/${id}/ai/renewal-terms`, { method: "POST" });
 
 export interface ListContractsParams {
   q?: string;
   status?: ContractStatus;
   statuses?: string;
-  expiry?: "d90" | "d180" | "expired";
+  expiry?: "d7" | "d30" | "d90" | "d180" | "expired";
+  // periodEnd = 만료가 가까운 순(만료 관리). 없으면 최근 수정 순.
+  sort?: "periodEnd";
   party?: string;
   categoryId?: string;
   mine?: boolean;
@@ -72,6 +85,7 @@ export function listContracts(
   if (params.mine) search.set("mine", "true");
   if (params.page) search.set("page", String(params.page));
   if (params.pageSize) search.set("pageSize", String(params.pageSize));
+  if (params.sort) search.set("sort", params.sort);
   const qs = search.toString();
   return apiFetch<ListContractsResponse>(`/contracts${qs ? `?${qs}` : ""}`);
 }

@@ -73,6 +73,8 @@ export const CONTRACT_PATTERNS = {
   DELETE: "contract.delete",
   // 중도 해지 — 체결 완료·계약 이행 계약을 해지일·사유·해지 합의서와 함께 종료(terminated).
   TERMINATE: "contract.terminate",
+  // 만료 관리 "AI로 읽기" — 자동갱신·해지 통지 조항 추출(AiAnalysis kind renewalTerms) 트리거.
+  ANALYZE_RENEWAL_TERMS: "contract.analyzeRenewalTerms",
   // 로그인 화면 공개 통계(검토된 계약 수) — 인증 없이 호출된다.
   PUBLIC_STATS: "contract.publicStats",
 } as const;

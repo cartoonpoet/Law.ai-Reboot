@@ -19,6 +19,17 @@ export const buildRiskPayload = (contract: ContractLike, fileText: string | null
   fileText,
 });
 
+// 자동갱신·해지 통지 조항 추출 — 계약 기간을 함께 넘겨 통지 기한 날짜를 계산하게 한다.
+export const buildRenewalTermsPayload = (
+  contract: ContractLike & { periodStart?: string | null; periodEnd?: string | null },
+  fileText: string | null,
+) => ({
+  title: contract.title,
+  periodStart: contract.periodStart ?? null,
+  periodEnd: contract.periodEnd ?? null,
+  fileText,
+});
+
 export const buildSubmitBriefingPayload = (contract: ContractLike) => ({
   title: contract.title,
   details: contract.details,

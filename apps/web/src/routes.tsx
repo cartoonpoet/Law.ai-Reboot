@@ -9,6 +9,7 @@ import { InviteAcceptPage } from "./pages/login/InviteAcceptPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { MembersPage } from "./pages/members/MembersPage";
 import { SystemSettingsPage } from "./pages/system/SystemSettingsPage";
+import { ExpiringContractsPage } from "./pages/contract/expiring/ExpiringContractsPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
@@ -63,6 +64,7 @@ export function AppRoutes() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/contract/list" element={<ContractListPage />} />
         <Route path="/contract/request" element={<ContractCreatePage />} />
+        <Route path="/contract/expiring" element={<ExpiringContractsPage />} />
         <Route path="/members" element={<MembersPage />} />
         <Route path="/system" element={<SystemSettingsPage />} />
         <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />

@@ -666,6 +666,60 @@ describe("ContractsService", () => {
     );
   });
 
+  it("list: 만료 관리 — 7일 창·만료가 가까운 순으로 조회하고 요약에 만료일을 싣는다", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([
+      { ...fullRow("fulfilling"), periodEnd: new Date("2026-09-20T00:00:00.000Z"), requester: null, owner: null, counterparties: [] },
+    ]);
+    prismaMock.contract.count.mockResolvedValue(1);
+
+    const res = await service.list({ statuses: "signed,fulfilling", expiry: "d7", sort: "periodEnd", pageSize: 50, ...makeCtx() });
+
+    const findArg = prismaMock.contract.findMany.mock.calls[0][0];
+    expect(findArg.orderBy).toEqual([{ periodEnd: "asc" }, { updatedAt: "desc" }]);
+    const { gte, lte } = findArg.where.periodEnd as { gte: Date; lte: Date };
+    expect((lte.getTime() - gte.getTime()) / 86_400_000).toBe(7);
+    expect(res.items[0].periodEnd).toBe("2026-09-20T00:00:00.000Z");
+  });
+
+  it("list: 정렬을 안 주면 최근 수정 순", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+    await service.list({ ...makeCtx() });
+    expect(prismaMock.contract.findMany.mock.calls[0][0].orderBy).toEqual([{ updatedAt: "desc" }]);
+  });
+
+  describe("analyzeRenewalTerms (만료 관리 AI로 읽기)", () => {
+    it("체결 계약이면 누른 사람의 AI 연동으로 자동갱신 조항 추출을 시작한다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("fulfilling"));
+      await expect(service.analyzeRenewalTerms({ contractId: "ct-1", viewerId: "u1", ...makeCtx() })).resolves.toEqual({ ok: true });
+      await flushAiTrigger();
+      expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "renewalTerms",
+          targetId: "ct-1",
+          triggeredByUserId: "u1",
+          payload: expect.objectContaining({ title: "계약", fileText: null }),
+        }),
+      );
+    });
+
+    it("체결 전 계약은 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("legalReview"));
+      await expect(service.analyzeRenewalTerms({ contractId: "ct-1", viewerId: "u1", ...makeCtx() })).rejects.toMatchObject({
+        error: { status: 400 },
+      });
+    });
+
+    it("볼 수 없는 계약은 있는지도 알리지 않고 404", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce(null);
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("fulfilling"));
+      await expect(
+        service.analyzeRenewalTerms({ contractId: "ct-1", viewerId: "stranger", ...makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 404 } });
+      expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
+    });
+  });
+
   describe("terminate (중도 해지)", () => {
     const terminateReq = (over: Record<string, unknown> = {}) => ({
       contractId: "ct-1",
