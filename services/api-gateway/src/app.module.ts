@@ -16,6 +16,7 @@ import { NotificationHubModule } from "./notifications/notification-hub.module";
 import { AdminModule } from "./admin/admin.module";
 import { TenantsGatewayModule } from "./tenants/tenants.module";
 import { AiModule } from "./ai/ai.module";
+import { PublicModule } from "./public/public.module";
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { AiModule } from "./ai/ai.module";
     AdminModule,
     TenantsGatewayModule,
     AiModule,
+    PublicModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

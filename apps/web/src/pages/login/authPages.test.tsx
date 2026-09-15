@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { getPublicStats } from "../../api/publicStats";
 import { AuthLayout } from "./AuthLayout";
 import { SsoLoginForm } from "./SsoLoginForm";
 import { SignupPage } from "./SignupPage";
@@ -21,19 +23,25 @@ describe("SsoLoginForm", () => {
   });
 });
 
+vi.mock("../../api/publicStats");
+
 describe("AuthLayout", () => {
-  it("좌측 BrandPanel과 우측 Outlet 자식을 함께 렌더한다", () => {
+  it("좌측 BrandPanel과 우측 Outlet 자식을 함께 렌더하고, 검토된 계약 수는 실제 집계를 보여준다", async () => {
+    vi.mocked(getPublicStats).mockResolvedValue({ reviewedContractCount: 12 });
     render(
-      <MemoryRouter initialEntries={["/x"]}>
-        <Routes>
-          <Route element={<AuthLayout />}>
-            <Route path="/x" element={<div>자식 폼</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={["/x"]}>
+          <Routes>
+            <Route element={<AuthLayout />}>
+              <Route path="/x" element={<div>자식 폼</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     expect(screen.getByText("자식 폼")).toBeInTheDocument();
     expect(screen.getByText(/계약 검토부터 체결까지/)).toBeInTheDocument();
+    expect(await screen.findByLabelText("지금까지 검토된 계약 12건")).toBeInTheDocument();
   });
 });
 

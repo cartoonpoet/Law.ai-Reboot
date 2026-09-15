@@ -277,6 +277,12 @@ export interface DeleteContractResult {
   ok: true;
 }
 
+/** 로그인 화면 공개 통계 — 전체 테넌트 합계 숫자만(계약 내용·회사는 드러내지 않는다). */
+export interface PublicStatsResponse {
+  /** 법무 검토를 실제로 거친 계약 수 — 검토 완료 이후 단계 + 담당자 배정됨 + 삭제 안 됨. */
+  reviewedContractCount: number;
+}
+
 export interface UpdateContractStatusRequest {
   id: string;
   status: ContractStatus;

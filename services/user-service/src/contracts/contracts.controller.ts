@@ -14,10 +14,19 @@ import type {
   DeleteContractRequest,
 } from "@lawai/contracts";
 import { ContractsService } from "./contracts.service";
+import { PublicStatsService } from "./public-stats.service";
 
 @Controller()
 export class ContractsController {
-  constructor(private readonly contracts: ContractsService) {}
+  constructor(
+    private readonly contracts: ContractsService,
+    private readonly publicStats: PublicStatsService,
+  ) {}
+
+  @MessagePattern(CONTRACT_PATTERNS.PUBLIC_STATS)
+  getPublicStats() {
+    return this.publicStats.get();
+  }
 
   @MessagePattern(CONTRACT_PATTERNS.CREATE)
   create(@Payload() req: CreateContractRequest) {
