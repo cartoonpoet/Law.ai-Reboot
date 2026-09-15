@@ -45,11 +45,11 @@ describe("ContractTextExtractor", () => {
     expect(r2.getObjectBytes).toHaveBeenCalledWith("k-pdf");
   });
 
-  it("계약서 원본이 아니거나, 업로드 안 됐거나, 못 읽는 형식(hwp)은 건너뛴다", async () => {
+  it("계약서 원본이 아니거나, 업로드 안 됐거나, 못 읽는 형식(구형 워드 doc)은 건너뛴다", async () => {
     const text = await extractor.extract([
       { ...pdfFile, role: "attach" },
       { ...pdfFile, storageKey: null },
-      { role: "contract", name: "계약서.hwp", mimeType: "application/x-hwp", storageKey: "k-hwp" },
+      { role: "contract", name: "계약서.doc", mimeType: "application/msword", storageKey: "k-doc" },
     ]);
     expect(text).toBeNull();
     expect(r2.getObjectBytes).not.toHaveBeenCalled();
