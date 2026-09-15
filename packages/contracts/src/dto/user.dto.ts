@@ -86,6 +86,8 @@ export type UserProfileRow = import("../types").PublicUser & {
   notifyApproval: boolean;
   // 코멘트 알림(나를 언급) 받기 — 끄면 이메일도 보내지 않는다.
   notifyComment: boolean;
+  // 계약 만료 임박 알림(90·30·7일 전) 받기.
+  notifyContractExpiry: boolean;
   avatarKey: string | null;
 };
 
@@ -96,6 +98,8 @@ export type MyProfile = import("../types").PublicUser & {
   notifyApproval: boolean;
   // 코멘트 알림(나를 언급) 받기 — 끄면 이메일도 보내지 않는다.
   notifyComment: boolean;
+  // 계약 만료 임박 알림(90·30·7일 전) 받기.
+  notifyContractExpiry: boolean;
   // API 기준 경로(/users/<id>/avatar/<파일>). 사진이 없으면 null.
   avatarUrl: string | null;
 };
@@ -111,6 +115,7 @@ export interface UpdateProfileRequest {
   emailNotify?: boolean;
   notifyApproval?: boolean;
   notifyComment?: boolean;
+  notifyContractExpiry?: boolean;
 }
 
 export interface AvatarUploadTargetRequest {

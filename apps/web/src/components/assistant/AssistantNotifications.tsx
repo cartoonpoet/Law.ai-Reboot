@@ -15,6 +15,7 @@ const EMPTY_TEXT: Record<NotificationFilterTypes, string> = {
   unread: "안 읽은 알림이 없어요.",
   approval: "결재 알림이 없어요.",
   comment: "코멘트 알림이 없어요.",
+  contract: "계약 만료 알림이 없어요.",
 };
 
 const checkFilter = (notification: NotificationDto, filter: NotificationFilterTypes): boolean => {
@@ -49,6 +50,7 @@ export const AssistantNotifications = ({
     { value: "unread", label: `안 읽음 ${unreadCount}` },
     { value: "approval", label: "결재" },
     { value: "comment", label: "코멘트" },
+    { value: "contract", label: "계약 만료" },
   ];
 
   return (

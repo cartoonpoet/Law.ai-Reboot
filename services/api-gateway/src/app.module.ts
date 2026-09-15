@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { GatewayClientsModule } from "./clients/clients.module";
@@ -21,6 +22,8 @@ import { PublicModule } from "./public/public.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // 매일 도는 작업(계약 만료 임박 알림) 스케줄러.
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     GatewayClientsModule,
     NotificationHubModule,

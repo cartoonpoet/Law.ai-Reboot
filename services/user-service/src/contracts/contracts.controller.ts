@@ -1,6 +1,6 @@
 import { Controller } from "@nestjs/common";
 import { MessagePattern, Payload } from "@nestjs/microservices";
-import { CONTRACT_PATTERNS } from "@lawai/contracts";
+import { CONTRACT_PATTERNS, NOTIFICATION_PATTERNS } from "@lawai/contracts";
 import type {
   CreateContractRequest,
   GetContractRequest,
@@ -14,16 +14,25 @@ import type {
   DeleteContractRequest,
   TerminateContractRequest,
   AnalyzeRenewalTermsRequest,
+  RunContractExpiryAlertsResult,
 } from "@lawai/contracts";
 import { ContractsService } from "./contracts.service";
 import { PublicStatsService } from "./public-stats.service";
+import { ContractExpiryNotifier } from "./contract-expiry.notifier";
 
 @Controller()
 export class ContractsController {
   constructor(
     private readonly contracts: ContractsService,
     private readonly publicStats: PublicStatsService,
+    private readonly expiryNotifier: ContractExpiryNotifier,
   ) {}
+
+  // 게이트웨이 스케줄러가 매일(+기동 시) 부른다 — 만든 알림을 돌려주면 게이트웨이가 실시간으로 밀어준다.
+  @MessagePattern(NOTIFICATION_PATTERNS.RUN_CONTRACT_EXPIRY_ALERTS)
+  async runContractExpiryAlerts(): Promise<RunContractExpiryAlertsResult> {
+    return { notifications: await this.expiryNotifier.notifyExpiring(new Date()) };
+  }
 
   @MessagePattern(CONTRACT_PATTERNS.PUBLIC_STATS)
   getPublicStats() {

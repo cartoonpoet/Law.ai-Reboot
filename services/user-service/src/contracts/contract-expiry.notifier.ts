@@ -1,5 +1,5 @@
-import { Injectable, Logger, OnApplicationBootstrap } from "@nestjs/common";
-import { Cron } from "@nestjs/schedule";
+import { Injectable } from "@nestjs/common";
+import type { PushNotification } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationService } from "../notifications/notifications.service";
 import type { CreateNotificationInput } from "../notifications/notifications.service";
@@ -19,41 +19,20 @@ const getTodayStartUtc = (now: Date): Date =>
   new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
 /**
- * 계약 만료 임박 알림 — 매일 한 번, 만료가 90·30·7일 안으로 들어온 계약의 담당자·요청자·작성자에게 알린다.
- * 같은 계약·같은 시점 알림은 사람마다 한 번만 보낸다(이미 보낸 알림을 확인). 그래서 하루에 여러 번 돌아도 안전하다.
- * 실시간 푸시(SSE)는 게이트웨이를 거치는 요청에서만 나가므로, 이 알림은 알림 목록을 다시 불러올 때 보인다.
+ * 계약 만료 임박 알림 — 만료가 90·30·7일 안으로 들어온 계약의 담당자·요청자·작성자에게 알린다.
+ * 같은 계약·같은 시점 알림은 사람마다 한 번만 보낸다(이미 보낸 알림을 확인). 그래서 여러 번 불러도 안전하다.
+ * 언제 부를지는 게이트웨이 스케줄러가 정한다(매일 + 기동 시) — 게이트웨이가 돌려받은 알림을 실시간(SSE)으로 밀어준다.
+ * 받는 사람이 알림 설정에서 "계약 만료 알림"을 껐으면 NotificationService 가 거른다.
  */
 @Injectable()
-export class ContractExpiryNotifier implements OnApplicationBootstrap {
-  private readonly logger = new Logger(ContractExpiryNotifier.name);
-
+export class ContractExpiryNotifier {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationService,
   ) {}
 
-  // 배포·재시작 직후에도 오늘 치 알림이 나가게 한 번 돌린다(중복은 위 확인으로 걸러진다).
-  onApplicationBootstrap(): void {
-    void this.runSafely();
-  }
-
-  // 매일 UTC 자정 = 한국 시간 오전 9시.
-  @Cron("0 0 0 * * *", { name: "contract-expiry-alerts", timeZone: "UTC" })
-  handleDaily(): Promise<void> {
-    return this.runSafely();
-  }
-
-  private async runSafely(): Promise<void> {
-    try {
-      const count = await this.notifyExpiring(new Date());
-      if (count > 0) this.logger.log(`계약 만료 임박 알림 ${count}건 생성`);
-    } catch (error) {
-      this.logger.error("계약 만료 임박 알림 실패", error instanceof Error ? error.stack : String(error));
-    }
-  }
-
-  /** 만료 임박 계약의 관련자에게 아직 안 보낸 알림을 만든다. 만든 알림 수를 돌려준다. */
-  async notifyExpiring(now: Date): Promise<number> {
+  /** 만료 임박 계약의 관련자에게 아직 안 보낸 알림을 만들고, 실시간으로 밀어줄 알림 목록을 돌려준다. */
+  async notifyExpiring(now: Date): Promise<PushNotification[]> {
     const todayStart = getTodayStartUtc(now);
     const maxDays = EXPIRY_ALERT_DAYS[EXPIRY_ALERT_DAYS.length - 1];
     const contracts = await this.prisma.contract.findMany({
@@ -64,7 +43,7 @@ export class ContractExpiryNotifier implements OnApplicationBootstrap {
       },
       select: { id: true, title: true, tenantId: true, periodEnd: true, ownerId: true, requesterId: true, createdById: true },
     });
-    if (contracts.length === 0) return 0;
+    if (contracts.length === 0) return [];
 
     const candidates: CreateNotificationInput[] = contracts.flatMap((contract) => {
       const periodEnd = contract.periodEnd as Date;
@@ -104,9 +83,8 @@ export class ContractExpiryNotifier implements OnApplicationBootstrap {
     const toKey = (n: { recipientId: string; type: string; targetId: string }) => `${n.recipientId}:${n.type}:${n.targetId}`;
     const sentKeys = new Set(alreadySent.map(toKey));
     const pending = candidates.filter((candidate) => !sentKeys.has(toKey(candidate)));
-    if (pending.length === 0) return 0;
+    if (pending.length === 0) return [];
 
-    await this.notifications.createMany(pending);
-    return pending.length;
+    return this.notifications.createMany(pending);
   }
 }

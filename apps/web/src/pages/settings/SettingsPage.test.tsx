@@ -29,6 +29,7 @@ const ME: MyProfile = {
   emailNotify: true,
   notifyApproval: true,
   notifyComment: true,
+  notifyContractExpiry: true,
   avatarUrl: null,
 };
 
@@ -150,6 +151,9 @@ describe("SettingsPage (내 정보 설정)", () => {
 
       await user.click(screen.getByRole("switch", { name: "코멘트 알림 받기" }));
       await waitFor(() => expect(updateMyProfile).toHaveBeenCalledWith({ notifyComment: false }));
+
+      await user.click(screen.getByRole("switch", { name: "계약 만료 알림 받기" }));
+      await waitFor(() => expect(updateMyProfile).toHaveBeenCalledWith({ notifyContractExpiry: false }));
     });
   });
 
