@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 
 /**
  * Cloudflare R2 S3Client wrapper.
@@ -61,6 +61,16 @@ export class R2Client {
         }`,
       );
     }
+  }
+
+  /**
+   * 객체 내용을 바이트로 내려받는다(서버 내부 처리용 — 예: AI 분석용 계약서 본문 추출).
+   * R2 미설정이거나 내용이 없으면 null. 네트워크·권한 오류는 호출자가 처리하도록 그대로 던진다.
+   */
+  async getObjectBytes(storageKey: string): Promise<Uint8Array | null> {
+    if (this.disabled || !this.client || !this.bucket) return null;
+    const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: storageKey }));
+    return res.Body ? await res.Body.transformToByteArray() : null;
   }
 
   /**

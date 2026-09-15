@@ -21,6 +21,8 @@
     "@nestjs/microservices": "^11.0.0",
     "@prisma/client": "^6.2.0",
     "jsonwebtoken": "^9.0.3",
+    "mammoth": "1.12.0",
+    "pdfjs-dist": "3.11.174",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.14.0",
     "rxjs": "^7.8.1"
