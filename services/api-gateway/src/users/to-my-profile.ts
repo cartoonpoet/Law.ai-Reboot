@@ -12,5 +12,6 @@ export const toMyProfile = (row: UserProfileRow): MyProfile => ({
   emailNotify: row.emailNotify,
   notifyApproval: row.notifyApproval,
   notifyComment: row.notifyComment,
+  notifyContractExpiry: row.notifyContractExpiry,
   avatarUrl: toAvatarPath(row.id, row.avatarKey),
 });

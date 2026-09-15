@@ -1,3 +1,4 @@
+import type { PushNotification } from "./comment.dto";
 import type { TenantContext } from "./tenant.dto";
 
 // 인앱 알림 조회 응답. 폴리모픽(targetType/targetId)이며 detail 은 JSON(nullable).
@@ -23,7 +24,7 @@ export interface NotificationDto {
 }
 
 // 알림 묶음 — 사용자가 종류별로 끄고 켜거나 알림 화면에서 걸러 보는 단위.
-export type NotificationCategory = "approval" | "comment";
+export type NotificationCategory = "approval" | "comment" | "contract";
 
 // 알림이 가리키는 계약 id. 코멘트 알림은 detail.contractId, 결재 알림은 대상이 계약일 때 detail.targetId.
 export const getNotificationContractId = (detail: Record<string, unknown> | null): string | null => {
@@ -36,8 +37,14 @@ export const getNotificationContractId = (detail: Record<string, unknown> | null
 export const getNotificationCategory = (type: string): NotificationCategory | null => {
   if (type.startsWith("approval_")) return "approval";
   if (type.startsWith("comment_")) return "comment";
+  if (type.startsWith("contract_")) return "contract";
   return null;
 };
+
+// 계약 만료 임박 알림 실행 결과 — 게이트웨이가 받은 알림을 실시간(SSE)으로 밀어준다.
+export interface RunContractExpiryAlertsResult {
+  notifications: PushNotification[];
+}
 
 // 알림 목록 조회 응답. unreadCount 로 배지를 한 번에 갱신한다.
 export interface ListNotificationsResponse {

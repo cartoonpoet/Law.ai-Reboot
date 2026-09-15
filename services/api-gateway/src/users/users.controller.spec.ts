@@ -19,6 +19,7 @@ const ROW: UserProfileRow = {
   emailNotify: true,
   notifyApproval: true,
   notifyComment: true,
+  notifyContractExpiry: true,
   avatarKey: "avatars/u1/abc.png",
 };
 

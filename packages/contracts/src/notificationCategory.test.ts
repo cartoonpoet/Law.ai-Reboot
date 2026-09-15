@@ -28,6 +28,12 @@ describe("getNotificationCategory", () => {
     expect(getNotificationCategory("comment_mention")).toBe("comment");
   });
 
+  it("계약 만료 임박 알림은 계약 묶음", () => {
+    for (const type of ["contract_expiring_90", "contract_expiring_30", "contract_expiring_7"]) {
+      expect(getNotificationCategory(type)).toBe("contract");
+    }
+  });
+
   it("어느 묶음에도 없는 알림은 null(항상 받음)", () => {
     expect(getNotificationCategory("system_notice")).toBeNull();
   });

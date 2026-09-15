@@ -5,7 +5,8 @@ describe("ContractExpiryNotifier", () => {
     contract: { findMany: jest.fn() },
     notification: { findMany: jest.fn() },
   };
-  const notifications = { createMany: jest.fn().mockResolvedValue([]) };
+  const pushes = [{ recipientId: "r1", notification: { id: "n-1" } }];
+  const notifications = { createMany: jest.fn().mockResolvedValue(pushes) };
   const notifier = new ContractExpiryNotifier(prisma as never, notifications as never);
   // 한국 시간 9/15 정오 — 날짜 경계는 UTC 자정(9/15 00:00Z).
   const NOW = new Date("2026-09-15T03:00:00.000Z");
@@ -30,7 +31,7 @@ describe("ContractExpiryNotifier", () => {
     );
   });
 
-  it("남은 일수에 맞는 가장 가까운 시점(7·30·90일) 하나만, 담당자·요청자·작성자에게 한 번씩 보낸다", async () => {
+  it("남은 일수에 맞는 가장 가까운 시점(7·30·90일) 하나만, 담당자·요청자·작성자에게 한 번씩 보내고 만든 알림을 돌려준다", async () => {
     prisma.contract.findMany.mockResolvedValue([
       { id: "A", title: "공급계약", tenantId: "t1", periodEnd: day("2026-09-22"), ownerId: "o1", requesterId: "r1", createdById: "c1" },
       { id: "B", title: "용역계약", tenantId: "t1", periodEnd: day("2026-10-10"), ownerId: null, requesterId: null, createdById: "c2" },
@@ -40,7 +41,7 @@ describe("ContractExpiryNotifier", () => {
     // A 의 7일 알림은 o1 에게 이미 보냈다.
     prisma.notification.findMany.mockResolvedValue([{ recipientId: "o1", type: "contract_expiring_7", targetId: "A" }]);
 
-    const count = await notifier.notifyExpiring(NOW);
+    const result = await notifier.notifyExpiring(NOW);
 
     const created = notifications.createMany.mock.calls[0][0] as Array<{
       recipientId: string;
@@ -62,7 +63,7 @@ describe("ContractExpiryNotifier", () => {
       tenantId: "t1",
       detail: { contractId: "A", preview: "공급계약 · 2026-09-22 만료 (7일 남음)", daysLeft: 7 },
     });
-    expect(count).toBe(4);
+    expect(result).toBe(pushes);
   });
 
   it("오늘 만료되는 계약은 '오늘 만료'로 알린다", async () => {
@@ -73,15 +74,15 @@ describe("ContractExpiryNotifier", () => {
     expect(notifications.createMany.mock.calls[0][0][0].detail.preview).toBe("NDA · 2026-09-15 만료 (오늘 만료)");
   });
 
-  it("만료 임박 계약이 없거나 모두 이미 보냈으면 알림을 만들지 않는다", async () => {
+  it("만료 임박 계약이 없거나 모두 이미 보냈으면 알림을 만들지 않고 빈 목록", async () => {
     prisma.contract.findMany.mockResolvedValueOnce([]);
-    expect(await notifier.notifyExpiring(NOW)).toBe(0);
+    expect(await notifier.notifyExpiring(NOW)).toEqual([]);
 
     prisma.contract.findMany.mockResolvedValueOnce([
       { id: "A", title: "공급계약", tenantId: "t1", periodEnd: day("2026-09-22"), ownerId: null, requesterId: null, createdById: "c1" },
     ]);
     prisma.notification.findMany.mockResolvedValueOnce([{ recipientId: "c1", type: "contract_expiring_7", targetId: "A" }]);
-    expect(await notifier.notifyExpiring(NOW)).toBe(0);
+    expect(await notifier.notifyExpiring(NOW)).toEqual([]);
 
     expect(notifications.createMany).not.toHaveBeenCalled();
   });

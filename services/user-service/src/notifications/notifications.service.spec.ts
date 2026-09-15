@@ -129,10 +129,21 @@ describe("NotificationService", () => {
 
       expect(prismaMock.user.findMany).toHaveBeenNthCalledWith(1, {
         where: { id: { in: ["u-2"] } },
-        select: { id: true, notifyApproval: true, notifyComment: true },
+        select: { id: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true },
       });
       const arg = prismaMock.notification.createMany.mock.calls[0][0] as { data: Array<{ type: string }> };
       expect(arg.data.map((row) => row.type)).toEqual(["comment_mention"]);
+    });
+
+    it("계약 만료 알림을 끈 사람에게는 만료 임박 알림을 만들지 않는다", async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        { id: "u-2", notifyApproval: true, notifyComment: true, notifyContractExpiry: false },
+      ]);
+      const result = await service.createMany([
+        { recipientId: "u-2", type: "contract_expiring_30", actorId: "system", targetType: "Contract", targetId: "k-1", tenantId: "tenant-1" },
+      ]);
+      expect(result).toEqual([]);
+      expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
     });
 
     it("받는 사람이 모든 종류를 껐으면 아무것도 만들지 않는다", async () => {

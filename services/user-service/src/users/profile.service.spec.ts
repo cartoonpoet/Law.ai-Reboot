@@ -30,6 +30,7 @@ describe("ProfileService", () => {
     emailNotify: true,
     notifyApproval: true,
     notifyComment: true,
+    notifyContractExpiry: true,
     avatarKey: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     department: { name: "법무팀" },
@@ -57,6 +58,7 @@ describe("ProfileService", () => {
         emailNotify: true,
     notifyApproval: true,
     notifyComment: true,
+    notifyContractExpiry: true,
         avatarKey: "avatars/u1/a.png",
       });
     });

@@ -48,6 +48,19 @@ export const NotificationSection = ({ me }: NotificationSectionProps) => {
         </div>
         <div className={css.switchRow}>
           <div className={css.switchText}>
+            <span className={css.switchTitle}>계약 만료 알림 받기</span>
+            <p className={css.helper}>내가 담당·요청·작성한 계약이 만료 90·30·7일 전이 되면 알려요</p>
+          </div>
+          <Switch
+            role="switch"
+            aria-label="계약 만료 알림 받기"
+            checked={me.notifyContractExpiry}
+            disabled={isSavingCategory}
+            onCheckedChange={(checked) => setNotifyCategory({ notifyContractExpiry: checked })}
+          />
+        </div>
+        <div className={css.switchRow}>
+          <div className={css.switchText}>
             <span className={css.switchTitle}>이메일로도 알림 받기</span>
             <p className={css.helper}>코멘트에서 나를 언급하면 {me.email} 으로도 알려요</p>
           </div>

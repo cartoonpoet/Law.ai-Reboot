@@ -24,4 +24,9 @@ export class UpdateMyProfileDto {
   @IsOptional()
   @IsBoolean()
   notifyComment?: boolean;
+
+  @ApiPropertyOptional({ description: "계약 만료 임박 알림(90·30·7일 전) 받기" })
+  @IsOptional()
+  @IsBoolean()
+  notifyContractExpiry?: boolean;
 }

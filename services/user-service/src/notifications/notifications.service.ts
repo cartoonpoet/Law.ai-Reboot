@@ -104,12 +104,16 @@ export class NotificationService {
   ): Promise<CreateNotificationInput[]> {
     const recipients = await this.prisma.user.findMany({
       where: { id: { in: Array.from(new Set(items.map((item) => item.recipientId))) } },
-      select: { id: true, notifyApproval: true, notifyComment: true },
+      select: { id: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true },
     });
     const mutedByUserId = new Map(
       recipients.map((r) => [
         r.id,
-        { approval: r.notifyApproval === false, comment: r.notifyComment === false },
+        {
+          approval: r.notifyApproval === false,
+          comment: r.notifyComment === false,
+          contract: r.notifyContractExpiry === false,
+        },
       ]),
     );
     return items.filter((item) => {

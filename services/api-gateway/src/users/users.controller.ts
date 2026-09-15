@@ -65,7 +65,7 @@ export class UsersController {
   @ApiOperation({ summary: "내 정보 수정", description: "이름·이메일 알림만 바꾼다. 이메일·부서·역할은 바꾸지 않는다." })
   @Patch("me")
   updateMe(@Body() dto: UpdateMyProfileDto, @Req() req: Request): Promise<MyProfile> {
-    const payload: UpdateProfileRequest = { userId: this.getUserId(req), name: dto.name, emailNotify: dto.emailNotify, notifyApproval: dto.notifyApproval, notifyComment: dto.notifyComment };
+    const payload: UpdateProfileRequest = { userId: this.getUserId(req), name: dto.name, emailNotify: dto.emailNotify, notifyApproval: dto.notifyApproval, notifyComment: dto.notifyComment, notifyContractExpiry: dto.notifyContractExpiry };
     return this.sendProfile(USER_PATTERNS.UPDATE_PROFILE, payload);
   }
 

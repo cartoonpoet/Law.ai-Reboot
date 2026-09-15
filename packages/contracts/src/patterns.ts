@@ -122,6 +122,8 @@ export const ADMIN_PATTERNS = {
 } as const;
 
 export const NOTIFICATION_PATTERNS = {
+  // 계약 만료 임박 알림 만들기(게이트웨이 스케줄러가 매일 부르고 결과를 SSE 로 push).
+  RUN_CONTRACT_EXPIRY_ALERTS: "notification.runContractExpiryAlerts",
   LIST: "notification.list",
   MARK_READ: "notification.markRead",
   MARK_ALL_READ: "notification.markAllRead",
