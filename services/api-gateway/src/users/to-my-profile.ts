@@ -10,5 +10,7 @@ export const toMyProfile = (row: UserProfileRow): MyProfile => ({
   departmentName: row.departmentName,
   createdAt: row.createdAt,
   emailNotify: row.emailNotify,
+  notifyApproval: row.notifyApproval,
+  notifyComment: row.notifyComment,
   avatarUrl: toAvatarPath(row.id, row.avatarKey),
 });

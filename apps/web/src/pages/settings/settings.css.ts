@@ -153,16 +153,6 @@ export const switchText = style({ display: "flex", flexDirection: "column", gap:
 
 export const switchTitle = style({ fontSize: 13.5, fontWeight: 600, color: c.textHeading });
 
-export const soonBadge = style({
-  fontSize: 10.5,
-  fontWeight: 700,
-  padding: "2px 8px",
-  borderRadius: 999,
-  background: c.neutralSurfaceAlt,
-  color: c.textSecondary,
-  flexShrink: 0,
-});
-
 /* 비밀번호 조건 */
 export const rules = style({ display: "flex", flexWrap: "wrap", gap: "6px 14px", margin: 0, padding: 0, listStyle: "none" });
 

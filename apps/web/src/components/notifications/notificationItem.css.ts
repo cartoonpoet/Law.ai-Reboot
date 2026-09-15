@@ -35,6 +35,8 @@ export const itemTop = style({ display: "flex", alignItems: "center", gap: 6 });
 
 export const actorName = style({ fontSize: 12.5, fontWeight: 700, color: heading });
 
+export const typeLabel = style({ fontSize: 12, color: muted });
+
 export const unreadDot = style({
   width: 6,
   height: 6,

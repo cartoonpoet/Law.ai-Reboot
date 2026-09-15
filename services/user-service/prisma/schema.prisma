@@ -108,6 +108,9 @@ model User {
   isSystemAdmin Boolean  @default(false)
   departmentId  String?
   emailNotify   Boolean  @default(true)
+  // 알림 종류별 받기 — 결재(차례·반려·완료·참조) / 코멘트(나를 언급, 끄면 이메일도 안 보냄).
+  notifyApproval Boolean @default(true)
+  notifyComment  Boolean @default(true)
   // 프로필 사진 R2 키(avatars/<userId>/<uuid>.<ext>). 올릴 때마다 새 키라 이미지 캐시가 자연히 갱신된다.
   avatarKey     String?
   createdAt     DateTime @default(now())

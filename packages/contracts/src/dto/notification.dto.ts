@@ -22,6 +22,23 @@ export interface NotificationDto {
   createdAt: string;
 }
 
+// 알림 묶음 — 사용자가 종류별로 끄고 켜거나 알림 화면에서 걸러 보는 단위.
+export type NotificationCategory = "approval" | "comment";
+
+// 알림이 가리키는 계약 id. 코멘트 알림은 detail.contractId, 결재 알림은 대상이 계약일 때 detail.targetId.
+export const getNotificationContractId = (detail: Record<string, unknown> | null): string | null => {
+  if (typeof detail?.contractId === "string") return detail.contractId;
+  if (detail?.targetType === "contract" && typeof detail.targetId === "string") return detail.targetId;
+  return null;
+};
+
+// 알림 type("approval_turn", "comment_mention" 등) → 묶음. 어느 묶음에도 속하지 않으면 null(항상 받음).
+export const getNotificationCategory = (type: string): NotificationCategory | null => {
+  if (type.startsWith("approval_")) return "approval";
+  if (type.startsWith("comment_")) return "comment";
+  return null;
+};
+
 // 알림 목록 조회 응답. unreadCount 로 배지를 한 번에 갱신한다.
 export interface ListNotificationsResponse {
   items: NotificationDto[];

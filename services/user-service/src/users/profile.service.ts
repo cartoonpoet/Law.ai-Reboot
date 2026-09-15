@@ -40,6 +40,8 @@ type ProfileUserRow = {
   isSystemAdmin: boolean;
   departmentId: string | null;
   emailNotify: boolean;
+  notifyApproval: boolean;
+  notifyComment: boolean;
   avatarKey: string | null;
   createdAt: Date;
   department?: { name: string } | null;
@@ -54,6 +56,8 @@ const toProfileRow = (user: ProfileUserRow): UserProfileRow => ({
   departmentName: user.department?.name ?? null,
   createdAt: user.createdAt.toISOString(),
   emailNotify: user.emailNotify,
+  notifyApproval: user.notifyApproval,
+  notifyComment: user.notifyComment,
   avatarKey: user.avatarKey,
 });
 
@@ -80,7 +84,7 @@ export class ProfileService {
   }
 
   async update(req: UpdateProfileRequest): Promise<UserProfileRow> {
-    const data: { name?: string; emailNotify?: boolean } = {};
+    const data: { name?: string; emailNotify?: boolean; notifyApproval?: boolean; notifyComment?: boolean } = {};
     if (req.name !== undefined) {
       const name = req.name.trim();
       if (name.length < NAME_MIN_LENGTH || name.length > NAME_MAX_LENGTH) {
@@ -89,6 +93,8 @@ export class ProfileService {
       data.name = name;
     }
     if (req.emailNotify !== undefined) data.emailNotify = req.emailNotify;
+    if (req.notifyApproval !== undefined) data.notifyApproval = req.notifyApproval;
+    if (req.notifyComment !== undefined) data.notifyComment = req.notifyComment;
     if (Object.keys(data).length === 0) return this.get({ userId: req.userId });
 
     const user = await this.prisma.user.update({ where: { id: req.userId }, data, include: { department: true } });

@@ -42,6 +42,8 @@ describe("api-gateway (e2e)", () => {
           departmentName: null,
           createdAt: "x",
           emailNotify: true,
+          notifyApproval: true,
+          notifyComment: true,
           avatarKey: "avatars/u1/secret-key.png",
         });
       }
