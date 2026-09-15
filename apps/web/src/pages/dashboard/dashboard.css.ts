@@ -1,12 +1,13 @@
 import { createVar, keyframes, style, styleVariants } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
-import { AI_BORDER, AI_TEXT, AI_TINT } from "../../components/ui/aiTone";
+import { AI_BORDER, AI_GRADIENT, AI_TEXT, AI_TINT } from "../../components/ui/aiTone";
 
 /* 홈 대시보드 — AI 브리핑, 계약 검토 파이프라인, 내 할일, 기한 임박. */
 
 const c = themeVars.color;
 const NARROW = "screen and (max-width: 1100px)";
 const FAINT = c.neutralBorderStrong;
+const REDUCED = "(prefers-reduced-motion: reduce)";
 
 /* --- 대시보드 골격 --- */
 export const dash = style({ display: "flex", flexDirection: "column", gap: 16 });
@@ -57,43 +58,66 @@ export const countPill = style({ fontSize: 11.5, fontWeight: 700, color: c.textM
 export const emptyState = style({ padding: "28px 16px", textAlign: "center", fontSize: 13, color: c.textMuted });
 
 /* --- AI 브리핑 --- */
-export const brief = style([card, { padding: "14px 16px 16px", display: "flex", flexDirection: "column", gap: 11 }]);
-export const briefTop = style({ display: "flex", alignItems: "center", gap: 8 });
+// 옆 작대기 없이: 카드 전체를 옅은 AI 색으로 구분하고, 급한 정도는 항목 앞 알약으로 표시한다.
+const briefShimmer = keyframes({ from: { backgroundPosition: "-200px 0" }, to: { backgroundPosition: "200px 0" } });
 
-export const aiLabel = style({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 4,
-  fontSize: 10.5,
-  fontWeight: 700,
-  color: AI_TEXT,
-  background: AI_TINT,
+export const brief = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+  padding: "16px 18px 18px",
+  borderRadius: 12,
   border: `1px solid ${AI_BORDER}`,
-  padding: "2px 7px",
-  borderRadius: 4,
-  letterSpacing: "0.04em",
+  background: `linear-gradient(135deg, ${AI_TINT} 0%, ${c.neutralSurface} 65%)`,
+  boxShadow: themeVars.shadow.raised,
 });
 
-export const aiLabelIcon = style({ width: 12, height: 12, color: AI_TEXT });
+export const briefTop = style({ display: "flex", alignItems: "center", gap: 10 });
+
+export const briefAvatar = style({
+  width: 30,
+  height: 30,
+  borderRadius: "50%",
+  background: AI_GRADIENT,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+});
+
+export const briefAvatarIcon = style({ width: 15, height: 15, color: c.textInverse });
+export const briefTitleGroup = style({ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 });
+export const briefTitle = style({ fontSize: 13, fontWeight: 800, color: AI_TEXT, letterSpacing: "-0.01em" });
+export const briefMeta = style({ fontSize: 11.5, color: FAINT });
 
 export const briefRefresh = style({
   marginLeft: "auto",
   display: "inline-flex",
   alignItems: "center",
   gap: 4,
-  border: "none",
-  background: "none",
+  padding: "5px 10px",
+  borderRadius: 999,
+  border: `1px solid ${AI_BORDER}`,
+  background: c.neutralSurface,
   font: "inherit",
   fontSize: 12,
   fontWeight: 600,
-  color: c.textMuted,
+  color: AI_TEXT,
   cursor: "pointer",
-  selectors: { "&:hover": { color: AI_TEXT }, "&:disabled": { cursor: "default", opacity: 0.6 } },
+  selectors: { "&:hover": { background: AI_TINT }, "&:disabled": { cursor: "default", opacity: 0.6 } },
 });
 
 export const briefRefreshIcon = style({ width: 12, height: 12 });
 
-export const briefHeadline = style({ fontSize: 14.5, fontWeight: 700, color: c.textHeading, letterSpacing: "-0.015em" });
+export const briefHeadline = style({
+  fontSize: 16,
+  fontWeight: 800,
+  color: c.textHeading,
+  letterSpacing: "-0.02em",
+  lineHeight: 1.45,
+  textWrap: "balance",
+});
+
 export const briefMuted = style({ fontSize: 12.5, color: c.textMuted });
 
 export const briefLink = style({
@@ -107,32 +131,63 @@ export const briefLink = style({
   cursor: "pointer",
 });
 
-export const briefList = style({ display: "flex", flexDirection: "column", gap: 7 });
+// 정리 중 — 반짝이는 자리표시
+export const briefSkeleton = style({ display: "flex", flexDirection: "column", gap: 8 });
+
+const skeletonBase = style({
+  height: 12,
+  borderRadius: 6,
+  background: `linear-gradient(90deg, ${c.neutralSurfaceAlt} 0%, ${c.neutralSurface} 50%, ${c.neutralSurfaceAlt} 100%)`,
+  backgroundSize: "400px 100%",
+  animation: `${briefShimmer} 1.2s linear infinite`,
+  "@media": { [REDUCED]: { animation: "none" } },
+});
+
+export const briefSkeletonLine = styleVariants({
+  wide: [skeletonBase, { width: "70%", height: 16 }],
+  full: [skeletonBase, { width: "100%" }],
+  half: [skeletonBase, { width: "55%" }],
+});
+
+export const briefList = style({
+  display: "flex",
+  flexDirection: "column",
+  borderRadius: 10,
+  background: c.neutralSurface,
+  border: `1px solid ${c.neutralBorder}`,
+  overflow: "hidden",
+});
 
 export const briefRow = style({
   display: "flex",
   alignItems: "center",
-  gap: 10,
-  padding: "9px 12px",
-  borderRadius: 6,
-  background: c.neutralSurfaceAlt,
-  border: `1px solid ${c.neutralBorder}`,
+  gap: 12,
+  padding: "11px 14px",
+  borderTop: `1px solid ${c.neutralBorder}`,
+  selectors: { "&:first-child": { borderTop: "none" } },
 });
 
-const briefBarBase = style({ width: 2.5, alignSelf: "stretch", borderRadius: 2, flexShrink: 0 });
-
-export const briefBar = styleVariants({
-  danger: [briefBarBase, { background: c.accentDanger }],
-  warning: [briefBarBase, { background: c.accentWarning }],
-  info: [briefBarBase, { background: AI_TEXT }],
+const tonePillBase = style({
+  flexShrink: 0,
+  minWidth: 46,
+  textAlign: "center",
+  padding: "3px 8px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 800,
 });
 
-export const briefText = style({ flex: 1, fontSize: 12.5, color: c.textSecondary, lineHeight: 1.5 });
-export const briefDone = style({ fontSize: 12, fontWeight: 600, color: c.accentSuccessActive, flexShrink: 0 });
+export const briefTone = styleVariants({
+  danger: [tonePillBase, { background: `color-mix(in srgb, ${c.accentDanger} 12%, ${c.neutralSurface})`, color: c.accentDangerActive }],
+  warning: [tonePillBase, { background: `color-mix(in srgb, ${c.accentWarning} 16%, ${c.neutralSurface})`, color: c.accentWarningActive }],
+  info: [tonePillBase, { background: AI_TINT, color: AI_TEXT }],
+});
+
+export const briefText = style({ flex: 1, minWidth: 0, fontSize: 13, color: c.textHeading, lineHeight: 1.55 });
+export const briefDone = style({ fontSize: 12, fontWeight: 700, color: c.accentSuccessActive, flexShrink: 0 });
 export const briefConfirm = style({ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: c.textSecondary, flexShrink: 0 });
 
 /* --- 파이프라인 (움직임) --- */
-const REDUCED = "(prefers-reduced-motion: reduce)";
 const stageDelay = createVar();
 
 const barGrow = keyframes({ from: { transform: "scaleY(0)" }, to: { transform: "scaleY(1)" } });

@@ -1,12 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Icon } from "@lawkit/ui";
-import type { AssistantAction } from "@lawai/contracts";
+import type { AssistantAction, BriefToneTypes } from "@lawai/contracts";
 import { useAssistantActions } from "../../components/assistant/useAssistantActions";
 import { useDashboardBrief } from "./hooks/useDashboardBrief";
 import * as css from "./dashboard.css";
 
 const formatTime = (iso: string) => new Date(iso).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
+
+// 급한 정도 — 항목 앞 알약 문구
+const TONE_LABEL: Record<BriefToneTypes, string> = {
+  danger: "급해요",
+  warning: "곧",
+  info: "참고",
+};
 
 const getActionLabel = (action: AssistantAction) =>
   action.type === "open" ? action.label : action.type === "assign" ? `${action.ownerName}에게 배정` : "검토 시작";
@@ -22,6 +29,7 @@ export const AiBriefCard = () => {
   // 확인을 기다리는 항목(배정·검토 시작)
   const [confirmingKey, setConfirmingKey] = useState<string | null>(null);
   const [resultText, setResultText] = useState<string | null>(null);
+  const hasBrief = brief !== null && !brief.needsSetup;
 
   const handleActionClick = (key: string, action: AssistantAction) => {
     if (action.type === "open") {
@@ -44,12 +52,14 @@ export const AiBriefCard = () => {
   return (
     <section className={css.brief} aria-label="AI 브리핑">
       <div className={css.briefTop}>
-        <span className={css.aiLabel}>
-          <Icon name="autoAwesome" size="sm" className={css.aiLabelIcon} />
-          AI 브리핑
+        <span className={css.briefAvatar}>
+          <Icon name="autoAwesome" size="sm" className={css.briefAvatarIcon} />
         </span>
-        {brief && !brief.needsSetup && <span className={css.cardMeta}>{formatTime(brief.generatedAt)} 기준</span>}
-        {brief && !brief.needsSetup && (
+        <span className={css.briefTitleGroup}>
+          <span className={css.briefTitle}>AI 브리핑</span>
+          <span className={css.briefMeta}>{hasBrief ? `${formatTime(brief.generatedAt)} 기준 · 내 계약·결재로 정리` : "내 계약·결재로 오늘 챙길 일을 정리해요"}</span>
+        </span>
+        {hasBrief && (
           <button type="button" className={css.briefRefresh} onClick={refresh} disabled={isRefreshing}>
             <Icon name="refreshCw" size="sm" className={css.briefRefreshIcon} />
             {isRefreshing ? "다시 정리하는 중…" : "다시 정리"}
@@ -57,7 +67,13 @@ export const AiBriefCard = () => {
         )}
       </div>
 
-      {isLoading && <div className={css.briefMuted}>AI가 오늘 챙길 일을 정리하고 있어요…</div>}
+      {isLoading && (
+        <div className={css.briefSkeleton} aria-label="AI가 오늘 챙길 일을 정리하고 있어요…">
+          <span className={css.briefSkeletonLine.wide} />
+          <span className={css.briefSkeletonLine.full} />
+          <span className={css.briefSkeletonLine.half} />
+        </div>
+      )}
 
       {isError && (
         <div className={css.briefMuted}>
@@ -72,9 +88,11 @@ export const AiBriefCard = () => {
         <>
           <div className={css.briefHeadline}>{brief.headline}</div>
           {brief.needsSetup && (
-            <Button size="small" onClick={() => navigate("/system")}>
-              AI 설정하러 가기
-            </Button>
+            <div>
+              <Button size="small" onClick={() => navigate("/system")}>
+                AI 설정하러 가기
+              </Button>
+            </div>
           )}
           {brief.points.length > 0 && (
             <div className={css.briefList}>
@@ -84,7 +102,7 @@ export const AiBriefCard = () => {
                 const action = point.action;
                 return (
                   <div key={key} className={css.briefRow}>
-                    <span className={css.briefBar[point.tone]} />
+                    <span className={css.briefTone[point.tone]}>{TONE_LABEL[point.tone]}</span>
                     <span className={css.briefText}>{point.text}</span>
                     {action && state === "done" && <span className={css.briefDone}>완료했어요</span>}
                     {action && state !== "done" && state !== "dismissed" && confirmingKey !== key && (
