@@ -8,7 +8,7 @@ import type { AiServiceClient } from "../ai-credentials/ai-service.client";
 // 의존성 mock — 이 서비스가 실제로 호출하는 메서드만 갖춘 객체를 만들고,
 // 생성자 주입 시점에만 좁은 캐스팅을 둔다(타입 전체를 흉내 낼 필요가 없다).
 const createPrismaMock = () => ({
-  aiAnalysis: { upsert: jest.fn(), update: jest.fn(), findFirst: jest.fn() },
+  aiAnalysis: { upsert: jest.fn(), update: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
 });
 
 const memberCtx: TenantContext = { tenantId: "t1", isSystemAdmin: false };
@@ -22,7 +22,7 @@ const existingRow = {
   input: { text: "x" },
   triggeredByUserId: "u1",
 };
-const createCredentialsMock = () => ({ getDecryptedKeyFor: jest.fn() });
+const createCredentialsMock = () => ({ getDecryptedKeyFor: jest.fn(), hasCredential: jest.fn().mockResolvedValue(false) });
 const createAiClientMock = () => ({ analyze: jest.fn() });
 
 describe("AiAnalysisService", () => {
@@ -107,6 +107,57 @@ describe("AiAnalysisService", () => {
       errorMessage: null,
       triggeredByUserId: "u1",
       updatedAt: "2026-09-01T00:00:00.000Z",
+    });
+  });
+
+  describe("get: 키가 없어 건너뛴(skipped) 분석", () => {
+    const skippedRow = { ...existingRow, status: "skipped", result: null, errorMessage: null, updatedAt: new Date("2026-09-14T23:59:49.000Z") };
+
+    it("트리거 주체에게 이제 키가 있으면 한 번 선점해 다시 돌리고, 분석 중으로 돌려준다", async () => {
+      prisma.aiAnalysis.findFirst.mockResolvedValue(skippedRow);
+      credentials.hasCredential.mockResolvedValue(true);
+      prisma.aiAnalysis.updateMany.mockResolvedValue({ count: 1 });
+      credentials.getDecryptedKeyFor.mockResolvedValue({ provider: "openai", model: "gpt-4o", apiKey: "sk-x" });
+      prisma.aiAnalysis.upsert.mockResolvedValue({ id: "a1" });
+      aiClient.analyze.mockResolvedValue({ result: { summary: "요약" } });
+
+      const dto = await svc.get("contract", "c1", "risk", memberCtx);
+
+      expect(dto?.status).toBe("pending");
+      expect(credentials.hasCredential).toHaveBeenCalledWith("u1");
+      expect(prisma.aiAnalysis.updateMany).toHaveBeenCalledWith({ where: { id: "a1", status: "skipped" }, data: { status: "pending" } });
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(aiClient.analyze).toHaveBeenCalledWith(expect.objectContaining({ kind: "risk", payload: { text: "x" }, apiKey: "sk-x" }));
+    });
+
+    it("트리거 주체에게 아직 키가 없으면 그대로 skipped, 다시 돌리지 않는다", async () => {
+      prisma.aiAnalysis.findFirst.mockResolvedValue(skippedRow);
+      credentials.hasCredential.mockResolvedValue(false);
+      const dto = await svc.get("contract", "c1", "risk", memberCtx);
+      expect(dto?.status).toBe("skipped");
+      expect(prisma.aiAnalysis.updateMany).not.toHaveBeenCalled();
+      expect(aiClient.analyze).not.toHaveBeenCalled();
+    });
+
+    it("다른 조회가 먼저 선점했으면 중복 실행하지 않는다", async () => {
+      prisma.aiAnalysis.findFirst.mockResolvedValue(skippedRow);
+      credentials.hasCredential.mockResolvedValue(true);
+      prisma.aiAnalysis.updateMany.mockResolvedValue({ count: 0 });
+      const dto = await svc.get("contract", "c1", "risk", memberCtx);
+      expect(dto?.status).toBe("skipped");
+      expect(credentials.getDecryptedKeyFor).not.toHaveBeenCalled();
+    });
+
+    it("키 확인 중 오류가 나도 조회는 깨지지 않고 원래 상태를 보여준다", async () => {
+      prisma.aiAnalysis.findFirst.mockResolvedValue(skippedRow);
+      credentials.hasCredential.mockRejectedValue(new Error("db down"));
+      await expect(svc.get("contract", "c1", "risk", memberCtx)).resolves.toMatchObject({ status: "skipped" });
+    });
+
+    it("skipped 가 아닌 분석은 키 확인도 하지 않는다", async () => {
+      prisma.aiAnalysis.findFirst.mockResolvedValue({ ...skippedRow, status: "failed" });
+      await svc.get("contract", "c1", "risk", memberCtx);
+      expect(credentials.hasCredential).not.toHaveBeenCalled();
     });
   });
 
