@@ -65,6 +65,12 @@ export class AiCredentialsService {
     return { provider: req.provider, model: req.model, hasApiKey: true, lastVerifiedAt: now.toISOString() };
   }
 
+  // 내부 전용(RPC 미노출) — 복호화 없이 키 설정 여부만(예: 키가 없어 건너뛴 분석을 다시 돌릴지 판단).
+  async hasCredential(userId: string): Promise<boolean> {
+    const row = await this.prisma.aiProviderCredential.findUnique({ where: { userId }, select: { id: true } });
+    return row !== null;
+  }
+
   // 내부 전용(RPC 미노출) — 다른 서비스 로직(예: AiAnalysisService)이 특정 사용자의
   // 복호화된 AI 자격증명을 직접 조회할 때 사용.
   async getDecryptedKeyFor(

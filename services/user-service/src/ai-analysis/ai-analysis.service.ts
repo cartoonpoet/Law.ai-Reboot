@@ -127,7 +127,35 @@ export class AiAnalysisService {
   ): Promise<AiAnalysisDto | null> {
     const row = await this.findScoped(targetType, targetId, kind, ctx);
     if (!row) return null;
+    if (row.status === "skipped" && (await this.claimSkippedForRerun(row))) {
+      void this.trigger({
+        targetType: row.targetType,
+        targetId: row.targetId,
+        kind: row.kind,
+        tenantId: row.tenantId,
+        triggeredByUserId: row.triggeredByUserId,
+        payload: row.input,
+      });
+      return this.toDto({ ...row, status: "pending" });
+    }
     return this.toDto(row);
+  }
+
+  // 키가 없어 건너뛴(skipped) 분석은 트리거 주체가 나중에 키를 설정해도 다시 돌 계기가 없다
+  // (분석은 상태 전이 시점에만 트리거). 그래서 조회될 때 주체에게 이제 키가 있으면 한 번 다시 돌린다.
+  // skipped→pending 조건부 갱신으로 한 명만 선점해 동시 조회에도 한 번만 실행(주체의 유료 키 중복 과금 방지).
+  // 판단·선점 중 오류는 조회를 깨지 않도록 삼키고 원래 상태를 그대로 보여준다.
+  private async claimSkippedForRerun(row: AiAnalysisRow): Promise<boolean> {
+    try {
+      if (!(await this.credentials.hasCredential(row.triggeredByUserId))) return false;
+      const { count } = await this.prisma.aiAnalysis.updateMany({
+        where: { id: row.id, status: "skipped" },
+        data: { status: "pending" },
+      });
+      return count === 1;
+    } catch {
+      return false;
+    }
   }
 
   async retry(
