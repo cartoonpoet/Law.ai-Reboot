@@ -13,7 +13,7 @@ import type {
   RelatedDocView,
   CcRecipientView,
 } from "./mock-data";
-import { getStatusLabel } from "./contractStatus";
+import { CLOSED_REASON_LABEL, getStatusLabel } from "./contractStatus";
 
 const LANG_LABEL: Record<string, string> = {
   ko: "국문",
@@ -210,5 +210,13 @@ export const toDetailView = (c: ContractResponse): ContractDetail => {
       ? c.approvalLine.steps.map((s) => toApprovalStep(s, c.approvalLine!.currentStepId))
       : null,
     signedAt: c.signedAt,
+    closure:
+      c.status === "closed"
+        ? {
+            reason: CLOSED_REASON_LABEL[c.closedReason ?? "completed"],
+            closedAt: c.closedAt ? c.closedAt.slice(0, 10) : null,
+            note: c.closedNote,
+          }
+        : null,
   };
 };

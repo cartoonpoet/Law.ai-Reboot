@@ -3,6 +3,7 @@ import type {
   ContractStatus,
   CreateContractRequest,
   ListContractsResponse,
+  TerminationReason,
   UpdateContractRequest,
 } from "@lawai/contracts";
 import { apiFetch } from "./client";
@@ -105,6 +106,16 @@ export const finalizeRegistration = (
 
 // 서명본 교체 — 체결된 계약에서 법무팀만. fileId 는 새로 첨부(attach)한 파일, reason 은 감사 로그에 남는다.
 // 기존 서명본은 서버가 첨부로 내려 이력으로 보존한다.
+// 중도 해지 — 해지일·사유·메모와 이 계약에 새로 첨부한 해지 합의서(통지서) 파일로 계약을 종료한다.
+export const terminateContract = (
+  id: string,
+  body: { terminatedOn: string; reason: TerminationReason; note?: string; fileId: string },
+): Promise<ContractResponse> =>
+  apiFetch<ContractResponse>(`/contracts/${id}/terminate`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
 export const replaceSignedFile = (
   id: string,
   body: { fileId: string; reason: string },

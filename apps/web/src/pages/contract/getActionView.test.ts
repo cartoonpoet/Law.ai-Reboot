@@ -75,13 +75,19 @@ describe("getActionView", () => {
     const view = getActionView("signed", CAN_ALL);
     expect(view.head).toBe("계약 이행");
     expect(view.isApprovalMode).toBe(true);
-    expect(view.buttons.map((b) => [b.kind, b.label])).toEqual([["startFulfilling", "이행 시작"]]);
+    expect(view.buttons.map((b) => [b.kind, b.label])).toEqual([
+      ["startFulfilling", "이행 시작"],
+      ["terminateContract", "중도 해지"],
+    ]);
     expect(view.notice).toContain("이행을 시작하면");
   });
 
   it("fulfilling + 진행 권한: 계약 종료 버튼", () => {
     const view = getActionView("fulfilling", CAN_ALL);
-    expect(view.buttons.map((b) => [b.kind, b.label])).toEqual([["closeContract", "계약 종료"]]);
+    expect(view.buttons.map((b) => [b.kind, b.label])).toEqual([
+      ["closeContract", "계약 종료"],
+      ["terminateContract", "중도 해지"],
+    ]);
   });
 
   it("fulfilling + 진행 권한 없음: 버튼 없는 읽기 전용", () => {

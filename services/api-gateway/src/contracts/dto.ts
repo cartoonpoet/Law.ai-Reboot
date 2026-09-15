@@ -18,6 +18,8 @@ import type {
   CounterpartyInput,
   FileInput,
   SecurityLevel,
+  StatusCloseReason,
+  TerminationReason,
   ReviewType,
 } from "@lawai/contracts";
 
@@ -183,6 +185,11 @@ export class UpdateContractStatusDto {
   @ApiPropertyOptional({ description: "배정 시 법무 담당자" })
   @IsOptional() @IsString() @MaxLength(64)
   ownerId?: string | null;
+
+  @ApiPropertyOptional({ enum: ["completed", "expired"], description: "closed 로 바꿀 때 종료 사유(기본 completed)" })
+  @IsOptional()
+  @IsIn(["completed", "expired"])
+  closedReason?: StatusCloseReason;
 }
 
 // 코멘트 생성. contractId 는 @Param, viewerId(=작성자)는 JWT sub 라 body+mentions 만 받는다.
@@ -252,6 +259,30 @@ export class FinalizeRegistrationDto {
 }
 
 // 서명본 교체. contractId 는 @Param, viewerId(=처리자)는 JWT sub.
+const TERMINATION_REASONS: TerminationReason[] = ["agreement", "counterpartyBreach", "ourCircumstance", "other"];
+
+// 중도 해지. contractId 는 @Param, viewerId 는 JWT sub.
+export class TerminateContractDto {
+  @ApiProperty({ description: "해지일(ISO 8601) — 계약의 실제 종료일로 남는다", example: "2026-09-30" })
+  @IsISO8601()
+  terminatedOn!: string;
+
+  @ApiProperty({ enum: TERMINATION_REASONS, description: "해지 사유" })
+  @IsIn(TERMINATION_REASONS)
+  reason!: TerminationReason;
+
+  @ApiPropertyOptional({ description: "해지 경위 메모" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+
+  @ApiProperty({ description: "이 계약에 새로 첨부(attach)한 해지 합의서·통지서 File.id" })
+  @IsString()
+  @IsNotEmpty()
+  fileId!: string;
+}
+
 export class ReplaceSignedFileDto {
   @ApiProperty({ description: "새로 첨부(attach)한 서명본 File.id" })
   @IsString()

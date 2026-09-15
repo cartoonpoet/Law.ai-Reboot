@@ -14,6 +14,15 @@ vi.mock("./CompleteSigningModal", () => ({
   ),
 }));
 
+// TerminateContractModal 자체(업로드·해지 요청)는 TerminateContractModal.test.tsx 가 커버한다.
+vi.mock("./TerminateContractModal", () => ({
+  TerminateContractModal: ({ onClose }: { onClose: () => void }) => (
+    <div role="dialog" aria-label="중도 해지 모달 스텁">
+      <button onClick={onClose}>해지 모달 닫기</button>
+    </div>
+  ),
+}));
+
 const CAN: ContractCan = { edit: false, assign: false, transition: true, delete: false, replaceSignedFile: false };
 
 const baseProps = {
@@ -23,6 +32,7 @@ const baseProps = {
   ownerName: "김법무",
   approvalLine: [],
   signedAt: null,
+  closure: null,
   isUpdating: false,
   onReject: vi.fn(),
   onReviewDone: vi.fn(),
@@ -81,6 +91,30 @@ describe("ReviewActionPanel — 체결 이후 진행", () => {
 
     expect(onProgress).not.toHaveBeenCalled();
     expect(screen.queryByText(/종료한 계약은 다시 진행할 수 없어요/)).not.toBeInTheDocument();
+  });
+});
+
+describe("ReviewActionPanel — 중도 해지·종료 정보", () => {
+  it("계약 이행 중이면 '중도 해지'를 누를 때 해지 창이 열린다", async () => {
+    const user = userEvent.setup();
+    render(<ReviewActionPanel {...baseProps} status="fulfilling" />);
+    expect(screen.queryByRole("dialog", { name: "중도 해지 모달 스텁" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "중도 해지" }));
+    expect(screen.getByRole("dialog", { name: "중도 해지 모달 스텁" })).toBeInTheDocument();
+  });
+
+  it("종료된 계약은 종료 사유·종료일·메모를 보여준다", () => {
+    render(
+      <ReviewActionPanel
+        {...baseProps}
+        status="closed"
+        closure={{ reason: "중도 해지", closedAt: "2026-09-30", note: "합의 해지 — 상대방 사업 철수" }}
+      />,
+    );
+    expect(screen.getByText("종료 사유")).toBeInTheDocument();
+    expect(screen.getByText("중도 해지")).toBeInTheDocument();
+    expect(screen.getByText("2026-09-30")).toBeInTheDocument();
+    expect(screen.getByText("합의 해지 — 상대방 사업 철수")).toBeInTheDocument();
   });
 });
 
