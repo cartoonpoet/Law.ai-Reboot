@@ -219,6 +219,28 @@ describe("contracts.authz evaluate", () => {
     });
   });
 
+  describe("체결 이후 진행(이행 시작·계약 종료): 법무팀·담당자·요청자(생성자)", () => {
+    it("체결 완료 등록 계약처럼 담당자가 없어도 법무팀은 넘길 수 있다", () => {
+      const ownerless = { ownerId: null };
+      expect(evaluate(makeViewer("inHouseCounsel", "counsel-9"), makeContract({ status: "signed", ...ownerless })).canTransition).toBe(true);
+      expect(evaluate(makeViewer("contractManager", "manager-9"), makeContract({ status: "fulfilling", ...ownerless })).canTransition).toBe(true);
+    });
+
+    it("요청자(생성자)와 담당자는 역할과 무관하게 넘길 수 있다", () => {
+      expect(evaluate(makeViewer("general", CREATOR_ID), makeContract({ status: "signed" })).canTransition).toBe(true);
+      expect(evaluate(makeViewer("outsideCounsel", OWNER_ID), makeContract({ status: "fulfilling" })).canTransition).toBe(true);
+    });
+
+    it("관련만 있는 일반 사용자(요청 필드·참조)는 넘길 수 없다", () => {
+      expect(evaluate(makeViewer("general", REQUESTER_ID), makeContract({ status: "signed" })).canTransition).toBe(false);
+      expect(evaluate(makeViewer("general", CC_USER_ID), makeContract({ status: "fulfilling" })).canTransition).toBe(false);
+    });
+
+    it("종료된 계약은 담당자가 아니면 법무팀도 전이 권한이 없다(더 넘길 단계도 없음)", () => {
+      expect(evaluate(makeViewer("inHouseCounsel", "counsel-9"), makeContract({ status: "closed" })).canTransition).toBe(false);
+    });
+  });
+
   describe("canAssign 데드락 면제 (미배정 ownerId===null 첫 배정)", () => {
     // 미배정 계약: ownerId=null. requiresOwner 면제는 canAssign 한정.
     const unassigned = (over: Partial<AuthzContract> = {}) =>

@@ -28,6 +28,7 @@ const baseProps = {
   onReviewDone: vi.fn(),
   onStartReview: vi.fn(),
   onAssign: vi.fn(),
+  onProgress: vi.fn(),
   approval: { isRequester: false, isMyTurn: false, canSubmit: false, isApprovalComplete: true },
   precheckItems: [],
   onSubmitApproval: vi.fn(),
@@ -51,6 +52,35 @@ describe("ReviewActionPanel — 검토 시작", () => {
     );
     await user.click(screen.getByRole("button", { name: "검토 시작" }));
     expect(onStartReview).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ReviewActionPanel — 체결 이후 진행", () => {
+  it("'이행 시작'을 누르면 확인 창이 뜨고, 확인해야 onProgress('fulfilling') 를 호출한다", async () => {
+    const user = userEvent.setup();
+    const onProgress = vi.fn();
+    render(<ReviewActionPanel {...baseProps} status="signed" onProgress={onProgress} />);
+
+    await user.click(screen.getByRole("button", { name: "이행 시작" }));
+    expect(onProgress).not.toHaveBeenCalled();
+    expect(screen.getByText(/체결 완료 단계로는 되돌릴 수 없어요/)).toBeInTheDocument();
+
+    const dialogButtons = screen.getAllByRole("button", { name: "이행 시작" });
+    await user.click(dialogButtons[dialogButtons.length - 1]);
+    expect(onProgress).toHaveBeenCalledWith("fulfilling");
+  });
+
+  it("'계약 종료' 확인 창에서 취소하면 아무것도 바꾸지 않는다", async () => {
+    const user = userEvent.setup();
+    const onProgress = vi.fn();
+    render(<ReviewActionPanel {...baseProps} status="fulfilling" onProgress={onProgress} />);
+
+    await user.click(screen.getByRole("button", { name: "계약 종료" }));
+    expect(screen.getByText(/종료한 계약은 다시 진행할 수 없어요/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "취소" }));
+
+    expect(onProgress).not.toHaveBeenCalled();
+    expect(screen.queryByText(/종료한 계약은 다시 진행할 수 없어요/)).not.toBeInTheDocument();
   });
 });
 

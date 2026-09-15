@@ -536,6 +536,34 @@ describe("ContractsService", () => {
     expect(res.status).toBe("reviewDone");
   });
 
+  it("updateStatus: 담당자 없는 체결 계약도 요청자(생성자)가 이행 시작(signed→fulfilling)으로 넘기고 감사 기록을 남긴다", async () => {
+    // 기본 viewer 는 general. fullRow 의 createdById 가 "u1", ownerId 는 null(체결 완료 등록 계약과 같은 모양).
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("signed"));
+    prismaMock.contract.update.mockResolvedValue(fullRow("fulfilling"));
+
+    const res = await service.updateStatus({ id: "ct-1", status: "fulfilling", viewerId: "u1", ...makeCtx() });
+
+    expect(res.status).toBe("fulfilling");
+    expect(auditMock.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "transition", detail: { from: "signed", to: "fulfilling" } }),
+    );
+  });
+
+  it("updateStatus: 체결 계약과 관련 없는 일반 사용자는 이행 시작 403", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("signed"));
+    await expect(
+      service.updateStatus({ id: "ct-1", status: "fulfilling", viewerId: "stranger", ...makeCtx() }),
+    ).rejects.toMatchObject({ error: { status: 403 } });
+    expect(prismaMock.contract.update).not.toHaveBeenCalled();
+  });
+
+  it("updateStatus: 체결 완료에서 곧바로 종료(signed→closed)는 400", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue(fullRow("signed"));
+    await expect(
+      service.updateStatus({ id: "ct-1", status: "closed", viewerId: "u1", ...makeCtx() }),
+    ).rejects.toMatchObject({ error: { status: 400 } });
+  });
+
   it("updateStatus: legalReview 진입 시 risk AI 분석을 트리거한다", async () => {
     prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: "admin-1" });
