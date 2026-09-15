@@ -8,6 +8,7 @@ import {
   type RefreshRequest,
   type PasswordResetRequestRequest,
   type PasswordResetConfirmRequest,
+  type ChangePasswordRequest,
   type SwitchTenantRequest,
   type MyTenantsRequest,
 } from "@lawai/contracts";
@@ -51,6 +52,11 @@ export class AuthController {
   @MessagePattern(AUTH_PATTERNS.PASSWORD_RESET_CONFIRM)
   confirmPasswordReset(@Payload() req: PasswordResetConfirmRequest) {
     return this.auth.confirmPasswordReset(req);
+  }
+
+  @MessagePattern(AUTH_PATTERNS.PASSWORD_CHANGE)
+  changePassword(@Payload() req: ChangePasswordRequest) {
+    return this.auth.changePassword(req);
   }
 
   @MessagePattern(AUTH_PATTERNS.SWITCH_TENANT)

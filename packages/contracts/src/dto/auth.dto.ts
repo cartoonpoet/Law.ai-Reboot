@@ -31,6 +31,13 @@ export interface PasswordResetResult {
   ok: true;
 }
 
+// 로그인한 사용자의 비밀번호 변경 — 현재 비밀번호 확인 후 교체. 결과는 PasswordResetResult 와 같은 { ok: true }.
+export interface ChangePasswordRequest {
+  userId: string; // gateway 가 JWT sub 주입
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface SwitchTenantRequest {
   // gateway 가 JWT sub 주입(누가 전환하는지). controller 에서 채움.
   userId?: string;

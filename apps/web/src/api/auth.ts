@@ -3,6 +3,7 @@ import type {
   SignupRequest,
   PublicUser,
   AuthTokens,
+  MyProfile,
 } from "@lawai/contracts";
 import { apiFetch } from "./client";
 
@@ -25,8 +26,20 @@ export function signup(req: SignupRequest): Promise<AuthResponse> {
   });
 }
 
-export function getMe(): Promise<PublicUser> {
-  return apiFetch<PublicUser>("/users/me");
+// 내 정보(이메일 알림·프로필 사진 포함) — 사이드바·설정 화면 공용.
+export function getMe(): Promise<MyProfile> {
+  return apiFetch<MyProfile>("/users/me");
+}
+
+// 로그인한 사용자의 비밀번호 변경 — 현재 비밀번호가 맞아야 한다.
+export function changePassword(req: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>("/auth/password/change", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
 }
 
 export interface OtpRequestPayload {

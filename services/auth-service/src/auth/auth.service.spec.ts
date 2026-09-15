@@ -361,6 +361,63 @@ describe("AuthService", () => {
     ).rejects.toBeInstanceOf(RpcException);
   });
 
+  // ─── changePassword ────────────────────────────────────────────────────────
+
+  describe("changePassword (로그인한 사용자의 비밀번호 변경)", () => {
+    const withHash = {
+      id: "u1",
+      email: "a@b.com",
+      name: "A",
+      passwordHash: "stored-hash",
+      isSystemAdmin: false,
+      departmentId: null,
+      departmentName: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const mockUser = (user: typeof withHash | null) =>
+      userClient.send.mockImplementation((pattern: string) =>
+        pattern === USER_PATTERNS.FIND_BY_ID ? of(user) : of(undefined),
+      );
+
+    it("현재 비밀번호가 맞으면 새 비밀번호를 해시해 저장한다", async () => {
+      mockUser(withHash);
+      passwords.verify.mockResolvedValue(true);
+      passwords.hash.mockResolvedValue("new-hash");
+
+      const result = await service.changePassword({ userId: "u1", currentPassword: "Old1234!", newPassword: "New1234!" });
+
+      expect(result).toEqual({ ok: true });
+      expect(passwords.verify).toHaveBeenCalledWith("stored-hash", "Old1234!");
+      expect(userClient.send).toHaveBeenCalledWith(USER_PATTERNS.UPDATE_PASSWORD, { userId: "u1", passwordHash: "new-hash" });
+    });
+
+    it("현재 비밀번호가 틀리면 400 — 저장하지 않는다", async () => {
+      mockUser(withHash);
+      passwords.verify.mockResolvedValue(false);
+      await expect(
+        service.changePassword({ userId: "u1", currentPassword: "wrong", newPassword: "New1234!" }),
+      ).rejects.toMatchObject({ error: { status: 400, message: "현재 비밀번호가 맞지 않습니다" } });
+      expect(passwords.hash).not.toHaveBeenCalled();
+      expect(userClient.send).not.toHaveBeenCalledWith(USER_PATTERNS.UPDATE_PASSWORD, expect.anything());
+    });
+
+    it("새 비밀번호가 현재와 같으면 400", async () => {
+      mockUser(withHash);
+      passwords.verify.mockResolvedValue(true);
+      await expect(
+        service.changePassword({ userId: "u1", currentPassword: "Same1234!", newPassword: "Same1234!" }),
+      ).rejects.toBeInstanceOf(RpcException);
+      expect(passwords.hash).not.toHaveBeenCalled();
+    });
+
+    it("사용자가 없으면 404", async () => {
+      mockUser(null);
+      await expect(
+        service.changePassword({ userId: "ghost", currentPassword: "a", newPassword: "New1234!" }),
+      ).rejects.toMatchObject({ error: { status: 404 } });
+    });
+  });
+
   // ─── refresh ───────────────────────────────────────────────────────────────
 
   it("refresh는 유효한 refreshToken이면 새 access+refresh를 둘 다 발급한다", async () => {

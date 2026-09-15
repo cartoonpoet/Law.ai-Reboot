@@ -2,9 +2,13 @@ import {
   IsEmail,
   IsString,
   IsNotEmpty,
+  Matches,
   MinLength,
   MaxLength,
 } from "class-validator";
+
+// 비밀번호 규칙 — 영문·숫자·특수문자를 모두 포함한 8자 이상(웹 utils/passwordRule 과 같음).
+const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 import { ApiProperty } from "@nestjs/swagger";
 
 export class SignupDto {
@@ -67,5 +71,20 @@ export class PasswordResetConfirmDto {
   @IsString()
   @MinLength(8)
   @MaxLength(100)
+  newPassword!: string;
+}
+
+// 로그인한 사용자의 비밀번호 변경. userId 는 JWT sub.
+export class ChangePasswordDto {
+  @ApiProperty({ description: "현재 비밀번호" })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  currentPassword!: string;
+
+  @ApiProperty({ example: "N3wP@ssw0rd!", description: "영문·숫자·특수문자 포함 8자 이상" })
+  @IsString()
+  @MaxLength(100)
+  @Matches(PASSWORD_RULE, { message: "영문·숫자·특수문자 포함 8자 이상이어야 합니다" })
   newPassword!: string;
 }
