@@ -42,6 +42,7 @@ type ProfileUserRow = {
   emailNotify: boolean;
   notifyApproval: boolean;
   notifyComment: boolean;
+  notifyContractExpiry: boolean;
   avatarKey: string | null;
   createdAt: Date;
   department?: { name: string } | null;
@@ -58,6 +59,7 @@ const toProfileRow = (user: ProfileUserRow): UserProfileRow => ({
   emailNotify: user.emailNotify,
   notifyApproval: user.notifyApproval,
   notifyComment: user.notifyComment,
+  notifyContractExpiry: user.notifyContractExpiry,
   avatarKey: user.avatarKey,
 });
 
@@ -84,7 +86,7 @@ export class ProfileService {
   }
 
   async update(req: UpdateProfileRequest): Promise<UserProfileRow> {
-    const data: { name?: string; emailNotify?: boolean; notifyApproval?: boolean; notifyComment?: boolean } = {};
+    const data: { name?: string; emailNotify?: boolean; notifyApproval?: boolean; notifyComment?: boolean; notifyContractExpiry?: boolean } = {};
     if (req.name !== undefined) {
       const name = req.name.trim();
       if (name.length < NAME_MIN_LENGTH || name.length > NAME_MAX_LENGTH) {
@@ -95,6 +97,7 @@ export class ProfileService {
     if (req.emailNotify !== undefined) data.emailNotify = req.emailNotify;
     if (req.notifyApproval !== undefined) data.notifyApproval = req.notifyApproval;
     if (req.notifyComment !== undefined) data.notifyComment = req.notifyComment;
+    if (req.notifyContractExpiry !== undefined) data.notifyContractExpiry = req.notifyContractExpiry;
     if (Object.keys(data).length === 0) return this.get({ userId: req.userId });
 
     const user = await this.prisma.user.update({ where: { id: req.userId }, data, include: { department: true } });

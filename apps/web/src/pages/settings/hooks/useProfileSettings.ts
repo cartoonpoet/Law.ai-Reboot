@@ -5,7 +5,7 @@ import { ME_QUERY_KEY } from "../../../components/layout/hooks/useMe";
 import { showToast } from "../../../lib/toast/toastStore";
 
 // 알림 종류별 받기 — 바꾼 항목만 보낸다.
-type NotifyCategoryTypes = Partial<Pick<MyProfile, "notifyApproval" | "notifyComment">>;
+type NotifyCategoryTypes = Partial<Pick<MyProfile, "notifyApproval" | "notifyComment" | "notifyContractExpiry">>;
 
 /**
  * 내 정보 설정의 저장 동작 — 이름·이메일 알림·알림 종류별 받기·프로필 사진.
