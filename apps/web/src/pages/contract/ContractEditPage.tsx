@@ -4,6 +4,7 @@ import { Panel } from "../../components/ui/Panel";
 import { getContract } from "../../api/contracts";
 import { toEditDefaults } from "./toEditDefaults";
 import { ContractRequestPage } from "./ContractRequestPage";
+import { checkFileLocked } from "./contractFileLock";
 
 // 수정 모드: 기존 계약을 불러와 폼에 prefill 후 ContractRequestPage(edit)로 렌더.
 export function ContractEditPage() {
@@ -28,6 +29,7 @@ export function ContractEditPage() {
       mode="edit"
       contractId={id}
       initialValues={toEditDefaults(data)}
+      isFileLocked={checkFileLocked(data.status)}
     />
   );
 }

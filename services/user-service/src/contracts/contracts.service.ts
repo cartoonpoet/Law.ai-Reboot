@@ -14,6 +14,7 @@ import {
   buildApprovalBriefingPayload,
 } from "../ai-analysis/prompt-payloads";
 import { evaluate } from "./contracts.authz";
+import { getFileLockViolation } from "./contract-file-lock";
 import type { AuthzViewer, AuthzContract } from "./contracts.authz";
 import { tenantScope, resolveTenantId } from "../common/tenant-scope";
 import { CATEGORY_LABEL_SEPARATOR } from "@lawai/contracts";
@@ -717,6 +718,14 @@ export class ContractsService {
         } else if (!req.files.some((f) => f.role === "signed")) {
           throw signedRemovalError;
         }
+      }
+
+      // 파일 잠금 — 체결 결재가 시작된 뒤 결재·서명 대상 문서 제거·역할 변경·계약서 추가 금지,
+      // 그리고 편집으로 서명본 지정(승격) 금지(contract-file-lock 참고). 서명본 가드 뒤에 둬
+      // 서명본 관련 거부는 기존 메시지를 그대로 유지한다. 역시 모든 쓰기 전.
+      const lockViolation = getFileLockViolation(current.status, current.files, req.files);
+      if (lockViolation) {
+        throw new RpcException({ status: 400, message: lockViolation });
       }
 
       const toDelete = await this.prisma.file.findMany({

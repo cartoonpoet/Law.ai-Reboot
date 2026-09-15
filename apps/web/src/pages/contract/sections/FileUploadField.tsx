@@ -14,13 +14,18 @@ interface FileUploadFieldProps {
   // 편집 모드 (contractId 있음) → presign/confirm 으로 R2 업로드. 신규 작성 (contractId 없음) →
   // blob 을 폼에 보관 후 submit 시점에 일괄 업로드(useContractSubmit 의 2단계 흐름).
   contractId?: string | null;
+  // 파일 잠금(체결 결재 시작 후) — readOnly: 올리기·삭제 모두 불가, addOnly: 저장된 파일(id 있음)은 삭제 불가.
+  lockMode?: FileLockModeTypes;
 }
+
+type FileLockModeTypes = "readOnly" | "addOnly";
 
 export function FileUploadField({
   name,
   description,
   accept,
   contractId,
+  lockMode,
 }: FileUploadFieldProps) {
   const { control } = useFormContext<ContractRequestForm>();
   const role = FIELD_TO_ROLE[name];
@@ -85,6 +90,24 @@ export function FileUploadField({
         const handleDelete = (target: number) =>
           field.onChange(files.filter((_, index) => index !== target));
 
+        // 잠금 중 저장된 파일(id 있음)은 서버가 제거를 막으므로 삭제 버튼을 보여주지 않는다.
+        const checkDeletable = (fileId: string | null) =>
+          lockMode === undefined || (lockMode === "addOnly" && fileId === null);
+
+        if (lockMode === "readOnly") {
+          return (
+            <div className={css.fileList}>
+              {files.map((file, index) => (
+                <FileItem
+                  key={`${file.id ?? file.name}-${index}`}
+                  filename={file.name}
+                  fileMeta={file.meta}
+                />
+              ))}
+            </div>
+          );
+        }
+
         return (
           <FileUploadArea
             variant="basic"
@@ -99,7 +122,7 @@ export function FileUploadField({
                     key={`${file.id ?? file.name}-${index}`}
                     filename={file.name}
                     fileMeta={file.meta}
-                    onDelete={() => handleDelete(index)}
+                    onDelete={checkDeletable(file.id) ? () => handleDelete(index) : undefined}
                   />
                 ))}
                 {pendingNames.map((n, i) => (

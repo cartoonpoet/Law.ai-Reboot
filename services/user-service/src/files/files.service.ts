@@ -38,6 +38,10 @@ import { tenantScope, resolveTenantId } from "../common/tenant-scope";
 import { R2Client } from "./r2.client";
 import { signUploadToken, verifyUploadToken } from "./uploadToken";
 import { checkContentToken, signContentToken } from "./contentToken";
+import {
+  FILE_LOCKED_CONTRACT_UPLOAD_MESSAGE,
+  isFileLockedStatus,
+} from "../contracts/contract-file-lock";
 
 const PRESIGN_TTL_SEC = 900;
 // 게이트웨이가 받자마자 곧바로 R2 에 요청하므로 짧게 둔다.
@@ -237,6 +241,11 @@ export class FilesService {
     if (req.role === "signed") {
       this.assertSignedUploadAllowed(contract, viewer.id, req.commentId);
     }
+    // 파일 잠금: 체결 결재가 시작된 계약엔 계약서를 새로 올릴 수 없다(contract-file-lock 참고).
+    // confirm 이 파일 행을 바로 만들기 때문에 PATCH 가드만으로는 부족하다.
+    if (req.role === "contract" && isFileLockedStatus(contract.status)) {
+      throw new RpcException({ status: 400, message: FILE_LOCKED_CONTRACT_UPLOAD_MESSAGE });
+    }
     this.validateFileMeta({
       fileName: req.fileName,
       size: req.size,
@@ -310,6 +319,13 @@ export class FilesService {
     if (claims.role === "signed") {
       const contract = await this.loadContract(claims.contractId, ctx);
       this.assertSignedUploadAllowed(contract, claims.sub, claims.commentId);
+    }
+    // 계약서도 같은 이유로 재확인한다 — presign 뒤 15분 안에 체결 결재가 시작됐을 수 있다.
+    if (claims.role === "contract") {
+      const contract = await this.loadContract(claims.contractId, ctx);
+      if (isFileLockedStatus(contract.status)) {
+        throw new RpcException({ status: 400, message: FILE_LOCKED_CONTRACT_UPLOAD_MESSAGE });
+      }
     }
 
     // 객체 존재 + Size 일치 확인(클라이언트가 보낸 size 와 ±0).

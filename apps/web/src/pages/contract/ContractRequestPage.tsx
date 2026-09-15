@@ -17,12 +17,15 @@ interface ContractRequestPageProps {
   mode?: "create" | "edit";
   contractId?: string;
   initialValues?: ContractRequestForm;
+  // 편집 모드에서 체결 결재가 시작된 계약 — 계약서 읽기 전용, 첨부는 추가만(contractFileLock).
+  isFileLocked?: boolean;
 }
 
 export function ContractRequestPage({
   mode = "create",
   contractId,
   initialValues,
+  isFileLocked = false,
 }: ContractRequestPageProps = {}) {
   const navigate = useNavigate();
   const { submit, isSubmitting, submitError } = useContractSubmit(mode, contractId);
@@ -67,7 +70,7 @@ export function ContractRequestPage({
         <div className={css.layout}>
           <div className={css.formCol}>
             <OverviewSection />
-            <DocsSection contractId={contractId} />
+            <DocsSection contractId={contractId} isFileLocked={isFileLocked} />
             <PeopleSection />
             <TermsSection />
             <ContentSection />
