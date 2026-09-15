@@ -7,6 +7,7 @@ import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { AiAnalysisService } from "../ai-analysis/ai-analysis.service";
+import { ContractTextExtractor } from "../ai-analysis/contract-text.extractor";
 import type { CreateContractRequest } from "@lawai/contracts";
 
 const companySnapshot = {
@@ -138,6 +139,9 @@ describe("ContractsService", () => {
   };
   // AI 분석 잡 트리거 — fire-and-forget 호출이므로 트리거 여부/인자만 검증.
   const aiAnalysisMock = { trigger: jest.fn().mockResolvedValue(undefined) };
+  // 계약서 원본 본문 추출 — 기본은 못 읽음(null). 추출 후 백그라운드로 trigger 되므로 검증 전 flush.
+  const contractTextMock = { extract: jest.fn().mockResolvedValue(null) };
+  const flushAiTrigger = () => new Promise((resolve) => setImmediate(resolve));
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -151,6 +155,7 @@ describe("ContractsService", () => {
         { provide: R2Client, useValue: r2Mock },
         { provide: ApprovalsService, useValue: approvalsMock },
         { provide: AiAnalysisService, useValue: aiAnalysisMock },
+        { provide: ContractTextExtractor, useValue: contractTextMock },
       ],
     }).compile();
     service = moduleRef.get(ContractsService);
@@ -255,6 +260,7 @@ describe("ContractsService", () => {
       createdById: "user-uuid-1",
     });
     await service.create({ ...createReq, ...makeCtx() });
+    await flushAiTrigger();
     expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
       expect.objectContaining({
         targetType: "contract",
@@ -276,6 +282,7 @@ describe("ContractsService", () => {
       ...makeCtx(),
       files: [{ role: "ref", name: "참고.pdf", meta: "PDF · 0.3MB", sortOrder: 0 }],
     });
+    await flushAiTrigger();
     expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
   });
 
@@ -533,6 +540,7 @@ describe("ContractsService", () => {
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: "admin-1" });
     prismaMock.contract.update.mockResolvedValue({ ...fullRow("legalReview"), ownerId: "admin-1" });
     await service.updateStatus({ id: "ct-1", status: "legalReview", viewerId: "admin-1", ...makeCtx() });
+    await flushAiTrigger();
     expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
       expect.objectContaining({ targetType: "contract", targetId: "ct-1", kind: "risk", triggeredByUserId: "admin-1" }),
     );
@@ -543,6 +551,7 @@ describe("ContractsService", () => {
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("unassigned"), status: "unassigned", ownerId: "admin-1" });
     prismaMock.contract.update.mockResolvedValue({ ...fullRow("legalReview"), ownerId: null });
     await service.updateStatus({ id: "ct-1", status: "legalReview", viewerId: "admin-1", ...makeCtx() });
+    await flushAiTrigger();
     expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
   });
 
@@ -551,6 +560,7 @@ describe("ContractsService", () => {
     prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), status: "legalReview", ownerId: "admin-1" });
     prismaMock.contract.update.mockResolvedValue({ ...fullRow("reviewDone"), createdById: "creator-1" });
     await service.updateStatus({ id: "ct-1", status: "reviewDone", viewerId: "admin-1", ...makeCtx() });
+    await flushAiTrigger();
     expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
       expect.objectContaining({ targetType: "contract", targetId: "ct-1", kind: "submitBriefing", triggeredByUserId: "creator-1" }),
     );
@@ -836,8 +846,28 @@ describe("ContractsService", () => {
         // 기존 f1 을 빼고 새 계약서를 올림 → 교체.
         files: [{ role: "contract", name: "revised.docx", meta: "DOCX", sortOrder: 0 }],
       });
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
         expect.objectContaining({ targetType: "contract", targetId: "ct-1", kind: "risk", triggeredByUserId: "admin-1" }),
+      );
+    });
+
+    it("계약서 원본에서 뽑은 본문을 risk 분석 입력(fileText)으로 넘긴다", async () => {
+      contractTextMock.extract.mockResolvedValueOnce("제5조 (손해배상) 한도는 계약금액의 300%로 한다.");
+      prismaMock.contract.findFirst.mockResolvedValue(rowInReview());
+      prismaMock.contract.update.mockResolvedValue(rowInReview());
+      await service.update({
+        id: "ct-1",
+        viewerId: "admin-1",
+        ...makeCtx(),
+        files: [{ role: "contract", name: "revised.docx", meta: "DOCX", sortOrder: 0 }],
+      });
+      await flushAiTrigger();
+      expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "risk",
+          payload: expect.objectContaining({ fileText: "제5조 (손해배상) 한도는 계약금액의 300%로 한다." }),
+        }),
       );
     });
 
@@ -851,6 +881,7 @@ describe("ContractsService", () => {
         ...makeCtx(),
         files: [{ role: "contract", name: "revised.docx", meta: "DOCX", sortOrder: 0 }],
       });
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
     });
 
@@ -858,6 +889,7 @@ describe("ContractsService", () => {
       prismaMock.contract.findFirst.mockResolvedValue(rowInReview());
       prismaMock.contract.update.mockResolvedValue(rowInReview());
       await service.update({ id: "ct-1", title: "제목만 수정", viewerId: "admin-1", ...makeCtx() });
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
     });
 
@@ -874,6 +906,7 @@ describe("ContractsService", () => {
           { role: "ref", name: "참고.pdf", meta: "PDF", sortOrder: 1 },
         ],
       });
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
     });
 
@@ -887,6 +920,7 @@ describe("ContractsService", () => {
         ...makeCtx(),
         files: [{ role: "contract", name: "revised.docx", meta: "DOCX", sortOrder: 0 }],
       });
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
     });
   });
@@ -1473,6 +1507,7 @@ describe("ContractsService", () => {
         }),
       );
       // 상신 성공 시 결재자용 브리핑(approvalBriefing) AI 분석을 트리거한다.
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
         expect.objectContaining({
           targetType: "contract",
@@ -1958,6 +1993,7 @@ describe("ContractsService", () => {
       expect(createArg.data.status).toBeUndefined();
       expect(res.status).toBe("unassigned");
       expect(res.signedAt).toBeNull();
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
     });
 
@@ -1984,6 +2020,7 @@ describe("ContractsService", () => {
 
       const createArg = prismaMock.contract.create.mock.calls[0][0];
       expect(createArg.data.status).toBeUndefined();
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
         expect.objectContaining({ kind: "precheck" }),
       );
@@ -2166,6 +2203,7 @@ describe("ContractsService", () => {
           detail: expect.objectContaining({ kind: "finalizeRegistration" }),
         }),
       );
+      await flushAiTrigger();
       expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
         expect.objectContaining({ kind: "risk" }),
       );

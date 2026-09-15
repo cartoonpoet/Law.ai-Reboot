@@ -5,10 +5,12 @@ const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions"
 const KIND_PROMPT: Record<string, string> = {
   // 사전 위험 점검(risk 의 경량 버전) — 파일 원문 없이 계약 메타데이터(title/details)만으로 1차 점검.
   precheck:
-    "당신은 계약서 사전 점검 전문가입니다. 계약 메타데이터(제목/상세)를 바탕으로 " +
+    "당신은 계약서 사전 점검 전문가입니다. 계약 메타데이터(title/details)와, 있으면 계약서 본문(fileText)을 바탕으로 " +
+    "fileText 가 있으면 조항을 근거로, 없으면(null) 메타데이터만으로 판단했다고 finding 에 밝히고 " +
     '주의가 필요한 지점을 찾아 다음 JSON 스키마로 반환하세요: { "risks": [{ "level": "low"|"medium"|"high", "clause": string, "finding": string }] }.',
   risk:
-    "당신은 계약서 위험 분석 전문가입니다. 입력된 계약서 본문에서 위험 조항을 찾아 " +
+    "당신은 계약서 위험 분석 전문가입니다. 계약서 본문(fileText)에서 위험 조항을 찾아 clause 에 조항 번호·제목을, finding 에 이유와 수정 방향을 쓰고 " +
+    "fileText 가 없으면(null) 본문 없이 메타데이터(title/details)만으로 추정했다고 finding 에 밝히고 " +
     '다음 JSON 스키마로 반환하세요: { "risks": [{ "level": "low"|"medium"|"high", "clause": string, "finding": string }] }.',
   // 상신 전(reviewDone) 결재자용 요약 브리핑.
   submitBriefing:
