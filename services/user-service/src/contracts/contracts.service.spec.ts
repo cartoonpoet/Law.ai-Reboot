@@ -822,6 +822,96 @@ describe("ContractsService", () => {
     });
   });
 
+  // 체결 결재(signing)가 시작되면 결재·서명 대상 문서가 바뀌면 안 된다 — contract-file-lock.
+  describe("update: 체결 결재 시작 후 파일 잠금", () => {
+    const LOCKED_FILES = [
+      { id: "f-contract", role: "contract", storageKey: "contracts/ct-1/u/contract.docx" },
+      { id: "f-attach", role: "attach", storageKey: "contracts/ct-1/u/attach.pdf" },
+    ];
+    const rowWith = (status: string) => ({ ...fullRow(status), ownerId: "owner-1", files: LOCKED_FILES });
+    const asOwner = () =>
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    const keepAll = [
+      { id: "f-contract", role: "contract" as const, name: "계약서.docx", meta: "DOCX", sortOrder: 0 },
+      { id: "f-attach", role: "attach" as const, name: "별첨.pdf", meta: "PDF", sortOrder: 0 },
+    ];
+    const expectRejected = async (status: string, files: typeof keepAll, message: string) => {
+      asOwner();
+      prismaMock.contract.findFirst.mockResolvedValue(rowWith(status));
+      await expect(
+        service.update({ id: "ct-1", viewerId: "owner-1", ...makeCtx(), files }),
+      ).rejects.toMatchObject({ error: { status: 400, message } });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(r2Mock.deleteObjects).not.toHaveBeenCalled();
+    };
+
+    it("signing 에서 기존 파일을 빼면 400 — R2 삭제도 없다", async () => {
+      await expectRejected("signing", [keepAll[0]], "체결 결재가 시작된 계약은 기존 파일을 제거할 수 없습니다");
+    });
+
+    it("signed 에서 첨부를 계약서로 바꾸면 400", async () => {
+      await expectRejected(
+        "signed",
+        [keepAll[0], { ...keepAll[1], role: "contract" }],
+        "체결 결재가 시작된 계약은 파일 역할을 바꿀 수 없습니다",
+      );
+    });
+
+    it("signing 에서 계약서를 새로 추가하면 400", async () => {
+      await expectRejected(
+        "signing",
+        [...keepAll, { role: "contract", name: "수정본.docx", meta: "DOCX", sortOrder: 1 } as (typeof keepAll)[number]],
+        "체결 결재가 시작된 계약에는 계약서를 새로 올릴 수 없습니다",
+      );
+    });
+
+    it("signing 에서도 기존 파일 유지 + 첨부 추가 + 다른 필드 수정은 통과한다", async () => {
+      asOwner();
+      prismaMock.contract.findFirst.mockResolvedValue(rowWith("signing"));
+      prismaMock.contract.update.mockResolvedValue(rowWith("signing"));
+      await service.update({
+        id: "ct-1",
+        viewerId: "owner-1",
+        title: "제목 수정",
+        ...makeCtx(),
+        files: [...keepAll, { role: "attach", name: "부속서류.pdf", meta: "PDF", sortOrder: 1 } as (typeof keepAll)[number]],
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalled();
+    });
+
+    it("법무 검토 중(legalReview)에는 잠그지 않는다 — 계약서 교체가 정상 업무", async () => {
+      asOwner();
+      prismaMock.contract.findFirst.mockResolvedValue(rowWith("legalReview"));
+      prismaMock.contract.update.mockResolvedValue(rowWith("legalReview"));
+      await service.update({
+        id: "ct-1",
+        viewerId: "owner-1",
+        ...makeCtx(),
+        files: [{ id: "f-attach", role: "attach", name: "별첨.pdf", meta: "PDF", sortOrder: 0 }],
+      });
+      expect(prismaMock.contract.update).toHaveBeenCalled();
+    });
+
+    it("어떤 상태에서도 편집으로 첨부를 서명본으로 바꾸면 400", async () => {
+      await expectRejected(
+        "legalReview",
+        [keepAll[0], { ...keepAll[1], role: "signed" as unknown as "attach" }],
+        "서명본은 편집으로 지정할 수 없습니다. 체결 처리나 서명본 첨부를 이용하세요",
+      );
+    });
+
+    it("바이트 없는(메타데이터만 있는) 레거시 파일은 signed 에서도 뺄 수 있다", async () => {
+      asOwner();
+      prismaMock.contract.findFirst.mockResolvedValue({
+        ...rowWith("signed"),
+        files: [{ id: "f-legacy", role: "attach", storageKey: null }],
+      });
+      prismaMock.contract.update.mockResolvedValue(rowWith("signed"));
+      await service.update({ id: "ct-1", viewerId: "owner-1", ...makeCtx(), files: [] });
+      expect(prismaMock.contract.update).toHaveBeenCalled();
+    });
+  });
+
   // 웹은 계약을 파일 없이 먼저 만들고 계약서를 나중에 붙인다 — 그때 사전 점검이 돌아야 한다.
   describe("update: 검토 전 계약서가 붙으면 사전 점검(precheck)", () => {
     const unassignedRow = (files: { id: string; role: string }[]) => ({
