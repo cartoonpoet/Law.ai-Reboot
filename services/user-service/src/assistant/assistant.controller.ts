@@ -1,7 +1,7 @@
 import { Controller } from "@nestjs/common";
 import { MessagePattern, Payload } from "@nestjs/microservices";
 import { ASSISTANT_PATTERNS } from "@lawai/contracts";
-import type { AssistantChatRequest } from "@lawai/contracts";
+import type { AssistantChatRequest, DashboardBriefRequest } from "@lawai/contracts";
 import { AssistantService } from "./assistant.service";
 
 @Controller()
@@ -12,5 +12,10 @@ export class AssistantController {
   @MessagePattern(ASSISTANT_PATTERNS.CHAT)
   chat(@Payload() req: AssistantChatRequest) {
     return this.assistant.chat(req);
+  }
+
+  @MessagePattern(ASSISTANT_PATTERNS.BRIEF)
+  brief(@Payload() req: DashboardBriefRequest) {
+    return this.assistant.brief(req);
   }
 }

@@ -8,6 +8,8 @@ import { useDashboard } from "./hooks/useDashboard";
 import type { DeadlineItem, TodoItem } from "./dashboardTypes";
 
 vi.mock("./hooks/useDashboard");
+// AI 브리핑 카드는 AiBriefCard.test 에서 따로 검증한다.
+vi.mock("./AiBriefCard", () => ({ AiBriefCard: () => null }));
 
 const navigateMock = vi.fn();
 vi.mock("react-router-dom", async (orig) => {
@@ -72,11 +74,10 @@ describe("DashboardPage", () => {
     expect(screen.getByText(DEADLINE.title)).toBeInTheDocument();
   });
 
-  it("가짜 공지·AI 요약과 검토 요청 버튼은 없다", () => {
+  it("가짜 공지와 검토 요청 버튼은 없다", () => {
     renderPage();
     expect(screen.queryByText("공지 · 새소식")).not.toBeInTheDocument();
-    expect(screen.queryByText("AI 요약")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /검토 요청/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /검토 요청/ })).not.toBeInTheDocument();
   });
 
   it("할 일과 기한을 누르면 해당 화면으로 이동한다", async () => {

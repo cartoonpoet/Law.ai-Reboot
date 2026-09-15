@@ -1,4 +1,4 @@
-import { parseAssistantReply } from "./assistant-reply";
+import { parseAssistantReply, parseBriefReply } from "./assistant-reply";
 import type { AssistantContext } from "./assistant-context";
 
 const context: AssistantContext = {
@@ -55,6 +55,34 @@ describe("parseAssistantReply", () => {
       ],
     });
     expect(res.actions.map((a) => (a.type === "open" ? a.path : a.type))).toEqual(["/approvals/inbox", "/contract/c-un"]);
+  });
+
+  describe("parseBriefReply", () => {
+    const brief = (value: unknown) => parseBriefReply(JSON.stringify(value), context);
+
+    it("headline 이 없으면 isValid=false 와 안내 문구", () => {
+      expect(brief({ points: [] })).toMatchObject({ isValid: false, points: [] });
+      expect(parseBriefReply("oops", context).headline).toMatch(/만들지 못했어요/);
+    });
+
+    it("항목을 급한 순 그대로 최대 3개, 모르는 tone 은 info, 행동은 검증된 것만", () => {
+      const res = brief({
+        headline: "오늘 챙길 일은 2건이에요.",
+        points: [
+          { tone: "danger", text: "유지보수 계약이 아직 미배정이에요.", action: { type: "assign", contractId: "c-un", ownerId: "u-kim" } },
+          { tone: "loud", text: "공급 계약 검토를 시작하세요.", action: { type: "startReview", contractId: "c-other" } },
+          { tone: "info", text: "" },
+          { tone: "info", text: "셋째" },
+          { tone: "info", text: "넷째" },
+        ],
+      });
+      expect(res.isValid).toBe(true);
+      expect(res.points).toEqual([
+        { tone: "danger", text: "유지보수 계약이 아직 미배정이에요.", action: { type: "assign", contractId: "c-un", contractTitle: "유지보수 계약", ownerId: "u-kim", ownerName: "김법무" } },
+        { tone: "info", text: "공급 계약 검토를 시작하세요.", action: null },
+        { tone: "info", text: "셋째", action: null },
+      ]);
+    });
   });
 
   it("중복을 없애고 최대 3개", () => {

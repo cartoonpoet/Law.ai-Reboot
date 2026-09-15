@@ -1,4 +1,4 @@
-import { buildAssistantSystemPrompt } from "./assistant-context";
+import { buildAssistantSystemPrompt, buildBriefSystemPrompt, getContextSignature } from "./assistant-context";
 import type { AssistantContext } from "./assistant-context";
 
 const context: AssistantContext = {
@@ -30,6 +30,21 @@ describe("buildAssistantSystemPrompt", () => {
     const prompt = buildAssistantSystemPrompt({ context, screen: "대시보드", today: "2026-09-14" });
     expect(prompt).toContain('"assignees":[]');
     expect(prompt).toContain("배정 권한이 없으니 제안하지 마세요");
+  });
+
+  it("브리핑 지시는 오늘 날짜·브리핑 JSON 형식·데이터를 담는다", () => {
+    const prompt = buildBriefSystemPrompt({ context, today: "2026-09-15" });
+    expect(prompt).toContain("오늘의 브리핑");
+    expect(prompt).toContain("2026-09-15");
+    expect(prompt).toContain('"headline": string');
+    expect(prompt).toContain('"title":"유지보수 계약"');
+  });
+
+  it("업무 데이터 서명은 상태·기한·담당·결재가 바뀔 때만 달라진다", () => {
+    const base = getContextSignature(context);
+    expect(getContextSignature({ ...context, viewer: { ...context.viewer, name: "다른 이름" } })).toBe(base);
+    expect(getContextSignature({ ...context, contracts: [{ ...context.contracts[0], status: "reviewDone" }] })).not.toBe(base);
+    expect(getContextSignature({ ...context, approvals: [] })).not.toBe(base);
   });
 
   it("배정 권한이 있으면 담당자 목록을 넘긴다", () => {
