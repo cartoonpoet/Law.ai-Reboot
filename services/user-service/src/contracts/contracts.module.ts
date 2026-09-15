@@ -7,6 +7,8 @@ import { PublicStatsService } from "./public-stats.service";
 import { FilesModule } from "../files/files.module";
 import { ApprovalsModule } from "../approvals/approvals.module";
 import { AiAnalysisModule } from "../ai-analysis/ai-analysis.module";
+import { NotificationsModule } from "../notifications/notifications.module";
+import { ContractExpiryNotifier } from "./contract-expiry.notifier";
 
 @Module({
   controllers: [ContractsController],
@@ -14,7 +16,8 @@ import { AiAnalysisModule } from "../ai-analysis/ai-analysis.module";
   // FilesModule 은 R2Client(파일 GC), ApprovalsModule 은 결재 상신/조회 + outcome 등록,
   // AiAnalysisModule 은 계약 상태 전이 시 AI 분석 잡 백그라운드 트리거에 사용.
   // PublicStatsService 는 로그인 화면 공개 통계(검토된 계약 수).
-  imports: [FilesModule, ApprovalsModule, AiAnalysisModule],
-  providers: [ContractsService, AuditService, ContractApprovalOutcomeHandler, PublicStatsService],
+  // ContractExpiryNotifier 는 매일 만료 임박 계약 알림을 만든다(NotificationsModule 사용).
+  imports: [FilesModule, ApprovalsModule, AiAnalysisModule, NotificationsModule],
+  providers: [ContractsService, AuditService, ContractApprovalOutcomeHandler, PublicStatsService, ContractExpiryNotifier],
 })
 export class ContractsModule {}
