@@ -56,3 +56,6 @@ export const preview = style({
 });
 
 export const time = style({ fontSize: 11, color: muted });
+
+// 가리키는 계약이 삭제된 알림 — 눌러도 이동하지 않음을 알린다.
+export const deletedNote = style({ fontSize: 11.5, fontWeight: 600, color: muted });

@@ -162,7 +162,7 @@ describe("ApprovalsService", () => {
 
     it("마지막 승인: 라인 approved + onApproved + 상신자 approval_completed", async () => {
       const onApproved = jest.fn().mockResolvedValue(undefined);
-      registry.register({ targetType: "contract", onApproved, onRejected: jest.fn(), getTargetCodes: jest.fn() });
+      registry.register({ targetType: "contract", onApproved, onRejected: jest.fn(), getTargetInfo: jest.fn() });
       prisma.approvalLine.findUnique
         .mockResolvedValueOnce(
           makeLine([
@@ -196,7 +196,7 @@ describe("ApprovalsService", () => {
 
     it("반려: 라인 rejected + onRejected + 상신자 approval_rejected", async () => {
       const onRejected = jest.fn().mockResolvedValue(undefined);
-      registry.register({ targetType: "contract", onApproved: jest.fn(), onRejected, getTargetCodes: jest.fn() });
+      registry.register({ targetType: "contract", onApproved: jest.fn(), onRejected, getTargetInfo: jest.fn() });
       prisma.approvalLine.findUnique
         .mockResolvedValueOnce(makeLine([step(0)]))
         .mockResolvedValueOnce(
@@ -262,9 +262,9 @@ describe("ApprovalsService", () => {
       expect(res.upcoming[0].myStepOrder).toBe(1);
     });
 
-    it("대상 도메인 핸들러에서 문서 번호를 받아 targetCode 로 채운다(핸들러 없으면 null)", async () => {
-      const getTargetCodes = jest.fn().mockResolvedValue({ C1: "C20260908-0142" });
-      registry.register({ targetType: "contract", onApproved: jest.fn(), onRejected: jest.fn(), getTargetCodes });
+    it("대상 도메인 핸들러에서 문서 번호·삭제 여부를 받아 채운다(핸들러 없으면 번호 null, 삭제 아님)", async () => {
+      const getTargetInfo = jest.fn().mockResolvedValue({ C1: { code: "C20260908-0142", isDeleted: false } });
+      registry.register({ targetType: "contract", onApproved: jest.fn(), onRejected: jest.fn(), getTargetInfo });
       prisma.approvalLine.findMany
         .mockResolvedValueOnce([
           makeLine([step(0, { userId: "me" })]),
@@ -272,11 +272,21 @@ describe("ApprovalsService", () => {
         ])
         .mockResolvedValueOnce([]);
       const res = await svc.inbox({ viewerId: "me", tenantContext: ctx });
-      expect(getTargetCodes).toHaveBeenCalledWith(["C1"]);
-      expect(res.pending.map((i) => [i.lineId, i.targetCode])).toEqual([
-        ["L1", "C20260908-0142"],
-        ["L-advice", null],
+      expect(getTargetInfo).toHaveBeenCalledWith(["C1"]);
+      expect(res.pending.map((i) => [i.lineId, i.targetCode, i.isTargetDeleted])).toEqual([
+        ["L1", "C20260908-0142", false],
+        ["L-advice", null, false],
       ]);
+    });
+
+    it("삭제된 계약의 결재는 목록에 남기되 삭제됨으로 표시한다", async () => {
+      const getTargetInfo = jest.fn().mockResolvedValue({ C1: { code: "C20260908-0142", isDeleted: true } });
+      registry.register({ targetType: "contract", onApproved: jest.fn(), onRejected: jest.fn(), getTargetInfo });
+      prisma.approvalLine.findMany
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([makeLine([step(0, { userId: "me", status: "approved", decidedAt: new Date() })])]);
+      const res = await svc.inbox({ viewerId: "me", tenantContext: ctx });
+      expect(res.processed.map((i) => [i.lineId, i.isTargetDeleted])).toEqual([["L1", true]]);
     });
   });
 

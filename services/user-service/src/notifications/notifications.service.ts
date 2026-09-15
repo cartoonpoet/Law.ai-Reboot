@@ -39,6 +39,12 @@ export interface CreateNotificationInput {
 // 목록 기본 조회 개수(최근 N건). limit 미지정 시 적용.
 const DEFAULT_LIST_LIMIT = 20;
 
+// detail 에서 연결된 계약 id 안전 추출(string 가드).
+const getDetailContractId = (detail: Record<string, unknown> | null): string | null => {
+  const contractId = detail?.contractId;
+  return typeof contractId === "string" ? contractId : null;
+};
+
 /**
  * 인앱 알림 도메인 서비스(생성/조회/읽음).
  *
@@ -57,11 +63,15 @@ export class NotificationService {
    * notification 행 → NotificationDto 매핑(listForViewer/createMany 공유 헬퍼).
    * - actorName 은 actorId→이름 맵에서 조회(없으면 빈 문자열).
    * - isRead 는 readAt != null 로 파생(DTO 에는 readAt 미노출).
+   * - isTargetDeleted 는 detail.contractId 가 삭제된 계약 집합에 있는지로 파생.
    */
   private toNotificationDto(
     row: NotificationRow,
     actorNameById: Map<string, string>,
+    deletedContractIds: Set<string>,
   ): NotificationDto {
+    const detail = (row.detail as Record<string, unknown> | null) ?? null;
+    const contractId = getDetailContractId(detail);
     return {
       id: row.id,
       type: row.type,
@@ -69,10 +79,28 @@ export class NotificationService {
       actorName: actorNameById.get(row.actorId) ?? "",
       targetType: row.targetType,
       targetId: row.targetId,
-      detail: (row.detail as Record<string, unknown> | null) ?? null,
+      detail,
       isRead: row.readAt != null,
+      isTargetDeleted: contractId !== null && deletedContractIds.has(contractId),
       createdAt: row.createdAt.toISOString(),
     };
+  }
+
+  // 알림들이 가리키는 계약 중 삭제된 것만 한 번에 조회(N+1 회피). 가리키는 계약이 없으면 조회하지 않는다.
+  private async loadDeletedContractIds(rows: NotificationRow[]): Promise<Set<string>> {
+    const contractIds = Array.from(
+      new Set(
+        rows
+          .map((row) => getDetailContractId(row.detail as Record<string, unknown> | null))
+          .filter((id): id is string => id !== null),
+      ),
+    );
+    if (contractIds.length === 0) return new Set();
+    const deleted = await this.prisma.contract.findMany({
+      where: { id: { in: contractIds }, deletedAt: { not: null } },
+      select: { id: true },
+    });
+    return new Set(deleted.map((c) => c.id));
   }
 
   // actorId 집합 → 이름 맵(한 번에 조회해 N+1 회피). 빈 집합이면 빈 맵.
@@ -137,7 +165,8 @@ export class NotificationService {
 
       return rows.map((row) => ({
         recipientId: row.recipientId,
-        notification: this.toNotificationDto(row, actorNameById),
+        // 방금 만든 알림이라 가리키는 계약은 살아 있다.
+        notification: this.toNotificationDto(row, actorNameById, new Set()),
       }));
     } catch (error) {
       // best-effort: 실패해도 비즈니스 응답은 진행. 누락만 로깅하고 빈 배열 반환.
@@ -178,11 +207,14 @@ export class NotificationService {
       }),
     ]);
 
-    // actorId 모아 한 번에 이름 조회(N+1 회피) 후 공용 헬퍼로 DTO 매핑.
-    const actorNameById = await this.loadActorNames(
-      rows.map((row) => row.actorId),
+    // actorId·계약 id 를 모아 한 번씩 조회(N+1 회피) 후 공용 헬퍼로 DTO 매핑.
+    const [actorNameById, deletedContractIds] = await Promise.all([
+      this.loadActorNames(rows.map((row) => row.actorId)),
+      this.loadDeletedContractIds(rows),
+    ]);
+    const items = rows.map((row) =>
+      this.toNotificationDto(row, actorNameById, deletedContractIds),
     );
-    const items = rows.map((row) => this.toNotificationDto(row, actorNameById));
 
     return { items, unreadCount };
   }

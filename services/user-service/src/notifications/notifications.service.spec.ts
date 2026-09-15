@@ -25,6 +25,7 @@ describe("NotificationService", () => {
       updateMany: jest.fn(),
     },
     user: { findMany: jest.fn() },
+    contract: { findMany: jest.fn().mockResolvedValue([]) },
   };
 
   beforeEach(async () => {
@@ -106,6 +107,7 @@ describe("NotificationService", () => {
             targetId: "c-1",
             detail: { contractId: "k-1", preview: "안녕" },
             isRead: false,
+        isTargetDeleted: false,
             createdAt: "2026-06-22T02:00:00.000Z",
           },
         },
@@ -351,11 +353,54 @@ describe("NotificationService", () => {
         targetId: "c-1",
         detail: { contractId: "k-1", preview: "본문" },
         isRead: false,
+        isTargetDeleted: false,
         createdAt: "2026-06-22T02:00:00.000Z",
       });
       // readAt 있는 행 → isRead true, detail null.
       expect(result.items[1].isRead).toBe(true);
       expect(result.items[1].detail).toBeNull();
+    });
+
+    it("알림이 가리키는 계약이 삭제됐으면 isTargetDeleted 로 표시한다(삭제 계약만 한 번에 조회)", async () => {
+      prismaMock.notification.findMany.mockResolvedValue([
+        {
+          id: "n-1",
+          type: "comment_mention",
+          actorId: "a-1",
+          targetType: "Comment",
+          targetId: "c-1",
+          detail: { contractId: "k-gone", preview: "본문" },
+          readAt: null,
+          createdAt: new Date("2026-06-22T02:00:00.000Z"),
+        },
+        {
+          id: "n-2",
+          type: "comment_mention",
+          actorId: "a-1",
+          targetType: "Comment",
+          targetId: "c-2",
+          detail: { contractId: "k-live" },
+          readAt: null,
+          createdAt: new Date("2026-06-22T01:00:00.000Z"),
+        },
+      ]);
+      prismaMock.notification.count.mockResolvedValue(2);
+      prismaMock.user.findMany.mockResolvedValue([]);
+      prismaMock.contract.findMany.mockResolvedValueOnce([{ id: "k-gone" }]);
+
+      const result = await service.listForViewer({
+        viewerId: "u-1",
+        tenantContext: { tenantId: "tenant-1", isSystemAdmin: false },
+      });
+
+      expect(prismaMock.contract.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ["k-gone", "k-live"] }, deletedAt: { not: null } },
+        select: { id: true },
+      });
+      expect(result.items.map((item) => [item.id, item.isTargetDeleted])).toEqual([
+        ["n-1", true],
+        ["n-2", false],
+      ]);
     });
 
     it("actor 이름이 없으면 빈 문자열로 매핑한다", async () => {

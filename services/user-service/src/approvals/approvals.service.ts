@@ -16,7 +16,7 @@ import { toAvatarPath } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationService } from "../notifications/notifications.service";
 import type { CreateNotificationInput } from "../notifications/notifications.service";
-import { ApprovalOutcomeRegistry } from "./approval-outcome";
+import { ApprovalOutcomeRegistry, ApprovalTargetInfo } from "./approval-outcome";
 
 // 대상 도메인이 상신 시 넘기는 입력(RPC 아님 — 서비스 내부 API).
 export interface SubmitApprovalInput {
@@ -263,7 +263,7 @@ export class ApprovalsService {
   private toInboxItem(
     row: LineRow,
     viewerId: string,
-    targetCodes: Record<string, string>,
+    targetInfo: Record<string, ApprovalTargetInfo>,
   ): ApprovalInboxItem | null {
     const decisionSteps = row.steps.filter((s) => isDecisionStep(s.type));
     const mine =
@@ -271,11 +271,13 @@ export class ApprovalsService {
       row.steps.find((s) => s.userId === viewerId);
     if (!mine) return null;
     const myDecisionIndex = decisionSteps.findIndex((s) => s.id === mine.id);
+    const target = targetInfo[targetKeyOf(row.targetType, row.targetId)];
     return {
       lineId: row.id,
       targetType: row.targetType,
       targetId: row.targetId,
-      targetCode: targetCodes[targetKeyOf(row.targetType, row.targetId)] ?? null,
+      targetCode: target?.code ?? null,
+      isTargetDeleted: target?.isDeleted ?? false,
       title: row.title,
       submittedById: row.submittedById,
       submittedByName: row.submittedBy?.name ?? "",
@@ -327,10 +329,10 @@ export class ApprovalsService {
         (s) => s.userId === viewerId && isDecisionStep(s.type) && s.status === "pending",
       );
 
-    const targetCodes = await this.resolveTargetCodes([...pendingRows, ...processedRows]);
+    const targetInfo = await this.resolveTargetInfo([...pendingRows, ...processedRows]);
     const toItems = (rows: LineRow[]) =>
       rows
-        .map((row) => this.toInboxItem(row, viewerId, targetCodes))
+        .map((row) => this.toInboxItem(row, viewerId, targetInfo))
         .filter((item): item is ApprovalInboxItem => item !== null);
 
     return {
@@ -340,8 +342,8 @@ export class ApprovalsService {
     };
   }
 
-  // targetType 별로 한 번씩 도메인 핸들러에 문서 번호를 묻는다. 핸들러가 없는 도메인은 번호 없음.
-  private async resolveTargetCodes(rows: LineRow[]): Promise<Record<string, string>> {
+  // targetType 별로 한 번씩 도메인 핸들러에 문서 번호·삭제 여부를 묻는다. 핸들러가 없는 도메인은 정보 없음.
+  private async resolveTargetInfo(rows: LineRow[]): Promise<Record<string, ApprovalTargetInfo>> {
     const idsByType = new Map<string, Set<string>>();
     for (const row of rows) {
       const ids = idsByType.get(row.targetType) ?? new Set<string>();
@@ -351,9 +353,9 @@ export class ApprovalsService {
     const entries = await Promise.all(
       [...idsByType].map(async ([targetType, ids]) => {
         const handler = this.registry.get(targetType);
-        const codes = handler ? await handler.getTargetCodes([...ids]) : {};
-        return Object.entries(codes).map(
-          ([targetId, code]) => [targetKeyOf(targetType, targetId), code] as const,
+        const infos = handler ? await handler.getTargetInfo([...ids]) : {};
+        return Object.entries(infos).map(
+          ([targetId, info]) => [targetKeyOf(targetType, targetId), info] as const,
         );
       }),
     );

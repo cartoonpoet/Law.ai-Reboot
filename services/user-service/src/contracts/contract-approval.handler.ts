@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import {
   ApprovalOutcomeRegistry,
   ApprovalOutcomeHandler,
+  ApprovalTargetInfo,
 } from "../approvals/approval-outcome";
 
 /**
@@ -37,13 +38,15 @@ export class ContractApprovalOutcomeHandler
     });
   }
 
-  // 결재 대기함의 "관리번호 · 계약" 표시용. 대기함 라인은 이미 테넌트로 한정돼 있어 id 로만 조회한다.
-  async getTargetCodes(targetIds: string[]): Promise<Record<string, string>> {
+  // 결재 대기함의 "관리번호 · 계약" 표시와 삭제된 계약 구분용. 대기함 라인은 이미 테넌트로 한정돼 있어 id 로만 조회한다.
+  async getTargetInfo(targetIds: string[]): Promise<Record<string, ApprovalTargetInfo>> {
     if (targetIds.length === 0) return {};
     const rows = await this.prisma.contract.findMany({
       where: { id: { in: targetIds } },
-      select: { id: true, code: true },
+      select: { id: true, code: true, deletedAt: true },
     });
-    return Object.fromEntries(rows.map((r) => [r.id, r.code]));
+    return Object.fromEntries(
+      rows.map((r) => [r.id, { code: r.code, isDeleted: r.deletedAt !== null }]),
+    );
   }
 }

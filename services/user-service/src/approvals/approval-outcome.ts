@@ -7,8 +7,13 @@ export interface ApprovalOutcomeHandler {
   targetType: string;
   onApproved(line: ApprovalLineDto): Promise<void>;
   onRejected(line: ApprovalLineDto, rejectedStepId: string): Promise<void>;
-  // 대상 id → 문서 번호(계약 관리번호 등). 없는 id 는 결과에서 빠진다.
-  getTargetCodes(targetIds: string[]): Promise<Record<string, string>>;
+  // 대상 id → 문서 번호(계약 관리번호 등)와 삭제 여부. 없는 id 는 결과에서 빠진다.
+  getTargetInfo(targetIds: string[]): Promise<Record<string, ApprovalTargetInfo>>;
+}
+
+export interface ApprovalTargetInfo {
+  code: string;
+  isDeleted: boolean;
 }
 
 @Injectable()

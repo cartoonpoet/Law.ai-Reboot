@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import type { NotificationDto } from "@lawai/contracts";
+import { showToast } from "../../lib/toast/toastStore";
 import { useNotifications } from "../layout/hooks/useNotifications";
 import { useNotificationStream } from "../layout/hooks/useNotificationStream";
 import { getUnreadBadgeLabel } from "./getUnreadBadgeLabel";
@@ -23,10 +24,15 @@ export const useAssistantNotifications = (onNavigate: () => void) => {
   useNotificationStream();
 
   // 읽음 처리는 낙관적(fire-and-forget) — 실패해도 이동을 막지 않는다.
+  // 삭제된 계약 알림은 읽음 처리만 하고, 없는 화면으로 보내는 대신 안내한다.
   const select = (notification: NotificationDto) => {
     void markRead(notification.id);
     const contractId = getContractId(notification.detail);
     if (!contractId) return;
+    if (notification.isTargetDeleted) {
+      showToast({ intent: "info", title: "삭제된 계약이라 열 수 없어요" });
+      return;
+    }
     onNavigate();
     navigate(`/contract/${contractId}`);
   };
