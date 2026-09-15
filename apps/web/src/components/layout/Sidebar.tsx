@@ -1,65 +1,18 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Icon } from "@lawkit/ui";
 import type { IconName } from "@lawkit/ui";
-import { clearTokens } from "../../api/tokens";
 import { Logo } from "../ui/Logo";
-import { TenantSwitcher } from "./TenantSwitcher";
-import { useTenantSwitcher } from "./hooks/useTenantSwitcher";
-import { useMe } from "./hooks/useMe";
-import { getTenantRoleLabel } from "../../utils/tenantRoleLabel";
+import { useCommandPalette } from "../search/useCommandPalette";
+import { NAV_SECTIONS } from "./navSections";
+import type { NavItemTypes } from "./navSections";
+import { ProfileMenu } from "./ProfileMenu";
 import * as css from "./sidebar.css";
 
-// 메뉴를 섹션으로 그룹핑(admin 콘솔 스타일).
-const SECTIONS = [
-  {
-    label: "개요",
-    items: [{ id: "home", label: "홈", icon: "home", path: "/" }],
-  },
-  {
-    label: "계약 관리",
-    items: [
-      { id: "c-request", label: "계약서 검토 요청", icon: "filePlus", path: "/contract/request" },
-      { id: "c-list", label: "계약 조회", icon: "fileFind", path: "/contract/list" },
-    ],
-  },
-  {
-    label: "결재",
-    items: [
-      { id: "approval-inbox", label: "결재 대기함", icon: "factCheck", path: "/approvals/inbox" },
-    ],
-  },
-  {
-    label: "법무 업무",
-    items: [
-      { id: "advice", label: "법률자문", icon: "law", path: "/advice" },
-      { id: "litigation", label: "송무", icon: "litigation", path: "/litigation" },
-      { id: "seal", label: "인감 사용 신청", icon: "seal", path: "/seal" },
-      { id: "ip", label: "지식재산권", icon: "iPRs", path: "/ip" },
-    ],
-  },
-  {
-    label: "도구",
-    items: [
-      { id: "ai", label: "AI 분석", icon: "aI", path: "/ai" },
-      { id: "doc", label: "문서관리", icon: "folder", path: "/doc" },
-    ],
-  },
-  {
-    label: "관리",
-    items: [
-      { id: "members", label: "멤버 관리", icon: "users", path: "/members" },
-      { id: "system", label: "시스템 관리", icon: "settings", path: "/system" },
-    ],
-  },
-] as const;
-
-type NavItem = (typeof SECTIONS)[number]["items"][number];
-
+// 사이드바 — 로고 · 통합검색(Ctrl+K) · 메뉴 섹션 · 내 이름 메뉴(설정·회사 전환·로그아웃). 상단 헤더는 없다.
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeMembership } = useTenantSwitcher();
-  const { me } = useMe();
+  const palette = useCommandPalette();
 
   return (
     <aside className={css.aside}>
@@ -70,8 +23,14 @@ export function Sidebar() {
         </div>
       </div>
 
+      <button type="button" className={css.searchButton} onClick={palette.open} aria-label="통합검색 열기 (Ctrl K)">
+        <Icon name="search" size="sm" className={css.searchIcon} />
+        <span className={css.searchLabel}>통합검색</span>
+        <kbd className={css.searchKbd}>Ctrl K</kbd>
+      </button>
+
       <nav className={css.nav}>
-        {SECTIONS.map((section, sectionIdx) => (
+        {NAV_SECTIONS.map((section, sectionIdx) => (
           <div key={section.label}>
             <div
               className={
@@ -94,27 +53,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <TenantSwitcher />
-
-      <div className={css.foot}>
-        <div className={css.footAvatar}>{me?.name.charAt(0) ?? ""}</div>
-        <div className={css.footMain}>
-          <div className={css.footName}>{me?.name ?? ""}</div>
-          <div className={css.footRole}>
-            {activeMembership ? getTenantRoleLabel(activeMembership.role) : ""}
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            clearTokens();
-            navigate("/login");
-          }}
-          className={css.footLogout}
-          aria-label="로그아웃"
-        >
-          <Icon name="logOut" size="sm" className={css.footLogoutIcon} />
-        </button>
-      </div>
+      <ProfileMenu />
     </aside>
   );
 }
@@ -124,7 +63,7 @@ function NavRow({
   location,
   onNavigate,
 }: {
-  item: NavItem;
+  item: NavItemTypes;
   location: string;
   onNavigate: (path: string) => void;
 }) {

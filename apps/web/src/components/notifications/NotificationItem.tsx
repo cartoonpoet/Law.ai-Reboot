@@ -1,5 +1,5 @@
 import type { NotificationDto } from "@lawai/contracts";
-import * as css from "./notificationBell.css";
+import * as css from "./notificationItem.css";
 
 interface NotificationItemProps {
   notification: NotificationDto;
@@ -19,22 +19,13 @@ const getPreview = (detail: NotificationDto["detail"]): string => {
   return typeof preview === "string" ? preview : "";
 };
 
-/** 알림 단건 항목. 클릭 시 onSelect(navigate + markRead 는 부모가 처리). */
-export function NotificationItem({
-  notification,
-  onSelect,
-}: NotificationItemProps) {
+/** 알림 한 건. 클릭 시 onSelect(읽음 처리·이동은 부모가 처리). */
+export const NotificationItem = ({ notification, onSelect }: NotificationItemProps) => {
   const preview = getPreview(notification.detail);
-  const itemClass = notification.isRead
-    ? css.item
-    : `${css.item} ${css.itemUnread}`;
+  const itemClass = notification.isRead ? css.item : `${css.item} ${css.itemUnread}`;
 
   return (
-    <button
-      type="button"
-      className={itemClass}
-      onClick={() => onSelect(notification)}
-    >
+    <button type="button" className={itemClass} onClick={() => onSelect(notification)}>
       <span className={css.itemTop}>
         <span className={css.actorName}>{notification.actorName}</span>
         {notification.isRead ? null : <span className={css.unreadDot} />}
@@ -43,4 +34,4 @@ export function NotificationItem({
       <time className={css.time}>{formatTime(notification.createdAt)}</time>
     </button>
   );
-}
+};

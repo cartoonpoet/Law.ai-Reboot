@@ -33,6 +33,36 @@ export const brandText = style({
 
 export const brandTextDim = style({ opacity: 0.45 });
 
+/* 통합검색 열기(Ctrl+K) — 헤더 검색칸을 대신한다 */
+export const searchButton = style({
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  margin: "10px 10px 2px",
+  padding: "8px 10px",
+  borderRadius: 7,
+  border: `1px solid ${T.navyLine}`,
+  background: "rgba(255,255,255,.06)",
+  color: T.navyMuted,
+  fontFamily: "Pretendard",
+  fontSize: 12.5,
+  textAlign: "left",
+  cursor: "pointer",
+  transition: "background-color .15s ease, color .15s ease",
+  selectors: { "&:hover": { background: "rgba(255,255,255,.1)", color: T.navyText } },
+});
+
+export const searchIcon = style({ width: 14, height: 14, flexShrink: 0 });
+export const searchLabel = style({ flex: 1 });
+export const searchKbd = style({
+  fontFamily: "inherit",
+  fontSize: 10.5,
+  padding: "1px 5px",
+  borderRadius: 4,
+  border: `1px solid ${T.navyLine}`,
+  color: T.navyMuted,
+});
+
 export const nav = style({
   flex: 1,
   overflowY: "auto",
@@ -52,42 +82,8 @@ export const sectionLabel = style({
   padding: "14px 10px 6px",
 });
 
-/* 첫 섹션은 위 여백 줄임(브랜드 바로 아래) */
+/* 첫 섹션은 위 여백 줄임(검색 버튼 바로 아래) */
 export const sectionLabelFirst = style({ paddingTop: 6 });
-
-/* 하단 사용자 프로필 */
-export const foot = style({
-  padding: "12px 14px",
-  borderTop: `1px solid ${T.navyLine}`,
-  display: "flex",
-  alignItems: "center",
-  gap: 9,
-});
-
-export const footAvatar = style({
-  width: 30,
-  height: 30,
-  borderRadius: 7,
-  background: T.primary,
-  color: "#fff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 13,
-  fontWeight: 700,
-  flexShrink: 0,
-});
-
-export const footMain = style({ flex: 1, minWidth: 0 });
-export const footName = style({ fontSize: 12.5, fontWeight: 700, color: T.navyText });
-export const footRole = style({ fontSize: 11, color: T.navyMuted, marginTop: 1 });
-export const footLogout = style({
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  padding: 4,
-});
-export const footLogoutIcon = style({ width: 15, height: 15, color: T.navyFaint });
 
 /* 메뉴 행 — 레이아웃/공통은 row, 색·상태는 상태 클래스가 담당(겹침 방지) */
 export const row = style({

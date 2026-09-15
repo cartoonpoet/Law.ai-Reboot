@@ -2,6 +2,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { CommandPaletteProvider } from "../search/CommandPaletteProvider";
+import { useCommandPalette } from "../search/useCommandPalette";
 import { Sidebar } from "./Sidebar";
 import { useTenantSwitcher } from "./hooks/useTenantSwitcher";
 import { useMe } from "./hooks/useMe";
@@ -16,10 +18,19 @@ function LocationDisplay() {
   return <div data-testid="location">{location.pathname}</div>;
 }
 
+// 사이드바 검색 버튼이 앱 틀의 검색창 상태를 여는지 보기 위한 표시.
+function PaletteState() {
+  const { isOpen } = useCommandPalette();
+  return <div data-testid="palette">{isOpen ? "open" : "closed"}</div>;
+}
+
 function renderSidebar(initial = "/") {
   render(
     <MemoryRouter initialEntries={[initial]}>
-      <Sidebar />
+      <CommandPaletteProvider>
+        <Sidebar />
+        <PaletteState />
+      </CommandPaletteProvider>
       <Routes>
         <Route path="*" element={<LocationDisplay />} />
       </Routes>
@@ -29,7 +40,6 @@ function renderSidebar(initial = "/") {
 
 describe("Sidebar", () => {
   beforeEach(() => {
-    localStorage.clear();
     vi.mocked(useTenantSwitcher).mockReturnValue({
       memberships: [membership],
       activeMembership: membership,
@@ -48,12 +58,6 @@ describe("Sidebar", () => {
     expect(screen.getByText("홈")).toBeInTheDocument();
     expect(screen.getByText("계약서 검토 요청")).toBeInTheDocument();
     expect(screen.getByText("시스템 관리")).toBeInTheDocument();
-  });
-
-  it("계약 하위 메뉴를 접힘 없이 바로 노출한다", () => {
-    renderSidebar();
-    expect(screen.getByText("계약서 검토 요청")).toBeInTheDocument();
-    expect(screen.getByText("계약 조회")).toBeInTheDocument();
   });
 
   it("체결 전용 메뉴는 계약 조회로 흡수되어 노출되지 않는다", () => {
@@ -77,22 +81,21 @@ describe("Sidebar", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/contract/list");
   });
 
-  it("로그아웃 클릭 시 localStorage를 비우고 /login으로 이동한다", async () => {
+  it("통합검색 버튼을 누르면 검색창이 열린다", async () => {
     const user = userEvent.setup();
-    localStorage.setItem("accessToken", "tok");
-    renderSidebar("/advice");
-    await user.click(screen.getByRole("button", { name: "로그아웃" }));
-    expect(localStorage.getItem("accessToken")).toBeNull();
-    expect(screen.getByTestId("location")).toHaveTextContent("/login");
+    renderSidebar();
+    expect(screen.getByTestId("palette")).toHaveTextContent("closed");
+    await user.click(screen.getByRole("button", { name: "통합검색 열기 (Ctrl K)" }));
+    expect(screen.getByTestId("palette")).toHaveTextContent("open");
   });
 
-  it("foot에 실사용자 이름과 활성 테넌트 역할 라벨을 표시한다", () => {
+  it("맨 아래 내 이름 영역에 이름과 현재 회사·역할을 표시한다", () => {
     renderSidebar();
     expect(screen.getByText("김지원")).toBeInTheDocument();
-    expect(screen.getByText("사내변호사")).toBeInTheDocument();
+    expect(screen.getByText("A상사 · 사내변호사")).toBeInTheDocument();
   });
 
-  it("사용자 정보 로딩 전에는 foot 텍스트 없이 렌더가 깨지지 않는다", () => {
+  it("사용자 정보 로딩 전에는 이름 없이 렌더가 깨지지 않는다", () => {
     vi.mocked(useMe).mockReturnValue({ me: null });
     vi.mocked(useTenantSwitcher).mockReturnValue({
       memberships: [],
@@ -104,10 +107,6 @@ describe("Sidebar", () => {
     });
     renderSidebar();
     expect(screen.getByText("홈")).toBeInTheDocument();
-  });
-
-  it("스위처(현재 회사명)를 foot 위에 렌더한다", () => {
-    renderSidebar();
-    expect(screen.getByText("A상사")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "내 계정 메뉴" })).toBeInTheDocument();
   });
 });
