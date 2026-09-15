@@ -6,6 +6,7 @@ import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { AiAnalysisService } from "../ai-analysis/ai-analysis.service";
+import { ContractTextExtractor } from "../ai-analysis/contract-text.extractor";
 import {
   buildPrecheckPayload,
   buildRiskPayload,
@@ -201,7 +202,32 @@ export class ContractsService {
     private readonly r2: R2Client,
     private readonly approvals: ApprovalsService,
     private readonly aiAnalysis: AiAnalysisService,
+    private readonly contractText: ContractTextExtractor,
   ) {}
+
+  // 계약서 원본 파일에서 본문을 뽑아 넣고 AI 분석을 트리거한다. 파일 다운로드·추출이 요청 응답을 붙잡지 않게
+  // 전부 백그라운드(await 하지 않음) — 추출기는 실패해도 null, trigger 는 어떤 경우에도 reject 하지 않는다.
+  private triggerWithContractText(params: {
+    kind: "precheck" | "risk";
+    contract: ContractResponse;
+    tenantId: string;
+    triggeredByUserId: string;
+  }): void {
+    const { kind, contract, tenantId, triggeredByUserId } = params;
+    void this.contractText
+      .extract(contract.files)
+      .catch(() => null)
+      .then((fileText) =>
+        this.aiAnalysis.trigger({
+          targetType: "contract",
+          targetId: contract.id,
+          kind,
+          tenantId,
+          triggeredByUserId,
+          payload: kind === "risk" ? buildRiskPayload(contract, fileText) : buildPrecheckPayload(contract, fileText),
+        }),
+      );
+  }
 
   // viewer(role/departmentId) 조회. viewerId 없거나 사용자 미존재면 null(evaluate 안전 기본).
   // role 공급원: 활성 테넌트의 UserTenant.role(토큰 stale 방지). admin 은 inHouseCounsel 로 매핑.
@@ -375,13 +401,11 @@ export class ContractsService {
       // 체결 완료 등록(registerAs=signed)은 이 시점엔 실제 서명본이 없을 수 있으므로(위 주석
       // 참고) risk 분석은 finalizeRegistration() 이 실제 파일 확인 후 트리거한다.
       if (req.files.some((f) => f.role === "contract")) {
-        void this.aiAnalysis.trigger({
-          targetType: "contract",
-          targetId: row.id,
+        this.triggerWithContractText({
           kind: "precheck",
+          contract: response,
           tenantId: row.tenantId,
           triggeredByUserId: req.createdById,
-          payload: buildPrecheckPayload(response),
         });
       }
       return response;
@@ -769,13 +793,11 @@ export class ContractsService {
       row.ownerId &&
       isContractFileReplaced(current.files, req.files)
     ) {
-      void this.aiAnalysis.trigger({
-        targetType: "contract",
-        targetId: req.id,
+      this.triggerWithContractText({
         kind: "risk",
+        contract: response,
         tenantId: row.tenantId,
         triggeredByUserId: row.ownerId,
-        payload: buildRiskPayload(response, null),
       });
     }
 
@@ -1063,13 +1085,11 @@ export class ContractsService {
 
     const response = this.toResponse(updated);
     // create() 시점엔 미룬 risk 분석을 여기서 트리거한다 — 이제야 실제 서명본 내용이 있다.
-    void this.aiAnalysis.trigger({
-      targetType: "contract",
-      targetId: row.id,
+    this.triggerWithContractText({
       kind: "risk",
+      contract: response,
       tenantId: row.tenantId,
       triggeredByUserId: req.viewerId,
-      payload: buildRiskPayload(response, null),
     });
 
     return { contract: response };
@@ -1145,13 +1165,11 @@ export class ContractsService {
       // legalReview 진입: 담당자(owner) 배정 전이면 트리거 자체를 건너뛴다(AiAnalysisService 의
       // 자격증명 없음 처리와 동일하게, 호출부에서 미리 걸러 불필요한 skipped 행 생성을 피함).
       if (req.status === "legalReview" && row.ownerId) {
-        void this.aiAnalysis.trigger({
-          targetType: "contract",
-          targetId: req.id,
+        this.triggerWithContractText({
           kind: "risk",
+          contract: response,
           tenantId: row.tenantId,
           triggeredByUserId: row.ownerId,
-          payload: buildRiskPayload(response, null),
         });
       }
       // reviewDone 진입: 상신 전 결재자용 요약(submitBriefing)을 백그라운드로 트리거.
