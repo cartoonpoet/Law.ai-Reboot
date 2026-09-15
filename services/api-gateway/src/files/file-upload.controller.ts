@@ -11,13 +11,13 @@ import {
 import { ClientProxy } from "@nestjs/microservices";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { firstValueFrom } from "rxjs";
-import type { Readable } from "node:stream";
 import type { Request, Response as ExpressResponse } from "express";
 import {
   FILE_PATTERNS,
   type GetUploadTargetRequest,
   type GetUploadTargetResponse,
 } from "@lawai/contracts";
+import { readBodyOfSize } from "../common/read-body";
 import { rpcToHttp } from "../common/rpc-to-http";
 
 const SIZE_MISMATCH_MESSAGE = "올린 파일 크기가 신청한 크기와 다릅니다";
@@ -59,7 +59,7 @@ export class FileUploadController {
     if (Number(req.headers["content-length"]) !== target.size) {
       throw new HttpException(SIZE_MISMATCH_MESSAGE, HttpStatus.BAD_REQUEST);
     }
-    const body = await readBodyOfSize(req, target.size);
+    const body = await readBodyOfSize(req, target.size, SIZE_MISMATCH_MESSAGE);
 
     let upstream: Response;
     try {
@@ -84,21 +84,3 @@ export class FileUploadController {
     return { etag };
   }
 }
-
-// 신청한 크기만큼만 받는다 — 넘치면 바로 멈춰 메모리를 지키고, 모자라도 거절한다.
-const readBodyOfSize = async (stream: Readable, size: number): Promise<Buffer> => {
-  const chunks: Buffer[] = [];
-  let received = 0;
-  for await (const chunk of stream) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
-    received += buffer.length;
-    if (received > size) {
-      throw new HttpException(SIZE_MISMATCH_MESSAGE, HttpStatus.BAD_REQUEST);
-    }
-    chunks.push(buffer);
-  }
-  if (received !== size) {
-    throw new HttpException(SIZE_MISMATCH_MESSAGE, HttpStatus.BAD_REQUEST);
-  }
-  return Buffer.concat(chunks, size);
-};

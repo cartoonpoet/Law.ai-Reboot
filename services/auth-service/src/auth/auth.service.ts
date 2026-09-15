@@ -17,6 +17,7 @@ import {
   type PasswordResetRequestRequest,
   type PasswordResetConfirmRequest,
   type PasswordResetResult,
+  type ChangePasswordRequest,
   type ConsumeResetTokenResult,
   type FindMembershipsResponse,
   type SwitchTenantRequest,
@@ -120,6 +121,29 @@ export class AuthService {
         userId: consumed.userId,
         passwordHash,
       }),
+    );
+    return { ok: true };
+  }
+
+  // 로그인한 사용자의 비밀번호 변경 — 현재 비밀번호가 맞아야 하고, 같은 비밀번호로는 바꾸지 않는다.
+  // 새 비밀번호 형식(영문·숫자·특수문자 8자 이상)은 gateway DTO 가 검증한다.
+  async changePassword(req: ChangePasswordRequest): Promise<PasswordResetResult> {
+    const user = await firstValueFrom(
+      this.userClient.send<UserWithHash | null>(USER_PATTERNS.FIND_BY_ID, { id: req.userId }),
+    );
+    if (!user) {
+      throw new RpcException({ status: 404, message: "사용자를 찾을 수 없습니다" });
+    }
+    const isCurrentValid = await this.passwords.verify(user.passwordHash, req.currentPassword);
+    if (!isCurrentValid) {
+      throw new RpcException({ status: 400, message: "현재 비밀번호가 맞지 않습니다" });
+    }
+    if (req.currentPassword === req.newPassword) {
+      throw new RpcException({ status: 400, message: "현재 비밀번호와 다른 비밀번호를 입력하세요" });
+    }
+    const passwordHash = await this.passwords.hash(req.newPassword);
+    await firstValueFrom(
+      this.userClient.send(USER_PATTERNS.UPDATE_PASSWORD, { userId: user.id, passwordHash }),
     );
     return { ok: true };
   }

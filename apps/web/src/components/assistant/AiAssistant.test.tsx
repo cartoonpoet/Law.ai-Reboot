@@ -19,7 +19,7 @@ vi.mock("../layout/hooks/useNotificationStream", () => ({ useNotificationStream:
 vi.mock("../../api/assistant");
 vi.mock("../../api/contracts");
 
-const ME = { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x" };
+const ME = { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, avatarUrl: null };
 
 const noti = (over: Partial<NotificationDto> = {}): NotificationDto => ({
   id: "n-1",

@@ -9,12 +9,52 @@ import type {
   ConsumeResetTokenRequest,
   UpdatePasswordRequest,
   SearchUsersRequest,
+  AvatarSourceRequest,
+  AvatarUploadTargetRequest,
+  ConfirmAvatarRequest,
+  GetProfileRequest,
+  RemoveAvatarRequest,
+  UpdateProfileRequest,
 } from "@lawai/contracts";
+import { ProfileService } from "./profile.service";
 import { UsersService } from "./users.service";
 
 @Controller()
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly profile: ProfileService,
+  ) {}
+
+  @MessagePattern(USER_PATTERNS.GET_PROFILE)
+  getProfile(@Payload() req: GetProfileRequest) {
+    return this.profile.get(req);
+  }
+
+  @MessagePattern(USER_PATTERNS.UPDATE_PROFILE)
+  updateProfile(@Payload() req: UpdateProfileRequest) {
+    return this.profile.update(req);
+  }
+
+  @MessagePattern(USER_PATTERNS.AVATAR_UPLOAD_TARGET)
+  avatarUploadTarget(@Payload() req: AvatarUploadTargetRequest) {
+    return this.profile.avatarUploadTarget(req);
+  }
+
+  @MessagePattern(USER_PATTERNS.AVATAR_CONFIRM)
+  confirmAvatar(@Payload() req: ConfirmAvatarRequest) {
+    return this.profile.confirmAvatar(req);
+  }
+
+  @MessagePattern(USER_PATTERNS.AVATAR_REMOVE)
+  removeAvatar(@Payload() req: RemoveAvatarRequest) {
+    return this.profile.removeAvatar(req);
+  }
+
+  @MessagePattern(USER_PATTERNS.AVATAR_SOURCE)
+  avatarSource(@Payload() req: AvatarSourceRequest) {
+    return this.profile.avatarSource(req);
+  }
 
   @MessagePattern(USER_PATTERNS.CREATE)
   create(@Payload() req: CreateUserRequest) {

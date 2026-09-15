@@ -19,20 +19,6 @@ export const trigger = style({
   selectors: { "&:hover": { background: "rgba(255,255,255,.04)" } },
 });
 
-export const avatar = style({
-  width: 30,
-  height: 30,
-  borderRadius: 7,
-  background: T.primary,
-  color: "#fff",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 13,
-  fontWeight: 700,
-  flexShrink: 0,
-});
-
 export const main = style({ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" });
 export const name = style({ fontSize: 12.5, fontWeight: 700, color: T.navyText });
 export const sub = style({
