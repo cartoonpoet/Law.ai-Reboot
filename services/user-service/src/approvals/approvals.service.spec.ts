@@ -289,6 +289,21 @@ describe("ApprovalsService", () => {
       expect(res.historyCount).toBe(2);
     });
 
+    it("결재자 프로필 사진은 현재 사진 키를 이미지 경로로 바꿔 주고, 사진·사용자 연결이 없으면 null", async () => {
+      prisma.approvalLine.findFirst.mockResolvedValue(
+        makeLine([
+          step(0, { user: { avatarKey: "avatars/u0/face.png" } }),
+          step(1, { user: { avatarKey: null } }),
+          step(2, { userId: null, user: null }),
+        ]),
+      );
+      prisma.approvalLine.count.mockResolvedValue(1);
+      const res = await svc.getActive("contract", "C1");
+      expect(res.line?.steps.map((s) => s.avatarUrl)).toEqual(["/users/u0/avatar/face.png", null, null]);
+      // R2 키 자체는 응답에 싣지 않는다.
+      expect(JSON.stringify(res.line)).not.toContain("avatars/u0");
+    });
+
     it("라인이 없으면 null + 0", async () => {
       prisma.approvalLine.findFirst.mockResolvedValue(null);
       prisma.approvalLine.count.mockResolvedValue(0);

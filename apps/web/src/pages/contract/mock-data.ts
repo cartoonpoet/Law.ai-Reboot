@@ -23,6 +23,8 @@ export interface ApprovalStepView {
   order: number;
   userId: string | null;
   name: string;
+  // 결재자 프로필 사진(API 기준 경로). 없으면 null — 이름 첫 글자로 대신한다.
+  avatarUrl: string | null;
   dept: string;
   type: string; // 기안/합의/결재/참조
   typeKind: "draft" | "approve" | "agree" | "refer";

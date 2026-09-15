@@ -78,7 +78,7 @@ describe("TenantsService", () => {
     ]);
     const res = await service.listMembers({ tenantContext: { tenantId: "t1", isSystemAdmin: false } });
     expect(res.members).toEqual([
-      { userId: "u1", name: "김담당", email: "lead@d.com", role: "contractManager", joinedAt: "2026-09-01T00:00:00.000Z" },
+      { userId: "u1", name: "김담당", avatarUrl: null, email: "lead@d.com", role: "contractManager", joinedAt: "2026-09-01T00:00:00.000Z" },
     ]);
     expect(res.invites[0]).toMatchObject({ id: "i1", email: "p@d.com" });
   });

@@ -64,8 +64,8 @@ const response: ContractResponse = {
     id: "l-1",
     status: "pending",
     steps: [
-      { id: "s-1", stepOrder: 0, userId: "u-son", name: "손준호", dept: "법무팀", type: "draft", status: "pending", comment: null, decidedAt: null },
-      { id: "s-2", stepOrder: 1, userId: "u-lee", name: "이법무", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
+      { id: "s-1", stepOrder: 0, userId: "u-son", name: "손준호", avatarUrl: null, dept: "법무팀", type: "draft", status: "pending", comment: null, decidedAt: null },
+      { id: "s-2", stepOrder: 1, userId: "u-lee", name: "이법무", avatarUrl: null, dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
     ],
     currentStepId: "s-2",
     submittedById: "u-son",

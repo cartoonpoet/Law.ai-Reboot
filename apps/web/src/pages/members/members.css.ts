@@ -55,6 +55,9 @@ export const td = style({
 
 export const emailCell = style({ fontWeight: 600, color: themeVars.color.textHeading });
 
+// 멤버 이름 칸 — 프로필 사진 + 이름.
+export const nameCell = style({ display: "inline-flex", alignItems: "center", gap: 8 });
+
 export const empty = style({
   padding: 16,
   fontSize: 12.5,

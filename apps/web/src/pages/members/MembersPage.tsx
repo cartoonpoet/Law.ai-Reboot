@@ -4,6 +4,7 @@ import type { TenantRole } from "@lawai/contracts";
 import { useMembers } from "./useMembers";
 import { InviteMembersModal } from "./InviteMembersModal";
 import { getTenantRoleLabel } from "../../utils/tenantRoleLabel";
+import { UserAvatar } from "../../components/ui/UserAvatar";
 import * as css from "./members.css";
 
 const formatDate = (iso: string): string => new Date(iso).toLocaleDateString("ko-KR");
@@ -53,7 +54,12 @@ export function MembersPage() {
           <tbody>
             {members.map((m) => (
               <tr key={m.userId}>
-                <td className={`${css.td} ${css.emailCell}`}>{m.name}</td>
+                <td className={`${css.td} ${css.emailCell}`}>
+                  <span className={css.nameCell}>
+                    <UserAvatar name={m.name} avatarUrl={m.avatarUrl} size="small" isDecorative />
+                    {m.name}
+                  </span>
+                </td>
                 <td className={css.td}>{m.email}</td>
                 <td className={css.td}>{getTenantRoleLabel(m.role as TenantRole)}</td>
                 <td className={css.td}>{formatDate(m.joinedAt)}</td>

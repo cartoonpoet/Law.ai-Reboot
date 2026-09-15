@@ -20,6 +20,7 @@ import type {
 import { htmlToPreview } from "./htmlToPreview";
 import { toFileAttachmentDto } from "../files/files.service";
 import { R2Client } from "../files/r2.client";
+import { toAvatarPath } from "@lawai/contracts";
 
 // 코멘트 권한 평가에 필요한 계약 행(references 포함 — cc 사용자 추출용).
 const contractAuthzInclude = {
@@ -30,9 +31,9 @@ type ContractForAuthz = Prisma.ContractGetPayload<{
   include: typeof contractAuthzInclude;
 }>;
 
-// 코멘트 + 작성자 이름(authorName 매핑용) + 멘션(userId+이름) + 첨부(P3).
+// 코멘트 + 작성자 이름·사진(authorName·authorAvatarUrl 매핑용) + 멘션(userId+이름) + 첨부(P3).
 const commentInclude = {
-  author: { select: { name: true } },
+  author: { select: { name: true, avatarKey: true } },
   mentions: { include: { user: { select: { id: true, name: true } } } },
   attachments: {
     select: {
@@ -217,6 +218,7 @@ export class CommentsService {
       contractId: row.contractId,
       authorId: row.authorId,
       authorName: row.author.name,
+      authorAvatarUrl: toAvatarPath(row.authorId, row.author.avatarKey),
       role: row.role,
       body: isDeleted ? "" : row.body,
       mentions: isDeleted
