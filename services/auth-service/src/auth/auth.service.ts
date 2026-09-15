@@ -91,7 +91,9 @@ export class AuthService {
         }),
       );
       const webUrl = process.env.APP_WEB_URL ?? "http://localhost:5173";
-      this.mail.sendPasswordResetLink(
+      // 기다리지 않는다 — 발송 시간만큼 응답이 늦어지면 응답 시간으로 가입 여부가 드러난다.
+      // 발송 실패는 MailService 안에서 기록만 하고 삼킨다.
+      void this.mail.sendPasswordResetLink(
         user.email,
         `${webUrl}/reset-password?token=${rawToken}`,
       );
@@ -382,7 +384,7 @@ export class AuthService {
     );
     if (!result.created) return false;
     const webUrl = process.env.APP_WEB_URL ?? "http://localhost:5173";
-    this.mail.sendInviteLink(
+    await this.mail.sendInviteLink(
       params.email,
       `${webUrl}/invite?token=${rawToken}`,
       params.tenantName,
@@ -464,7 +466,7 @@ export class AuthService {
       }),
     );
     const webUrl = process.env.APP_WEB_URL ?? "http://localhost:5173";
-    this.mail.sendInviteLink(
+    await this.mail.sendInviteLink(
       rotated.email,
       `${webUrl}/invite?token=${rawToken}`,
       rotated.tenantName,
