@@ -1,34 +1,80 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { NotificationDto } from "@lawai/contracts";
 import { chatWithAssistant } from "../../api/assistant";
 import { updateContractStatus } from "../../api/contracts";
 import { useMe } from "../layout/hooks/useMe";
+import { useNotifications } from "../layout/hooks/useNotifications";
 import { AiAssistant } from "./AiAssistant";
+import { AssistantProvider } from "./AssistantProvider";
 import { ASSISTANT_GREETING, ASSISTANT_POPUP, ASSISTANT_SUGGESTIONS } from "./assistantData";
 
 vi.mock("../layout/hooks/useMe");
+vi.mock("../layout/hooks/useNotifications");
+// SSE 구독은 외부 시스템(EventSource) 의존 — 뷰 테스트에서는 no-op.
+vi.mock("../layout/hooks/useNotificationStream", () => ({ useNotificationStream: vi.fn() }));
 vi.mock("../../api/assistant");
 vi.mock("../../api/contracts");
 
 const ME = { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x" };
 
+const noti = (over: Partial<NotificationDto> = {}): NotificationDto => ({
+  id: "n-1",
+  type: "comment_mention",
+  actorId: "a-1",
+  actorName: "홍길동",
+  targetType: "Comment",
+  targetId: "c-1",
+  detail: { contractId: "k-1", preview: "검토 부탁드립니다" },
+  isRead: false,
+  createdAt: "2026-06-22T02:00:00.000Z",
+  ...over,
+});
+
+const mockNotifications = (over: Partial<ReturnType<typeof useNotifications>> = {}) => {
+  const markRead = vi.fn().mockResolvedValue(undefined);
+  const markAllRead = vi.fn().mockResolvedValue(undefined);
+  vi.mocked(useNotifications).mockReturnValue({
+    notifications: [],
+    unreadCount: 0,
+    isLoading: false,
+    markRead,
+    markAllRead,
+    ...over,
+  });
+  return { markRead, markAllRead };
+};
+
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
+
 const renderAssistant = (path = "/") =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}>
       <MemoryRouter initialEntries={[path]}>
-        <AiAssistant />
+        <AssistantProvider>
+          <AiAssistant />
+        </AssistantProvider>
+        <Routes>
+          <Route path="*" element={<LocationDisplay />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
+
+const getBottomNav = () => within(screen.getByRole("navigation", { name: "AI 비서 메뉴" }));
 
 describe("AiAssistant", () => {
   beforeEach(() => {
     vi.mocked(useMe).mockReturnValue({ me: ME });
     vi.mocked(chatWithAssistant).mockReset();
     vi.mocked(updateContractStatus).mockReset();
+    mockNotifications();
   });
 
   it("홈 인사에 로그인 사용자 이름을 쓰고, 불러오기 전엔 이름 없이 인사한다", async () => {
@@ -112,5 +158,93 @@ describe("AiAssistant", () => {
     await user.click(await screen.findByRole("button", { name: "취소" }));
     expect(screen.getByText("취소했어요")).toBeInTheDocument();
     expect(updateContractStatus).not.toHaveBeenCalled();
+  });
+
+  describe("알림(헤더 알림 종 흡수)", () => {
+    it("비서 버튼에 안 읽은 알림 수를 표시하고, 99 를 넘으면 99+ 로 줄인다", () => {
+      mockNotifications({ unreadCount: 3 });
+      const { unmount } = renderAssistant();
+      expect(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 3건" })).toHaveTextContent("3");
+      unmount();
+
+      mockNotifications({ unreadCount: 150 });
+      renderAssistant();
+      expect(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 99+건" })).toHaveTextContent("99+");
+    });
+
+    it("안 읽은 알림이 없으면 비서 버튼에 숫자가 없고 홈에 알림 카드도 없다", async () => {
+      const user = userEvent.setup();
+      mockNotifications({ notifications: [noti({ isRead: true })], unreadCount: 0 });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+      expect(screen.queryByRole("region", { name: "새 알림" })).not.toBeInTheDocument();
+    });
+
+    it("홈 맨 위 새 알림 카드는 안 읽은 알림만 최대 3건 보여주고, 전체 보기로 알림 화면을 연다", async () => {
+      const user = userEvent.setup();
+      const notifications = [
+        noti({ id: "n-1", actorName: "가" }),
+        noti({ id: "n-2", actorName: "나" }),
+        noti({ id: "n-3", actorName: "다" }),
+        noti({ id: "n-4", actorName: "라" }),
+        noti({ id: "n-5", actorName: "읽은사람", isRead: true }),
+      ];
+      mockNotifications({ notifications, unreadCount: 4 });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 4건" }));
+
+      const card = within(screen.getByRole("region", { name: "새 알림" }));
+      expect(card.getByText("가")).toBeInTheDocument();
+      expect(card.getByText("다")).toBeInTheDocument();
+      expect(card.queryByText("라")).not.toBeInTheDocument();
+      expect(card.queryByText("읽은사람")).not.toBeInTheDocument();
+
+      await user.click(card.getByRole("button", { name: "전체 보기" }));
+      expect(screen.getByRole("heading", { name: "알림" })).toBeInTheDocument();
+      expect(screen.getByText("라")).toBeInTheDocument();
+      expect(screen.getByText("읽은사람")).toBeInTheDocument();
+    });
+
+    it("알림을 누르면 읽음 처리하고 그 계약 화면으로 이동하며 비서를 닫는다", async () => {
+      const user = userEvent.setup();
+      const { markRead } = mockNotifications({ notifications: [noti()], unreadCount: 1 });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(within(screen.getByRole("region", { name: "새 알림" })).getByText("홍길동"));
+
+      expect(markRead).toHaveBeenCalledWith("n-1");
+      expect(screen.getByTestId("location")).toHaveTextContent("/contract/k-1");
+      expect(screen.queryByRole("region", { name: "AI 비서" })).not.toBeInTheDocument();
+    });
+
+    it("하단 알림 탭에서 모두 읽음을 누를 수 있고, 안 읽음 필터로 좁혀 본다", async () => {
+      const user = userEvent.setup();
+      const { markAllRead } = mockNotifications({
+        notifications: [noti({ id: "n-1", actorName: "안읽은분" }), noti({ id: "n-2", actorName: "읽은분", isRead: true })],
+        unreadCount: 1,
+      });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
+
+      expect(screen.getByText("읽은분")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "모두 읽음" }));
+      expect(markAllRead).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByRole("button", { name: "안 읽음 1" }));
+      expect(screen.getByText("안읽은분")).toBeInTheDocument();
+      expect(screen.queryByText("읽은분")).not.toBeInTheDocument();
+    });
+
+    it("안 읽은 알림이 없으면 모두 읽음이 비활성이고 안 읽음 필터에 빈 안내를 보여준다", async () => {
+      const user = userEvent.setup();
+      mockNotifications({ notifications: [noti({ isRead: true })], unreadCount: 0 });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+      await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
+      expect(screen.getByRole("button", { name: "모두 읽음" })).toBeDisabled();
+      await user.click(screen.getByRole("button", { name: "안 읽음 0" }));
+      expect(screen.getByText("안 읽은 알림이 없어요.")).toBeInTheDocument();
+    });
   });
 });
