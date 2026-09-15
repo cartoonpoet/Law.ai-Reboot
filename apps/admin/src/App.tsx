@@ -3,6 +3,7 @@ import { LoginPage } from "./pages/auth/LoginPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { TenantListPage } from "./pages/tenants/TenantListPage";
 import { TenantDetailPage } from "./pages/tenants/TenantDetailPage";
+import { DeletedContractListPage } from "./pages/contracts/DeletedContractListPage";
 import { DashboardMock } from "./pages/mockups/DashboardMock";
 import { RequireAdmin } from "./components/RequireAdmin";
 
@@ -33,6 +34,14 @@ export function App() {
         element={
           <RequireAdmin>
             <TenantDetailPage />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/contracts/deleted"
+        element={
+          <RequireAdmin>
+            <DeletedContractListPage />
           </RequireAdmin>
         }
       />

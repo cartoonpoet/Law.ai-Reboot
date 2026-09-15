@@ -31,7 +31,7 @@ export const DeleteContractModal = ({ contractId, contractName, onClose }: Delet
     >
       <div className={css.body}>
         <Alert type="info" size="small">
-          <b>{contractName}</b> 계약을 삭제합니다. 목록·검색·대시보드에서 사라지며, 첨부 파일과 변경 기록은 보존됩니다.
+          <b>{contractName}</b> 계약을 삭제합니다. 목록·검색·대시보드에서 사라지며, 첨부 파일과 변경 기록은 보존됩니다. 잘못 지웠다면 시스템 관리자가 복구할 수 있어요.
         </Alert>
         {error && <p className={css.error}>{error}</p>}
       </div>

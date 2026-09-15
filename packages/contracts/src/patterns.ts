@@ -111,6 +111,10 @@ export const ADMIN_PATTERNS = {
   GET_TENANT: "admin.getTenant",
   // 고객사 요금제/상태/체험판만료 변경 + 감사 기록 (Spec 3).
   UPDATE_TENANT: "admin.updateTenant",
+  // 삭제된 계약 목록(전 고객사, 최근 삭제 순) — 회사·작성자·삭제한 사람.
+  LIST_DELETED_CONTRACTS: "admin.listDeletedContracts",
+  // 삭제된 계약 복구(deletedAt 해제) + 감사 기록.
+  RESTORE_CONTRACT: "admin.restoreContract",
 } as const;
 
 export const NOTIFICATION_PATTERNS = {

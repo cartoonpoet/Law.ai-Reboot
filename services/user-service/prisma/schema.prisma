@@ -468,6 +468,8 @@ enum AuditAction {
   transition
   view
   compare_report_download
+  // 삭제된 계약 복구(시스템 관리자).
+  restore
 
   @@schema("shared")
 }
