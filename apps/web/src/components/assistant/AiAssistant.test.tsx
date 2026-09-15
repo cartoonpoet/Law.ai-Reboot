@@ -293,6 +293,33 @@ describe("AiAssistant", () => {
       expect(screen.getByTestId("location")).toHaveTextContent("/contract/k-7");
     });
 
+    it("계약 만료 임박 알림은 보낸 사람을 Law.ai 로, 무슨 알림인지와 만료일을 보여주고 누르면 계약으로 간다", async () => {
+      const user = userEvent.setup();
+      mockNotifications({
+        notifications: [
+          noti({
+            id: "n-exp",
+            type: "contract_expiring_30",
+            actorId: "system",
+            actorName: "",
+            targetType: "Contract",
+            targetId: "k-3",
+            detail: { contractId: "k-3", title: "용역계약", preview: "용역계약 · 2026-10-10 만료 (25일 남음)", daysLeft: 25 },
+          }),
+        ],
+        unreadCount: 1,
+      });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      const card = within(screen.getByRole("region", { name: "새 알림" }));
+      expect(card.getByText("Law.ai")).toBeInTheDocument();
+      expect(card.getByText("계약 만료 30일 전이에요")).toBeInTheDocument();
+      expect(card.getByText("용역계약 · 2026-10-10 만료 (25일 남음)")).toBeInTheDocument();
+
+      await user.click(card.getByText("Law.ai"));
+      expect(screen.getByTestId("location")).toHaveTextContent("/contract/k-3");
+    });
+
     it("걸러 본 종류의 알림이 없으면 그 종류에 맞는 빈 안내를 보여준다", async () => {
       const user = userEvent.setup();
       mockNotifications({ notifications: [noti({ type: "comment_mention" })], unreadCount: 1 });
