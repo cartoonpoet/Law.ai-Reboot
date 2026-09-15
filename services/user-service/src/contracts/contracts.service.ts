@@ -438,7 +438,8 @@ export class ContractsService {
   async get(req: GetContractRequest): Promise<ContractResponse> {
     const ctx = req.tenantContext!;
     const row = await this.prisma.contract.findFirst({
-      where: { id: req.id, deletedAt: null, ...tenantScope(ctx) },
+      // 삭제된 계약도 읽는다 — 알림·결재함 링크로 들어온 사람에게 "삭제됨"을 알려주기 위해서.
+      where: { id: req.id, ...tenantScope(ctx) },
       include: contractInclude,
     });
     if (!row) {
@@ -452,6 +453,10 @@ export class ContractsService {
     // admin/법무팀은 canView=true 라 영향 없음.
     if (!authz.canView) {
       throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
+    }
+    // 볼 권한이 있던 사람에게만 삭제 사실을 알린다(권한 없는 사람은 위에서 일반 404).
+    if (row.deletedAt) {
+      throw new RpcException({ status: 404, message: "삭제된 계약입니다" });
     }
 
     // 결재 라인은 결재 모듈에서 폴리모픽 조회(활성 = 최신 라인).

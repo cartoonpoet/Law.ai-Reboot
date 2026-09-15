@@ -31,6 +31,7 @@ export const NotificationItem = ({ notification, onSelect }: NotificationItemPro
         {notification.isRead ? null : <span className={css.unreadDot} />}
       </span>
       {preview ? <span className={css.preview}>{preview}</span> : null}
+      {notification.isTargetDeleted ? <span className={css.deletedNote}>삭제된 계약이에요</span> : null}
       <time className={css.time}>{formatTime(notification.createdAt)}</time>
     </button>
   );

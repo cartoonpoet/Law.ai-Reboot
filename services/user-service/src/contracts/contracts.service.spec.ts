@@ -287,13 +287,13 @@ describe("ContractsService", () => {
     expect(aiAnalysisMock.trigger).not.toHaveBeenCalled();
   });
 
-  it("get은 deletedAt null 조건으로 조회하고 없으면 404 RpcException", async () => {
+  it("get은 테넌트 안에서 조회하고 없으면 404 RpcException", async () => {
     prismaMock.contract.findFirst.mockResolvedValue(null);
     await expect(service.get({ id: "missing", ...makeCtx() })).rejects.toBeInstanceOf(
       RpcException,
     );
     expect(prismaMock.contract.findFirst).toHaveBeenCalledWith({
-      where: { id: "missing", deletedAt: null, tenantId: "t1" },
+      where: { id: "missing", tenantId: "t1" },
       include: {
         requester: { select: { name: true } },
         owner: { select: { name: true } },
@@ -1119,6 +1119,21 @@ describe("ContractsService", () => {
     await expect(
       service.get({ id: "ct-1", viewerId: "stranger", ...makeCtx() }),
     ).rejects.toBeInstanceOf(RpcException);
+  });
+
+  it("get: 볼 수 있던 계약이 삭제됐으면 '삭제된 계약입니다' 404", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue({ ...rowWithSecrets(), deletedAt: new Date() });
+    await expect(
+      service.get({ id: "ct-1", viewerId: "creator-1", ...makeCtx() }),
+    ).rejects.toMatchObject({ error: { status: 404, message: "삭제된 계약입니다" } });
+  });
+
+  it("get: 볼 권한이 없는 사람에게는 삭제 여부를 알리지 않는다(일반 404)", async () => {
+    prismaMock.userTenant.findFirst.mockResolvedValueOnce(null);
+    prismaMock.contract.findFirst.mockResolvedValue({ ...rowWithSecrets(), deletedAt: new Date() });
+    await expect(
+      service.get({ id: "ct-1", viewerId: "stranger", ...makeCtx() }),
+    ).rejects.toMatchObject({ error: { status: 404, message: "계약을 찾을 수 없습니다" } });
   });
 
   it("get: 응답에 can 필드(edit/assign/transition/delete/replaceSignedFile)를 부착한다", async () => {

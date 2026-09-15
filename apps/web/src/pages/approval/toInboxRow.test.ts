@@ -9,6 +9,7 @@ const item: ApprovalInboxItem = {
   targetType: "contract",
   targetId: "C1",
   targetCode: "C20260908-0142",
+  isTargetDeleted: false,
   title: "클라우드 서비스 이용계약",
   submittedById: "u1",
   submittedByName: "한지원",
@@ -41,6 +42,12 @@ describe("toInboxRow", () => {
   it("문서 아래 줄은 관리번호 · 계약, 번호가 없으면 업무 이름만", () => {
     expect(toInboxRow(item, NOW).docMeta).toBe("C20260908-0142 · 계약");
     expect(toInboxRow({ ...item, targetCode: null }, NOW).docMeta).toBe("계약");
+  });
+
+  it("대상 계약이 삭제됐으면 보조 줄에 삭제됨을 붙이고 이동 경로를 없앤다", () => {
+    const row = toInboxRow({ ...item, isTargetDeleted: true }, NOW);
+    expect(row.docMeta).toBe("C20260908-0142 · 계약 · 삭제됨");
+    expect(row.href).toBeNull();
   });
 
   it("경과는 당일 오늘, 지난 날은 D+n 경고", () => {

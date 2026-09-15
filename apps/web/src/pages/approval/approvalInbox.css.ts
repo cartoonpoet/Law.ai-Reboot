@@ -161,6 +161,15 @@ export const docTitle = style({
   },
 });
 
+// 대상 계약이 삭제된 결재 제목 — 누를 수 없음을 흐린 색으로 보인다.
+export const docTitleDeleted = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  fontWeight: 700,
+  color: MUTED,
+});
+
 export const docMeta = style({ fontSize: 12, color: FAINT, fontVariantNumeric: "tabular-nums" });
 
 const dotPulse = keyframes({

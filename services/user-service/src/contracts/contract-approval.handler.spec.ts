@@ -51,23 +51,23 @@ describe("ContractApprovalOutcomeHandler", () => {
     expect(prisma.contract.updateMany).not.toHaveBeenCalled();
   });
 
-  it("getTargetCodes: 계약 id 로 관리번호를 찾아 id → code 로 돌려준다", async () => {
+  it("getTargetInfo: 계약 id 로 관리번호와 삭제 여부를 찾아 돌려준다(삭제된 계약도 포함)", async () => {
     prisma.contract.findMany.mockResolvedValue([
-      { id: "ct-1", code: "C20260908-0142" },
-      { id: "ct-2", code: "C20260902-0077" },
+      { id: "ct-1", code: "C20260908-0142", deletedAt: null },
+      { id: "ct-2", code: "C20260902-0077", deletedAt: new Date("2026-09-14T00:00:00.000Z") },
     ]);
-    await expect(handler.getTargetCodes(["ct-1", "ct-2"])).resolves.toEqual({
-      "ct-1": "C20260908-0142",
-      "ct-2": "C20260902-0077",
+    await expect(handler.getTargetInfo(["ct-1", "ct-2"])).resolves.toEqual({
+      "ct-1": { code: "C20260908-0142", isDeleted: false },
+      "ct-2": { code: "C20260902-0077", isDeleted: true },
     });
     expect(prisma.contract.findMany).toHaveBeenCalledWith({
       where: { id: { in: ["ct-1", "ct-2"] } },
-      select: { id: true, code: true },
+      select: { id: true, code: true, deletedAt: true },
     });
   });
 
-  it("getTargetCodes: 빈 목록이면 조회하지 않는다", async () => {
-    await expect(handler.getTargetCodes([])).resolves.toEqual({});
+  it("getTargetInfo: 빈 목록이면 조회하지 않는다", async () => {
+    await expect(handler.getTargetInfo([])).resolves.toEqual({});
     expect(prisma.contract.findMany).not.toHaveBeenCalled();
   });
 });

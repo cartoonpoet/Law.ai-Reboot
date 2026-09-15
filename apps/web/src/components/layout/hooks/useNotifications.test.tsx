@@ -20,6 +20,7 @@ const noti = (over: Partial<NotificationDto> = {}): NotificationDto => ({
   targetId: "c-1",
   detail: { contractId: "k-1", preview: "본문" },
   isRead: false,
+  isTargetDeleted: false,
   createdAt: "2026-06-22T02:00:00.000Z",
   ...over,
 });

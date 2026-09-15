@@ -40,6 +40,7 @@ const createApproval = (overrides: Partial<ApprovalInboxItem>): ApprovalInboxIte
   lineStatus: "inProgress",
   myStatus: "pending",
   myDecidedAt: null,
+  isTargetDeleted: false,
   ...overrides,
 } as ApprovalInboxItem);
 

@@ -17,6 +17,8 @@ export interface NotificationDto {
   detail: Record<string, unknown> | null;
   // 읽음 여부. 서버에서 readAt != null 로 파생.
   isRead: boolean;
+  // detail.contractId 가 가리키는 계약이 삭제됐는지. 삭제된 계약 알림은 눌러도 이동하지 않는다.
+  isTargetDeleted: boolean;
   createdAt: string;
 }
 
