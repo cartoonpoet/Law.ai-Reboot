@@ -5,12 +5,13 @@ import type { TenantMembership } from "@lawai/contracts";
 import { clearTokens } from "../../api/tokens";
 import { cx } from "../../pages/contract/cx";
 import { getTenantRoleLabel } from "../../utils/tenantRoleLabel";
+import { UserAvatar } from "../ui/UserAvatar";
 import { useMe } from "./hooks/useMe";
 import { useTenantSwitcher } from "./hooks/useTenantSwitcher";
 import * as css from "./profileMenu.css";
 
 /**
- * 사이드바 맨 아래 내 이름 메뉴 — 설정 · 회사 전환(소속 2곳 이상) · 로그아웃.
+ * 사이드바 맨 아래 내 이름 메뉴 — 설정(내 정보 설정) · 회사 전환(소속 2곳 이상) · 로그아웃.
  * 헤더의 설정 버튼과 사이드바 회사 전환 칸을 이 한곳으로 모았다.
  * 외부 클릭은 투명 backdrop 으로 닫는다(useRef/useEffect 미사용).
  */
@@ -27,7 +28,8 @@ export const ProfileMenu = () => {
 
   const handleSettings = () => {
     setIsOpen(false);
-    navigate("/system");
+    // 개인 설정(내 정보·알림·비밀번호). 서비스 전체 설정인 시스템 관리(/system)와 다르다.
+    navigate("/settings/profile");
   };
 
   const handleLogout = () => {
@@ -49,7 +51,7 @@ export const ProfileMenu = () => {
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
       >
-        <span className={css.avatar}>{me?.name.charAt(0) ?? ""}</span>
+        <UserAvatar name={me?.name ?? null} avatarUrl={me?.avatarUrl ?? null} size="small" />
         <span className={css.main}>
           <span className={css.name}>{me?.name ?? ""}</span>
           <span className={css.sub}>{summary}</span>

@@ -7,6 +7,7 @@ import {
   AUTH_PATTERNS,
   type AcceptInviteRequest,
   type AcceptInviteResponse,
+  type ChangePasswordRequest,
   type InviteInfoResponse,
   type JwtPayload,
   type MyTenantsRequest,
@@ -20,6 +21,7 @@ import {
   RefreshDto,
   PasswordResetRequestDto,
   PasswordResetConfirmDto,
+  ChangePasswordDto,
 } from "./dto";
 
 @ApiTags("auth")
@@ -84,6 +86,25 @@ export class AuthController {
       this.authClient
         .send(AUTH_PATTERNS.PASSWORD_RESET_CONFIRM, dto)
         .pipe(rpcToHttp()),
+    );
+  }
+
+  @Post("password/change")
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: "비밀번호 변경",
+    description: "로그인한 사용자가 현재 비밀번호를 확인한 뒤 새 비밀번호로 바꾼다.",
+  })
+  changePassword(@Body() dto: ChangePasswordDto, @Req() req: Request) {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: ChangePasswordRequest = {
+      userId: sub,
+      currentPassword: dto.currentPassword,
+      newPassword: dto.newPassword,
+    };
+    return firstValueFrom(
+      this.authClient.send(AUTH_PATTERNS.PASSWORD_CHANGE, payload).pipe(rpcToHttp()),
     );
   }
 

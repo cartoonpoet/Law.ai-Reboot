@@ -4,6 +4,8 @@ export const AUTH_PATTERNS = {
   VALIDATE: "auth.validate",
   PASSWORD_RESET_REQUEST: "auth.password.resetRequest",
   PASSWORD_RESET_CONFIRM: "auth.password.resetConfirm",
+  // 로그인한 사용자의 비밀번호 변경(현재 비밀번호 확인).
+  PASSWORD_CHANGE: "auth.password.change",
   REFRESH: "auth.refresh",
   SWITCH_TENANT: "auth.switchTenant",
   MY_TENANTS: "auth.myTenants",
@@ -32,6 +34,13 @@ export const USER_PATTERNS = {
   CANCEL_INVITATION: "user.invitation.cancel",
   FIND_INVITATION: "user.invitation.find",
   ACCEPT_INVITATION: "user.invitation.accept",
+  // 내 정보 설정 — 이름·이메일 알림·프로필 사진.
+  GET_PROFILE: "user.profile.get",
+  UPDATE_PROFILE: "user.profile.update",
+  AVATAR_UPLOAD_TARGET: "user.avatar.uploadTarget",
+  AVATAR_CONFIRM: "user.avatar.confirm",
+  AVATAR_REMOVE: "user.avatar.remove",
+  AVATAR_SOURCE: "user.avatar.source",
 } as const;
 
 export const DEPARTMENT_PATTERNS = {

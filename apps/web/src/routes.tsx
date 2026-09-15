@@ -9,6 +9,7 @@ import { InviteAcceptPage } from "./pages/login/InviteAcceptPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { MembersPage } from "./pages/members/MembersPage";
 import { SystemSettingsPage } from "./pages/system/SystemSettingsPage";
+import { SettingsPage } from "./pages/settings/SettingsPage";
 import { ContractListPage } from "./pages/contract/ContractListPage";
 import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
 import { ContractCreatePage } from "./pages/contract/ContractCreatePage";
@@ -64,6 +65,8 @@ export function AppRoutes() {
         <Route path="/contract/request" element={<ContractCreatePage />} />
         <Route path="/members" element={<MembersPage />} />
         <Route path="/system" element={<SystemSettingsPage />} />
+        <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
+        <Route path="/settings/:tab" element={<SettingsPage />} />
         <Route path="/approvals/inbox" element={<ApprovalInboxPage />} />
         <Route path="/contract/:id/edit" element={<ContractEditPage />} />
         <Route path="/contract/:id" element={<ContractDetailPage />} />

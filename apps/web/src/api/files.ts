@@ -6,11 +6,8 @@ import type {
   PresignUploadRequest,
   PresignUploadResponse,
 } from "@lawai/contracts";
-import { apiFetch, getApiBaseUrl } from "./client";
-
-// 서버는 파일 업로드·다운로드 주소를 API 기준 경로(/files/...)로 주므로 API 주소를 앞에 붙인다.
-const toApiUrl = (url: string) =>
-  url.startsWith("/") ? `${getApiBaseUrl()}${url}` : url;
+import { toApiUrl } from "./apiUrl";
+import { apiFetch } from "./client";
 
 // presign — 클라이언트가 SubtleCrypto 로 sha256 계산 후 호출.
 // uploadUrl 은 우리 서버를 거쳐 R2 로 올리는 주소다(회사망 등에서 R2 직접 접속이 막혀도 올라가게).

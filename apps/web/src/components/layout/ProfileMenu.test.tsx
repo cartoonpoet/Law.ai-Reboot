@@ -50,7 +50,7 @@ describe("ProfileMenu", () => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.mocked(useMe).mockReturnValue({
-      me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x" },
+      me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, avatarUrl: null },
     });
   });
 
@@ -68,17 +68,30 @@ describe("ProfileMenu", () => {
     expect(screen.getByRole("menuitem", { name: "로그아웃" })).toBeInTheDocument();
   });
 
+  it("프로필 사진이 있으면 이름 첫 글자 대신 사진을 보여준다", () => {
+    mockTenants({ memberships: [m1] });
+    vi.mocked(useMe).mockReturnValue({
+      me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, avatarUrl: "/users/u1/avatar/a.png" },
+    });
+    render(
+      <MemoryRouter>
+        <ProfileMenu />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("img", { name: "김지원 프로필 사진" })).toHaveAttribute("src", expect.stringContaining("/users/u1/avatar/a.png"));
+  });
+
   it("소속 회사가 1곳이면 회사 전환을 보여주지 않는다", async () => {
     mockTenants({ memberships: [m1] });
     await renderMenu();
     expect(screen.queryByText(/회사 전환/)).not.toBeInTheDocument();
   });
 
-  it("설정을 누르면 시스템 관리 화면으로 이동하고 메뉴가 닫힌다", async () => {
+  it("설정을 누르면 시스템 관리가 아니라 내 정보 설정으로 이동하고 메뉴가 닫힌다", async () => {
     mockTenants();
     const user = await renderMenu();
     await user.click(screen.getByRole("menuitem", { name: "설정" }));
-    expect(screen.getByTestId("location")).toHaveTextContent("/system");
+    expect(screen.getByTestId("location")).toHaveTextContent("/settings/profile");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
