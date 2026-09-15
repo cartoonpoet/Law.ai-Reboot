@@ -108,17 +108,17 @@ export class CommentsService {
   private async loadEmailRecipients(
     userIds: string[],
   ): Promise<
-    { id: string; email: string; name: string; emailNotify: boolean }[]
+    { id: string; email: string; name: string; emailNotify: boolean; notifyComment: boolean }[]
   > {
     if (userIds.length === 0) return [];
     return this.prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, email: true, name: true, emailNotify: true },
+      select: { id: true, email: true, name: true, emailNotify: true, notifyComment: true },
     });
   }
 
   // 멘션 이메일 발송(best-effort). 인앱 알림 직후 호출 — 코멘트 응답/인앱 흐름을 막지 않는다.
-  // - 발송 대상은 emailNotify === true 인 수신자만(수신 거부 스킵).
+  // - 발송 대상은 이메일 알림과 코멘트 알림을 모두 켠 수신자만(수신 거부 스킵).
   // - actorName 은 actor(viewer 본인) 이름 1건 조회로 확보(AuthzViewer 에 name 없음).
   // - Promise.allSettled 로 병렬 + 개별 실패 격리. 발송 자체가 throw 해도 swallow.
   private async sendMentionEmails(args: {
@@ -141,7 +141,7 @@ export class CommentsService {
         }),
       ]);
       const actorName = actor?.name ?? "알 수 없는 사용자";
-      const targets = recipients.filter((r) => r.emailNotify && r.email);
+      const targets = recipients.filter((r) => r.emailNotify && r.notifyComment && r.email);
 
       await Promise.allSettled(
         targets.map((r) =>

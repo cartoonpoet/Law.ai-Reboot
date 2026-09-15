@@ -20,7 +20,7 @@ vi.mock("../layout/hooks/useNotificationStream", () => ({ useNotificationStream:
 vi.mock("../../api/assistant");
 vi.mock("../../api/contracts");
 
-const ME = { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, avatarUrl: null };
+const ME = { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, avatarUrl: null };
 
 const noti = (over: Partial<NotificationDto> = {}): NotificationDto => ({
   id: "n-1",
@@ -250,6 +250,57 @@ describe("AiAssistant", () => {
       await user.click(screen.getByRole("button", { name: "안 읽음 1" }));
       expect(screen.getByText("안읽은분")).toBeInTheDocument();
       expect(screen.queryByText("읽은분")).not.toBeInTheDocument();
+    });
+
+    it("알림 탭에서 결재·코멘트로 걸러 보고, 해당 알림이 없으면 빈 안내를 보여준다", async () => {
+      const user = userEvent.setup();
+      mockNotifications({
+        notifications: [
+          noti({ id: "n-1", type: "approval_turn", actorName: "결재올린분", detail: { contractId: "k-1" } }),
+          noti({ id: "n-2", type: "comment_mention", actorName: "언급한분" }),
+        ],
+        unreadCount: 2,
+      });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 2건" }));
+      await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
+      const filters = within(screen.getByRole("group", { name: "알림 필터" }));
+
+      await user.click(filters.getByRole("button", { name: "결재" }));
+      expect(screen.getByText("결재올린분")).toBeInTheDocument();
+      expect(screen.queryByText("언급한분")).not.toBeInTheDocument();
+
+      await user.click(filters.getByRole("button", { name: "코멘트" }));
+      expect(screen.getByText("언급한분")).toBeInTheDocument();
+      expect(screen.queryByText("결재올린분")).not.toBeInTheDocument();
+    });
+
+    it("결재 알림은 무슨 알림인지와 품의 제목을 보여주고, 누르면 그 계약 화면으로 간다", async () => {
+      const user = userEvent.setup();
+      mockNotifications({
+        notifications: [
+          noti({ id: "n-9", type: "approval_turn", actorName: "한지원", detail: { targetType: "contract", targetId: "k-7", title: "공급계약 체결 품의" } }),
+        ],
+        unreadCount: 1,
+      });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      const card = within(screen.getByRole("region", { name: "새 알림" }));
+      expect(card.getByText("결재 차례예요")).toBeInTheDocument();
+      expect(card.getByText("공급계약 체결 품의")).toBeInTheDocument();
+
+      await user.click(card.getByText("한지원"));
+      expect(screen.getByTestId("location")).toHaveTextContent("/contract/k-7");
+    });
+
+    it("걸러 본 종류의 알림이 없으면 그 종류에 맞는 빈 안내를 보여준다", async () => {
+      const user = userEvent.setup();
+      mockNotifications({ notifications: [noti({ type: "comment_mention" })], unreadCount: 1 });
+      renderAssistant();
+      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
+      await user.click(within(screen.getByRole("group", { name: "알림 필터" })).getByRole("button", { name: "결재" }));
+      expect(screen.getByText("결재 알림이 없어요.")).toBeInTheDocument();
     });
 
     it("안 읽은 알림이 없으면 모두 읽음이 비활성이고 안 읽음 필터에 빈 안내를 보여준다", async () => {

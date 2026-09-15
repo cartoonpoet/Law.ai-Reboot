@@ -50,7 +50,7 @@ describe("ProfileMenu", () => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.mocked(useMe).mockReturnValue({
-      me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, avatarUrl: null },
+      me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, avatarUrl: null },
     });
   });
 
@@ -71,7 +71,7 @@ describe("ProfileMenu", () => {
   it("프로필 사진이 있으면 이름 첫 글자 대신 사진을 보여준다", () => {
     mockTenants({ memberships: [m1] });
     vi.mocked(useMe).mockReturnValue({
-      me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, avatarUrl: "/users/u1/avatar/a.png" },
+      me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, avatarUrl: "/users/u1/avatar/a.png" },
     });
     render(
       <MemoryRouter>

@@ -28,6 +28,8 @@ describe("ProfileService", () => {
     isSystemAdmin: false,
     departmentId: "d1",
     emailNotify: true,
+    notifyApproval: true,
+    notifyComment: true,
     avatarKey: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     department: { name: "법무팀" },
@@ -53,6 +55,8 @@ describe("ProfileService", () => {
         name: "손준호",
         departmentName: "법무팀",
         emailNotify: true,
+    notifyApproval: true,
+    notifyComment: true,
         avatarKey: "avatars/u1/a.png",
       });
     });

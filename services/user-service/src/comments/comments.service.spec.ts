@@ -999,8 +999,8 @@ describe("CommentsService", () => {
       stubUserFindUnique({ id: "requester-1", role: "general" });
       // owner-1: 수신 거부(false) → 스킵, cc-1: 수신(true) → 발송.
       prismaMock.user.findMany.mockResolvedValue([
-        { id: "owner-1", email: "owner@law.ai", name: "오너", emailNotify: false },
-        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true },
+        { id: "owner-1", email: "owner@law.ai", name: "오너", emailNotify: false, notifyComment: true },
+        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true, notifyComment: true },
       ]);
       prismaMock.comment.create.mockResolvedValue(createdMentionRow);
       prismaMock.comment.findUniqueOrThrow.mockResolvedValue(createdMentionRow);
@@ -1021,7 +1021,7 @@ describe("CommentsService", () => {
       // 수신자 조회는 자기멘션 제외된 owner-1, cc-1 만.
       expect(prismaMock.user.findMany).toHaveBeenCalledWith({
         where: { id: { in: ["owner-1", "cc-1"] } },
-        select: { id: true, email: true, name: true, emailNotify: true },
+        select: { id: true, email: true, name: true, emailNotify: true, notifyComment: true },
       });
       // emailNotify=true 인 cc-1 에게만 발송(owner-1 false 스킵, requester-1 자기멘션 제외).
       expect(mailMock.sendMentionEmail).toHaveBeenCalledTimes(1);
@@ -1075,7 +1075,7 @@ describe("CommentsService", () => {
         { userId: "owner-1" },
       ]);
       prismaMock.user.findMany.mockResolvedValue([
-        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true },
+        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true, notifyComment: true },
       ]);
       prismaMock.$transaction.mockImplementation(
         (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
@@ -1093,7 +1093,7 @@ describe("CommentsService", () => {
       // 수신자 조회는 신규 추가분(cc-1)만 — 기존 owner-1 은 재발송 안 함.
       expect(prismaMock.user.findMany).toHaveBeenCalledWith({
         where: { id: { in: ["cc-1"] } },
-        select: { id: true, email: true, name: true, emailNotify: true },
+        select: { id: true, email: true, name: true, emailNotify: true, notifyComment: true },
       });
       expect(mailMock.sendMentionEmail).toHaveBeenCalledTimes(1);
       expect(mailMock.sendMentionEmail).toHaveBeenCalledWith(
@@ -1107,8 +1107,8 @@ describe("CommentsService", () => {
       );
       stubUserFindUnique({ id: "requester-1", role: "general" });
       prismaMock.user.findMany.mockResolvedValue([
-        { id: "owner-1", email: "owner@law.ai", name: "오너", emailNotify: true },
-        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true },
+        { id: "owner-1", email: "owner@law.ai", name: "오너", emailNotify: true, notifyComment: true },
+        { id: "cc-1", email: "cc@law.ai", name: "참조자", emailNotify: true, notifyComment: true },
       ]);
       // 발송 실패(best-effort) — service 내부 sendMentionEmails 가 swallow 해야 한다.
       mailMock.sendMentionEmail.mockRejectedValue(new Error("mail down"));

@@ -49,7 +49,7 @@ describe("Sidebar", () => {
       isSwitchError: false,
     });
     vi.mocked(useMe).mockReturnValue({
-      me: { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, avatarUrl: null },
+      me: { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, avatarUrl: null },
     });
   });
 

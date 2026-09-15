@@ -27,6 +27,8 @@ const ME: MyProfile = {
   departmentName: "법무팀",
   createdAt: "2026-01-01T00:00:00.000Z",
   emailNotify: true,
+  notifyApproval: true,
+  notifyComment: true,
   avatarUrl: null,
 };
 
@@ -135,6 +137,19 @@ describe("SettingsPage (내 정보 설정)", () => {
       renderAt("/settings/notifications");
       await user.click(screen.getByRole("switch", { name: "이메일로도 알림 받기" }));
       await waitFor(() => expect(updateMyProfile).toHaveBeenCalledWith({ emailNotify: false }));
+    });
+
+    it("결재·코멘트 알림을 종류별로 끄면 바꾼 항목만 저장한다", async () => {
+      const user = userEvent.setup();
+      vi.mocked(updateMyProfile).mockResolvedValue({ ...ME, notifyApproval: false });
+      renderAt("/settings/notifications");
+      expect(screen.queryByText("준비 중")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("switch", { name: "결재 알림 받기" }));
+      await waitFor(() => expect(updateMyProfile).toHaveBeenCalledWith({ notifyApproval: false }));
+
+      await user.click(screen.getByRole("switch", { name: "코멘트 알림 받기" }));
+      await waitFor(() => expect(updateMyProfile).toHaveBeenCalledWith({ notifyComment: false }));
     });
   });
 

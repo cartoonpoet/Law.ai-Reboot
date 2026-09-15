@@ -62,6 +62,7 @@ export const markAllButton = style([
 
 export const filterRow = style({
   display: "flex",
+  flexWrap: "wrap",
   gap: 6,
   padding: "10px 16px",
   background: c.neutralSurface,

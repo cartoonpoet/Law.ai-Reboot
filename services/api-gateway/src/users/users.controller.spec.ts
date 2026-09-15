@@ -17,6 +17,8 @@ const ROW: UserProfileRow = {
   departmentName: "법무팀",
   createdAt: "2026-01-01T00:00:00.000Z",
   emailNotify: true,
+  notifyApproval: true,
+  notifyComment: true,
   avatarKey: "avatars/u1/abc.png",
 };
 
