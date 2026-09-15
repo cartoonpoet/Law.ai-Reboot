@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
 import { Icon } from "@lawkit/ui";
 import { T } from "../../design/tokens";
 import { Logo } from "../../components/ui/Logo";
+import { ReviewedContractStat } from "./ReviewedContractStat";
 
 const PIPELINE_STAGES = ["검토 의뢰", "법무 검토", "체결"] as const;
 
@@ -17,23 +17,6 @@ const BULLETS = [
   "AI가 짚어주는 계약 리스크 사전 점검",
   "송무·자문·지식재산권까지 통합 법무 워크스페이스",
 ];
-
-function useCountUp(target: number, base: number) {
-  const [n, setN] = useState(base);
-  useEffect(() => {
-    let cur = base;
-    const id = setInterval(() => {
-      cur += Math.max(1, Math.ceil((target - cur) / 7));
-      if (cur >= target) {
-        cur = target;
-        clearInterval(id);
-      }
-      setN(cur);
-    }, 55);
-    return () => clearInterval(id);
-  }, [target, base]);
-  return n;
-}
 
 function LivePipeline() {
   return (
@@ -147,7 +130,6 @@ function LivePipeline() {
 }
 
 export function BrandPanel() {
-  const count = useCountUp(1284, 1180);
   return (
     <div
       style={{
@@ -247,51 +229,7 @@ export function BrandPanel() {
           <br />
           한 곳에서.
         </h2>
-        <div
-          className="lp-rise"
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: 7,
-            marginTop: 16,
-            animationDelay: ".18s",
-          }}
-        >
-          <span style={{ fontSize: 12.5, color: T.navyText }}>
-            지금까지 검토된 계약
-          </span>
-          <b
-            style={{
-              fontSize: 22,
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {count.toLocaleString("ko-KR")}
-          </b>
-          <span style={{ fontSize: 12.5, color: T.navyText }}>건</span>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              marginLeft: 2,
-              fontSize: 11,
-            }}
-          >
-            <span
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: 999,
-                background: "#5adc8c",
-                animation: "lp-pulse 1.8s ease-in-out infinite",
-              }}
-            />
-            실시간
-          </span>
-        </div>
+        <ReviewedContractStat />
         <div
           style={{
             display: "flex",
