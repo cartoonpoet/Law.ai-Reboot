@@ -63,7 +63,11 @@ services:
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-900s}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
       PASSWORD_RESET_TTL_MIN: ${PASSWORD_RESET_TTL_MIN:-30}
+      INVITE_TTL_DAYS: ${INVITE_TTL_DAYS:-7}
       APP_WEB_URL: ${APP_WEB_URL}
+      # 비밀번호 재설정·초대 메일 발송(Resend) — 키 없으면 로그 스텁
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-onboarding@resend.dev}
 
   # AI 프로바이더 호출 전담(무상태) — DB/볼륨 없음, TCP 마이크로서비스로만 노출.
   ai-service:
