@@ -223,8 +223,9 @@ export class ContractsService {
     triggeredByUserId: string;
   }): void {
     const { kind, contract, tenantId, triggeredByUserId } = params;
+    // 스캔 PDF 는 분석을 요청한 사람의 AI 연동으로 읽는다(그 연동으로 비용 청구).
     void this.contractText
-      .extract(contract.files)
+      .extract(contract.files, { ocrUserId: triggeredByUserId })
       .catch(() => null)
       .then((fileText) =>
         this.aiAnalysis.trigger({

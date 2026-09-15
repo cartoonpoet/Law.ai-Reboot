@@ -5,6 +5,7 @@ import * as CFB from "cfb";
 import JSZip from "jszip";
 import { ContractTextExtractor } from "./contract-text.extractor";
 import { HWPTAG_PARA_TEXT } from "./hwp-text";
+import type { ScannedPdfReader } from "./scanned-pdf.reader";
 import type { R2Client } from "../files/r2.client";
 
 // 실제 라이브러리(pdf.js·mammoth)로 한글 계약서를 읽는지 확인 — 한글 PDF 는 문자 대응표(cmaps)가
@@ -12,7 +13,10 @@ import type { R2Client } from "../files/r2.client";
 const fixture = (name: string) => new Uint8Array(readFileSync(join(__dirname, "__fixtures__", name)));
 
 const createExtractor = (bytes: Uint8Array) =>
-  new ContractTextExtractor({ getObjectBytes: jest.fn().mockResolvedValue(bytes) } as unknown as R2Client);
+  new ContractTextExtractor(
+    { getObjectBytes: jest.fn().mockResolvedValue(bytes) } as unknown as R2Client,
+    { read: jest.fn().mockResolvedValue(null) } as unknown as ScannedPdfReader,
+  );
 
 describe("ContractTextExtractor (실제 파일)", () => {
   it("한글 PDF 계약서의 조항 글자를 그대로 뽑는다", async () => {

@@ -17,10 +17,19 @@ export interface AiChatInput {
   system: string;
   messages: AiChatMessage[];
 }
+export interface AiReadDocumentInput {
+  model: string;
+  apiKey: string;
+  fileName: string;
+  mimeType: string;
+  fileBase64: string;
+}
 export interface AiProvider {
   id: string;
   listModels(): Promise<AiModelOption[]>;
   analyze(input: AiAnalyzeInput): Promise<{ result: unknown }>;
+  // 스캔 문서 글자 읽기 — 파일(이미지 PDF)을 보고 글자를 그대로 옮겨 적는다.
+  readDocument(input: AiReadDocumentInput): Promise<{ text: string }>;
   // 대화 — 모델이 돌려준 JSON 문자열을 그대로 반환(해석은 호출한 서비스가 한다).
   chat(input: AiChatInput): Promise<{ content: string }>;
 }

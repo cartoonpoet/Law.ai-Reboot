@@ -48,6 +48,39 @@ describe("OpenAiProvider", () => {
     ).rejects.toThrow(/429|rate/i);
   });
 
+  it("readDocument: PDF 를 파일 입력(data URL)으로 보내고 옮겨 적은 글자를 돌려준다", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{"text":"제1조 (목적) 스캔 본문"}' } }] }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const provider = new OpenAiProvider();
+
+    const { text } = await provider.readDocument({
+      model: "gpt-4o", apiKey: "sk-test", fileName: "계약서.pdf", mimeType: "application/pdf", fileBase64: "JVBERg==",
+    });
+
+    expect(text).toBe("제1조 (목적) 스캔 본문");
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.model).toBe("gpt-4o");
+    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.messages[1].content[0]).toEqual({
+      type: "file",
+      file: { filename: "계약서.pdf", file_data: "data:application/pdf;base64,JVBERg==" },
+    });
+  });
+
+  it("readDocument: 응답에 text 가 없으면 에러를 던진다", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{"summary":"요약"}' } }] }),
+    }) as unknown as typeof fetch;
+    const provider = new OpenAiProvider();
+    await expect(
+      provider.readDocument({ model: "gpt-4o", apiKey: "sk", fileName: "a.pdf", mimeType: "application/pdf", fileBase64: "" }),
+    ).rejects.toThrow(/text/);
+  });
+
   it("chat: 시스템 지시를 맨 앞에 두고 대화를 보내, 모델 컨텐츠 문자열을 그대로 반환", async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
