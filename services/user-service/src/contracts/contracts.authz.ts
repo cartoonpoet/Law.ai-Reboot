@@ -160,6 +160,9 @@ const SIGNED_STATUSES: ReadonlySet<ContractStatus> = new Set<ContractStatus>([
   "closed",
 ]);
 
+// 체결 이후 진행(이행 시작·계약 종료) 전이가 출발하는 status.
+const POST_SIGN_PROGRESS_STATUSES: ReadonlySet<ContractStatus> = new Set<ContractStatus>(["signed", "fulfilling"]);
+
 // canEditUnassigned 완화가 적용되는 status — "아직 생애주기 초반"만. 아래 evaluate() 참고.
 const EARLY_STATUSES: ReadonlySet<ContractStatus> = new Set<ContractStatus>([
   "draft",
@@ -304,9 +307,20 @@ export const evaluate = (
 
   // sealManager 특수: 역할상 transition=true 이지만 signing 단계에서만(→signed) 가능.
   const isSealManager = viewer.role === "sealManager";
-  const canTransition = isSealManager
-    ? contract.status === "signing"
-    : policy.transition && ownerOk;
+  const getCanTransition = (): boolean => {
+    if (isSealManager) return contract.status === "signing";
+    // 체결 이후(체결 완료 → 이행 중 → 종료)는 법무팀·담당자·요청자(생성자)가 넘긴다. 체결 완료 등록 계약은
+    // 담당자가 없어 담당자 기준 권한으로는 아무도 진행할 수 없기 때문이다. 어느 단계로 가는지는 ALLOWED_TRANSITIONS 가 정한다.
+    if (POST_SIGN_PROGRESS_STATUSES.has(contract.status)) {
+      return (
+        SIGNED_FILE_REPLACER_ROLES.has(viewer.role) ||
+        viewer.id === contract.ownerId ||
+        viewer.id === contract.createdById
+      );
+    }
+    return policy.transition && ownerOk;
+  };
+  const canTransition = getCanTransition();
 
   return {
     canView: true,

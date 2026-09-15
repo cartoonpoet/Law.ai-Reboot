@@ -18,7 +18,9 @@ export type ActionButtonKind =
   | "submitApproval" // 체결 품의 상신 → submitContractApproval
   | "approveStep" // 결재 승인 → decideApproval(approve)
   | "rejectStep" // 결재 반려 → ApprovalRejectModal → decideApproval(reject)
-  | "completeSigning"; // 체결 처리 → CompleteSigningModal → completeSigning API
+  | "completeSigning" // 체결 처리 → CompleteSigningModal → completeSigning API
+  | "startFulfilling" // 이행 시작 → 확인 창 → changeStatus("fulfilling")
+  | "closeContract"; // 계약 종료 → 확인 창 → changeStatus("closed")
 
 export interface ActionButton {
   kind: ActionButtonKind;
@@ -87,6 +89,18 @@ const TRANSITION_BUTTONS: Partial<Record<ContractStatus, ActionButton[]>> = {
   reviewDone: [RE_REVIEW],
 };
 
+// 체결 이후 진행 버튼 — 서버 ALLOWED_TRANSITIONS(signed→fulfilling, fulfilling→closed)와 1:1.
+const POST_SIGN_PROGRESS: Partial<Record<ContractStatus, { button: ActionButton; notice: string }>> = {
+  signed: {
+    button: { kind: "startFulfilling", label: "이행 시작", color: "primary", variant: "default" },
+    notice: "체결이 끝났어요. 계약 이행을 시작하면 '계약 이행' 단계로 넘어가요.",
+  },
+  fulfilling: {
+    button: { kind: "closeContract", label: "계약 종료", color: "secondary", variant: "outline" },
+    notice: "계약을 이행하고 있어요. 기간이 끝났거나 의무를 모두 마쳤으면 계약을 종료하세요.",
+  },
+};
+
 // 결재(체결 품의) 단계 이후 — 읽기 위주의 결재 현황 패널.
 const APPROVAL_STATUSES: ReadonlySet<ContractStatus> = new Set([
   "signing",
@@ -94,6 +108,12 @@ const APPROVAL_STATUSES: ReadonlySet<ContractStatus> = new Set([
   "fulfilling",
   "closed",
 ]);
+
+// 버튼 없는 결재 현황의 안내 — 진행 권한이 없거나 더 넘길 단계가 없을 때.
+const READ_ONLY_NOTICE: Partial<Record<ContractStatus, string>> = {
+  signing: "체결 품의 결재가 진행 중입니다.",
+  closed: "종료된 계약입니다. (읽기 전용)",
+};
 
 export interface ApprovalActionContext {
   /** 계약 요청자(createdById) 본인 여부 — 체결 품의 상신 주체. */
@@ -166,16 +186,27 @@ export const getActionView = (
       };
     }
 
+    // 체결 이후 + 진행 권한(법무팀·담당자·요청자) → 이행 시작 / 계약 종료.
+    const progress = can.transition ? POST_SIGN_PROGRESS[status] : undefined;
+    if (progress) {
+      return {
+        head: "계약 이행",
+        isApprovalMode: true,
+        isSubmitMode: false,
+        isDecideMode: false,
+        showAssignee: false,
+        notice: progress.notice,
+        buttons: [progress.button],
+      };
+    }
+
     return {
       head: "결재 현황",
       isApprovalMode: true,
       isSubmitMode: false,
       isDecideMode: false,
       showAssignee: false,
-      notice:
-        status === "signing"
-          ? "체결 품의 결재가 진행 중입니다."
-          : "모든 결재가 완료되었습니다. (읽기 전용)",
+      notice: READ_ONLY_NOTICE[status] ?? "모든 결재가 완료되었습니다. (읽기 전용)",
       buttons: [],
     };
   }

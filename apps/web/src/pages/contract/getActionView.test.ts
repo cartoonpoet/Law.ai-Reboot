@@ -71,6 +71,31 @@ describe("getActionView", () => {
     expect(view.notice).toBe("모든 결재가 완료되었습니다. (읽기 전용)");
   });
 
+  it("signed + 진행 권한: 이행 시작 버튼과 안내", () => {
+    const view = getActionView("signed", CAN_ALL);
+    expect(view.head).toBe("계약 이행");
+    expect(view.isApprovalMode).toBe(true);
+    expect(view.buttons.map((b) => [b.kind, b.label])).toEqual([["startFulfilling", "이행 시작"]]);
+    expect(view.notice).toContain("이행을 시작하면");
+  });
+
+  it("fulfilling + 진행 권한: 계약 종료 버튼", () => {
+    const view = getActionView("fulfilling", CAN_ALL);
+    expect(view.buttons.map((b) => [b.kind, b.label])).toEqual([["closeContract", "계약 종료"]]);
+  });
+
+  it("fulfilling + 진행 권한 없음: 버튼 없는 읽기 전용", () => {
+    const view = getActionView("fulfilling", CAN_NONE);
+    expect(view.buttons).toHaveLength(0);
+    expect(view.head).toBe("결재 현황");
+  });
+
+  it("closed: 권한이 있어도 더 넘길 단계가 없어 종료 안내만", () => {
+    const view = getActionView("closed", CAN_ALL);
+    expect(view.buttons).toHaveLength(0);
+    expect(view.notice).toBe("종료된 계약입니다. (읽기 전용)");
+  });
+
   it("legalReview + can.transition: 반려/검토완료 버튼(기존 동작 유지)", () => {
     const view = getActionView("legalReview", CAN_ALL);
     expect(view.buttons.map((b) => b.kind)).toEqual(["reject", "reviewDone", "assign"]);

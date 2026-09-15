@@ -8,6 +8,8 @@ import { getStatusLabel } from "../contractStatus";
 import { getActionView } from "../getActionView";
 import type { ActionButton, ActionButtonKind, ApprovalActionContext } from "../getActionView";
 import { CompleteSigningModal } from "./CompleteSigningModal";
+import { ContractProgressModal } from "./ContractProgressModal";
+import type { ContractProgressTargetTypes } from "./ContractProgressModal";
 import { ApprovalStepRows } from "./ApprovalStepRows";
 import { cx } from "../cx";
 import * as css from "../contractDetail.css";
@@ -26,6 +28,8 @@ interface ReviewActionPanelProps {
   // 검토 시작(배정 중 → 법무 검토) · 다시 검토(요청자 검토/검토 완료 → 법무 검토)
   onStartReview: () => void;
   onAssign: () => void;
+  // 체결 이후 진행(이행 시작·계약 종료) — 확인 창을 거쳐 호출된다.
+  onProgress: (target: ContractProgressTargetTypes) => void;
   // 체결 품의(상신/결재 처리) — 결재 모듈 전용.
   approval: ApprovalActionContext;
   precheckItems: PrecheckItem[];
@@ -54,6 +58,7 @@ export function ReviewActionPanel({
   onReviewDone,
   onStartReview,
   onAssign,
+  onProgress,
   approval,
   precheckItems,
   onSubmitApproval,
@@ -65,6 +70,13 @@ export function ReviewActionPanel({
   const view = getActionView(status, can, approval);
   const [comment, setComment] = useState("");
   const [isCompleteSigningOpen, setIsCompleteSigningOpen] = useState(false);
+  const [progressTarget, setProgressTarget] = useState<ContractProgressTargetTypes | null>(null);
+
+  const handleConfirmProgress = () => {
+    if (!progressTarget) return;
+    onProgress(progressTarget);
+    setProgressTarget(null);
+  };
   const isCompleteSigningMode = view.buttons.some((b) => b.kind === "completeSigning");
   const handlers = {
     reject: onReject,
@@ -75,6 +87,8 @@ export function ReviewActionPanel({
     approveStep: () => onApproveStep(comment),
     rejectStep: onOpenRejectModal,
     completeSigning: () => setIsCompleteSigningOpen(true),
+    startFulfilling: () => setProgressTarget("fulfilling"),
+    closeContract: () => setProgressTarget("closed"),
   } as const;
 
   return (
@@ -150,6 +164,15 @@ export function ReviewActionPanel({
         <CompleteSigningModal
           contractId={contractId}
           onClose={() => setIsCompleteSigningOpen(false)}
+        />
+      )}
+
+      {progressTarget && (
+        <ContractProgressModal
+          target={progressTarget}
+          isPending={isUpdating}
+          onConfirm={handleConfirmProgress}
+          onClose={() => setProgressTarget(null)}
         />
       )}
     </section>
@@ -250,8 +273,12 @@ interface ReviewActionButtonsProps {
     approveStep: () => void;
     rejectStep: () => void;
     completeSigning: () => void;
+    startFulfilling: () => void;
+    closeContract: () => void;
   };
 }
+
+const PROGRESS_KINDS: ReadonlySet<ActionButtonKind> = new Set<ActionButtonKind>(["startFulfilling", "closeContract"]);
 
 const TRANSITION_KINDS: ReadonlySet<ActionButtonKind> = new Set<ActionButtonKind>(["reject", "reviewDone", "startReview"]);
 
@@ -261,6 +288,7 @@ function ReviewActionButtons({ buttons, isUpdating, handlers }: ReviewActionButt
   const assign = buttons.find((b) => b.kind === "assign");
   const submit = buttons.find((b) => b.kind === "submitApproval");
   const complete = buttons.find((b) => b.kind === "completeSigning");
+  const progress = buttons.find((b) => PROGRESS_KINDS.has(b.kind));
   const renderTransition = (b: ActionButton) => (
     <Button
       key={b.label}
@@ -306,6 +334,17 @@ function ReviewActionButtons({ buttons, isUpdating, handlers }: ReviewActionButt
           onClick={handlers.completeSigning}
         >
           {complete.label}
+        </Button>
+      )}
+      {progress && (
+        <Button
+          size="medium"
+          color={progress.color}
+          variant={progress.variant}
+          disabled={isUpdating}
+          onClick={handlers[progress.kind]}
+        >
+          {progress.label}
         </Button>
       )}
     </>
