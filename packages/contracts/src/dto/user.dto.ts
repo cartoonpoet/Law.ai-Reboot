@@ -82,12 +82,20 @@ export const toAvatarPath = (userId: string, avatarKey: string | null | undefine
 // user-service → gateway 내부용 내 정보 행. gateway 가 avatarKey 를 이미지 주소로 바꿔 MyProfile 로 내보낸다.
 export type UserProfileRow = import("../types").PublicUser & {
   emailNotify: boolean;
+  // 결재 알림(내 차례·반려·완료·참조) 받기.
+  notifyApproval: boolean;
+  // 코멘트 알림(나를 언급) 받기 — 끄면 이메일도 보내지 않는다.
+  notifyComment: boolean;
   avatarKey: string | null;
 };
 
 // GET/PATCH /users/me 응답 — 설정 화면·사이드바가 쓰는 내 정보.
 export type MyProfile = import("../types").PublicUser & {
   emailNotify: boolean;
+  // 결재 알림(내 차례·반려·완료·참조) 받기.
+  notifyApproval: boolean;
+  // 코멘트 알림(나를 언급) 받기 — 끄면 이메일도 보내지 않는다.
+  notifyComment: boolean;
   // API 기준 경로(/users/<id>/avatar/<파일>). 사진이 없으면 null.
   avatarUrl: string | null;
 };
@@ -101,6 +109,8 @@ export interface UpdateProfileRequest {
   userId: string;
   name?: string;
   emailNotify?: boolean;
+  notifyApproval?: boolean;
+  notifyComment?: boolean;
 }
 
 export interface AvatarUploadTargetRequest {

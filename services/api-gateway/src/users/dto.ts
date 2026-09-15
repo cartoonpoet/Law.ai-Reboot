@@ -14,4 +14,14 @@ export class UpdateMyProfileDto {
   @IsOptional()
   @IsBoolean()
   emailNotify?: boolean;
+
+  @ApiPropertyOptional({ description: "결재 알림(내 차례·반려·완료·참조) 받기" })
+  @IsOptional()
+  @IsBoolean()
+  notifyApproval?: boolean;
+
+  @ApiPropertyOptional({ description: "코멘트 알림(나를 언급) 받기 — 끄면 이메일도 보내지 않는다" })
+  @IsOptional()
+  @IsBoolean()
+  notifyComment?: boolean;
 }

@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { getNotificationContractId } from "@lawai/contracts";
 import type { NotificationDto } from "@lawai/contracts";
 import { showToast } from "../../lib/toast/toastStore";
 import { useNotifications } from "../layout/hooks/useNotifications";
@@ -7,12 +8,6 @@ import { getUnreadBadgeLabel } from "./getUnreadBadgeLabel";
 
 // 비서 홈 알림 카드에 보여줄 안 읽은 알림 수.
 const NOTICE_CARD_LIMIT = 3;
-
-// detail 에서 이동 대상 contractId 안전 추출(string 가드).
-const getContractId = (detail: NotificationDto["detail"]): string | null => {
-  const contractId = detail?.contractId;
-  return typeof contractId === "string" ? contractId : null;
-};
 
 /**
  * AI 비서의 알림 — 목록·안 읽은 수·배지 문구·홈 카드용 안 읽은 알림과 알림 선택 처리.
@@ -27,7 +22,7 @@ export const useAssistantNotifications = (onNavigate: () => void) => {
   // 삭제된 계약 알림은 읽음 처리만 하고, 없는 화면으로 보내는 대신 안내한다.
   const select = (notification: NotificationDto) => {
     void markRead(notification.id);
-    const contractId = getContractId(notification.detail);
+    const contractId = getNotificationContractId(notification.detail);
     if (!contractId) return;
     if (notification.isTargetDeleted) {
       showToast({ intent: "info", title: "삭제된 계약이라 열 수 없어요" });

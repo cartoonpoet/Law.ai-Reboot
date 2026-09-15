@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
+import { getNotificationCategory, getNotificationContractId } from "@lawai/contracts";
 import type {
   ListNotificationsRequest,
   ListNotificationsResponse,
@@ -39,12 +40,6 @@ export interface CreateNotificationInput {
 // 목록 기본 조회 개수(최근 N건). limit 미지정 시 적용.
 const DEFAULT_LIST_LIMIT = 20;
 
-// detail 에서 연결된 계약 id 안전 추출(string 가드).
-const getDetailContractId = (detail: Record<string, unknown> | null): string | null => {
-  const contractId = detail?.contractId;
-  return typeof contractId === "string" ? contractId : null;
-};
-
 /**
  * 인앱 알림 도메인 서비스(생성/조회/읽음).
  *
@@ -71,7 +66,7 @@ export class NotificationService {
     deletedContractIds: Set<string>,
   ): NotificationDto {
     const detail = (row.detail as Record<string, unknown> | null) ?? null;
-    const contractId = getDetailContractId(detail);
+    const contractId = getNotificationContractId(detail);
     return {
       id: row.id,
       type: row.type,
@@ -91,7 +86,7 @@ export class NotificationService {
     const contractIds = Array.from(
       new Set(
         rows
-          .map((row) => getDetailContractId(row.detail as Record<string, unknown> | null))
+          .map((row) => getNotificationContractId(row.detail as Record<string, unknown> | null))
           .filter((id): id is string => id !== null),
       ),
     );
@@ -101,6 +96,26 @@ export class NotificationService {
       select: { id: true },
     });
     return new Set(deleted.map((c) => c.id));
+  }
+
+  // 수신자 설정을 한 번에 읽어, 그 사람이 끈 묶음(결재·코멘트)의 알림을 뺀다. 묶음이 없는 알림은 항상 남긴다.
+  private async dropMutedCategories(
+    items: CreateNotificationInput[],
+  ): Promise<CreateNotificationInput[]> {
+    const recipients = await this.prisma.user.findMany({
+      where: { id: { in: Array.from(new Set(items.map((item) => item.recipientId))) } },
+      select: { id: true, notifyApproval: true, notifyComment: true },
+    });
+    const mutedByUserId = new Map(
+      recipients.map((r) => [
+        r.id,
+        { approval: r.notifyApproval === false, comment: r.notifyComment === false },
+      ]),
+    );
+    return items.filter((item) => {
+      const category = getNotificationCategory(item.type);
+      return !(category && mutedByUserId.get(item.recipientId)?.[category]);
+    });
   }
 
   // actorId 집합 → 이름 맵(한 번에 조회해 N+1 회피). 빈 집합이면 빈 맵.
@@ -127,9 +142,12 @@ export class NotificationService {
   async createMany(
     items: CreateNotificationInput[],
   ): Promise<PushNotification[]> {
-    const targets = items.filter((item) => item.recipientId !== item.actorId);
-    if (targets.length === 0) return [];
+    const candidates = items.filter((item) => item.recipientId !== item.actorId);
+    if (candidates.length === 0) return [];
     try {
+      // 받는 사람이 끈 알림 종류(결재·코멘트)는 만들지 않는다.
+      const targets = await this.dropMutedCategories(candidates);
+      if (targets.length === 0) return [];
       const createdAtFrom = new Date();
       await this.prisma.notification.createMany({
         data: targets.map((item) => ({
@@ -171,7 +189,7 @@ export class NotificationService {
     } catch (error) {
       // best-effort: 실패해도 비즈니스 응답은 진행. 누락만 로깅하고 빈 배열 반환.
       this.logger.error(
-        `notification createMany 실패 (count=${targets.length})`,
+        `notification createMany 실패 (count=${candidates.length})`,
         error instanceof Error ? error.stack : String(error),
       );
       return [];

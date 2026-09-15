@@ -107,11 +107,43 @@ describe("NotificationService", () => {
             targetId: "c-1",
             detail: { contractId: "k-1", preview: "안녕" },
             isRead: false,
-        isTargetDeleted: false,
+            isTargetDeleted: false,
             createdAt: "2026-06-22T02:00:00.000Z",
           },
         },
       ]);
+    });
+
+    it("받는 사람이 끈 알림 종류는 만들지 않는다(결재 끔 → 결재 알림만 빠지고 코멘트는 생성)", async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        { id: "u-2", notifyApproval: false, notifyComment: true },
+      ]);
+      prismaMock.notification.createMany.mockResolvedValue({ count: 1 });
+      prismaMock.notification.findMany.mockResolvedValue([]);
+      prismaMock.user.findMany.mockResolvedValue([]);
+
+      await service.createMany([
+        { recipientId: "u-2", type: "approval_turn", actorId: "u-1", targetType: "ApprovalLine", targetId: "L1", tenantId: "tenant-1" },
+        { recipientId: "u-2", type: "comment_mention", actorId: "u-1", targetType: "Comment", targetId: "c-1", tenantId: "tenant-1" },
+      ]);
+
+      expect(prismaMock.user.findMany).toHaveBeenNthCalledWith(1, {
+        where: { id: { in: ["u-2"] } },
+        select: { id: true, notifyApproval: true, notifyComment: true },
+      });
+      const arg = prismaMock.notification.createMany.mock.calls[0][0] as { data: Array<{ type: string }> };
+      expect(arg.data.map((row) => row.type)).toEqual(["comment_mention"]);
+    });
+
+    it("받는 사람이 모든 종류를 껐으면 아무것도 만들지 않는다", async () => {
+      prismaMock.user.findMany.mockResolvedValueOnce([
+        { id: "u-2", notifyApproval: false, notifyComment: false },
+      ]);
+      const result = await service.createMany([
+        { recipientId: "u-2", type: "approval_completed", actorId: "u-1", targetType: "ApprovalLine", targetId: "L1", tenantId: "tenant-1" },
+      ]);
+      expect(result).toEqual([]);
+      expect(prismaMock.notification.createMany).not.toHaveBeenCalled();
     });
 
     it("자기알림만 있으면 (필터 후 빈 배열) createMany 미호출 + [] 반환", async () => {
@@ -383,6 +415,17 @@ describe("NotificationService", () => {
           readAt: null,
           createdAt: new Date("2026-06-22T01:00:00.000Z"),
         },
+        {
+          id: "n-3",
+          type: "approval_turn",
+          actorId: "a-1",
+          targetType: "ApprovalLine",
+          targetId: "L1",
+          // 결재 알림은 대상 계약을 targetId 로 가리킨다.
+          detail: { targetType: "contract", targetId: "k-gone", title: "품의" },
+          readAt: null,
+          createdAt: new Date("2026-06-22T00:00:00.000Z"),
+        },
       ]);
       prismaMock.notification.count.mockResolvedValue(2);
       prismaMock.user.findMany.mockResolvedValue([]);
@@ -400,6 +443,7 @@ describe("NotificationService", () => {
       expect(result.items.map((item) => [item.id, item.isTargetDeleted])).toEqual([
         ["n-1", true],
         ["n-2", false],
+        ["n-3", true],
       ]);
     });
 
