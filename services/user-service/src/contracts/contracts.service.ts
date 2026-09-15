@@ -111,6 +111,10 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
 // (requesterReview 는 legalReview 로 되돌아갈 수 있는 같은 루프의 반대편이다.)
 const RISK_RECHECK_STATUSES: ContractStatus[] = ["legalReview", "requesterReview"];
 
+// 계약서 파일이 붙거나 바뀔 때 사전 점검(precheck)을 돌릴 상태 — 화면(getActiveAiKind)이
+// 사전 점검을 보여주는 검토 전 단계와 같다.
+const PRECHECK_STATUSES: ContractStatus[] = ["draft", "unassigned"];
+
 // list() 2단 상태 필터 검증용 — ALLOWED_TRANSITIONS 키가 전체 ContractStatus 를 이미 망라한다.
 const VALID_STATUSES = new Set<string>(Object.keys(ALLOWED_TRANSITIONS));
 
@@ -798,6 +802,21 @@ export class ContractsService {
         contract: response,
         tenantId: row.tenantId,
         triggeredByUserId: row.ownerId,
+      });
+    }
+
+    // 사전 점검(precheck): 웹은 계약을 먼저 만들고(파일 없이) 계약서 파일을 나중에 붙이므로, create 시점엔
+    // 계약서가 없어 사전 점검이 돌 수 없다. 아직 검토 전 단계에서 계약서 원본이 붙거나 바뀌면 그때 돌린다.
+    if (
+      req.files !== undefined &&
+      PRECHECK_STATUSES.includes(current.status as ContractStatus) &&
+      isContractFileReplaced(current.files, req.files)
+    ) {
+      this.triggerWithContractText({
+        kind: "precheck",
+        contract: response,
+        tenantId: row.tenantId,
+        triggeredByUserId: row.createdById,
       });
     }
 
