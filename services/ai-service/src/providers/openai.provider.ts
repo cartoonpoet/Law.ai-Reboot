@@ -24,6 +24,12 @@ const KIND_PROMPT: Record<string, string> = {
     "당신은 계약서 위험 분석 전문가입니다. 계약서 본문(fileText)에서 위험 조항을 찾아 clause 에 조항 번호·제목을, finding 에 이유와 수정 방향을 쓰고 " +
     "fileText 가 없으면(null) 본문 없이 메타데이터(title/details)만으로 추정했다고 finding 에 밝히고 " +
     '다음 JSON 스키마로 반환하세요: { "risks": [{ "level": "low"|"medium"|"high", "clause": string, "finding": string }] }.',
+  // 만료 관리 — 자동갱신 조항과 해지 통지 기한 추출.
+  renewalTerms:
+    "당신은 계약 갱신 조항 분석 전문가입니다. 계약서 본문(fileText)과 계약 기간(periodStart/periodEnd)을 보고 " +
+    "자동갱신 여부와 해지 통지 기한을 찾으세요. noticeDeadline 은 periodEnd 에서 noticeDays 를 뺀 날짜(YYYY-MM-DD)이며, " +
+    "fileText 가 없으면(null) autoRenewal 을 false 로 두고 summary 에 본문이 없어 판단하지 못했다고 밝히세요. " +
+    '다음 JSON 스키마로 반환하세요: { "autoRenewal": boolean, "renewalPeriod": string|null, "noticeDays": number|null, "noticeDeadline": string|null, "clause": string|null, "summary": string }.',
   // 상신 전(reviewDone) 결재자용 요약 브리핑.
   submitBriefing:
     "당신은 계약 검토 요약 전문가입니다. 계약 메타데이터와 결재선을 바탕으로 결재자가 " +

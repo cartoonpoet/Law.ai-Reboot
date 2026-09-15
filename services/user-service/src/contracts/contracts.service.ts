@@ -12,6 +12,7 @@ import {
   buildRiskPayload,
   buildSubmitBriefingPayload,
   buildApprovalBriefingPayload,
+  buildRenewalTermsPayload,
 } from "../ai-analysis/prompt-payloads";
 import { evaluate } from "./contracts.authz";
 import { getFileLockViolation } from "./contract-file-lock";
@@ -44,6 +45,7 @@ import type {
   ReplaceSignedFileResult,
   TerminateContractRequest,
   TerminateContractResult,
+  AnalyzeRenewalTermsRequest,
   TerminationReason,
   ContractLinkRef,
   ContractStage,
@@ -170,7 +172,7 @@ const PRECHECK_STATUSES: ContractStatus[] = ["draft", "unassigned"];
 // list() 2단 상태 필터 검증용 — ALLOWED_TRANSITIONS 키가 전체 ContractStatus 를 이미 망라한다.
 const VALID_STATUSES = new Set<string>(Object.keys(ALLOWED_TRANSITIONS));
 
-const EXPIRY_WINDOW_DAYS: Record<"d90" | "d180", number> = { d90: 90, d180: 180 };
+const EXPIRY_WINDOW_DAYS: Record<"d7" | "d30" | "d90" | "d180", number> = { d7: 7, d30: 30, d90: 90, d180: 180 };
 const DAY_MS = 86_400_000;
 
 // 만료는 "체결 이후"에만 의미가 있다(옛 "체결계약 만료 현황" 메뉴를 흡수) — 검토 중인 계약은
@@ -206,10 +208,12 @@ const parseExpiryFilter = (
 ): NonNullable<Prisma.ContractWhereInput["periodEnd"]> => {
   const todayStart = getTodayStartUtc();
   if (expiry === "expired") return { lt: todayStart };
-  if (expiry === "d90" || expiry === "d180") {
+  // 클라이언트 문자열로 객체를 바로 찾으면 "toString" 같은 상속 키가 걸리므로 자기 키인지 먼저 확인한다.
+  if (Object.hasOwn(EXPIRY_WINDOW_DAYS, expiry)) {
+    const windowDays = EXPIRY_WINDOW_DAYS[expiry as keyof typeof EXPIRY_WINDOW_DAYS];
     return {
       gte: todayStart,
-      lte: new Date(todayStart.getTime() + EXPIRY_WINDOW_DAYS[expiry] * DAY_MS),
+      lte: new Date(todayStart.getTime() + windowDays * DAY_MS),
     };
   }
   throw new RpcException({ status: 400, message: "유효하지 않은 expiry 값입니다" });
@@ -250,6 +254,14 @@ const extractCcUserIds = (
   refs: { ccType: string; refId: string }[],
 ): string[] => refs.filter((r) => r.ccType === "user").map((r) => r.refId);
 
+// 계약서 본문을 함께 넘기는 AI 분석 종류 → 입력 페이로드 빌더.
+const CONTRACT_TEXT_PAYLOAD_BUILDERS = {
+  precheck: buildPrecheckPayload,
+  risk: buildRiskPayload,
+  renewalTerms: buildRenewalTermsPayload,
+} as const;
+type ContractTextAnalysisKind = keyof typeof CONTRACT_TEXT_PAYLOAD_BUILDERS;
+
 @Injectable()
 export class ContractsService {
   constructor(
@@ -264,7 +276,7 @@ export class ContractsService {
   // 계약서 원본 파일에서 본문을 뽑아 넣고 AI 분석을 트리거한다. 파일 다운로드·추출이 요청 응답을 붙잡지 않게
   // 전부 백그라운드(await 하지 않음) — 추출기는 실패해도 null, trigger 는 어떤 경우에도 reject 하지 않는다.
   private triggerWithContractText(params: {
-    kind: "precheck" | "risk";
+    kind: ContractTextAnalysisKind;
     contract: ContractResponse;
     tenantId: string;
     triggeredByUserId: string;
@@ -281,7 +293,7 @@ export class ContractsService {
           kind,
           tenantId,
           triggeredByUserId,
-          payload: kind === "risk" ? buildRiskPayload(contract, fileText) : buildPrecheckPayload(contract, fileText),
+          payload: CONTRACT_TEXT_PAYLOAD_BUILDERS[kind](contract, fileText),
         }),
       );
   }
@@ -671,7 +683,11 @@ export class ContractsService {
           owner: { select: { name: true } },
           counterparties: { take: 1, orderBy: { createdAt: "asc" } },
         },
-        orderBy: { updatedAt: "desc" },
+        // 만료 관리는 만료가 가까운 순(같은 날이면 최근 수정 순), 그 외는 최근 수정 순.
+        orderBy:
+          req.sort === "periodEnd"
+            ? [{ periodEnd: "asc" }, { updatedAt: "desc" }]
+            : [{ updatedAt: "desc" }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -697,6 +713,7 @@ export class ContractsService {
         ownerId: r.ownerId,
         ownerName: r.owner?.name ?? null,
         dueDate: r.dueDate?.toISOString() ?? null,
+        periodEnd: r.periodEnd?.toISOString() ?? null,
         signedAt: r.signedAt ? r.signedAt.toISOString() : null,
         createdById: r.createdById,
         updatedAt: r.updatedAt.toISOString(),
@@ -1156,7 +1173,15 @@ export class ContractsService {
     });
     // 갱신·해지 계약이면 원 계약을 즉시 종료한다(체결 완료 등록과 같은 규칙).
     await this.closeOriginOnSigning(updated, signedAt, req.viewerId);
-    return { contract: this.toResponse(updated, active.line) };
+    const response = this.toResponse(updated, active.line);
+    // 만료 관리용 자동갱신·해지 통지 조항 추출 — 요청자(생성자)의 AI 연동으로 백그라운드 실행.
+    this.triggerWithContractText({
+      kind: "renewalTerms",
+      contract: response,
+      tenantId: row.tenantId,
+      triggeredByUserId: row.createdById,
+    });
+    return { contract: response };
   }
 
   /** 계약 삭제(소프트 삭제) — deletedAt 을 채워 목록·상세·검색·코멘트·파일 다운로드·AI 비서에서 제외한다.
@@ -1323,6 +1348,27 @@ export class ContractsService {
    *  updateStatus 가드·결재 게이트를 전부 건너뛰고 계약을 signed 로 만들 수 있었다 — 이 기능
    *  전체가 막으려던 그 우회를 finalize 자신이 다시 열어버리는 셈이다. 그래서 여기서는
    *  "미배정 + 생성자 본인" 두 조건을 authz 모듈을 거치지 않고 직접 확인한다. */
+  /** 만료 관리 "AI로 읽기" — 체결 완료·계약 이행 계약의 자동갱신·해지 통지 조항을 누른 사람의 AI 연동으로 추출한다. */
+  async analyzeRenewalTerms(req: AnalyzeRenewalTermsRequest): Promise<{ ok: true }> {
+    const ctx = req.tenantContext!;
+    const row = await this.ensureExists(req.contractId, ctx);
+    const viewer = await this.loadViewer(req.viewerId, ctx);
+    // 볼 수 없는 계약은 있는지도 알리지 않는다(get 과 같은 규칙).
+    if (!evaluate(viewer, this.toAuthzContract(row)).canView) {
+      throw new RpcException({ status: 404, message: "계약을 찾을 수 없습니다" });
+    }
+    if (!TERMINABLE_STATUSES.includes(row.status as ContractStatus)) {
+      throw new RpcException({ status: 400, message: "체결 완료·계약 이행 중인 계약만 읽을 수 있습니다" });
+    }
+    this.triggerWithContractText({
+      kind: "renewalTerms",
+      contract: this.toResponse(row),
+      tenantId: row.tenantId,
+      triggeredByUserId: req.viewerId,
+    });
+    return { ok: true };
+  }
+
   /** 중도 해지 — 체결 완료·계약 이행 계약을 해지일·사유·해지 합의서(통지서)와 함께 종료(terminated)한다. */
   async terminate(req: TerminateContractRequest): Promise<TerminateContractResult> {
     const ctx = req.tenantContext!;
@@ -1481,6 +1527,13 @@ export class ContractsService {
       contract: response,
       tenantId: row.tenantId,
       triggeredByUserId: req.viewerId,
+    });
+    // 만료 관리용 자동갱신·해지 통지 조항 추출(체결 처리와 같은 규칙).
+    this.triggerWithContractText({
+      kind: "renewalTerms",
+      contract: response,
+      tenantId: row.tenantId,
+      triggeredByUserId: row.createdById,
     });
 
     return { contract: response };

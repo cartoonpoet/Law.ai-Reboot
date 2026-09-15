@@ -33,6 +33,7 @@ const CONTRACT: ContractSummary = {
   ownerId: null,
   ownerName: null,
   dueDate: null,
+  periodEnd: null,
   signedAt: null,
   createdById: "u1",
   updatedAt: "2026-09-12T00:00:00.000Z",
