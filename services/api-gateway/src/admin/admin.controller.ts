@@ -26,6 +26,9 @@ import {
   type AdminTenantUpdateRequest,
   type AdminCreateTenantRequest,
   type AdminCreateTenantResponse,
+  type AdminDeletedContractListResponse,
+  type AdminRestoreContractRequest,
+  type AdminRestoreContractResult,
   type JwtPayload,
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -125,6 +128,28 @@ export class AdminController {
     return firstValueFrom(
       this.userClient
         .send<AdminTenantListItem>(ADMIN_PATTERNS.UPDATE_TENANT, payload)
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "삭제된 계약 목록", description: "전 고객사, 최근 삭제 순. 회사·작성자·삭제한 사람·삭제 시각." })
+  @Get("contracts/deleted")
+  listDeletedContracts(): Promise<AdminDeletedContractListResponse> {
+    return firstValueFrom(
+      this.userClient
+        .send<AdminDeletedContractListResponse>(ADMIN_PATTERNS.LIST_DELETED_CONTRACTS, {})
+        .pipe(rpcToHttp()),
+    );
+  }
+
+  @ApiOperation({ summary: "삭제된 계약 복구", description: "삭제 표시를 지워 목록·검색·알림 링크에 다시 나오게 한다. 감사 기록을 남긴다." })
+  @Post("contracts/:id/restore")
+  restoreContract(@Param("id") id: string, @Req() req: Request): Promise<AdminRestoreContractResult> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: AdminRestoreContractRequest = { contractId: id, actorId: sub };
+    return firstValueFrom(
+      this.userClient
+        .send<AdminRestoreContractResult>(ADMIN_PATTERNS.RESTORE_CONTRACT, payload)
         .pipe(rpcToHttp()),
     );
   }
