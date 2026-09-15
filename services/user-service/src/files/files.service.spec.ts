@@ -323,6 +323,67 @@ describe("FilesService", () => {
     });
   });
 
+  // 파일 잠금: 체결 결재가 시작된(signing 이후) 계약엔 계약서를 새로 올릴 수 없다.
+  describe("파일 잠금 — 체결 결재 시작 후 계약서 업로드 차단", () => {
+    const presignReq = (role: "contract" | "attach") => ({
+      contractId: "contract-1",
+      role,
+      fileName: "수정본.docx",
+      size: 100,
+      mimeType: VALID_MIME,
+      sha256: VALID_SHA,
+      viewerId: "owner-1",
+      tenantContext: makeCtx(),
+    });
+    const contractToken = () =>
+      signUploadToken(
+        {
+          sub: "owner-1",
+          contractId: "contract-1",
+          commentId: null,
+          role: "contract",
+          storageKey: "contracts/contract-1/uuid/a.pdf",
+          fileName: "a.pdf",
+          sha256: VALID_SHA,
+          size: 100,
+          mimeType: VALID_MIME,
+        },
+        900,
+      );
+
+    beforeEach(() => {
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+    });
+
+    it("signing 계약에 계약서 presign 은 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow({ status: "signing" }));
+      await expect(service.presign(presignReq("contract"))).rejects.toMatchObject({
+        error: { status: 400, message: "체결 결재가 시작된 계약에는 계약서를 새로 올릴 수 없습니다" },
+      });
+    });
+
+    it("signed 계약에도 첨부 presign 은 된다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow({ status: "signed" }));
+      const res = await service.presign(presignReq("attach"));
+      expect(res.uploadToken).toEqual(expect.any(String));
+    });
+
+    it("legalReview 계약엔 계약서 presign 이 된다(검토 중 교체는 정상)", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow({ status: "legalReview" }));
+      const res = await service.presign(presignReq("contract"));
+      expect(res.uploadToken).toEqual(expect.any(String));
+    });
+
+    it("presign 뒤 체결 결재가 시작됐으면 계약서 confirm 은 400 — 파일 행을 만들지 않는다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(makeContractRow({ status: "signing" }));
+      await expect(
+        service.confirm({ uploadToken: contractToken(), etag: "abc", viewerId: "owner-1", tenantContext: makeCtx() }),
+      ).rejects.toMatchObject({ error: { status: 400 } });
+      expect(sendMock).not.toHaveBeenCalled();
+      expect(prismaMock.file.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe("confirm", () => {
     it("토큰 sub != viewerId 면 403", async () => {
       const token = signUploadToken(
