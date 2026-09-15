@@ -11,6 +11,7 @@ import {
 import { AssignModal } from "./sections/AssignModal";
 import { CommentPanel } from "./sections/CommentPanel";
 import { ReviewActionPanel } from "./sections/ReviewActionPanel";
+import { LinkedContractsCard } from "./sections/LinkedContractsCard";
 import { ApprovalRejectModal } from "./sections/ApprovalRejectModal";
 import { ReplaceSignedFileModal } from "./sections/ReplaceSignedFileModal";
 import { DeleteContractModal } from "./sections/DeleteContractModal";
@@ -767,6 +768,7 @@ export function ContractDetailPage() {
             onStartReview={() => changeStatus("legalReview")}
             onAssign={() => setIsAssignOpen(true)}
             onProgress={(target) => changeStatus(target)}
+            onRequestDerived={(stage) => navigate(`/contract/request?origin=${id}&stage=${stage}`)}
             approval={{
               isRequester,
               isMyTurn,
@@ -784,6 +786,9 @@ export function ContractDetailPage() {
             isDeciding={isDeciding}
           />
           <DocsCard d={d} contractId={id} canReplaceSignedFile={can.replaceSignedFile} />
+          {(d.linkedContracts.origin || d.linkedContracts.derived.length > 0) && (
+            <LinkedContractsCard linked={d.linkedContracts} />
+          )}
         </div>
       </div>
 

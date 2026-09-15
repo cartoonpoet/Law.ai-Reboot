@@ -40,6 +40,8 @@ const response: ContractResponse = {
   closedAt: null,
   closedNote: null,
   originContractId: null,
+  originContract: null,
+  derivedContracts: [],
   schemaVersion: 1,
   details: {
     stage: "new",

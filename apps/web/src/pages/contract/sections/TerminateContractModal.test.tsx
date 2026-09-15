@@ -24,6 +24,7 @@ const baseUpload = {
 };
 
 const submit = vi.fn();
+const onRequestReview = vi.fn();
 
 const doneAttachment: AttachmentState = {
   localId: "l1",
@@ -43,7 +44,7 @@ const doneAttachment: AttachmentState = {
 const renderModal = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <TerminateContractModal contractId="c1" onClose={vi.fn()} />
+      <TerminateContractModal contractId="c1" onRequestReview={onRequestReview} onClose={vi.fn()} />
     </QueryClientProvider>,
   );
 
@@ -79,6 +80,13 @@ describe("TerminateContractModal", () => {
       expect.any(Object),
     );
     expect(submit.mock.calls[0][0].terminatedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("서명된 해지 서류가 없으면 해지 합의서 검토 요청으로 보낼 수 있다", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await user.click(screen.getByRole("button", { name: "해지 합의서 검토 요청" }));
+    expect(onRequestReview).toHaveBeenCalledTimes(1);
   });
 
   it("서버가 거절하면 사유를 창 안에 보여준다", () => {

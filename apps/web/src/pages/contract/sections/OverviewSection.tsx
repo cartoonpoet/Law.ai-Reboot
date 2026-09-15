@@ -11,11 +11,18 @@ import { useCompanySearch } from "../hooks/useCompanySearch";
 import { useCounterparties } from "../hooks/useCounterparties";
 import { toCompanyOptions } from "../companyLabel";
 import { CompanyCreateModal } from "./CompanyCreateModal";
-import { RelatedDocsPicker } from "./RelatedDocsPicker";
+import { OriginContractPicker } from "./OriginContractPicker";
 import { toISODate, isoToDate } from "../dateIso";
 import * as css from "../contractRequest.css";
 
 const pickSingle = (v: string | string[]) => (Array.isArray(v) ? v[0] ?? "" : v);
+
+// 계약 단계별 "원 계약" 안내.
+const ORIGIN_INFO: Record<Exclude<ContractRequestForm["stage"], "new">, string> = {
+  renew: "갱신할 원 계약입니다. 갱신 계약이 체결되면 원 계약은 '계약 종료(갱신)'로 바뀌어요.",
+  change: "변경할 원 계약입니다. 원 계약은 그대로 유지돼요.",
+  terminate: "해지할 원 계약입니다. 해지 계약이 체결되면 원 계약은 '계약 종료(중도 해지)'로 바뀌어요.",
+};
 
 export function OverviewSection() {
   const { control, setValue, formState: { errors } } = useFormContext<ContractRequestForm>();
@@ -28,7 +35,8 @@ export function OverviewSection() {
   const registerAs = useWatch({ control, name: "registerAs" });
   const stage = useWatch({ control, name: "stage" });
   const isSigned = registerAs === "signed";
-  const isChange = stage === "change";
+  const needsOrigin = stage !== "new";
+  const isOriginRequired = stage === "renew" || stage === "terminate" || (isSigned && stage === "change");
   const { getChildOptions, getPathIds, isLeaf } = useContractCategories();
   const { query, results, search } = useCompanySearch();
   const { selected, add, selectByIds } = useCounterparties();
@@ -75,7 +83,9 @@ export function OverviewSection() {
           <Controller name="stage" control={control} render={({ field }) => (
             <RadioGroup value={field.value} onChange={field.onChange}>
               <Radio value="new" label="신규계약" />
-              <Radio value="change" label="변경·해지" />
+              <Radio value="renew" label="갱신" />
+              <Radio value="change" label="변경" />
+              <Radio value="terminate" label="해지" />
             </RadioGroup>
           )} />
         </Field>
@@ -111,13 +121,14 @@ export function OverviewSection() {
           </Field>
         )}
 
-        {isChange && (
-          <div className={isSigned ? css.origRequired : css.origOptional}>
-            <Field label="원 계약" required={isSigned}
-              info="변경·해지 대상 계약입니다. 관련문서로 저장됩니다.">
-              <RelatedDocsPicker />
+        {needsOrigin && (
+          <div className={isOriginRequired ? css.origRequired : css.origOptional}>
+            <Field label="원 계약" required={isOriginRequired} info={ORIGIN_INFO[stage]}>
+              <Controller name="originContract" control={control} render={({ field }) => (
+                <OriginContractPicker value={field.value} onChange={field.onChange} />
+              )} />
             </Field>
-            <ErrText msg={errors.relatedDocs?.message as string | undefined} />
+            <ErrText msg={errors.originContract?.message as string | undefined} />
           </div>
         )}
 

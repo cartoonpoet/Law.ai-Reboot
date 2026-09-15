@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { ContractResponse } from "@lawai/contracts";
 import { toEditDefaults } from "./toEditDefaults";
 import { toCreateRequest } from "./toCreateRequest";
+import { toDerivedRequestDefaults } from "./toDerivedRequestDefaults";
 
 const company = {
   id: "comp-1",
@@ -41,6 +42,8 @@ const response: ContractResponse = {
   closedAt: null,
   closedNote: null,
   originContractId: null,
+  originContract: null,
+  derivedContracts: [],
   schemaVersion: 1,
   details: {
     stage: "change",
@@ -88,6 +91,41 @@ const response: ContractResponse = {
   createdAt: "2026-06-01T00:00:00.000Z",
   updatedAt: "2026-06-08T00:00:00.000Z",
 };
+
+describe("toDerivedRequestDefaults (갱신·변경·해지 요청 폼)", () => {
+  const origin: ContractResponse = {
+    ...response,
+    status: "fulfilling",
+    periodStart: "2025-10-10T00:00:00.000Z",
+    periodEnd: "2026-10-09T00:00:00.000Z",
+    signedAt: "2025-10-01T00:00:00.000Z",
+  };
+
+  it("갱신은 원 계약 내용을 가져오고 계약명·기간(만료 다음 날부터 같은 길이)을 제안한다", () => {
+    const form = toDerivedRequestDefaults(origin, "renew", "me-1");
+    expect(form.stage).toBe("renew");
+    expect(form.originContract).toEqual({ id: origin.id, code: origin.code, title: origin.title });
+    expect(form.name).toBe(`${origin.title} (갱신)`);
+    expect([form.periodStart, form.periodEnd]).toEqual(["2026-10-10", "2027-10-09"]);
+    expect(form.counterparties).toEqual(origin.counterparties.map((cp) => cp.snapshot));
+    expect(form.requester).toBe("me-1");
+  });
+
+  it("새 요청이라 파일·체결 정보·관련 문서는 비우고 검토 요청으로 시작한다", () => {
+    const form = toDerivedRequestDefaults(origin, "terminate", "me-1");
+    expect(form.name).toBe(`${origin.title} (해지 합의)`);
+    expect(form.registerAs).toBe("review");
+    expect(form.signedAt).toBe("");
+    expect([form.contractFiles, form.attachFiles, form.refFiles, form.signedFiles, form.relatedDocs]).toEqual([[], [], [], [], []]);
+  });
+
+  it("폼을 그대로 보내면 원 계약 id 가 요청에 실린다", () => {
+    const req = toCreateRequest(toDerivedRequestDefaults(origin, "renew", "me-1"));
+    expect(req.originContractId).toBe(origin.id);
+    expect(req.details.stage).toBe("renew");
+    expect(toCreateRequest({ ...toDerivedRequestDefaults(origin, "renew", "me-1"), stage: "new" }).originContractId).toBeNull();
+  });
+});
 
 describe("toEditDefaults", () => {
   it("응답을 폼 값으로 역매핑한다(코어·details)", () => {
