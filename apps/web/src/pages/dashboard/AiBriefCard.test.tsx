@@ -50,9 +50,12 @@ describe("AiBriefCard", () => {
   it("불러오는 동안 안내, 오면 AI 가 만든 요약과 항목을 보여준다", async () => {
     vi.mocked(getDashboardBrief).mockResolvedValue(BRIEF);
     renderCard();
-    expect(screen.getByText("AI가 오늘 챙길 일을 정리하고 있어요…")).toBeInTheDocument();
+    expect(screen.getByLabelText("AI가 오늘 챙길 일을 정리하고 있어요…")).toBeInTheDocument();
     expect(await screen.findByText("오늘 챙길 일은 2건이에요.")).toBeInTheDocument();
     expect(screen.getByText("유지보수 계약이 오늘까지인데 아직 미배정이에요.")).toBeInTheDocument();
+    // 옆 작대기 대신 급한 정도를 알약 문구로
+    expect(screen.getByText("급해요")).toBeInTheDocument();
+    expect(screen.getByText("참고")).toBeInTheDocument();
     expect(getDashboardBrief).toHaveBeenCalledWith(false);
   });
 
