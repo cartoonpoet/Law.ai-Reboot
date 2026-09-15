@@ -285,9 +285,36 @@ export interface PublicStatsResponse {
   reviewedContractCount: number;
 }
 
+// 계약 종료 사유(Prisma enum ContractClosedReason 과 같은 값).
+export type ContractClosedReason = "completed" | "expired" | "renewed" | "terminated";
+// 상태 변경으로 닫을 때 고를 수 있는 사유 — 갱신·해지는 전용 흐름에서만 정해진다.
+export type StatusCloseReason = Extract<ContractClosedReason, "completed" | "expired">;
+
+// 중도 해지 사유.
+export type TerminationReason = "agreement" | "counterpartyBreach" | "ourCircumstance" | "other";
+
+export interface TerminateContractRequest {
+  contractId: string;
+  /** gateway 가 JWT sub 를 주입. */
+  viewerId: string;
+  /** 해지일(YYYY-MM-DD) — 계약의 실제 종료일로 남는다. */
+  terminatedOn: string;
+  reason: TerminationReason;
+  note?: string;
+  /** 이 계약에 새로 첨부(role=attach)한 해지 합의서·통지서 File.id — 실제 바이트가 있어야 한다. */
+  fileId: string;
+  tenantContext?: TenantContext;
+}
+
+export interface TerminateContractResult {
+  contract: ContractResponse;
+}
+
 export interface UpdateContractStatusRequest {
   id: string;
   status: ContractStatus;
+  // closed 로 바꿀 때의 종료 사유. 없으면 completed(정상 종료).
+  closedReason?: StatusCloseReason;
   ownerId?: string | null;
   // 조회자 id(gateway가 JWT sub 주입). user-service에서 전이/배정 권한 평가에 사용.
   viewerId?: string;
@@ -364,6 +391,12 @@ export interface ContractResponse {
   periodEnd: string | null;
   dueDate: string | null;
   signedAt: string | null;
+  // 종료 정보 — status 가 closed 일 때만 값이 있다.
+  closedReason: ContractClosedReason | null;
+  closedAt: string | null;
+  closedNote: string | null;
+  // 갱신·변경·해지 요청이 가리키는 원 계약 id.
+  originContractId: string | null;
   schemaVersion: number;
   details: ContractDetailsV1;
   counterparties: CounterpartyResponse[];

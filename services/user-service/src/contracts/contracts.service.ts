@@ -42,6 +42,9 @@ import type {
   FinalizeRegistrationResult,
   ReplaceSignedFileRequest,
   ReplaceSignedFileResult,
+  TerminateContractRequest,
+  TerminateContractResult,
+  TerminationReason,
   DeleteContractRequest,
   DeleteContractResult,
 } from "@lawai/contracts";
@@ -92,6 +95,17 @@ const maskCompany = (c: Company): Company => ({
   managerPhone: maskDigits(c.managerPhone),
   managerEmail: maskEmail(c.managerEmail),
 });
+
+// 중도 해지할 수 있는 상태 — 체결 이후 아직 끝나지 않은 계약.
+const TERMINABLE_STATUSES: ContractStatus[] = ["signed", "fulfilling"];
+
+// 중도 해지 사유 → 종료 메모 앞에 붙는 이름.
+const TERMINATION_REASON_LABEL: Record<TerminationReason, string> = {
+  agreement: "합의 해지",
+  counterpartyBreach: "상대방 귀책",
+  ourCircumstance: "당사 사정",
+  other: "기타",
+};
 
 // 상태 전이 허용 맵(from → 허용 to[]).
 const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
@@ -1208,6 +1222,88 @@ export class ContractsService {
    *  updateStatus 가드·결재 게이트를 전부 건너뛰고 계약을 signed 로 만들 수 있었다 — 이 기능
    *  전체가 막으려던 그 우회를 finalize 자신이 다시 열어버리는 셈이다. 그래서 여기서는
    *  "미배정 + 생성자 본인" 두 조건을 authz 모듈을 거치지 않고 직접 확인한다. */
+  /** 중도 해지 — 체결 완료·계약 이행 계약을 해지일·사유·해지 합의서(통지서)와 함께 종료(terminated)한다. */
+  async terminate(req: TerminateContractRequest): Promise<TerminateContractResult> {
+    const ctx = req.tenantContext!;
+    const row = await this.ensureExists(req.contractId, ctx);
+
+    if (!TERMINABLE_STATUSES.includes(row.status as ContractStatus)) {
+      throw new RpcException({ status: 400, message: "체결 완료·계약 이행 중인 계약만 해지할 수 있습니다" });
+    }
+    // 권한은 이행 시작·계약 종료와 같다(법무팀·담당자·요청자 — authz 체결 이후 규칙).
+    const viewer = await this.loadViewer(req.viewerId, ctx);
+    const authz = evaluate(viewer, this.toAuthzContract(row));
+    if (!authz.canTransition) {
+      throw new RpcException({ status: 403, message: "해지 권한이 없습니다" });
+    }
+    const terminatedOn = parseDate(req.terminatedOn);
+    if (!terminatedOn) {
+      throw new RpcException({ status: 400, message: "해지일이 올바르지 않습니다" });
+    }
+    const reasonLabel = TERMINATION_REASON_LABEL[req.reason];
+    if (!reasonLabel) {
+      throw new RpcException({ status: 400, message: "해지 사유를 고르세요" });
+    }
+
+    // 해지 서류는 이 계약 본문에 새로 첨부한 파일(role=attach)이어야 한다 — 서명본 교체와 같은 이유.
+    const file = await this.prisma.file.findFirst({
+      where: { id: req.fileId, contractId: row.id, commentId: null },
+      select: { id: true, role: true, storageKey: true },
+    });
+    if (!file || !file.storageKey) {
+      throw new RpcException({ status: 400, message: "해지 합의서·통지서를 첨부하세요" });
+    }
+    if (file.role !== "attach") {
+      throw new RpcException({ status: 400, message: "새로 첨부한 파일만 해지 서류로 지정할 수 있습니다" });
+    }
+
+    const note = (req.note ?? "").trim();
+    const closedNote = note ? `${reasonLabel} — ${note}` : reasonLabel;
+    const terminatedOnLabel = terminatedOn.toISOString().slice(0, 10);
+
+    // 해지 서류 표시 + 계약 종료를 한 트랜잭션으로. 확인한 조건을 where 에 다시 넣어(CAS) 동시 요청에 대비하고,
+    // 대상이 사라지면 P2025 → 409.
+    let updated: ContractWithRelations;
+    try {
+      const [, updatedRow] = await this.prisma.$transaction([
+        this.prisma.file.update({
+          where: { id: file.id, contractId: row.id, commentId: null, role: "attach", storageKey: { not: null } },
+          data: { meta: `해지 합의서·통지서 · ${terminatedOnLabel}` },
+        }),
+        this.prisma.contract.update({
+          where: { id: row.id, status: { in: TERMINABLE_STATUSES }, ...tenantScope(ctx) },
+          data: { status: "closed", closedReason: "terminated", closedAt: terminatedOn, closedNote },
+          include: contractInclude,
+        }),
+      ]);
+      updated = updatedRow;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw new RpcException({ status: 409, message: "이미 처리되었거나 상태가 변경된 계약입니다" });
+      }
+      throw error;
+    }
+
+    await this.audit.record({
+      action: "transition",
+      targetType: "Contract",
+      targetId: row.id,
+      actorId: req.viewerId,
+      tenantId: row.tenantId,
+      detail: {
+        kind: "terminate",
+        from: row.status,
+        to: "closed",
+        reason: req.reason,
+        terminatedOn: terminatedOnLabel,
+        fileId: file.id,
+        ...(note ? { note } : {}),
+      },
+    });
+
+    return { contract: this.toResponse(updated) };
+  }
+
   async finalizeRegistration(
     req: FinalizeRegistrationRequest,
   ): Promise<FinalizeRegistrationResult> {
@@ -1339,6 +1435,10 @@ export class ContractsService {
       data: {
         status: req.status,
         ...(req.ownerId !== undefined ? { ownerId: req.ownerId } : {}),
+        // 종료로 넘길 때 사유·종료일을 함께 남긴다(갱신·해지는 전용 흐름에서 정한다).
+        ...(isTransition && req.status === "closed"
+          ? { closedReason: req.closedReason ?? "completed", closedAt: new Date() }
+          : {}),
       },
       include: contractInclude,
     });
@@ -1420,6 +1520,10 @@ export class ContractsService {
       periodEnd: row.periodEnd?.toISOString() ?? null,
       dueDate: row.dueDate?.toISOString() ?? null,
       signedAt: row.signedAt ? row.signedAt.toISOString() : null,
+      closedReason: row.closedReason ?? null,
+      closedAt: row.closedAt?.toISOString() ?? null,
+      closedNote: row.closedNote ?? null,
+      originContractId: row.originContractId ?? null,
       schemaVersion: row.schemaVersion,
       details: row.details as unknown as ContractDetailsV1,
       counterparties: row.counterparties.map((cp) => ({

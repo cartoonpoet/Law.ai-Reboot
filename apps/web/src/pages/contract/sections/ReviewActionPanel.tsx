@@ -9,6 +9,8 @@ import { getActionView } from "../getActionView";
 import type { ActionButton, ActionButtonKind, ApprovalActionContext } from "../getActionView";
 import { CompleteSigningModal } from "./CompleteSigningModal";
 import { ContractProgressModal } from "./ContractProgressModal";
+import { TerminateContractModal } from "./TerminateContractModal";
+import type { ContractDetail } from "../mock-data";
 import type { ContractProgressTargetTypes } from "./ContractProgressModal";
 import { ApprovalStepRows } from "./ApprovalStepRows";
 import { cx } from "../cx";
@@ -22,6 +24,8 @@ interface ReviewActionPanelProps {
   approvalLine: ApprovalStepView[] | null;
   // 체결일(코어 signedAt) — 결재 현황 블록의 진행 정보 행에 노출.
   signedAt: string | null;
+  // 종료 정보(계약 종료일 때만) — 종료 사유·종료일·메모를 결재 현황 블록에 보여준다.
+  closure: ContractDetail["closure"];
   isUpdating: boolean;
   onReject: () => void;
   onReviewDone: () => void;
@@ -53,6 +57,7 @@ export function ReviewActionPanel({
   ownerName,
   approvalLine,
   signedAt,
+  closure,
   isUpdating,
   onReject,
   onReviewDone,
@@ -71,6 +76,7 @@ export function ReviewActionPanel({
   const [comment, setComment] = useState("");
   const [isCompleteSigningOpen, setIsCompleteSigningOpen] = useState(false);
   const [progressTarget, setProgressTarget] = useState<ContractProgressTargetTypes | null>(null);
+  const [isTerminateOpen, setIsTerminateOpen] = useState(false);
 
   const handleConfirmProgress = () => {
     if (!progressTarget) return;
@@ -89,6 +95,7 @@ export function ReviewActionPanel({
     completeSigning: () => setIsCompleteSigningOpen(true),
     startFulfilling: () => setProgressTarget("fulfilling"),
     closeContract: () => setProgressTarget("closed"),
+    terminateContract: () => setIsTerminateOpen(true),
   } as const;
 
   return (
@@ -130,6 +137,20 @@ export function ReviewActionPanel({
                 )}
               </span>
             </div>
+          )}
+
+          {closure && (
+            <>
+              <div className={css.akv}>
+                <span className={css.akvKey}>종료 사유</span>
+                <span className={css.akvValue}>{closure.reason}</span>
+              </div>
+              <div className={css.akv}>
+                <span className={css.akvKey}>종료일</span>
+                <span className={css.akvValue}>{closure.closedAt ?? "-"}</span>
+              </div>
+              {closure.note && <p className={css.actionNotice}>{closure.note}</p>}
+            </>
           )}
 
           {view.isSubmitMode && <PrecheckList items={precheckItems} />}
@@ -174,6 +195,10 @@ export function ReviewActionPanel({
           onConfirm={handleConfirmProgress}
           onClose={() => setProgressTarget(null)}
         />
+      )}
+
+      {isTerminateOpen && (
+        <TerminateContractModal contractId={contractId} onClose={() => setIsTerminateOpen(false)} />
       )}
     </section>
   );
@@ -275,10 +300,15 @@ interface ReviewActionButtonsProps {
     completeSigning: () => void;
     startFulfilling: () => void;
     closeContract: () => void;
+    terminateContract: () => void;
   };
 }
 
-const PROGRESS_KINDS: ReadonlySet<ActionButtonKind> = new Set<ActionButtonKind>(["startFulfilling", "closeContract"]);
+const PROGRESS_KINDS: ReadonlySet<ActionButtonKind> = new Set<ActionButtonKind>([
+  "startFulfilling",
+  "closeContract",
+  "terminateContract",
+]);
 
 const TRANSITION_KINDS: ReadonlySet<ActionButtonKind> = new Set<ActionButtonKind>(["reject", "reviewDone", "startReview"]);
 
@@ -288,7 +318,7 @@ function ReviewActionButtons({ buttons, isUpdating, handlers }: ReviewActionButt
   const assign = buttons.find((b) => b.kind === "assign");
   const submit = buttons.find((b) => b.kind === "submitApproval");
   const complete = buttons.find((b) => b.kind === "completeSigning");
-  const progress = buttons.find((b) => PROGRESS_KINDS.has(b.kind));
+  const progresses = buttons.filter((b) => PROGRESS_KINDS.has(b.kind));
   const renderTransition = (b: ActionButton) => (
     <Button
       key={b.label}
@@ -336,17 +366,8 @@ function ReviewActionButtons({ buttons, isUpdating, handlers }: ReviewActionButt
           {complete.label}
         </Button>
       )}
-      {progress && (
-        <Button
-          size="medium"
-          color={progress.color}
-          variant={progress.variant}
-          disabled={isUpdating}
-          onClick={handlers[progress.kind]}
-        >
-          {progress.label}
-        </Button>
-      )}
+      {progresses.length > 1 && <div className={css.actionGrid}>{progresses.map(renderTransition)}</div>}
+      {progresses.length === 1 && renderTransition(progresses[0])}
     </>
   );
 }

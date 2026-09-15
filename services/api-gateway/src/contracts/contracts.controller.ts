@@ -39,6 +39,8 @@ import {
   type ReplaceSignedFileResult,
   type SubmitContractApprovalRequest,
   type SubmitContractApprovalResult,
+  type TerminateContractRequest,
+  type TerminateContractResult,
   type UpdateCommentRequest,
   type UpdateContractRequest,
   type UpdateContractStatusRequest,
@@ -53,6 +55,7 @@ import {
   CreateContractDto,
   FinalizeRegistrationDto,
   ReplaceSignedFileDto,
+  TerminateContractDto,
   UpdateCommentDto,
   UpdateContractDto,
   UpdateContractStatusDto,
@@ -291,6 +294,37 @@ export class ContractsController {
         .pipe(
           rpcToHttp(),
           map((result: ReplaceSignedFileResult) => result.contract),
+        ),
+    );
+  }
+
+  @ApiOperation({
+    summary: "계약 중도 해지",
+    description:
+      "체결 완료·계약 이행 계약을 해지일·사유·해지 합의서(통지서)와 함께 종료(closedReason=terminated). 법무팀·담당자·요청자만. 해지 서류는 이 계약에 새로 첨부한 파일.",
+  })
+  @Post(":id/terminate")
+  terminate(
+    @Param("id") id: string,
+    @Body() body: TerminateContractDto,
+    @Req() req: Request,
+  ): Promise<ContractResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: TerminateContractRequest = {
+      contractId: id,
+      viewerId: sub,
+      terminatedOn: body.terminatedOn,
+      reason: body.reason,
+      note: body.note,
+      fileId: body.fileId,
+      tenantContext: extractTenantContext(req),
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<TerminateContractResult>(CONTRACT_PATTERNS.TERMINATE, payload)
+        .pipe(
+          rpcToHttp(),
+          map((result: TerminateContractResult) => result.contract),
         ),
     );
   }

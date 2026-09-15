@@ -760,6 +760,7 @@ export function ContractDetailPage() {
             ownerName={d.owner}
             approvalLine={d.approvalLine}
             signedAt={d.signedAt}
+            closure={d.closure}
             isUpdating={isUpdating}
             onReject={() => changeStatus("requesterReview")}
             onReviewDone={() => changeStatus("reviewDone")}
