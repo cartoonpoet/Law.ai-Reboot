@@ -19,6 +19,7 @@ const createContract = (id: string, dueDay: number | null, overrides: Partial<Co
   ownerId: ME,
   ownerName: null,
   dueDate: dueDay === null ? null : new Date(2026, 8, dueDay).toISOString(),
+  periodEnd: null,
   signedAt: null,
   createdById: "other",
   updatedAt: NOW.toISOString(),

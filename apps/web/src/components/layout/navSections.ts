@@ -9,6 +9,7 @@ export const NAV_SECTIONS = [
     items: [
       { id: "c-request", label: "계약서 검토 요청", icon: "filePlus", path: "/contract/request" },
       { id: "c-list", label: "계약 조회", icon: "fileFind", path: "/contract/list" },
+      { id: "c-expiring", label: "만료 관리", icon: "calendar", path: "/contract/expiring" },
     ],
   },
   {

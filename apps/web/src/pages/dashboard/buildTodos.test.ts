@@ -19,6 +19,7 @@ const createContract = (overrides: Partial<ContractSummary>): ContractSummary =>
   ownerId: "other",
   ownerName: null,
   dueDate: null,
+  periodEnd: null,
   signedAt: null,
   createdById: "someone",
   updatedAt: NOW.toISOString(),

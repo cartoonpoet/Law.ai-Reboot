@@ -40,6 +40,7 @@ import {
   type SubmitContractApprovalRequest,
   type SubmitContractApprovalResult,
   type TerminateContractRequest,
+  type AnalyzeRenewalTermsRequest,
   type TerminateContractResult,
   type UpdateCommentRequest,
   type UpdateContractRequest,
@@ -103,6 +104,7 @@ export class ContractsController {
     @Query("mine") mine?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
+    @Query("sort") sort?: string,
   ): Promise<ListContractsResponse> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
     const payload: ListContractsRequest = {
@@ -115,6 +117,8 @@ export class ContractsController {
       mineOf: mine === "true" ? sub : undefined,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
+      // 알 수 없는 정렬 값은 기본(최근 수정 순)으로.
+      sort: sort === "periodEnd" ? "periodEnd" : undefined,
       tenantContext: extractTenantContext(req),
     };
     return firstValueFrom(
@@ -295,6 +299,26 @@ export class ContractsController {
           rpcToHttp(),
           map((result: ReplaceSignedFileResult) => result.contract),
         ),
+    );
+  }
+
+  @ApiOperation({
+    summary: "자동갱신·해지 통지 조항 AI로 읽기",
+    description:
+      "체결 완료·계약 이행 계약의 계약서에서 자동갱신·해지 통지 기한을 뽑는다(누른 사람의 AI 연동, 비동기). 결과는 GET /ai/analysis?kind=renewalTerms.",
+  })
+  @Post(":id/ai/renewal-terms")
+  analyzeRenewalTerms(@Param("id") id: string, @Req() req: Request): Promise<{ ok: true }> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: AnalyzeRenewalTermsRequest = {
+      contractId: id,
+      viewerId: sub,
+      tenantContext: extractTenantContext(req),
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<{ ok: true }>(CONTRACT_PATTERNS.ANALYZE_RENEWAL_TERMS, payload)
+        .pipe(rpcToHttp()),
     );
   }
 

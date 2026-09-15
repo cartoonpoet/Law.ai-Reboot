@@ -297,6 +297,28 @@ export type StatusCloseReason = Extract<ContractClosedReason, "completed" | "exp
 // 중도 해지 사유.
 export type TerminationReason = "agreement" | "counterpartyBreach" | "ourCircumstance" | "other";
 
+// AI 가 계약서에서 뽑은 자동갱신·해지 통지 조항(AiAnalysis kind "renewalTerms" 결과).
+export interface RenewalTerms {
+  autoRenewal: boolean;
+  // 자동 연장 단위(예: "1년"). 없으면 null.
+  renewalPeriod: string | null;
+  // 만료 며칠 전까지 해지를 통지해야 하는지.
+  noticeDays: number | null;
+  // 통지 기한(YYYY-MM-DD).
+  noticeDeadline: string | null;
+  // 근거 조항(번호·제목).
+  clause: string | null;
+  summary: string;
+}
+
+// 만료 관리 "AI로 읽기" — 누른 사람의 AI 연동으로 자동갱신·해지 통지 조항을 추출한다.
+export interface AnalyzeRenewalTermsRequest {
+  contractId: string;
+  /** gateway 가 JWT sub 를 주입. */
+  viewerId: string;
+  tenantContext?: TenantContext;
+}
+
 export interface TerminateContractRequest {
   contractId: string;
   /** gateway 가 JWT sub 를 주입. */
@@ -445,6 +467,7 @@ export interface ContractSummary {
   ownerId: string | null;
   ownerName: string | null;
   dueDate: string | null;
+  periodEnd: string | null; // 계약 만료일(만료 관리 D-day)
   signedAt: string | null;
   createdById: string;
   updatedAt: string;
@@ -456,7 +479,9 @@ export interface ListContractsRequest {
   // 콤마 분리 상태 목록(2단 그룹 필터). status 가 있으면 무시된다.
   statuses?: string;
   // 만료 기준(체결일 기준 X, periodEnd 기준). d90/d180=이내, expired=지남.
-  expiry?: "d90" | "d180" | "expired";
+  expiry?: "d7" | "d30" | "d90" | "d180" | "expired";
+  // 정렬 — 기본은 최근 수정 순, periodEnd 는 만료가 가까운 순(만료 관리).
+  sort?: "updated" | "periodEnd";
   party?: string;
   categoryId?: string;
   // createdById 지정 시 "내 업무만"(gateway 가 JWT sub 주입).
