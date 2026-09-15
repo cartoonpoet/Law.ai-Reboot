@@ -12,6 +12,7 @@ import { AssignModal } from "./sections/AssignModal";
 import { CommentPanel } from "./sections/CommentPanel";
 import { ReviewActionPanel } from "./sections/ReviewActionPanel";
 import { ApprovalRejectModal } from "./sections/ApprovalRejectModal";
+import { ReplaceSignedFileModal } from "./sections/ReplaceSignedFileModal";
 import { ApprovalStepRows } from "./sections/ApprovalStepRows";
 import { ContractDetailSkeleton } from "./sections/ContractDetailSkeleton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -225,7 +226,15 @@ const toPreviewRef = (f: DocFile): PreviewFileRef => ({
   mimeType: f.mimeType,
 });
 
-function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) {
+function DocsCard({
+  d,
+  contractId,
+  canReplaceSignedFile,
+}: {
+  d: ContractDetail;
+  contractId: string;
+  canReplaceSignedFile: boolean;
+}) {
   // 서명본은 계약서보다 위(체결 완료 계약에서 가장 권위 있는 문서). 없으면 블록 자체를 렌더하지 않는다
   // (검토 단계 계약은 서명본이 없는 게 정상 — 빈 섹션을 만들지 않는다).
   const signeds = d.files.filter((f) => f.kind === "서명본");
@@ -236,6 +245,7 @@ function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) 
   // 미리보기 상태 — DocsCard 가 모달 owner. previewBId 가 있으면 좌우 분할.
   const [previewAId, setPreviewAId] = useState<string | null>(null);
   const [previewBId, setPreviewBId] = useState<string | null>(null);
+  const [isReplaceSignedOpen, setIsReplaceSignedOpen] = useState(false);
 
   const previewableFiles = d.files.filter((f) => f.hasStorage && f.id);
   const candidates = previewableFiles.map(toPreviewRef);
@@ -274,7 +284,20 @@ function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) 
       <div className={cx(css.cbody, css.docGroup)}>
         {signeds.length > 0 && (
           <div>
-            <div className={css.docGroupLabel}>서명본</div>
+            <div className={css.docGroupLabel}>
+              서명본
+              {canReplaceSignedFile && (
+                <Button
+                  type="button"
+                  size="small"
+                  variant="outline"
+                  color="secondary"
+                  onClick={() => setIsReplaceSignedOpen(true)}
+                >
+                  서명본 교체
+                </Button>
+              )}
+            </div>
             {signeds.map((f, i) => (
               <DocFileRow
                 key={f.id ?? `signed-${i}`}
@@ -340,6 +363,12 @@ function DocsCard({ d, contractId }: { d: ContractDetail; contractId: string }) 
           }}
         />
       )}
+      {isReplaceSignedOpen && (
+        <ReplaceSignedFileModal
+          contractId={contractId}
+          onClose={() => setIsReplaceSignedOpen(false)}
+        />
+      )}
     </section>
   );
 }
@@ -392,6 +421,7 @@ export function ContractDetailPage() {
     assign: Boolean(data.can?.assign),
     transition: Boolean(data.can?.transition),
     delete: Boolean(data.can?.delete),
+    replaceSignedFile: Boolean(data.can?.replaceSignedFile),
   };
   // 진행 게이지 — 실 status + 담당자·검토기한·결재선·체결일에서 파생.
   const lifecycle = getLifecycleProgress({
@@ -731,7 +761,7 @@ export function ContractDetailPage() {
             onOpenRejectModal={() => setIsRejectOpen(true)}
             isDeciding={isDeciding}
           />
-          <DocsCard d={d} contractId={id} />
+          <DocsCard d={d} contractId={id} canReplaceSignedFile={can.replaceSignedFile} />
         </div>
       </div>
 

@@ -33,6 +33,8 @@ export interface ContractCan {
   assign: boolean;
   transition: boolean;
   delete: boolean;
+  // 체결된 계약의 서명본 교체(법무팀 전용).
+  replaceSignedFile: boolean;
 }
 
 export interface EntityRef {
@@ -242,6 +244,23 @@ export interface FinalizeRegistrationRequest {
 }
 
 export interface FinalizeRegistrationResult {
+  contract: ContractResponse;
+}
+
+/** 서명본 교체 — 체결된 계약의 서명본을 잘못 올렸을 때 법무팀이 새 파일로 바꾼다.
+ *  기존 서명본은 지우지 않고 첨부로 내려 이력으로 남기고, 사유는 감사 로그에 기록한다. */
+export interface ReplaceSignedFileRequest {
+  contractId: string;
+  /** gateway 가 JWT sub 를 주입. */
+  viewerId: string;
+  /** 새로 첨부(role=attach)한 서명본 File.id — 실제 바이트가 있어야 한다. */
+  fileId: string;
+  /** 교체 사유 — 감사 로그에 남는다. */
+  reason: string;
+  tenantContext?: TenantContext;
+}
+
+export interface ReplaceSignedFileResult {
   contract: ContractResponse;
 }
 

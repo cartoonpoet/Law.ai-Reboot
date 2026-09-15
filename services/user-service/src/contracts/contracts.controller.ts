@@ -10,6 +10,7 @@ import type {
   UpdateContractStatusRequest,
   CompleteSigningRequest,
   FinalizeRegistrationRequest,
+  ReplaceSignedFileRequest,
 } from "@lawai/contracts";
 import { ContractsService } from "./contracts.service";
 
@@ -55,5 +56,10 @@ export class ContractsController {
   @MessagePattern(CONTRACT_PATTERNS.FINALIZE_REGISTRATION)
   finalizeRegistration(@Payload() req: FinalizeRegistrationRequest) {
     return this.contracts.finalizeRegistration(req);
+  }
+
+  @MessagePattern(CONTRACT_PATTERNS.REPLACE_SIGNED_FILE)
+  replaceSignedFile(@Payload() req: ReplaceSignedFileRequest) {
+    return this.contracts.replaceSignedFile(req);
   }
 }

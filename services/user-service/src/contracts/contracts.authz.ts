@@ -54,6 +54,9 @@ export interface AuthzResult {
   canAssign: boolean;
   canTransition: boolean;
   canDelete: boolean;
+  // 체결된 계약의 서명본 교체(법무팀 전용). 편집 권한과 별개 — 체결 완료 등록 계약은 담당자가 없어
+  // 담당자 기준 권한으로는 아무도 고칠 수 없기 때문이다.
+  canReplaceSignedFile: boolean;
   // true 면 비밀참조(isSecret) 숨김 + 상대회사 PII 마스킹(get 에서 사용).
   maskSecret: boolean;
 }
@@ -145,6 +148,18 @@ const SECRET_PRIVILEGED_ROLES: ReadonlySet<TenantRole> = new Set<TenantRole>([
   "contractManager",
 ]);
 
+// 서명본 교체 권한 — 법무팀(시스템 관리자는 loadViewer 에서 inHouseCounsel 로 매핑)이 체결된 계약에서만.
+// 담당(owner) 여부는 보지 않는다(체결 완료 등록 계약은 담당자가 없다).
+const SIGNED_FILE_REPLACER_ROLES: ReadonlySet<TenantRole> = new Set<TenantRole>([
+  "inHouseCounsel",
+  "contractManager",
+]);
+const SIGNED_STATUSES: ReadonlySet<ContractStatus> = new Set<ContractStatus>([
+  "signed",
+  "fulfilling",
+  "closed",
+]);
+
 // canEditUnassigned 완화가 적용되는 status — "아직 생애주기 초반"만. 아래 evaluate() 참고.
 const EARLY_STATUSES: ReadonlySet<ContractStatus> = new Set<ContractStatus>([
   "draft",
@@ -219,6 +234,7 @@ export const evaluate = (
       canAssign: false,
       canTransition: false,
       canDelete: false,
+      canReplaceSignedFile: false,
       maskSecret: true,
     };
   }
@@ -242,6 +258,7 @@ export const evaluate = (
       canAssign: false,
       canTransition: false,
       canDelete: false,
+      canReplaceSignedFile: false,
       maskSecret,
     };
   }
@@ -297,6 +314,8 @@ export const evaluate = (
     canAssign,
     canTransition,
     canDelete: policy.delete, // delete 는 admin 전용(requiresOwner 무관)
+    canReplaceSignedFile:
+      SIGNED_FILE_REPLACER_ROLES.has(viewer.role) && SIGNED_STATUSES.has(contract.status),
     maskSecret,
   };
 };

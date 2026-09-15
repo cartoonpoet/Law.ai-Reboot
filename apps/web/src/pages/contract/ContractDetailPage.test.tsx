@@ -224,7 +224,7 @@ describe("ContractDetailPage", () => {
   it("검토 단계(legalReview)에서 검토 액션 패널과 can 기반 버튼을 렌더한다", async () => {
     vi.mocked(api.getContract).mockResolvedValue({
       ...response,
-      can: { edit: true, assign: true, transition: true, delete: false },
+      can: { edit: true, assign: true, transition: true, delete: false, replaceSignedFile: false },
     });
     renderAt("uuid-1");
     expect(await screen.findByText("검토 액션")).toBeInTheDocument();
@@ -239,7 +239,7 @@ describe("ContractDetailPage", () => {
     vi.mocked(api.getContract).mockResolvedValue({
       ...response,
       status: "signing",
-      can: { edit: false, assign: true, transition: true, delete: false },
+      can: { edit: false, assign: true, transition: true, delete: false, replaceSignedFile: false },
     });
     renderAt("uuid-1");
     expect(await screen.findByText("결재 현황")).toBeInTheDocument();
@@ -247,6 +247,29 @@ describe("ContractDetailPage", () => {
     expect(
       screen.queryByRole("button", { name: /담당자 배정/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("체결된 계약 + 서명본 교체 권한이면 서명본 그룹에 교체 버튼을 노출한다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      status: "signed",
+      files: [{ id: "f-s", role: "signed", name: "서명본.pdf", meta: "PDF", size: null, mimeType: null, storageKey: "k", sortOrder: 0 }],
+      can: { edit: false, assign: false, transition: false, delete: false, replaceSignedFile: true },
+    });
+    renderAt("uuid-1");
+    expect(await screen.findByRole("button", { name: "서명본 교체" })).toBeInTheDocument();
+  });
+
+  it("서명본 교체 권한이 없으면 교체 버튼을 숨긴다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      status: "signed",
+      files: [{ id: "f-s", role: "signed", name: "서명본.pdf", meta: "PDF", size: null, mimeType: null, storageKey: "k", sortOrder: 0 }],
+      can: { edit: false, assign: false, transition: false, delete: false, replaceSignedFile: false },
+    });
+    renderAt("uuid-1");
+    await screen.findByText("서명본.pdf");
+    expect(screen.queryByRole("button", { name: "서명본 교체" })).not.toBeInTheDocument();
   });
 
   it("로딩 중(isLoading)에는 ContractDetailSkeleton(placeholder)을 렌더한다", () => {
@@ -290,7 +313,7 @@ describe("ContractDetailPage", () => {
       ...response,
       status: "reviewDone",
       createdById: "someone-else",
-      can: { edit: false, assign: false, transition: false, delete: false },
+      can: { edit: false, assign: false, transition: false, delete: false, replaceSignedFile: false },
     });
     renderAt("uuid-1");
     await screen.findByText("사후계약관리 표준 NDA");

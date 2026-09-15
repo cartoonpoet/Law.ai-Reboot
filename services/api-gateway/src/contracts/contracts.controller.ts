@@ -33,6 +33,8 @@ import {
   type ListCommentsRequest,
   type ListContractsRequest,
   type ListContractsResponse,
+  type ReplaceSignedFileRequest,
+  type ReplaceSignedFileResult,
   type SubmitContractApprovalRequest,
   type SubmitContractApprovalResult,
   type UpdateCommentRequest,
@@ -48,6 +50,7 @@ import {
   CreateCommentDto,
   CreateContractDto,
   FinalizeRegistrationDto,
+  ReplaceSignedFileDto,
   UpdateCommentDto,
   UpdateContractDto,
   UpdateContractStatusDto,
@@ -257,6 +260,35 @@ export class ContractsController {
         .pipe(
           rpcToHttp(),
           map((result: FinalizeRegistrationResult) => result.contract),
+        ),
+    );
+  }
+
+  @ApiOperation({
+    summary: "서명본 교체",
+    description:
+      "체결된 계약(signed·fulfilling·closed)에서 법무팀만. 새로 첨부한 파일을 서명본으로 올리고 기존 서명본은 첨부로 내려 이력 보존, 사유는 감사 로그에 기록.",
+  })
+  @Post(":id/signed-file/replace")
+  replaceSignedFile(
+    @Param("id") id: string,
+    @Body() body: ReplaceSignedFileDto,
+    @Req() req: Request,
+  ): Promise<ContractResponse> {
+    const { sub } = (req as Request & { user: JwtPayload }).user;
+    const payload: ReplaceSignedFileRequest = {
+      contractId: id,
+      viewerId: sub,
+      fileId: body.fileId,
+      reason: body.reason,
+      tenantContext: extractTenantContext(req),
+    };
+    return firstValueFrom(
+      this.userClient
+        .send<ReplaceSignedFileResult>(CONTRACT_PATTERNS.REPLACE_SIGNED_FILE, payload)
+        .pipe(
+          rpcToHttp(),
+          map((result: ReplaceSignedFileResult) => result.contract),
         ),
     );
   }
