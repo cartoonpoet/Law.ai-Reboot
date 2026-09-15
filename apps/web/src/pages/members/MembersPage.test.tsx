@@ -12,7 +12,7 @@ const mockHook = (over: Partial<ReturnType<typeof useMembers>> = {}) => {
   const cancel = vi.fn().mockResolvedValue({ ok: true });
   vi.mocked(useMembers).mockReturnValue({
     members: [
-      { userId: "u1", name: "김담당", email: "lead@d.com", role: "contractManager", joinedAt: "2026-09-01T00:00:00.000Z" },
+      { userId: "u1", name: "김담당", avatarUrl: "/users/u1/avatar/a.png", email: "lead@d.com", role: "contractManager", joinedAt: "2026-09-01T00:00:00.000Z" },
     ],
     invites: [
       { id: "i1", email: "p@d.com", role: "general", expiresAt: "2026-09-17T00:00:00.000Z", createdAt: "2026-09-10T00:00:00.000Z" },

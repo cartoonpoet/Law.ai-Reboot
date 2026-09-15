@@ -130,6 +130,7 @@ const toApprovalStep = (
   order: s.stepOrder,
   userId: s.userId,
   name: s.name,
+  avatarUrl: s.avatarUrl,
   dept: s.dept,
   type: APPROVER_TYPE_LABEL[s.type] ?? s.type,
   typeKind: s.type,

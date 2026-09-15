@@ -94,6 +94,7 @@ describe("ContractDetailPage", () => {
         contractId: "uuid-1",
         authorId: "u1",
         authorName: "이법무",
+        authorAvatarUrl: null,
         role: "inHouseCounsel",
         body: "손해배상 한도 조정 검토 요망",
         createdAt: "2026-06-08T01:00:00.000Z",
@@ -349,8 +350,8 @@ describe("ContractDetailPage", () => {
         submittedById: "u1",
         submittedAt: "2026-06-09T00:00:00.000Z",
         steps: [
-          { id: "s-1", stepOrder: 0, userId: "u1", name: "이희규", dept: "사업개발팀", type: "draft", status: "approved", comment: null, decidedAt: "2026-06-09T00:00:00.000Z" },
-          { id: "s-2", stepOrder: 1, userId: "u1", name: "이법무", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
+          { id: "s-1", stepOrder: 0, userId: "u1", name: "이희규", avatarUrl: null, dept: "사업개발팀", type: "draft", status: "approved", comment: null, decidedAt: "2026-06-09T00:00:00.000Z" },
+          { id: "s-2", stepOrder: 1, userId: "u1", name: "이법무", avatarUrl: "/users/u1/avatar/a.png", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
         ],
       },
     });
@@ -371,8 +372,8 @@ describe("ContractDetailPage", () => {
         submittedById: "u1",
         submittedAt: "2026-06-09T00:00:00.000Z",
         steps: [
-          { id: "s-1", stepOrder: 0, userId: "u1", name: "이희규", dept: "사업개발팀", type: "draft", status: "approved", comment: null, decidedAt: "2026-06-09T00:00:00.000Z" },
-          { id: "s-2", stepOrder: 1, userId: "u1", name: "이법무", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
+          { id: "s-1", stepOrder: 0, userId: "u1", name: "이희규", avatarUrl: null, dept: "사업개발팀", type: "draft", status: "approved", comment: null, decidedAt: "2026-06-09T00:00:00.000Z" },
+          { id: "s-2", stepOrder: 1, userId: "u1", name: "이법무", avatarUrl: "/users/u1/avatar/a.png", dept: "법무팀", type: "approve", status: "pending", comment: null, decidedAt: null },
         ],
       },
     });

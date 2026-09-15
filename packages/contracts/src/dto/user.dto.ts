@@ -71,6 +71,14 @@ export const AVATAR_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"] as co
 export type AvatarMimeType = (typeof AVATAR_MIME_TYPES)[number];
 export const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
 
+// 프로필 사진 R2 키(avatars/<userId>/<파일>) → 공개 이미지 경로(API 기준, /users/<id>/avatar/<파일>).
+// 내 정보·코멘트 작성자·결재자·멤버 목록이 같은 규칙을 쓴다. 사진이 없으면 null. R2 키 자체는 화면에 내보내지 않는다.
+export const toAvatarPath = (userId: string, avatarKey: string | null | undefined): string | null => {
+  if (!avatarKey) return null;
+  const fileName = avatarKey.split("/").at(-1);
+  return fileName ? `/users/${userId}/avatar/${encodeURIComponent(fileName)}` : null;
+};
+
 // user-service → gateway 내부용 내 정보 행. gateway 가 avatarKey 를 이미지 주소로 바꿔 MyProfile 로 내보낸다.
 export type UserProfileRow = import("../types").PublicUser & {
   emailNotify: boolean;

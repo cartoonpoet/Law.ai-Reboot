@@ -46,7 +46,7 @@ export const ProfileSection = ({ me }: ProfileSectionProps) => {
       </div>
 
       <div className={css.profileRow}>
-        <UserAvatar name={me.name} avatarUrl={me.avatarUrl} size="large" />
+        <UserAvatar name={me.name} avatarUrl={me.avatarUrl} size="large" isDecorative={false} />
         <div className={css.avatarControls}>
           <div className={css.avatarButtons}>
             <label className={css.fileButton}>

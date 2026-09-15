@@ -78,7 +78,10 @@ describe("ProfileMenu", () => {
         <ProfileMenu />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("img", { name: "김지원 프로필 사진" })).toHaveAttribute("src", expect.stringContaining("/users/u1/avatar/a.png"));
+    // 옆에 이름이 보이므로 사진은 장식(alt="")으로 두고, 화면 낭독기에는 이름만 읽힌다.
+    const photo = document.querySelector('img[src*="/users/u1/avatar/a.png"]');
+    expect(photo).not.toBeNull();
+    expect(photo).toHaveAttribute("alt", "");
   });
 
   it("소속 회사가 1곳이면 회사 전환을 보여주지 않는다", async () => {

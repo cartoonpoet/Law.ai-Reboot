@@ -12,6 +12,8 @@ export interface ApprovalStepDto {
   stepOrder: number;
   userId: string | null;
   name: string;
+  // 결재자 프로필 사진(API 기준 경로). 사용자 연결이 없거나 사진이 없으면 null.
+  avatarUrl: string | null;
   dept: string;
   type: ApproverType;
   status: StepStatus;
