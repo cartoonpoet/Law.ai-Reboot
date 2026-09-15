@@ -260,6 +260,24 @@ describe("ContractDetailPage", () => {
     expect(await screen.findByRole("button", { name: "서명본 교체" })).toBeInTheDocument();
   });
 
+  it("삭제 권한이 있으면 계약 삭제 버튼을 보여주고, 없으면 숨긴다", async () => {
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      can: { edit: false, assign: false, transition: false, delete: true, replaceSignedFile: false },
+    });
+    const { unmount } = renderAt("uuid-1");
+    expect(await screen.findByRole("button", { name: "계약 삭제" })).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(api.getContract).mockResolvedValue({
+      ...response,
+      can: { edit: false, assign: false, transition: false, delete: false, replaceSignedFile: false },
+    });
+    renderAt("uuid-1");
+    await screen.findByText("사후계약관리 표준 NDA");
+    expect(screen.queryByRole("button", { name: "계약 삭제" })).not.toBeInTheDocument();
+  });
+
   it("서명본 교체 권한이 없으면 교체 버튼을 숨긴다", async () => {
     vi.mocked(api.getContract).mockResolvedValue({
       ...response,

@@ -113,3 +113,7 @@ export const replaceSignedFile = (
     method: "POST",
     body: JSON.stringify(body),
   });
+
+// 계약 삭제(소프트 삭제) — 담당자 배정 전 생성자 본인 또는 시스템 관리자. 체결 결재 중에는 서버가 거부한다.
+export const deleteContract = (id: string): Promise<{ ok: true }> =>
+  apiFetch<{ ok: true }>(`/contracts/${id}`, { method: "DELETE" });

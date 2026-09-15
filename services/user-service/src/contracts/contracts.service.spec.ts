@@ -1131,6 +1131,88 @@ describe("ContractsService", () => {
     expect(res.can).toEqual({ edit: true, assign: true, transition: true, delete: false, replaceSignedFile: false });
   });
 
+  it("get: 시스템 관리자는 체결 결재 중이 아니면 can.delete=true", async () => {
+    prismaMock.contract.findFirst.mockResolvedValue({ ...rowWithSecrets(), ownerId: "owner-1" });
+    const res = await service.get({
+      id: "ct-1",
+      viewerId: "admin-1",
+      tenantContext: { tenantId: "t1", isSystemAdmin: true },
+    });
+    expect(res.can?.delete).toBe(true);
+  });
+
+  // 계약 삭제(소프트 삭제) — 배정 전 생성자 본인 또는 시스템 관리자, 체결 결재 중 불가.
+  describe("remove (계약 삭제)", () => {
+    const adminCtx = { tenantContext: { tenantId: "t1", isSystemAdmin: true } as const };
+
+    it("담당자 배정 전 생성자 본인은 삭제할 수 있다 — deletedAt 기록 + 감사", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+      prismaMock.contract.update.mockResolvedValue(fullRow("unassigned"));
+
+      const res = await service.remove({ id: "ct-1", viewerId: "u1", ...makeCtx() });
+
+      expect(res).toEqual({ ok: true });
+      expect(prismaMock.contract.update).toHaveBeenCalledWith({
+        where: { id: "ct-1", deletedAt: null, status: { not: "signing" }, tenantId: "t1" },
+        data: { deletedAt: expect.any(Date) },
+      });
+      expect(auditMock.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "delete",
+          targetId: "ct-1",
+          actorId: "u1",
+          detail: { code: "C20260621-0001", title: "계약", status: "unassigned" },
+        }),
+      );
+    });
+
+    it("담당자가 배정된 뒤에는 생성자도 삭제할 수 없다 — 403", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), ownerId: "owner-1" });
+      await expect(service.remove({ id: "ct-1", viewerId: "u1", ...makeCtx() })).rejects.toMatchObject({
+        error: { status: 403 },
+      });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+    });
+
+    it("법무팀이라도 시스템 관리자가 아니면 남의 계약을 삭제할 수 없다 — 403", async () => {
+      prismaMock.userTenant.findFirst.mockResolvedValueOnce({ role: "inHouseCounsel", user: { departmentId: "dept-1" } });
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("legalReview"), ownerId: "counsel-1" });
+      await expect(service.remove({ id: "ct-1", viewerId: "counsel-1", ...makeCtx() })).rejects.toMatchObject({
+        error: { status: 403 },
+      });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+    });
+
+    it("시스템 관리자는 체결된 계약도 삭제할 수 있다", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signed"), ownerId: "owner-1" });
+      prismaMock.contract.update.mockResolvedValue(fullRow("signed"));
+      await expect(service.remove({ id: "ct-1", viewerId: "admin-1", ...adminCtx })).resolves.toEqual({ ok: true });
+      expect(prismaMock.contract.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: "ct-1", deletedAt: null }) }),
+      );
+    });
+
+    it("체결 결재 진행 중(signing)이면 시스템 관리자도 400", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue({ ...fullRow("signing"), ownerId: "owner-1" });
+      await expect(service.remove({ id: "ct-1", viewerId: "admin-1", ...adminCtx })).rejects.toMatchObject({
+        error: { status: 400 },
+      });
+      expect(prismaMock.contract.update).not.toHaveBeenCalled();
+      expect(auditMock.record).not.toHaveBeenCalled();
+    });
+
+    it("그 사이 삭제·상신돼 대상이 없으면(P2025) 409", async () => {
+      prismaMock.contract.findFirst.mockResolvedValue(fullRow("unassigned"));
+      prismaMock.contract.update.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError("not found", { code: "P2025", clientVersion: "test" }),
+      );
+      await expect(service.remove({ id: "ct-1", viewerId: "u1", ...makeCtx() })).rejects.toMatchObject({
+        error: { status: 409 },
+      });
+      expect(auditMock.record).not.toHaveBeenCalled();
+    });
+  });
+
   // --- Gen-Phase 8: 가드 / 감사 케이스 ---
 
   it("update: canEdit=false 면 403 (권한 없는 general)", async () => {
