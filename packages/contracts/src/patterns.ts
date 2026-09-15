@@ -126,6 +126,8 @@ export const NOTIFICATION_PATTERNS = {
 export const AI_PATTERNS = {
   ANALYZE: "ai.analyze",
   CHAT: "ai.chat",
+  // 스캔 PDF 글자 읽기(이미지 → 글자). 계약서 본문에 글자 층이 없을 때만 부른다.
+  READ_DOCUMENT: "ai.readDocument",
   LIST_MODELS: "ai.listModels",
 } as const;
 

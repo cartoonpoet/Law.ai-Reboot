@@ -1,6 +1,18 @@
-import { AiAnalyzeInput, AiChatInput, AiModelOption, AiProvider } from "./provider";
+import { AiAnalyzeInput, AiChatInput, AiModelOption, AiProvider, AiReadDocumentInput } from "./provider";
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
+
+type OpenAiContentPart =
+  | { type: "text"; text: string }
+  | { type: "file"; file: { filename: string; file_data: string } };
+type OpenAiMessage = { role: string; content: string | OpenAiContentPart[] };
+
+// 스캔 계약서 글자 옮겨 적기 — 요약·해석 없이 원문 그대로.
+const READ_DOCUMENT_PROMPT =
+  "당신은 문서 전사 전문가입니다. 첨부된 스캔 계약서의 글자를 쪽 순서대로 빠짐없이 그대로 옮겨 적으세요. " +
+  "요약·해석·맞춤법 교정을 하지 말고, 조항 번호와 줄바꿈을 살리고, 표는 한 행을 한 줄로 적으세요. " +
+  "읽을 수 없는 글자는 [판독불가] 로 적으세요. " +
+  '다음 JSON 스키마로 반환하세요: { "text": string }.';
 
 const KIND_PROMPT: Record<string, string> = {
   // 사전 위험 점검(risk 의 경량 버전) — 파일 원문 없이 계약 메타데이터(title/details)만으로 1차 점검.
@@ -56,6 +68,35 @@ export class OpenAiProvider implements AiProvider {
     return { result };
   }
 
+  // 스캔 문서 읽기 — PDF 를 파일 입력으로 보내고(모델이 쪽마다 이미지로 본다) 옮겨 적은 글자를 받는다.
+  async readDocument(input: AiReadDocumentInput): Promise<{ text: string }> {
+    const content = await this.requestJsonCompletion(input.apiKey, input.model, [
+      { role: "system", content: READ_DOCUMENT_PROMPT },
+      {
+        role: "user",
+        content: [
+          {
+            type: "file",
+            file: { filename: input.fileName, file_data: `data:${input.mimeType};base64,${input.fileBase64}` },
+          },
+          { type: "text", text: "이 문서의 글자를 옮겨 적어 주세요." },
+        ],
+      },
+    ]);
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new Error("OpenAI 응답 JSON 파싱 실패");
+    }
+    const text = (parsed as { text?: unknown }).text;
+    if (typeof text !== "string") {
+      throw new Error("OpenAI 응답에 문서 글자(text)가 없습니다");
+    }
+    return { text };
+  }
+
   // AI 비서 대화 — 시스템 지시 + 대화 기록을 보내고 JSON 문자열을 그대로 돌려준다(해석은 user-service).
   async chat(input: AiChatInput): Promise<{ content: string }> {
     const content = await this.requestJsonCompletion(input.apiKey, input.model, [
@@ -68,7 +109,7 @@ export class OpenAiProvider implements AiProvider {
   private async requestJsonCompletion(
     apiKey: string,
     model: string,
-    messages: { role: string; content: string }[],
+    messages: OpenAiMessage[],
   ): Promise<string> {
     const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
       method: "POST",

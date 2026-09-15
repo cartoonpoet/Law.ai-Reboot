@@ -4,6 +4,10 @@ import * as mammoth from "mammoth";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.js";
 import { R2Client } from "../files/r2.client";
 import { readHwpText, readHwpxText } from "./hwp-text";
+import { ScannedPdfReader } from "./scanned-pdf.reader";
+
+// 스캔 PDF 를 AI 가 읽은 본문 앞에 붙이는 안내 — 분석 모델이 오탈자 가능성을 감안하게 한다.
+export const SCANNED_TEXT_NOTE = "(스캔 문서라 AI가 이미지에서 읽은 글자입니다 — 오탈자가 있을 수 있어요)";
 
 // AI 에 넘길 본문 최대 길이 — 모델 입력 한도·비용을 넘지 않게 자른다(자른 경우 표시).
 export const MAX_CONTRACT_TEXT_LENGTH = 60_000;
@@ -38,10 +42,9 @@ const getReadableKind = (file: ContractFileLike): ReadableKindTypes | null => {
   return null;
 };
 
-const readRawText = async (kind: ReadableKindTypes, bytes: Uint8Array): Promise<string> => {
+// PDF 는 스캔본이면 AI 로 읽어야 해서 추출기 안(readPdf)에서 따로 처리한다.
+const readRawText = async (kind: Exclude<ReadableKindTypes, "pdf">, bytes: Uint8Array): Promise<string> => {
   switch (kind) {
-    case "pdf":
-      return readPdfText(bytes);
     case "docx":
       return (await mammoth.extractRawText({ buffer: Buffer.from(bytes) })).value;
     case "hwp":
@@ -60,8 +63,8 @@ const normalizeText = (text: string) =>
     .replace(/\n\s*\n\s*\n+/g, "\n\n")
     .trim();
 
-/** PDF 글자 추출(렌더링 없이 텍스트 층만). 스캔 이미지 PDF 는 글자가 없어 빈 문자열이 된다. */
-export const readPdfText = async (bytes: Uint8Array): Promise<string> => {
+/** PDF 글자 층 추출(렌더링 없이) + 전체 쪽수. 스캔 이미지 PDF 는 글자가 없어 text 가 빈 문자열이 된다. */
+export const readPdfTextLayer = async (bytes: Uint8Array): Promise<{ text: string; pageCount: number }> => {
   const doc = await pdfjs.getDocument({
     // Node Buffer 를 그대로 넘기면 pdfjs 가 거부하므로 순수 Uint8Array 로 복사
     data: new Uint8Array(bytes),
@@ -74,13 +77,13 @@ export const readPdfText = async (bytes: Uint8Array): Promise<string> => {
   }).promise;
   try {
     const pages: string[] = [];
-    const pageCount = Math.min(doc.numPages, MAX_PDF_PAGES);
-    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+    const readPageCount = Math.min(doc.numPages, MAX_PDF_PAGES);
+    for (let pageNumber = 1; pageNumber <= readPageCount; pageNumber++) {
       const page = await doc.getPage(pageNumber);
       const content = await page.getTextContent();
       pages.push(content.items.map((item) => ("str" in item ? `${item.str}${item.hasEOL ? "\n" : ""}` : "")).join(""));
     }
-    return pages.join("\n");
+    return { text: pages.join("\n"), pageCount: doc.numPages };
   } finally {
     await doc.destroy();
   }
@@ -94,16 +97,20 @@ export const readPdfText = async (bytes: Uint8Array): Promise<string> => {
 export class ContractTextExtractor {
   private readonly logger = new Logger(ContractTextExtractor.name);
 
-  constructor(private readonly r2: R2Client) {}
+  constructor(
+    private readonly r2: R2Client,
+    private readonly scannedPdf: ScannedPdfReader,
+  ) {}
 
-  async extract(files: ContractFileLike[]): Promise<string | null> {
+  // ocrUserId: 스캔 PDF 를 AI 로 읽을 때 쓸 AI 연동의 주인(분석을 요청한 사람). 없으면 스캔 PDF 는 건너뛴다.
+  async extract(files: ContractFileLike[], options: { ocrUserId: string | null } = { ocrUserId: null }): Promise<string | null> {
     const targets = files
       .filter((f) => f.role === "contract" && f.storageKey && getReadableKind(f) !== null)
       .slice(0, MAX_FILES);
 
     const sections: string[] = [];
     for (const file of targets) {
-      const text = await this.readFile(file);
+      const text = await this.readFile(file, options.ocrUserId);
       if (text) sections.push(`[파일: ${file.name}]\n${text}`);
     }
     if (sections.length === 0) return null;
@@ -114,17 +121,36 @@ export class ContractTextExtractor {
       : joined;
   }
 
-  private async readFile(file: ContractFileLike): Promise<string | null> {
+  private async readFile(file: ContractFileLike, ocrUserId: string | null): Promise<string | null> {
     try {
       const bytes = await this.r2.getObjectBytes(file.storageKey as string);
       if (!bytes) return null;
       const kind = getReadableKind(file);
       if (!kind) return null;
+      if (kind === "pdf") return await this.readPdf(file, bytes, ocrUserId);
       const text = normalizeText(await readRawText(kind, bytes));
       return text || null;
     } catch (error) {
       this.logger.warn(`[ai] 계약서 본문 추출 실패 (${file.name}): ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
+  }
+
+  // 글자 층이 있으면 그대로 쓰고, 없으면(스캔본) 분석을 요청한 사람의 AI 연동으로 읽어 AI 가 읽었다고 표시한다.
+  private async readPdf(file: ContractFileLike, bytes: Uint8Array, ocrUserId: string | null): Promise<string | null> {
+    const { text, pageCount } = await readPdfTextLayer(bytes);
+    const layerText = normalizeText(text);
+    if (layerText) return layerText;
+    if (!ocrUserId) return null;
+
+    const scanned = await this.scannedPdf.read({
+      userId: ocrUserId,
+      storageKey: file.storageKey as string,
+      fileName: file.name,
+      bytes,
+      pageCount,
+    });
+    const scannedText = scanned ? normalizeText(scanned) : "";
+    return scannedText ? `${SCANNED_TEXT_NOTE}\n${scannedText}` : null;
   }
 }

@@ -8,6 +8,8 @@ import {
   type AiChatResult,
   type AiListModelsRequest,
   type AiListModelsResult,
+  type AiReadDocumentRequest,
+  type AiReadDocumentResult,
 } from "@lawai/contracts";
 import { AiProviderRegistry } from "./providers/provider";
 
@@ -37,6 +39,18 @@ export class AiController {
       apiKey: req.apiKey,
       system: req.system,
       messages: req.messages,
+    });
+  }
+
+  @MessagePattern(AI_PATTERNS.READ_DOCUMENT)
+  async readDocument(@Payload() req: AiReadDocumentRequest): Promise<AiReadDocumentResult> {
+    const provider = this.registry.get("openai");
+    return provider.readDocument({
+      model: req.model,
+      apiKey: req.apiKey,
+      fileName: req.fileName,
+      mimeType: req.mimeType,
+      fileBase64: req.fileBase64,
     });
   }
 

@@ -17,6 +17,17 @@ export interface AiAnalyzeRequest {
 export interface AiAnalyzeResult {
   result: unknown;
 }
+// 스캔 문서(글자 층이 없는 PDF)를 AI 가 이미지에서 읽어 글자로 옮긴다. 파일은 base64 로 보낸다.
+export interface AiReadDocumentRequest {
+  model: string;
+  apiKey: string;
+  fileName: string;
+  mimeType: string;
+  fileBase64: string;
+}
+export interface AiReadDocumentResult {
+  text: string;
+}
 export interface AiListModelsRequest {
   provider: string;
 }

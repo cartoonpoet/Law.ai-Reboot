@@ -9,6 +9,8 @@ import {
   type AiChatResult,
   type AiListModelsRequest,
   type AiListModelsResult,
+  type AiReadDocumentRequest,
+  type AiReadDocumentResult,
 } from "@lawai/contracts";
 import type { AiCredentialVerifier, AiCredentialVerifyResult } from "./ai-credential-verifier";
 
@@ -33,6 +35,10 @@ export class AiServiceClient implements AiCredentialVerifier {
 
   chat(req: AiChatRequest): Promise<AiChatResult> {
     return firstValueFrom(this.client.send<AiChatResult>(AI_PATTERNS.CHAT, req));
+  }
+
+  readDocument(req: AiReadDocumentRequest): Promise<AiReadDocumentResult> {
+    return firstValueFrom(this.client.send<AiReadDocumentResult>(AI_PATTERNS.READ_DOCUMENT, req));
   }
 
   listModels(req: AiListModelsRequest): Promise<AiListModelsResult> {
