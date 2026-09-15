@@ -127,7 +127,8 @@ describe("FilesService", () => {
         viewerId: "counsel-1",
         tenantContext: makeCtx(),
       });
-      expect(res.uploadUrl).toBe("https://r2.example/signed-url");
+      // R2 주소가 아니라 게이트웨이 업로드 중계 경로 + 업로드 토큰.
+      expect(res.uploadUrl).toBe(`/files/upload?token=${encodeURIComponent(res.uploadToken)}`);
       expect(res.uploadToken).toEqual(expect.any(String));
       expect(res.storageKey).toMatch(/^contracts\/contract-1\//);
       expect(res.expiresIn).toBe(900);
@@ -186,7 +187,8 @@ describe("FilesService", () => {
         viewerId: "admin-1",
         tenantContext: makeCtx("tenant-1", true),
       });
-      expect(res.uploadUrl).toBe("https://r2.example/signed-url");
+      // R2 주소가 아니라 게이트웨이 업로드 중계 경로 + 업로드 토큰.
+      expect(res.uploadUrl).toBe(`/files/upload?token=${encodeURIComponent(res.uploadToken)}`);
       // userTenant.findFirst 는 호출되지 않아야 함(admin 경로).
       expect(prismaMock.userTenant.findFirst).not.toHaveBeenCalled();
     });
@@ -577,6 +579,51 @@ describe("FilesService", () => {
           where: expect.objectContaining({ tenantId: "tenant-2" }),
         }),
       );
+    });
+  });
+
+  describe("getUploadTarget (게이트웨이 업로드 중계)", () => {
+    const makeUploadToken = (expiresInSec = 60) =>
+      signUploadToken(
+        {
+          sub: "counsel-1",
+          contractId: "contract-1",
+          role: "contract",
+          storageKey: "contracts/contract-1/uuid/a.pdf",
+          fileName: "a.pdf",
+          sha256: VALID_SHA,
+          size: 1234,
+          mimeType: VALID_MIME,
+        },
+        expiresInSec,
+      );
+
+    it("업로드 토큰이면 R2 PUT 주소와 presign 때 검증한 크기·형식을 준다", async () => {
+      const res = await service.getUploadTarget({ token: makeUploadToken() });
+      expect(res).toEqual({
+        url: "https://r2.example/signed-url",
+        size: 1234,
+        mimeType: VALID_MIME,
+      });
+      const { getSignedUrl } = jest.requireMock("@aws-sdk/s3-request-presigner");
+      const [, command] = getSignedUrl.mock.calls[0];
+      expect(command.input).toEqual({
+        Bucket: "test-bucket",
+        Key: "contracts/contract-1/uuid/a.pdf",
+        ContentType: VALID_MIME,
+      });
+    });
+
+    it("만료된 업로드 토큰이면 401", async () => {
+      await expect(
+        service.getUploadTarget({ token: makeUploadToken(-10) }),
+      ).rejects.toMatchObject({ error: expect.objectContaining({ status: 401 }) });
+    });
+
+    it("다운로드 주소 토큰(용도가 다른 토큰)은 401", async () => {
+      await expect(
+        service.getUploadTarget({ token: signContentToken("file-1", 60) }),
+      ).rejects.toMatchObject({ error: expect.objectContaining({ status: 401 }) });
     });
   });
 

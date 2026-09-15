@@ -30,7 +30,11 @@ export const signUploadToken = (
 
 export const verifyUploadToken = (token: string): UploadTokenClaims => {
   const payload = jwt.verify(token, getFileTokenSecret()) as jwt.JwtPayload &
-    UploadTokenClaims;
+    UploadTokenClaims & { purpose?: unknown };
+  // 같은 비밀키로 서명하는 다운로드 주소 토큰(purpose 있음)을 업로드 토큰으로 쓰지 못하게 막는다.
+  if (payload.purpose !== undefined || typeof payload.storageKey !== "string") {
+    throw new Error("업로드 토큰이 아닙니다");
+  }
   return {
     sub: payload.sub,
     contractId: payload.contractId,
