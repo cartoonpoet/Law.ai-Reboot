@@ -18,6 +18,7 @@ import { AdminModule } from "./admin/admin.module";
 import { TenantsGatewayModule } from "./tenants/tenants.module";
 import { AiModule } from "./ai/ai.module";
 import { PublicModule } from "./public/public.module";
+import { SupportModule } from "./support/support.module";
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { PublicModule } from "./public/public.module";
     TenantsGatewayModule,
     AiModule,
     PublicModule,
+    SupportModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

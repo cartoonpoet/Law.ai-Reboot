@@ -7,6 +7,7 @@ import { AssistantChat } from "./AssistantChat";
 import { AssistantHome } from "./AssistantHome";
 import { AssistantNoticeCard } from "./AssistantNoticeCard";
 import { AssistantNotifications } from "./AssistantNotifications";
+import { AssistantSupport } from "./AssistantSupport";
 import { ASSISTANT_POPUP, ASSISTANT_PROFILE } from "./assistantData";
 import { useAssistant } from "./useAssistant";
 import type { AssistantViewTypes } from "./useAssistantState";
@@ -25,7 +26,7 @@ const getLauncherLabel = (isOpen: boolean, badgeLabel: string | null) => {
 export const AiAssistant = () => {
   const { me } = useMe();
   const assistant = useAssistant();
-  const notifications = useAssistantNotifications(assistant.close);
+  const notifications = useAssistantNotifications(assistant.close, assistant.openSupportThread);
   const { chat, view, isOpen } = assistant;
   const hasPopup = !isOpen && !assistant.isPopupDismissed;
   const lastMessage = chat.messages.length > 1 ? (chat.messages.at(-1) ?? null) : null;
@@ -68,6 +69,15 @@ export const AiAssistant = () => {
         onDismissAction={chat.dismissAction}
         onBack={() => assistant.showView("home")}
         onClose={assistant.close}
+      />
+    ),
+    support: (
+      <AssistantSupport
+        threadId={assistant.supportThreadId}
+        draftContext={assistant.supportDraftContext}
+        onOpenThread={assistant.showSupportThread}
+        onClose={assistant.close}
+        bottomNav={bottomNav}
       />
     ),
     notifications: (
