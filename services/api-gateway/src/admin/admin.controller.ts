@@ -63,16 +63,35 @@ export class AdminController {
   @Get("audit")
   getAudit(
     @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+    @Query("tenantId") tenantId?: string,
+    @Query("action") action?: string,
+    @Query("actorId") actorId?: string,
+    @Query("targetId") targetId?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
   ): Promise<AdminAuditListResponse> {
-    const parsed = limit ? Number(limit) : undefined;
     const payload: AdminAuditListRequest = {
-      limit: Number.isFinite(parsed) ? parsed : undefined,
+      limit: this.toCount(limit),
+      offset: this.toCount(offset),
+      tenantId: tenantId || undefined,
+      action: action || undefined,
+      actorId: actorId || undefined,
+      targetId: targetId || undefined,
+      from: from || undefined,
+      to: to || undefined,
     };
     return firstValueFrom(
       this.userClient
         .send<AdminAuditListResponse>(ADMIN_PATTERNS.GET_AUDIT, payload)
         .pipe(rpcToHttp()),
     );
+  }
+
+  // 쿼리스트링의 개수·시작 위치 — 숫자가 아니거나 음수면 무시하고 서버 기본값을 쓴다.
+  private toCount(value?: string): number | undefined {
+    const parsed = value ? Number(value) : undefined;
+    return parsed !== undefined && Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
   }
 
   @ApiOperation({ summary: "고객사 생성 + 첫 담당자 초대 (온보딩 1단계)" })

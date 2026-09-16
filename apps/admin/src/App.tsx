@@ -4,6 +4,7 @@ import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { TenantListPage } from "./pages/tenants/TenantListPage";
 import { TenantDetailPage } from "./pages/tenants/TenantDetailPage";
 import { DeletedContractListPage } from "./pages/contracts/DeletedContractListPage";
+import { AuditLogPage } from "./pages/audit/AuditLogPage";
 import { DashboardMock } from "./pages/mockups/DashboardMock";
 import { RequireAdmin } from "./components/RequireAdmin";
 
@@ -42,6 +43,14 @@ export function App() {
         element={
           <RequireAdmin>
             <DeletedContractListPage />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/audit"
+        element={
+          <RequireAdmin>
+            <AuditLogPage />
           </RequireAdmin>
         }
       />

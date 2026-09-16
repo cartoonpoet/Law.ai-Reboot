@@ -107,7 +107,7 @@ export const FILE_PATTERNS = {
 export const ADMIN_PATTERNS = {
   // 어드민 대시보드 — 계약/사용자/파일/최근 비교보고서 다운로드 카운트.
   GET_STATS: "admin.getStats",
-  // 최근 감사 로그(actor 이름 포함). limit 로 페이지네이션.
+  // 감사 로그 조회(actor·회사·대상 이름 포함). 기간·회사·행위·사람으로 걸러 보고 offset 으로 페이지를 넘긴다.
   GET_AUDIT: "admin.getAudit",
   // 고객사 목록 + 전체 KPI (Spec 3).
   LIST_TENANTS: "admin.listTenants",
