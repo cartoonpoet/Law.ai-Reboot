@@ -10,7 +10,19 @@ import {
   themeVars,
 } from "@lawkit/ui";
 import { login } from "../../api/auth";
-import { clearTokens, setTokens } from "../../api/tokens";
+import {
+  SESSION_EXPIRED_PARAM,
+  SESSION_EXPIRED_VALUE,
+  clearTokens,
+  setTokens,
+} from "../../api/tokens";
+
+// 로그인 화면 상단 안내 — 세션이 끝나 돌아왔거나(자동 갱신 실패), 권한이 없어 막힌 경우.
+const getInitialNotice = (reason: string | null, expired: string | null): string | null => {
+  if (expired === SESSION_EXPIRED_VALUE) return "로그인 유지 시간이 지나 로그아웃됐어요. 다시 로그인해 주세요.";
+  if (reason === "forbidden") return "관리자 권한이 필요합니다. 관리자 계정으로 로그인해 주세요.";
+  return null;
+};
 
 const page: React.CSSProperties = {
   display: "grid",
@@ -190,7 +202,10 @@ const errBox: React.CSSProperties = {
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const reason = searchParams.get("reason");
+  const initialNotice = getInitialNotice(
+    searchParams.get("reason"),
+    searchParams.get(SESSION_EXPIRED_PARAM),
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [keepSignedIn, setKeepSignedIn] = useState(false);
@@ -224,12 +239,6 @@ export function LoginPage() {
       setIsSubmitting(false);
     }
   };
-
-  // reason 쿼리: RequireAdmin 가드가 admin 아닌 사용자 차단했을 때 안내.
-  const initialNotice =
-    reason === "forbidden"
-      ? "관리자 권한이 필요합니다. 관리자 계정으로 로그인해 주세요."
-      : null;
 
   return (
     <div style={page}>
