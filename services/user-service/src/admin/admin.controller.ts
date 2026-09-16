@@ -29,7 +29,7 @@ export class AdminController {
   getAudit(
     @Payload() req: AdminAuditListRequest,
   ): Promise<AdminAuditListResponse> {
-    return this.admin.getRecentAudit(req.limit);
+    return this.admin.getRecentAudit(req);
   }
 
   @MessagePattern(ADMIN_PATTERNS.LIST_TENANTS)

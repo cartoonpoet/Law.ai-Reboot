@@ -18,6 +18,19 @@ export interface AdminStatsResponse {
   generatedAt: string;
 }
 
+// 감사 로그에 기록되는 행위 — Prisma AuditAction enum 과 같은 값.
+export const ADMIN_AUDIT_ACTIONS = [
+  "create",
+  "update",
+  "delete",
+  "transition",
+  "view",
+  "compare_report_download",
+  "restore",
+] as const;
+
+export type AdminAuditActionTypes = (typeof ADMIN_AUDIT_ACTIONS)[number];
+
 export interface AdminAuditEntry {
   id: string;
   action: string;
@@ -25,16 +38,31 @@ export interface AdminAuditEntry {
   actorName: string | null;
   targetType: string;
   targetId: string;
+  // 대상 이름(계약이면 계약 제목). 찾지 못하면 null — 화면은 targetId 로 대신 보여준다.
+  targetTitle: string | null;
+  tenantId: string;
+  tenantName: string | null;
   detail: unknown;
   at: string; // ISO
 }
 
 export interface AdminAuditListRequest {
   limit?: number; // 기본 20, 최대 100
+  offset?: number; // 기본 0 — 페이지 넘기기
+  tenantId?: string;
+  action?: string; // ADMIN_AUDIT_ACTIONS 중 하나. 모르는 값은 무시한다.
+  actorId?: string;
+  // 한 사람 이름 일부로 찾기(대소문자 무시). actorId 를 같이 주면 이름 검색이 우선한다.
+  actorName?: string;
+  targetId?: string;
+  from?: string; // ISO — 이 시각부터(포함)
+  to?: string; // ISO — 이 시각까지(포함)
 }
 
 export interface AdminAuditListResponse {
   items: AdminAuditEntry[];
+  // 조건에 맞는 전체 건수(페이지 넘기기용).
+  total: number;
 }
 
 // ─── Spec 3: 고객사 관리 ─────────────────────────────────────────────
