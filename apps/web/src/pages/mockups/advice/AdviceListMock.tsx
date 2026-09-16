@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Button,
   ButtonGroup,
   ChipsNavigation,
   DataTable,
@@ -102,24 +101,11 @@ export function AdviceListMock() {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
-        <div>
-          <Eyebrow style={{ marginBottom: 7 }}>법무 업무</Eyebrow>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em" }}>
-            법률자문
-          </h1>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <Button variant="outline" color="secondary" size="medium"
-            iconLeft={<Icon name="externalLink" size="sm" style={{ width: 14, height: 14 }} />}>
-            내보내기
-          </Button>
-          <Button size="medium"
-            iconLeft={<Icon name="contractEdit" size="sm" style={{ width: 14, height: 14 }} />}
-            onClick={() => navigate("/mockups/advice-request")}>
-            자문 요청
-          </Button>
-        </div>
+      <div style={{ marginBottom: 18 }}>
+        <Eyebrow style={{ marginBottom: 7 }}>법무 업무</Eyebrow>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: T.heading, letterSpacing: "-0.025em" }}>
+          법률자문
+        </h1>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
