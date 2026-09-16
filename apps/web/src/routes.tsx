@@ -24,6 +24,7 @@ import { CompareDirectMock } from "./pages/mockups/CompareDirectMock";
 import { CompareSwapMock } from "./pages/mockups/CompareSwapMock";
 import { ComparePickerMock } from "./pages/mockups/ComparePickerMock";
 import { ContractLifecycleMock } from "./pages/mockups/lifecycle/ContractLifecycleMock";
+import { AdviceRequestMock } from "./pages/mockups/advice/AdviceRequestMock";
 import { NotFoundPage } from "./components/feedback/NotFoundPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,7 @@ export function AppRoutes() {
         <Route path="/mockups/compare-swap" element={<CompareSwapMock />} />
         <Route path="/mockups/compare-picker" element={<ComparePickerMock />} />
         <Route path="/mockups/contract-lifecycle" element={<ContractLifecycleMock />} />
+        <Route path="/mockups/advice-request" element={<AdviceRequestMock />} />
       </Route>
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
