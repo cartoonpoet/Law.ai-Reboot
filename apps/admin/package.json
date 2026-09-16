@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@lawai/contracts": "workspace:*",
-    "@lawkit/ui": "^0.1.41",
+    "@lawkit/ui": "^0.1.76",
     "@tanstack/react-query": "^5.101.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
