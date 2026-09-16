@@ -13,7 +13,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@lawai/contracts": "workspace:*",
-    "@lawkit/ui": "^0.1.76",
+    "@lawkit/ui": "^0.1.77",
     "@react-pdf/renderer": "^4.5.1",
     "@tanstack/react-query": "^5.62.0",
     "@tiptap/extension-color": "3.26.0",

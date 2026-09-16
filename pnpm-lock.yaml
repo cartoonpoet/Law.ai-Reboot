@@ -24,8 +24,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/contracts
       '@lawkit/ui':
-        specifier: ^0.1.76
-        version: 0.1.76(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^0.1.77
+        version: 0.1.77(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-query':
         specifier: ^5.101.0
         version: 5.101.0(react@19.2.7)
@@ -79,8 +79,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/contracts
       '@lawkit/ui':
-        specifier: ^0.1.76
-        version: 0.1.76(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: ^0.1.77
+        version: 0.1.77(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@react-pdf/renderer':
         specifier: ^4.5.1
         version: 4.5.1(react@19.2.7)
@@ -1620,8 +1620,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@lawkit/ui@0.1.76':
-    resolution: {integrity: sha512-C0k8oQKM2kEqnz54nZwSBIy1jwQVUjANU1/G3xMDxeGlVrsRO2g8AZ3PsmZLtS5+65QUrtIsvOJr04tPV/Y6Nw==}
+  '@lawkit/ui@0.1.77':
+    resolution: {integrity: sha512-9EmR2kNYxn2IkpThpumx2pVmip5QufU4GpxEAupUHwdAU3TacO8W91Z92kN6ly3a3xUuQW/rf7AOwrCTfazqUQ==}
     peerDependencies:
       react: ^18.2.0 || ^19.0.0
       react-dom: ^18.2.0 || ^19.0.0
@@ -7490,7 +7490,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@lawkit/ui@0.1.76(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@lawkit/ui@0.1.77(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@tanstack/react-table': 8.21.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react: 19.2.7
