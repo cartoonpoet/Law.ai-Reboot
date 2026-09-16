@@ -137,7 +137,7 @@ const content: React.CSSProperties = {
 };
 
 interface NavItem {
-  icon: "home" | "users" | "fileText" | "folder" | "tag" | "shield" | "monitor" | "briefcase";
+  icon: "home" | "users" | "fileText" | "folder" | "tag" | "shield" | "monitor" | "briefcase" | "messageCircle";
   label: string;
   path?: string; // 있으면 클릭 이동 + 현재 경로 매칭으로 active
 }
@@ -159,6 +159,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     items: [
       { icon: "users", label: "사용자" },
       { icon: "fileText", label: "삭제된 계약", path: "/contracts/deleted" },
+      { icon: "messageCircle", label: "문의함", path: "/support" },
       { icon: "folder", label: "표준양식" },
       { icon: "tag", label: "카테고리" },
     ],

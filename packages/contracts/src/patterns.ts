@@ -121,6 +121,18 @@ export const ADMIN_PATTERNS = {
   RESTORE_CONTRACT: "admin.restoreContract",
 } as const;
 
+// 문의·상담(user-service) — 사용자가 남긴 문의와 관리자 답변.
+export const SUPPORT_PATTERNS = {
+  CREATE_THREAD: "support.createThread",
+  LIST_MY_THREADS: "support.listMyThreads",
+  GET_THREAD: "support.getThread",
+  ADD_MESSAGE: "support.addMessage",
+  ADMIN_LIST: "support.adminList",
+  ADMIN_GET: "support.adminGet",
+  // 관리자 답변 — 만든 알림을 돌려주면 게이트웨이가 SSE 로 민다.
+  ADMIN_REPLY: "support.adminReply",
+} as const;
+
 export const NOTIFICATION_PATTERNS = {
   // 계약 만료 임박 알림 만들기(게이트웨이 스케줄러가 매일 부르고 결과를 SSE 로 push).
   RUN_CONTRACT_EXPIRY_ALERTS: "notification.runContractExpiryAlerts",

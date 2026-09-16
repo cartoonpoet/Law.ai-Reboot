@@ -536,6 +536,55 @@ model Notification {
   @@schema("shared")
 }
 
+enum SupportStatus {
+  open // 답변 대기
+  answered // 답변 옴
+  closed // 종료
+
+  @@schema("shared")
+}
+
+enum SupportAuthorRole {
+  user
+  admin
+
+  @@schema("shared")
+}
+
+// 문의 스레드 — AI 비서 "문의" 탭에서 만들고, 관리자 콘솔에서 답한다.
+// userId/tenantId 는 다른 스키마를 가리켜 FK 없음(AuditLog·Notification 선례). 메시지는 같은 스키마라 관계를 건다.
+model SupportThread {
+  id            String           @id @default(uuid())
+  tenantId      String
+  userId        String
+  subject       String
+  status        SupportStatus    @default(open)
+  // 오류 문의면 화면 주소·오류 메시지·앱 버전 등(사용자가 쓴 내용과 별개).
+  context       Json?
+  lastMessageAt DateTime         @default(now())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  messages      SupportMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@index([tenantId])
+  @@schema("shared")
+}
+
+model SupportMessage {
+  id         String            @id @default(uuid())
+  threadId   String
+  thread     SupportThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId   String
+  authorRole SupportAuthorRole
+  body       String
+  createdAt  DateTime          @default(now())
+
+  @@index([threadId, createdAt])
+  @@schema("shared")
+}
+
 model AiProviderCredential {
   id            String   @id @default(uuid())
   userId        String   @unique   // 개인별 — 테넌트 공용 아님
