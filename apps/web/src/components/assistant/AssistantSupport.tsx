@@ -79,7 +79,7 @@ export const AssistantSupport = ({
           <Icon name="chevronLeft" size="sm" />
         </button>
       )}
-      <h2 className={supportCss.headerTitle}>{title}</h2>
+      <h2 className={cx(supportCss.headerTitle, !onBack && supportCss.headerTitleFlush)}>{title}</h2>
       <button type="button" className={css.iconButton} onClick={onClose} aria-label="AI 비서 닫기">
         <Icon name="close" size="sm" />
       </button>
@@ -130,7 +130,9 @@ export const AssistantSupport = ({
               </div>
             );
           })}
-          {thread?.status === "closed" && <p className={supportCss.emptyText}>종료된 문의예요. 더 궁금하면 새 문의를 남겨 주세요.</p>}
+          {thread?.status === "closed" && (
+            <p className={supportCss.emptyText}>종료된 문의예요. 더 궁금하면 새 문의를 남겨 주세요.</p>
+          )}
         </div>
         {thread && thread.status !== "closed" && (
           <form action={handleReply} className={supportCss.formArea}>
@@ -140,11 +142,9 @@ export const AssistantSupport = ({
               placeholder="이어서 쓸 내용을 적어 주세요"
               aria-label="문의 이어서 쓰기"
             />
-            <div className={supportCss.buttonRow}>
-              <button type="submit" className={css.startButton} disabled={support.isSending}>
-                {support.isSending ? "보내는 중…" : "보내기"}
-              </button>
-            </div>
+            <button type="submit" className={supportCss.primaryButton} disabled={support.isSending}>
+              {support.isSending ? "보내는 중…" : "보내기"}
+            </button>
           </form>
         )}
         {bottomNav}
@@ -168,30 +168,32 @@ export const AssistantSupport = ({
               <div>위 정보가 문의와 함께 전달돼요.</div>
             </div>
           )}
-          <label className={supportCss.label} htmlFor="support-subject">
-            제목
-          </label>
-          <input
-            id="support-subject"
-            name="subject"
-            className={supportCss.input}
-            defaultValue={draftContext?.screen ? `${draftContext.screen} 오류 문의` : ""}
-            placeholder="무엇에 대한 문의인가요?"
-          />
-          <label className={supportCss.label} htmlFor="support-body">
-            내용
-          </label>
-          <textarea
-            id="support-body"
-            name="body"
-            className={supportCss.textarea}
-            placeholder="어떤 상황에서 무엇이 안 됐는지 적어 주세요"
-          />
-          <div className={supportCss.buttonRow}>
-            <button type="submit" className={css.startButton} disabled={support.isSending}>
-              {support.isSending ? "보내는 중…" : "문의 보내기"}
-            </button>
+          <div className={supportCss.field}>
+            <label className={supportCss.label} htmlFor="support-subject">
+              제목
+            </label>
+            <input
+              id="support-subject"
+              name="subject"
+              className={supportCss.input}
+              defaultValue={draftContext?.screen ? `${draftContext.screen} 오류 문의` : ""}
+              placeholder="무엇에 대한 문의인가요?"
+            />
           </div>
+          <div className={supportCss.field}>
+            <label className={supportCss.label} htmlFor="support-body">
+              내용
+            </label>
+            <textarea
+              id="support-body"
+              name="body"
+              className={supportCss.textarea}
+              placeholder="어떤 상황에서 무엇이 안 됐는지 적어 주세요"
+            />
+          </div>
+          <button type="submit" className={supportCss.primaryButton} disabled={support.isSending}>
+            {support.isSending ? "보내는 중…" : "문의 보내기"}
+          </button>
         </form>
         {bottomNav}
       </>
@@ -205,16 +207,16 @@ export const AssistantSupport = ({
         <p className={supportCss.intro}>
           쓰다가 막히거나 오류가 나면 문의를 남겨 주세요. 답변이 오면 알림으로 바로 알려드려요.
         </p>
-        <div className={supportCss.buttonRow}>
-          <button type="button" className={css.startButton} onClick={() => setIsWriting(true)}>
-            새 문의 남기기
-          </button>
-        </div>
+        <button type="button" className={supportCss.primaryButton} onClick={() => setIsWriting(true)}>
+          새 문의 남기기
+        </button>
         {support.isLoading && <p className={supportCss.emptyText}>불러오는 중…</p>}
         {!support.isLoading && support.threads.length === 0 && (
           <p className={supportCss.emptyText}>아직 남긴 문의가 없어요.</p>
         )}
-        {support.threads.map(renderThreadRow)}
+        {support.threads.length > 0 && (
+          <div className={supportCss.threadList}>{support.threads.map(renderThreadRow)}</div>
+        )}
       </div>
       {bottomNav}
     </>
