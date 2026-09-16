@@ -182,7 +182,7 @@ export const recentMain = style({ flex: 1, minWidth: 0, display: "flex", flexDir
 export const recentPreview = style({ fontSize: 12.5, color: c.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" });
 export const recentTime = style({ fontSize: 11, color: FAINT, flexShrink: 0 });
 
-export const bottomNav = style({ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: c.neutralSurface, borderTop: `1px solid ${c.neutralBorder}` });
+export const bottomNav = style({ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", background: c.neutralSurface, borderTop: `1px solid ${c.neutralBorder}` });
 // position:relative — 알림 탭의 안 읽은 수 배지 기준점.
 export const navButton = style([resetButton, { position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "8px 0 10px", fontSize: 11, color: c.textMuted }]);
 export const navActive = style({ color: AI_TEXT, fontWeight: 700 });

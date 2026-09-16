@@ -23,6 +23,7 @@ const TYPE_LABEL: Record<string, string> = {
   contract_expiring_90: "계약 만료 90일 전이에요",
   contract_expiring_30: "계약 만료 30일 전이에요",
   contract_expiring_7: "계약 만료가 7일 안으로 다가왔어요",
+  support_reply: "문의에 답변이 달렸어요",
 };
 
 // 사람이 아닌 시스템 알림(만료 임박 등)은 보낸 사람 이름이 없다.
