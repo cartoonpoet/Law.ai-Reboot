@@ -130,7 +130,7 @@ export function DashboardPage() {
   });
   const audit = useQuery({
     queryKey: ["admin-audit", 20],
-    queryFn: () => getAdminAudit(20),
+    queryFn: () => getAdminAudit({ limit: 20 }),
   });
 
   const handleLogout = () => {

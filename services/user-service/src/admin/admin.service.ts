@@ -7,6 +7,7 @@ import type {
   AdminRestoreContractResult,
   ContractStatus,
   AdminAuditEntry,
+  AdminAuditListRequest,
   AdminAuditListResponse,
   AdminStatsResponse,
   AdminTenantDetailResponse,
@@ -14,6 +15,7 @@ import type {
   AdminTenantListResponse,
   AdminTenantUpdateRequest,
 } from "@lawai/contracts";
+import { ADMIN_AUDIT_ACTIONS } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 
 const AUDIT_DEFAULT_LIMIT = 20;
@@ -24,6 +26,29 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 // 삭제된 계약 목록에 한 번에 보여줄 최대 건수(최근 삭제 순).
 const DELETED_CONTRACT_LIMIT = 200;
 const RESTORE_NOT_FOUND_MESSAGE = "삭제된 계약을 찾을 수 없습니다. 이미 복구됐을 수 있어요";
+
+// 날짜 문자열 → Date. 비었거나 말이 안 되는 값이면 조건에서 뺀다.
+const toDate = (iso?: string): Date | undefined => {
+  if (!iso) return undefined;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
+// 감사 로그 검색 조건 — 준 값만 넣는다. 모르는 행위 이름은 무시해 전체를 보여준다.
+const buildAuditWhere = (req: AdminAuditListRequest): Prisma.AuditLogWhereInput => {
+  const action = ADMIN_AUDIT_ACTIONS.find((known) => known === req.action);
+  const from = toDate(req.from);
+  const to = toDate(req.to);
+  return {
+    ...(req.tenantId ? { tenantId: req.tenantId } : {}),
+    ...(req.actorId ? { actorId: req.actorId } : {}),
+    ...(req.targetId ? { targetId: req.targetId } : {}),
+    ...(action ? { action } : {}),
+    ...(from || to
+      ? { at: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+      : {}),
+  };
+};
 
 @Injectable()
 export class AdminService {
@@ -84,20 +109,34 @@ export class AdminService {
   }
 
   /**
-   * 최근 감사 로그 — actor 이름까지 조인(User 1쿼리로 batch 조회 — N+1 회피).
+   * 감사 로그 조회 — 기간·회사·행위·사람으로 거르고 offset 으로 페이지를 넘긴다.
+   * 사람·회사·대상 이름은 배치 조회로 붙이고(N+1 회피), total 은 조건에 맞는 전체 건수.
    */
   async getRecentAudit(
-    limitInput?: number,
+    req: AdminAuditListRequest = {},
   ): Promise<AdminAuditListResponse> {
     const limit = Math.min(
-      Math.max(1, limitInput ?? AUDIT_DEFAULT_LIMIT),
+      Math.max(1, req.limit ?? AUDIT_DEFAULT_LIMIT),
       AUDIT_MAX_LIMIT,
     );
-    const rows = await this.prisma.auditLog.findMany({
-      take: limit,
-      orderBy: { at: "desc" },
-    });
-    return { items: await this.attachActorNames(rows) };
+    const offset = Math.max(0, req.offset ?? 0);
+    const where = buildAuditWhere(req);
+    const actorIds = await this.findActorIdsByName(req.actorName);
+    if (actorIds) {
+      // 이름에 맞는 사람이 없으면 결과도 없다(조건 없이 전체를 보여주면 안 된다).
+      if (actorIds.length === 0) return { items: [], total: 0 };
+      where.actorId = { in: actorIds };
+    }
+    const [rows, total] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        take: limit,
+        skip: offset,
+        orderBy: { at: "desc" },
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+    return { items: await this.attachActorNames(rows), total };
   }
 
   /** 고객사 목록 + 전체 KPI — groupBy 4종 병렬 후 메모리 머지(테넌트 수십 규모 전제). */
@@ -354,7 +393,21 @@ export class AdminService {
     };
   }
 
-  /** AuditLog rows 에 actorName 배치 조인(N+1 회피) — getRecentAudit/getTenant 공용. */
+  /** 이름 일부로 사람 찾기 — 감사 로그의 "누가" 검색. 검색어가 없으면 undefined(조건 없음). */
+  private async findActorIdsByName(name?: string): Promise<string[] | undefined> {
+    const keyword = name?.trim();
+    if (!keyword) return undefined;
+    const users = await this.prisma.user.findMany({
+      where: { name: { contains: keyword, mode: "insensitive" } },
+      select: { id: true },
+    });
+    return users.map((user) => user.id);
+  }
+
+  /**
+   * AuditLog rows 에 사람·회사·대상 이름을 배치 조인(N+1 회피) — getRecentAudit/getTenant 공용.
+   * 대상 이름은 계약이면 계약 제목, 고객사면 회사 이름. 지워져서 못 찾으면 null(화면이 id 로 대신 보여준다).
+   */
   private async attachActorNames(
     rows: {
       id: string;
@@ -362,19 +415,47 @@ export class AdminService {
       actorId: string;
       targetType: string;
       targetId: string;
+      tenantId: string;
       detail: unknown;
       at: Date;
     }[],
   ): Promise<AdminAuditEntry[]> {
     const actorIds = Array.from(new Set(rows.map((r) => r.actorId)));
-    const users =
+    const tenantIds = Array.from(new Set(rows.map((r) => r.tenantId)));
+    const contractIds = Array.from(
+      new Set(rows.filter((r) => r.targetType === "Contract").map((r) => r.targetId)),
+    );
+    // 빈 배열도 타입을 적어 둔다 — 그냥 [] 를 쓰면 이름 타입이 흐려진다.
+    const noNames: { id: string; name: string }[] = [];
+    const noTitles: { id: string; title: string }[] = [];
+    const [users, tenants, contracts] = await Promise.all([
       actorIds.length > 0
-        ? await this.prisma.user.findMany({
+        ? this.prisma.user.findMany({
             where: { id: { in: actorIds } },
             select: { id: true, name: true },
           })
-        : [];
+        : noNames,
+      tenantIds.length > 0
+        ? this.prisma.tenant.findMany({
+            where: { id: { in: tenantIds } },
+            select: { id: true, name: true },
+          })
+        : noNames,
+      contractIds.length > 0
+        ? this.prisma.contract.findMany({
+            where: { id: { in: contractIds } },
+            select: { id: true, title: true },
+          })
+        : noTitles,
+    ]);
     const nameById = new Map(users.map((u) => [u.id, u.name]));
+    const tenantNameById = new Map(tenants.map((t) => [t.id, t.name]));
+    const titleById = new Map(contracts.map((c) => [c.id, c.title]));
+    const getTargetTitle = (row: { targetType: string; targetId: string }): string | null => {
+      if (row.targetType === "Contract") return titleById.get(row.targetId) ?? null;
+      if (row.targetType === "Tenant") return tenantNameById.get(row.targetId) ?? null;
+      return null;
+    };
     return rows.map((r) => ({
       id: r.id,
       action: r.action,
@@ -382,6 +463,9 @@ export class AdminService {
       actorName: nameById.get(r.actorId) ?? null,
       targetType: r.targetType,
       targetId: r.targetId,
+      targetTitle: getTargetTitle(r),
+      tenantId: r.tenantId,
+      tenantName: tenantNameById.get(r.tenantId) ?? null,
       detail: r.detail as Prisma.JsonValue,
       at: r.at.toISOString(),
     }));

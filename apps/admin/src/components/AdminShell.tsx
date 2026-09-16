@@ -166,7 +166,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
   {
     section: "감사",
     items: [
-      { icon: "shield", label: "감사 로그" },
+      { icon: "shield", label: "감사 로그", path: "/audit" },
       { icon: "monitor", label: "시스템 상태" },
     ],
   },
