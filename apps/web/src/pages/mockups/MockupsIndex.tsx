@@ -13,6 +13,21 @@ export function MockupsIndex() {
         </p>
       </Link>
 
+      <Link to="/mockups/advice-list" className={css.indexCard}>
+        <h3>법률자문 조회</h3>
+        <p>
+          계약 조회와 같은 구성 — 필터줄 → 단계 세그먼트 + 총건수 → 세부 상태 칩 → 표 → 페이저.
+          행을 누르면 상세 시안으로 갑니다.
+        </p>
+      </Link>
+
+      <Link to="/mockups/advice-detail" className={css.indexCard}>
+        <h3>법률자문 상세</h3>
+        <p>
+          계약 상세와 같은 구성 — 6칸 요약줄 + 좌측 본문(AI 도우미 · 자문 내용 · 질의/회신) + 우측 레일(결재선 · 관련 문서 · 이력).
+        </p>
+      </Link>
+
       <h2 className={css.indexHero}>계약 상세 진행 단계 바</h2>
       <Link to="/mockups/contract-lifecycle" className={css.indexCard}>
         <h3>D. 링 게이지 요약형 (채택)</h3>
