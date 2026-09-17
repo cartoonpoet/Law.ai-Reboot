@@ -4,6 +4,8 @@ import { Button, Icon } from "@lawkit/ui";
 import { Badge } from "../../../components/ui/Badge";
 import { Tag } from "../../../components/ui/Tag";
 import { cx } from "../../contract/cx";
+import { LifecycleRing } from "../../contract/sections/LifecycleRing";
+import { getAdviceProgress } from "./getAdviceProgress";
 import * as css from "../../contract/contractDetail.css";
 
 // 시안 표시용 자문 한 건.
@@ -25,6 +27,11 @@ const ADVICE = {
     "준거법을 한국법으로 둘 수 있는지, 둘 수 없다면 중재로 가는 편이 나은지 알고 싶습니다. 대리점 해지 제한 규정이 있다면 그 영향도 함께 봐 주세요.",
   etcRequest: "9월 18일 임원 보고 전에 회신 부탁드립니다.",
 };
+
+const PROGRESS = getAdviceProgress({
+  status: "reviewing",
+  note: `${ADVICE.ownerName} 검토 중 · 회신기한 ${ADVICE.dueLabel}`,
+});
 
 const THREAD = [
   { at: "2026-09-14", who: "김수현", role: "요청자", text: "준거법을 한국법으로 둘 수 있을까요? 상대는 베트남 법인입니다." },
@@ -110,6 +117,9 @@ export function AdviceDetailMock() {
           <div className={css.gv}>{ADVICE.secure ? "보안" : "일반"}</div>
         </div>
       </div>
+
+      {/* 진행 게이지 — 계약 상세와 같은 컴포넌트(지난·남은 단계는 hover 팝오버) */}
+      <LifecycleRing progress={PROGRESS} />
 
       <div className={css.railGrid}>
         <div className={css.stack}>
