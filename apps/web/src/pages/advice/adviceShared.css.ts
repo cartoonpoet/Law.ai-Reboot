@@ -23,5 +23,3 @@ export const pageTitle = style({
 });
 
 export const pageActions = style({ display: "flex", gap: 8, flexShrink: 0 });
-
-export const buttonIcon = style({ width: 14, height: 14 });
