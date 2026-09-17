@@ -1,3 +1,4 @@
+import type { ListContractsResponse } from "@lawai/contracts";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -54,6 +55,7 @@ describe("ContractListPage", () => {
       total: 1,
       page: 1,
       pageSize: 20,
+      counts: {} as ListContractsResponse["counts"],
     });
   });
 

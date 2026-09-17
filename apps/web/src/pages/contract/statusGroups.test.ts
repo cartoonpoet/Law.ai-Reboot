@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { STATUS_GROUPS, getGroupStatuses, STATUS_GROUP_LABEL } from "./statusGroups";
+import { STATUS_GROUPS, getGroupCount, getGroupStatuses, STATUS_GROUP_LABEL } from "./statusGroups";
 import { CONTRACT_STATUS_LABEL } from "./contractStatus";
 
 describe("statusGroups", () => {
@@ -30,5 +30,30 @@ describe("statusGroups", () => {
     for (const g of Object.keys(STATUS_GROUPS)) {
       expect(STATUS_GROUP_LABEL[g as keyof typeof STATUS_GROUPS]).toBeTruthy();
     }
+  });
+});
+
+describe("getGroupCount", () => {
+  const counts = {
+    draft: 1,
+    unassigned: 2,
+    assigning: 0,
+    legalReview: 3,
+    requesterReview: 0,
+    reviewDone: 0,
+    signing: 1,
+    signed: 4,
+    fulfilling: 5,
+    closed: 6,
+  };
+
+  it("그룹에 속한 상태 건수를 더하고, 전체는 모든 상태를 더한다", () => {
+    expect(getGroupCount(counts, "review")).toBe(6);
+    expect(getGroupCount(counts, "sign")).toBe(5);
+    expect(getGroupCount(counts, "all")).toBe(22);
+  });
+
+  it("건수를 아직 못 받았으면 null", () => {
+    expect(getGroupCount(undefined, "all")).toBeNull();
   });
 });

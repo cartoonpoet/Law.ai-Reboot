@@ -497,4 +497,6 @@ export interface ListContractsResponse {
   total: number;
   page: number;
   pageSize: number;
+  // 상태 필터를 빼고 센 상태별 건수(목록 그룹 탭 숫자). 검색·분류·내 업무·만료 조건은 반영한다.
+  counts: Record<ContractStatus, number>;
 }

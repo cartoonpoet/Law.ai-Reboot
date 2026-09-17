@@ -41,3 +41,13 @@ export const STATUS_GROUP_ORDER: StatusGroup[] = [
 export const getGroupStatuses = (group: StatusGroup): ContractStatus[] => [
   ...STATUS_GROUPS[group],
 ];
+
+// 그룹 탭 숫자 — 그룹에 속한 상태 건수의 합(전체는 모든 상태). 건수를 아직 못 받았으면 null.
+export const getGroupCount = (
+  counts: Record<ContractStatus, number> | undefined,
+  group: StatusGroup,
+): number | null => {
+  if (!counts) return null;
+  const statuses = group === "all" ? (Object.keys(counts) as ContractStatus[]) : getGroupStatuses(group);
+  return statuses.reduce((sum, status) => sum + (counts[status] ?? 0), 0);
+};

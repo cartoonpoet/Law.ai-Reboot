@@ -85,6 +85,7 @@ export function ContractListPage() {
     mine,
     changeMine,
     isFetching,
+    getGroupCount,
   } = useContractsList();
   const { getFlatOptions } = useContractCategories();
 
@@ -182,10 +183,10 @@ export function ContractListPage() {
         <div className={listCss.groupBar}>
           <ButtonGroup
             variant="segmented"
-            items={STATUS_GROUP_ORDER.map((g) => ({
-              value: g,
-              label: STATUS_GROUP_LABEL[g],
-            }))}
+            items={STATUS_GROUP_ORDER.map((g) => {
+              const count = getGroupCount(g);
+              return { value: g, label: count === null ? STATUS_GROUP_LABEL[g] : `${STATUS_GROUP_LABEL[g]} ${count}` };
+            })}
             value={group}
             onChange={(v) => changeGroup(v as StatusGroup)}
           />
