@@ -1,0 +1,218 @@
+import { Test } from "@nestjs/testing";
+import { RpcException } from "@nestjs/microservices";
+import { Prisma } from "@prisma/client";
+import { AdvicesService } from "./advices.service";
+import { PrismaService } from "../prisma/prisma.service";
+
+describe("AdvicesService (법률자문)", () => {
+  let service: AdvicesService;
+  const prismaMock = {
+    advice: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
+      groupBy: jest.fn(),
+    },
+    userTenant: { findFirst: jest.fn() },
+    user: { findMany: jest.fn() },
+  };
+
+  const ctx = { tenantId: "t1", isSystemAdmin: false };
+  const ROLES: Record<string, string> = { requester: "general", owner: "inHouseCounsel", legal: "inHouseCounsel", sales: "general" };
+
+  const row = (over: Partial<Record<string, unknown>> = {}) => ({
+    id: "a1",
+    code: "ADV-2026-0091",
+    title: "해외 대리점 계약 준거법 문의",
+    status: "reviewing",
+    securityLevel: "secure",
+    categories: ["계약해석"],
+    region: "overseas",
+    countries: ["VN"],
+    requesterId: "requester",
+    ownerId: "owner",
+    createdById: "requester",
+    tenantId: "t1",
+    background: "<p>배경</p>",
+    question: "<p>질의</p>",
+    etcRequest: null,
+    dueDate: new Date("2026-09-18T00:00:00Z"),
+    details: { ccUsers: [], ccDepts: [], ccSecret: [{ id: "boss", name: "정민규" }], project: null, counterparty: "" },
+    answeredAt: null,
+    closedAt: null,
+    deletedAt: null,
+    createdAt: new Date("2026-09-14T00:00:00Z"),
+    updatedAt: new Date("2026-09-16T00:00:00Z"),
+    messages: [],
+    ...over,
+  });
+
+  const createInput = {
+    viewerId: "requester",
+    tenantContext: ctx,
+    title: "해외 대리점 계약 준거법 문의",
+    categories: ["계약해석"],
+    securityLevel: "secure" as const,
+    requesterId: "requester",
+    ownerId: null,
+    region: "overseas" as const,
+    countries: ["VN"],
+    background: "<p>배경</p>",
+    question: "<p>질의</p>",
+    etcRequest: "",
+    dueDate: "2026-09-18",
+    details: { ccUsers: [], ccDepts: [], ccSecret: [], project: null, counterparty: "" },
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    prismaMock.userTenant.findFirst.mockImplementation(({ where }: { where: { userId: string } }) =>
+      Promise.resolve(ROLES[where.userId] ? { id: `m-${where.userId}`, role: ROLES[where.userId] } : null),
+    );
+    prismaMock.user.findMany.mockResolvedValue([
+      { id: "requester", name: "김수현", department: { name: "영업1팀" } },
+      { id: "owner", name: "박지훈", department: { name: "법무팀" } },
+    ]);
+    const moduleRef = await Test.createTestingModule({
+      providers: [AdvicesService, { provide: PrismaService, useValue: prismaMock }],
+    }).compile();
+    service = moduleRef.get(AdvicesService);
+  });
+
+  const expectRpcStatus = async (promise: Promise<unknown>, status: number) => {
+    const error = await promise.catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(RpcException);
+    expect((error as RpcException).getError()).toMatchObject({ status });
+  };
+
+  describe("요청", () => {
+    it("담당자 없이 요청하면 접수 상태로 만들고 관리번호를 붙인다", async () => {
+      prismaMock.advice.create.mockResolvedValue(row({ status: "received", ownerId: null }));
+
+      const res = await service.create(createInput);
+
+      const { data } = prismaMock.advice.create.mock.calls[0][0];
+      expect(data).toMatchObject({ status: "received", createdById: "requester", tenantId: "t1", etcRequest: null });
+      expect(data.code).toMatch(/^ADV-\d{4}-\d{4}$/);
+      expect(res.requester).toEqual({ id: "requester", name: "김수현", dept: "영업1팀" });
+    });
+
+    it("담당자를 정해 요청하면 바로 법무 검토로 시작한다", async () => {
+      prismaMock.advice.create.mockResolvedValue(row());
+      await service.create({ ...createInput, ownerId: "owner" });
+      expect(prismaMock.advice.create.mock.calls[0][0].data).toMatchObject({ status: "reviewing", ownerId: "owner" });
+    });
+
+    it("법무팀이 아닌 사람을 담당자로 지정하면 거절한다", async () => {
+      await expectRpcStatus(service.create({ ...createInput, ownerId: "sales" }), 400);
+      expect(prismaMock.advice.create).not.toHaveBeenCalled();
+    });
+
+    it("에디터에 글자 없이 태그만 있으면 비어 있다고 거절한다", async () => {
+      await expectRpcStatus(service.create({ ...createInput, question: "<p> </p>" }), 400);
+    });
+
+    it("관리번호가 겹치면 새 번호로 다시 만든다", async () => {
+      const conflict = new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "6" });
+      prismaMock.advice.create.mockRejectedValueOnce(conflict).mockResolvedValueOnce(row({ status: "received" }));
+      await service.create(createInput);
+      expect(prismaMock.advice.create).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("조회", () => {
+    it("일반 사용자 목록은 본인 관련 자문으로 좁히고 상태별 건수를 함께 준다", async () => {
+      prismaMock.advice.findMany.mockResolvedValue([row()]);
+      prismaMock.advice.count.mockResolvedValue(1);
+      prismaMock.advice.groupBy.mockResolvedValue([{ status: "reviewing", _count: { _all: 1 } }]);
+
+      const res = await service.list({ viewerId: "requester", tenantContext: ctx, statuses: "reviewing,bogus" });
+
+      const { where } = prismaMock.advice.findMany.mock.calls[0][0];
+      expect(JSON.stringify(where)).toContain('"requesterId":"requester"');
+      expect(where.AND[1]).toEqual({ status: { in: ["reviewing"] } });
+      expect(res.counts).toEqual({ received: 0, reviewing: 1, waitingRequester: 0, answered: 0, closed: 0 });
+      expect(res.items[0].owner).toEqual({ id: "owner", name: "박지훈", dept: "법무팀" });
+    });
+
+    it("관계없는 사람이 상세를 열면 있는지 알리지 않고 404", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row());
+      await expectRpcStatus(service.get({ viewerId: "sales", tenantContext: ctx, id: "a1" }), 404);
+    });
+
+    it("요청자에게는 비밀 참조수신자를 숨긴다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row({ createdById: "legal" }));
+      const res = await service.get({ viewerId: "requester", tenantContext: ctx, id: "a1" });
+      expect(res.details.ccSecret).toEqual([]);
+      expect(res.permissions.canReply).toBe(true);
+    });
+  });
+
+  describe("진행", () => {
+    it("접수된 자문에 담당을 배정하면 검토를 시작한다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row({ status: "received", ownerId: null }));
+      prismaMock.advice.update.mockResolvedValue(row());
+
+      await service.assign({ viewerId: "legal", tenantContext: ctx, id: "a1", ownerId: "owner" });
+
+      expect(prismaMock.advice.update.mock.calls[0][0].data).toEqual({ ownerId: "owner", status: "reviewing" });
+    });
+
+    it("요청자는 담당을 배정할 수 없다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row({ status: "received", ownerId: null }));
+      await expectRpcStatus(service.assign({ viewerId: "requester", tenantContext: ctx, id: "a1", ownerId: "owner" }), 403);
+    });
+
+    it("담당자가 추가 질의를 남기면 요청자 답변 대기로 바뀐다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row());
+      prismaMock.advice.update.mockResolvedValue(row({ status: "waitingRequester" }));
+
+      await service.addMessage({ viewerId: "owner", tenantContext: ctx, id: "a1", kind: "followup", body: "<p>MOQ 조항 확인 부탁드립니다</p>" });
+
+      expect(prismaMock.advice.update.mock.calls[0][0].data).toMatchObject({
+        status: "waitingRequester",
+        messages: { create: { authorId: "owner", kind: "followup", body: "<p>MOQ 조항 확인 부탁드립니다</p>" } },
+      });
+    });
+
+    it("담당자가 회신하면 회신 완료와 회신일을 남긴다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row({ status: "waitingRequester" }));
+      prismaMock.advice.update.mockResolvedValue(row({ status: "answered" }));
+
+      await service.addMessage({ viewerId: "owner", tenantContext: ctx, id: "a1", kind: "answer", body: "<p>SIAC 중재를 권합니다</p>" });
+
+      const { data } = prismaMock.advice.update.mock.calls[0][0];
+      expect(data.status).toBe("answered");
+      expect(data.answeredAt).toBeInstanceOf(Date);
+    });
+
+    it("회신 뒤 요청자가 다시 물으면 검토로 돌아가고 회신일을 비운다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row({ status: "answered", answeredAt: new Date() }));
+      prismaMock.advice.update.mockResolvedValue(row());
+
+      await service.addMessage({ viewerId: "requester", tenantContext: ctx, id: "a1", kind: "reply", body: "<p>비용도 알려주세요</p>" });
+
+      expect(prismaMock.advice.update.mock.calls[0][0].data).toMatchObject({ status: "reviewing", answeredAt: null });
+    });
+
+    it("요청자는 회신을 대신 쓸 수 없다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row());
+      await expectRpcStatus(
+        service.addMessage({ viewerId: "requester", tenantContext: ctx, id: "a1", kind: "answer", body: "<p>셀프 회신</p>" }),
+        403,
+      );
+    });
+
+    it("회신이 끝나기 전에는 종결할 수 없고, 끝나면 종결일을 남긴다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValueOnce(row());
+      await expectRpcStatus(service.close({ viewerId: "requester", tenantContext: ctx, id: "a1" }), 403);
+
+      prismaMock.advice.findFirst.mockResolvedValueOnce(row({ status: "answered" }));
+      prismaMock.advice.update.mockResolvedValue(row({ status: "closed" }));
+      await service.close({ viewerId: "requester", tenantContext: ctx, id: "a1" });
+      expect(prismaMock.advice.update.mock.calls[0][0].data).toMatchObject({ status: "closed" });
+    });
+  });
+});
