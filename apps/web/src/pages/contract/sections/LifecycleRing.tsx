@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Popover, Timeline, Tooltip } from "@lawkit/ui";
-import { getStepRelation } from "../getLifecycleProgress";
+import { Popover, Timeline } from "@lawkit/ui";
 import type { LifecycleProgress } from "../getLifecycleProgress";
 import { toLifecycleTimeline } from "../toLifecycleTimeline";
 import { cx } from "../cx";
@@ -11,8 +10,8 @@ interface LifecycleRingProps {
 }
 
 /**
- * 계약 상세 진행 게이지 — 전체 진행률 링 + 현재 단계(메인) + 10단계 막대.
- * 지난·남은 단계는 평소 숨기고, 게이지 hover/포커스 시 lawkit Popover(Timeline), 막대 hover 시 Tooltip 으로 보여준다.
+ * 계약 상세 진행 게이지 — 전체 진행률 링 + 현재 단계(메인).
+ * 지난·남은 단계는 평소 숨기고, 게이지 hover/포커스 시 lawkit Popover(Timeline)로 보여준다.
  * lawkit Popover 는 클릭 토글이라 open 을 제어 모드로 두고 wrapper 의 hover/focus 로 연다.
  */
 export const LifecycleRing = ({ progress }: LifecycleRingProps) => {
@@ -63,13 +62,6 @@ export const LifecycleRing = ({ progress }: LifecycleRingProps) => {
             {current.label}
           </h2>
           <p className={css.note}>{note}</p>
-          <div className={css.dots}>
-            {steps.map((step, i) => (
-              <Tooltip key={step.label} title={step.label} content={getStepRelation(i, progress)} placement="bottom" className={css.trigger}>
-                <span className={css.dotState[step.state]} tabIndex={0} aria-label={`${step.label} · ${getStepRelation(i, progress)}`} />
-              </Tooltip>
-            ))}
-          </div>
         </div>
       </div>
     </section>
