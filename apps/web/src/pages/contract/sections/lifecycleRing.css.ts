@@ -8,7 +8,6 @@ import { themeVars } from "@lawkit/ui";
 
 const c = themeVars.color;
 const PRIMARY = c.accentPrimary;
-const PRIMARY_DONE = `color-mix(in srgb, ${c.accentPrimary} 50%, ${c.neutralSurface})`;
 const HEADING = c.textHeading;
 const MUTED = c.textMuted;
 const FAINT = c.neutralBorderStrong;
@@ -98,27 +97,5 @@ export const title = style({
 });
 
 export const note = style({ margin: 0, fontSize: 12.5, color: MUTED });
-
-export const dots = style({ display: "flex", gap: 5, marginTop: 4 });
-
-const dot = style([
-  focusable,
-  {
-    display: "block",
-    width: 22,
-    height: 5,
-    margin: "8px 0",
-    borderRadius: 3,
-    background: RAISED,
-    transition: `background .3s, width .4s ${EASE}, transform .15s`,
-    selectors: { "&:hover": { transform: "scaleY(2)" } },
-  },
-]);
-
-export const dotState = styleVariants({
-  done: [dot, { background: PRIMARY_DONE }],
-  current: [dot, { width: 42, background: PRIMARY }],
-  todo: [dot],
-});
 
 export const popoverBody = style({ maxHeight: 440, overflowY: "auto", paddingTop: 4 });

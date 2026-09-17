@@ -97,7 +97,7 @@ export const ContractLifecycleMock = () => {
       </div>
 
       <Callout intent="info" title="D. 링 게이지 요약형 (채택)">
-        실제 계약 상세의 LifecycleRing 을 그대로 렌더합니다. 게이지에 마우스를 올리면 지난·남은 단계 Popover, 아래 막대에 올리면 Tooltip.
+        실제 계약 상세의 LifecycleRing 을 그대로 렌더합니다. 게이지에 마우스를 올리면 지난·남은 단계 Popover.
       </Callout>
 
       <div>
