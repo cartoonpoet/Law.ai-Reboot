@@ -5,6 +5,7 @@ import type { AdvicePermissions, AdviceStatusTypes, TenantRole } from "@lawai/co
  * - 법무팀(사내 변호사·계약 관리자, 시스템 관리자 포함): 회사 안 자문 전체를 보고 담당을 배정한다.
  * - 외부 변호사: 자기가 담당한 자문만 본다.
  * - 그 외: 자기가 요청·작성했거나 참조로 지정된 자문만 본다.
+ * - 결재선에 든 사람: 결재하려면 봐야 하므로 그 자문을 볼 수 있다.
  * 질의·회신은 담당자, 답변·종결은 요청자 쪽이 한다.
  */
 
@@ -19,6 +20,10 @@ export interface AdviceAuthzTarget {
   createdById: string;
   ownerId: string | null;
   ccUserIds: string[];
+  // 요청·회신 결재선에 든 사용자.
+  approverIds: string[];
+  // 회신 결재선에 든 사용자 — 결재하려면 결재 중인 회신을 읽어야 한다.
+  answerApproverIds: string[];
 }
 
 const LEGAL_ROLES: ReadonlySet<TenantRole> = new Set<TenantRole>(["inHouseCounsel", "contractManager"]);
@@ -47,10 +52,14 @@ const checkRequesterSide = (viewer: AdviceViewer, target: AdviceAuthzTarget): bo
 
 export const checkCanView = (viewer: AdviceViewer, target: AdviceAuthzTarget): boolean => {
   if (checkLegalRole(viewer.role)) return true;
-  if (viewer.id === target.ownerId) return true;
+  if (viewer.id === target.ownerId || target.approverIds.includes(viewer.id)) return true;
   if (viewer.role === "outsideCounsel") return false;
   return checkRequesterSide(viewer, target) || target.ccUserIds.includes(viewer.id);
 };
+
+// 결재 중·반려된 회신까지 볼 수 있는지 — 법무팀·담당자·회신 결재자만(요청자에게는 승인된 회신만 보인다).
+export const checkCanSeeUnpublished = (viewer: AdviceViewer, target: AdviceAuthzTarget): boolean =>
+  checkLegalRole(viewer.role) || viewer.id === target.ownerId || target.answerApproverIds.includes(viewer.id);
 
 // 비밀 참조수신자 목록을 볼 수 있는지 — 법무팀과 작성자만.
 export const checkCanSeeSecretCc = (viewer: AdviceViewer, target: AdviceAuthzTarget): boolean =>
@@ -65,5 +74,6 @@ export const getAdvicePermissions = (viewer: AdviceViewer, target: AdviceAuthzTa
     canAnswer: isOwner && IN_REVIEW_STATUSES.has(target.status),
     canReply: isRequesterSide && REPLYABLE_STATUSES.has(target.status),
     canClose: (isRequesterSide || isOwner) && target.status === "answered",
+    canResubmitRequest: viewer.id === target.createdById && target.status === "requestRejected",
   };
 };

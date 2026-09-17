@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { adviceRequestSchema, createAdviceRequestDefaults } from "./adviceRequestSchema";
 import { toCreateAdviceRequest } from "./toCreateAdviceRequest";
 
-const ME = { id: "u1", name: "김수현" };
+const ME = { id: "u1", name: "김수현", departmentName: "영업1팀" };
 
 const filledForm = () => ({
   ...createAdviceRequestDefaults(ME),
@@ -19,7 +19,9 @@ const filledForm = () => ({
 
 describe("자문 요청 폼", () => {
   it("로그인한 사람을 요청자로 채워 둔다", () => {
-    expect(createAdviceRequestDefaults(ME).requester).toEqual(ME);
+    const defaults = createAdviceRequestDefaults(ME);
+    expect(defaults.requester).toEqual({ id: "u1", name: "김수현" });
+    expect(defaults.approvers).toEqual([{ userId: "u1", name: "김수현", dept: "영업1팀", type: "draft" }]);
   });
 
   it("에디터에 글자 없이 빈 문단만 있으면 막는다", () => {
@@ -42,6 +44,7 @@ describe("자문 요청 폼", () => {
       etcRequest: null,
       dueDate: "2026-09-18",
       details: { counterparty: "Saigon Retail", ccUsers: [], project: null },
+      approvers: [{ userId: "u1", type: "draft" }],
     });
   });
 });

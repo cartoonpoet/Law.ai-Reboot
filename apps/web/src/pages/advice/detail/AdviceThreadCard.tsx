@@ -1,5 +1,7 @@
 import { Icon } from "@lawkit/ui";
-import type { AdviceMessageKindTypes, AdviceResponse } from "@lawai/contracts";
+import type { AdviceResponse } from "@lawai/contracts";
+import type { Approver } from "../../contract/request-schema";
+import type { AdviceMessageInput } from "../hooks/useAdviceDetail";
 import { AdviceComposer } from "./AdviceComposer";
 import { ThreadMessageItem } from "./ThreadMessageItem";
 import { formatShortDateTime } from "./toAdviceHistory";
@@ -8,12 +10,13 @@ import * as css from "./adviceDetail.css";
 
 interface AdviceThreadCardProps {
   advice: AdviceResponse;
+  draftApprover: Approver | null;
   isSending: boolean;
-  onSend: (kind: AdviceMessageKindTypes, body: string, onSent: () => void) => void;
+  onSend: (message: AdviceMessageInput, onSent: () => void) => void;
 }
 
 /** 질의·회신 스레드 — 대화 순서대로 읽고, 누구 차례인지 끝에서 바로 보이게 한다. */
-export const AdviceThreadCard = ({ advice, isSending, onSend }: AdviceThreadCardProps) => {
+export const AdviceThreadCard = ({ advice, draftApprover, isSending, onSend }: AdviceThreadCardProps) => {
   const lastMessage = advice.messages.at(-1);
   const isWaitingRequester = advice.status === "waitingRequester" && lastMessage;
 
@@ -45,7 +48,13 @@ export const AdviceThreadCard = ({ advice, isSending, onSend }: AdviceThreadCard
           </p>
         )}
 
-        <AdviceComposer key={advice.messages.length} advice={advice} isSending={isSending} onSend={onSend} />
+        <AdviceComposer
+          key={advice.messages.length}
+          advice={advice}
+          draftApprover={draftApprover}
+          isSending={isSending}
+          onSend={onSend}
+        />
       </div>
     </section>
   );

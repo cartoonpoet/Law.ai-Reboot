@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { getNotificationContractId } from "@lawai/contracts";
+import { getNotificationAdviceId, getNotificationContractId } from "@lawai/contracts";
 import type { NotificationDto } from "@lawai/contracts";
 import { showToast } from "../../lib/toast/toastStore";
 import { useNotifications } from "../layout/hooks/useNotifications";
@@ -33,6 +33,14 @@ export const useAssistantNotifications = (
     const threadId = getThreadId(notification.detail);
     if (notification.type === "support_reply" && threadId) {
       onOpenSupportThread(threadId);
+      return;
+    }
+
+    // 자문 결재 알림은 자문 상세로.
+    const adviceId = getNotificationAdviceId(notification.detail);
+    if (adviceId) {
+      onNavigate();
+      navigate(`/advice/${adviceId}`);
       return;
     }
 

@@ -8,6 +8,7 @@ import {
   type CreateAdviceRequest,
   type GetAdviceRequest,
   type ListAdvicesRequest,
+  type ResubmitAdviceRequestApprovalRequest,
 } from "@lawai/contracts";
 import { AdvicesService } from "./advices.service";
 
@@ -38,6 +39,11 @@ export class AdvicesController {
   @MessagePattern(ADVICE_PATTERNS.ADD_MESSAGE)
   addMessage(@Payload() req: AddAdviceMessageRequest) {
     return this.advices.addMessage(req);
+  }
+
+  @MessagePattern(ADVICE_PATTERNS.RESUBMIT_REQUEST_APPROVAL)
+  resubmitRequestApproval(@Payload() req: ResubmitAdviceRequestApprovalRequest) {
+    return this.advices.resubmitRequestApproval(req);
   }
 
   @MessagePattern(ADVICE_PATTERNS.CLOSE)

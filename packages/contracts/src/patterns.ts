@@ -87,6 +87,8 @@ export const ADVICE_PATTERNS = {
   ASSIGN: "advice.assign",
   ADD_MESSAGE: "advice.addMessage",
   CLOSE: "advice.close",
+  // 반려된 요청 결재를 다시 올린다.
+  RESUBMIT_REQUEST_APPROVAL: "advice.resubmitRequestApproval",
 } as const;
 
 export const APPROVAL_PATTERNS = {

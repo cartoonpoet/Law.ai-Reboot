@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { approverSchema } from "../../contract/request-schema";
+import { createDraftApprover } from "../approval/adviceApprovers";
 
 // 사람·부서·프로젝트 선택값 — 계약 폼과 같은 ref(id+name) 형태.
 const entity = z.object({ id: z.string(), name: z.string() });
@@ -26,6 +28,8 @@ export const adviceRequestSchema = z
     question: richText("질의의 요지를 입력해 주세요"),
     etcRequest: z.string(),
     dueDate: z.string().min(1, "자문 회신 기한을 선택해 주세요"),
+    // 요청 결재선 — 기안자(본인)만 있으면 결재 없이 바로 접수된다.
+    approvers: z.array(approverSchema),
   })
   .superRefine((form, ctx) => {
     if (form.requester === null) {
@@ -35,12 +39,18 @@ export const adviceRequestSchema = z
 
 export type AdviceRequestFormTypes = z.infer<typeof adviceRequestSchema>;
 
-export const createAdviceRequestDefaults = (me: { id: string; name: string } | null): AdviceRequestFormTypes => ({
+interface RequestUser {
+  id: string;
+  name: string;
+  departmentName: string | null;
+}
+
+export const createAdviceRequestDefaults = (me: RequestUser): AdviceRequestFormTypes => ({
   title: "",
   categories: [],
   securityLevel: "secure",
   // 보통 본인이 요청하므로 로그인한 사람을 먼저 채워 둔다.
-  requester: me,
+  requester: { id: me.id, name: me.name },
   ccUsers: [],
   ccDepts: [],
   ccSecret: [],
@@ -53,4 +63,5 @@ export const createAdviceRequestDefaults = (me: { id: string; name: string } | n
   question: "",
   etcRequest: "",
   dueDate: "",
+  approvers: [createDraftApprover(me)],
 });

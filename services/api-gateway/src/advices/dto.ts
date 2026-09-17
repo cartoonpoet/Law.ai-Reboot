@@ -10,13 +10,14 @@ import {
   IsString,
   MaxLength,
 } from "class-validator";
-import type { AdviceDetails, AdviceMessageKindTypes, AdviceRegionTypes, SecurityLevel } from "@lawai/contracts";
+import type { AdviceDetails, AdviceMessageKindTypes, AdviceRegionTypes, ApproverSnapshot, SecurityLevel } from "@lawai/contracts";
 
 const TITLE_MAX = 200;
 const RICH_TEXT_MAX = 50_000;
 const TEXT_MAX = 4000;
 const ID_MAX = 64;
 const LIST_MAX = 30;
+const APPROVER_MAX = 20;
 
 // @lawai/contracts 의 CreateAdviceRequest 미러(viewerId·tenantContext 는 게이트웨이가 JWT 에서 넣는다).
 export class CreateAdviceDto {
@@ -84,6 +85,11 @@ export class CreateAdviceDto {
   @ApiProperty({ description: "참조수신자·관련 프로젝트·상대방" })
   @IsObject()
   details!: AdviceDetails;
+
+  @ApiProperty({ description: "요청 결재선(기안자 포함, 배열 순서 = 결재 순서). 결재·합의 단계가 없으면 결재 없이 접수", isArray: true })
+  @IsArray()
+  @ArrayMaxSize(APPROVER_MAX)
+  approvers!: ApproverSnapshot[];
 }
 
 export class AssignAdviceDto {
@@ -103,4 +109,17 @@ export class AddAdviceMessageDto {
   @IsNotEmpty()
   @MaxLength(RICH_TEXT_MAX)
   body!: string;
+
+  @ApiPropertyOptional({ description: "회신(answer) 결재선. 결재·합의 단계가 있으면 회신 결재를 거친다", isArray: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(APPROVER_MAX)
+  approvers?: ApproverSnapshot[];
+}
+
+export class ResubmitAdviceRequestApprovalDto {
+  @ApiProperty({ description: "고친 요청 결재선", isArray: true })
+  @IsArray()
+  @ArrayMaxSize(APPROVER_MAX)
+  approvers!: ApproverSnapshot[];
 }

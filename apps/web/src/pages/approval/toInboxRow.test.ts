@@ -28,6 +28,13 @@ describe("toInboxRow", () => {
     expect(toInboxRow(item, NOW).href).toBe("/contract/C1");
   });
 
+  it("자문 요청·회신 결재는 자문 상세로 딥링크하고 문서 종류를 구분한다", () => {
+    const request = toInboxRow({ ...item, targetType: "advice_request", targetId: "A1" }, NOW);
+    const answer = toInboxRow({ ...item, targetType: "advice_answer", targetId: "A1" }, NOW);
+    expect([request.href, request.kindLabel]).toEqual(["/advice/A1", "자문 요청"]);
+    expect([answer.href, answer.kindLabel]).toEqual(["/advice/A1", "자문 회신"]);
+  });
+
   it("내 단계는 1-based 번호와 전체 단계 수", () => {
     const row = toInboxRow(item, NOW);
     expect([row.stepNumber, row.totalSteps]).toEqual([2, 3]);

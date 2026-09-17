@@ -113,6 +113,14 @@ export const bubble = styleVariants({
   },
 });
 
+// 공개 전 회신 표시(결재 중·결재 반려).
+export const messageState = styleVariants({
+  pendingApproval: { ...kindBase, color: WARNING_DARK, background: `color-mix(in srgb, ${c.accentWarning} 14%, ${SURFACE})` },
+  rejected: { ...kindBase, color: c.accentDanger, background: `color-mix(in srgb, ${c.accentDanger} 10%, ${SURFACE})` },
+});
+
+export const bubbleRejected = style({ opacity: 0.6 });
+
 export const waiting = style({
   display: "flex",
   alignItems: "center",

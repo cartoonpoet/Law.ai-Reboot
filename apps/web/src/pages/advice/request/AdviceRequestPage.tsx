@@ -7,5 +7,5 @@ import { AdviceRequestForm } from "./AdviceRequestForm";
 export const AdviceRequestPage = () => {
   const { me } = useMe();
   if (!me) return <Panel pad={18}>불러오는 중…</Panel>;
-  return <AdviceRequestForm initialValues={createAdviceRequestDefaults({ id: me.id, name: me.name })} />;
+  return <AdviceRequestForm initialValues={createAdviceRequestDefaults(me)} />;
 };
