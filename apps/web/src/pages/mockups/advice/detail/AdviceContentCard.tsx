@@ -1,6 +1,6 @@
 import { Icon } from "@lawkit/ui";
 import * as base from "../../../contract/contractDetail.css";
-import { ADVICE } from "./adviceDetailV2Data";
+import { ADVICE } from "./adviceDetailData";
 
 interface ContentBlockProps {
   title: string;

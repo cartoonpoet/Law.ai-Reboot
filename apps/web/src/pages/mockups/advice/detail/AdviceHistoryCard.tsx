@@ -1,6 +1,6 @@
 import { Icon, Timeline } from "@lawkit/ui";
 import * as base from "../../../contract/contractDetail.css";
-import { HISTORY } from "./adviceDetailV2Data";
+import { HISTORY } from "./adviceDetailData";
 
 /** 처리 이력 — 최신이 위. */
 export const AdviceHistoryCard = () => (

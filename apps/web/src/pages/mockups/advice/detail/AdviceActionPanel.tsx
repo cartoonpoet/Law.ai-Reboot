@@ -1,8 +1,8 @@
 import { Avatar, Button, Callout, DdayBadge, Icon } from "@lawkit/ui";
 import { cx } from "../../../contract/cx";
 import * as base from "../../../contract/contractDetail.css";
-import * as css from "../adviceDetailV2.css";
-import { ADVICE, MOCK_TODAY } from "./adviceDetailV2Data";
+import * as css from "../adviceDetail.css";
+import { ADVICE, MOCK_TODAY } from "./adviceDetailData";
 
 /** 우측 레일 최상단 — 지금 누가 무엇을 언제까지 해야 하는지. */
 export const AdviceActionPanel = () => (

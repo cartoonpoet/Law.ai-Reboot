@@ -1,7 +1,7 @@
 import { Button, Icon } from "@lawkit/ui";
 import * as base from "../../../contract/contractDetail.css";
-import * as css from "../adviceDetailV2.css";
-import { AI_ISSUES, AI_SUMMARY, SIMILAR_ADVICES } from "./adviceDetailV2Data";
+import * as css from "../adviceDetail.css";
+import { AI_ISSUES, AI_SUMMARY, SIMILAR_ADVICES } from "./adviceDetailData";
 
 /** AI 자문 도우미 — 요지(결론) → 쟁점과 근거 → 지난 자문 순으로 읽히게 위계를 둔다. */
 export const AdviceAiCard = () => (

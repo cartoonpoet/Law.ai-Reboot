@@ -2,8 +2,8 @@ import { Avatar, Icon } from "@lawkit/ui";
 import { APPROVER_TYPE_AVATAR, APPROVER_TYPE_LABEL } from "../../../contract/sections/approverMeta";
 import * as modalCss from "../../../contract/sections/approvalLineModal.css";
 import * as base from "../../../contract/contractDetail.css";
-import * as css from "../adviceDetailV2.css";
-import { APPROVERS, APPROVER_STATE_LABEL } from "./adviceDetailV2Data";
+import * as css from "../adviceDetail.css";
+import { APPROVERS, APPROVER_STATE_LABEL } from "./adviceDetailData";
 
 /** 결재선 — 계약 요청 폼 결재선 패널과 같은 Avatar + 이름/부서 + 유형 배지. */
 export const AdviceApprovalCard = () => (
