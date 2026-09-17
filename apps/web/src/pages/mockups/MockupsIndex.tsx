@@ -4,6 +4,20 @@ import * as css from "./mockups.css";
 export function MockupsIndex() {
   return (
     <div className={css.indexWrap}>
+      <h2 className={css.indexHero}>결재 대기함</h2>
+      <Link to="/mockups/approval-inbox-a" className={css.indexCard}>
+        <h3>A. 처리 큐형</h3>
+        <p>급한 결재부터 카드로 — 핵심 정보·AI 한 줄을 보고 목록에서 바로 승인·반려, 여러 건 한꺼번에 승인.</p>
+      </Link>
+      <Link to="/mockups/approval-inbox-b" className={css.indexCard}>
+        <h3>B. 목록 + 미리보기형</h3>
+        <p>왼쪽에서 고르면 오른쪽에 내용·AI 브리핑·결재선이 열리고, 의견을 적어 그 자리에서 처리.</p>
+      </Link>
+      <Link to="/mockups/approval-inbox-c" className={css.indexCard}>
+        <h3>C. 유형별 묶음형</h3>
+        <p>체결 품의·자문 요청·자문 회신을 따로 묶어 유형마다 필요한 칸(금액·질의 요지·회신 요지)을 표로.</p>
+      </Link>
+
       <h2 className={css.indexHero}>계약 상세 진행 단계 바</h2>
       <Link to="/mockups/contract-lifecycle" className={css.indexCard}>
         <h3>D. 링 게이지 요약형 (채택)</h3>

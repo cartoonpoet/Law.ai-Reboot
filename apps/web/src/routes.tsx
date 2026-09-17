@@ -27,6 +27,9 @@ import { ContractLifecycleMock } from "./pages/mockups/lifecycle/ContractLifecyc
 import { AdviceListPage } from "./pages/advice/list/AdviceListPage";
 import { AdviceRequestPage } from "./pages/advice/request/AdviceRequestPage";
 import { AdviceDetailPage } from "./pages/advice/detail/AdviceDetailPage";
+import { ApprovalQueueMock } from "./pages/mockups/approvalInbox/ApprovalQueueMock";
+import { ApprovalSplitMock } from "./pages/mockups/approvalInbox/ApprovalSplitMock";
+import { ApprovalGroupedMock } from "./pages/mockups/approvalInbox/ApprovalGroupedMock";
 import { NotFoundPage } from "./components/feedback/NotFoundPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -49,6 +52,9 @@ export function AppRoutes() {
         <Route path="/mockups/compare-swap" element={<CompareSwapMock />} />
         <Route path="/mockups/compare-picker" element={<ComparePickerMock />} />
         <Route path="/mockups/contract-lifecycle" element={<ContractLifecycleMock />} />
+        <Route path="/mockups/approval-inbox-a" element={<ApprovalQueueMock />} />
+        <Route path="/mockups/approval-inbox-b" element={<ApprovalSplitMock />} />
+        <Route path="/mockups/approval-inbox-c" element={<ApprovalGroupedMock />} />
       </Route>
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
