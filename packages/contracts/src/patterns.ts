@@ -79,6 +79,16 @@ export const CONTRACT_PATTERNS = {
   PUBLIC_STATS: "contract.publicStats",
 } as const;
 
+// 법률자문 — 요청 · 조회 · 담당 배정 · 질의/회신 · 종결.
+export const ADVICE_PATTERNS = {
+  CREATE: "advice.create",
+  LIST: "advice.list",
+  GET: "advice.get",
+  ASSIGN: "advice.assign",
+  ADD_MESSAGE: "advice.addMessage",
+  CLOSE: "advice.close",
+} as const;
+
 export const APPROVAL_PATTERNS = {
   DECIDE: "approval.decide",
   INBOX: "approval.inbox",

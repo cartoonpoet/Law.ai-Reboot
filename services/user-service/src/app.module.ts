@@ -16,6 +16,7 @@ import { AiCredentialsModule } from "./ai-credentials/ai-credentials.module";
 import { AiClientModule } from "./ai-client/ai-client.module";
 import { AssistantModule } from "./assistant/assistant.module";
 import { SupportModule } from "./support/support.module";
+import { AdvicesModule } from "./advices/advices.module";
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SupportModule } from "./support/support.module";
     AiCredentialsModule,
     AssistantModule,
     SupportModule,
+    AdvicesModule,
   ],
 })
 export class AppModule {}
