@@ -93,12 +93,12 @@ export function AdviceDetailMock() {
 
       <div className={css.glance}>
         <div className={css.gcell}>
-          <div className={css.gl}>상태</div>
-          <div className={css.gv}>검토 중</div>
-        </div>
-        <div className={css.gcell}>
           <div className={css.gl}>자문분류</div>
           <div className={css.gv}>{ADVICE.category}</div>
+        </div>
+        <div className={css.gcell}>
+          <div className={css.gl}>요청자</div>
+          <div className={css.gv}>{ADVICE.requesterDept} {ADVICE.requesterName}</div>
         </div>
         <div className={css.gcell}>
           <div className={css.gl}>지역</div>
