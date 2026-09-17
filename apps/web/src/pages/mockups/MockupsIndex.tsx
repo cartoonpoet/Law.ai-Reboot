@@ -4,31 +4,6 @@ import * as css from "./mockups.css";
 export function MockupsIndex() {
   return (
     <div className={css.indexWrap}>
-      <h2 className={css.indexHero}>법무 업무 — 법률자문</h2>
-      <Link to="/mockups/advice-request" className={css.indexCard}>
-        <h3>법률자문 요청 폼</h3>
-        <p>
-          기존 법무 시스템의 자문 요청 항목을 그대로 가져와, 계약서 검토 요청 폼과 같은 부품·배치로 만든 화면.
-          입력과 검증은 실제로 동작하고 저장만 하지 않습니다.
-        </p>
-      </Link>
-
-      <Link to="/mockups/advice-list" className={css.indexCard}>
-        <h3>법률자문 조회</h3>
-        <p>
-          계약 조회와 같은 구성 — 필터줄 → 단계 세그먼트 + 총건수 → 세부 상태 칩 → 표 → 페이저.
-          행을 누르면 상세 시안으로 갑니다.
-        </p>
-      </Link>
-
-      <Link to="/mockups/advice-detail" className={css.indexCard}>
-        <h3>법률자문 상세</h3>
-        <p>
-          계약 상세와 같은 뼈대(요약줄 · 진행 게이지) + 좌측 본문(AI 자문 도우미 · 자문 요청 내용 · 대화형 질의/회신) + 우측
-          레일(처리 현황 · 결재선 · 첨부/관련 계약 · 이력 타임라인).
-        </p>
-      </Link>
-
       <h2 className={css.indexHero}>계약 상세 진행 단계 바</h2>
       <Link to="/mockups/contract-lifecycle" className={css.indexCard}>
         <h3>D. 링 게이지 요약형 (채택)</h3>

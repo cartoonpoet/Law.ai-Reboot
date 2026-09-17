@@ -619,3 +619,85 @@ model AiAnalysis {
   @@index([tenantId, status])
   @@schema("ai")
 }
+
+// ── 법률자문 ─────────────────────────────────────────────────────────────
+// 요청자가 법무팀에 묻고(질의) 담당자가 답하는(회신) 업무. 계약과 같은 테넌트·보안등급 체계를 쓴다.
+// 사람 id(requester/owner/createdBy/author)는 SupportThread 선례대로 FK 없이 저장하고 이름은 한 번에 조회한다.
+enum AdviceStatus {
+  received // 접수(담당 배정 전)
+  reviewing // 법무 검토 중
+  waitingRequester // 추가 질의 — 요청자 답변 대기
+  answered // 회신 완료
+  closed // 종결
+
+  @@schema("contracts")
+}
+
+enum AdviceRegion {
+  domestic // 국내
+  overseas // 해외
+  both // 국내외
+
+  @@schema("contracts")
+}
+
+enum AdviceMessageKind {
+  followup // 담당자 → 요청자 추가 질의
+  reply // 요청자 답변·추가 설명
+  answer // 담당자 정식 회신
+
+  @@schema("contracts")
+}
+
+model Advice {
+  id            String        @id @default(uuid())
+  // 관리번호: ADV-{YYYY}-{4자리}
+  code          String        @unique
+  title         String
+  status        AdviceStatus  @default(received)
+  securityLevel SecurityLevel @default(secure)
+  categories    String[]
+  region        AdviceRegion  @default(domestic)
+  countries     String[]
+
+  requesterId  String
+  ownerId      String?
+  createdById  String
+  tenantId     String
+
+  // 사안의 배경·질의의 요지는 에디터 HTML(표시할 때 정화한다).
+  background String
+  question   String
+  etcRequest String?
+  dueDate    DateTime?
+  // 참조수신자·관련 프로젝트·상대방 등 조회 조건으로 쓰지 않는 입력값.
+  details    Json
+
+  answeredAt DateTime?
+  closedAt   DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  messages AdviceMessage[]
+
+  @@index([tenantId, status])
+  @@index([requesterId])
+  @@index([ownerId])
+  @@index([createdById])
+  @@schema("contracts")
+}
+
+model AdviceMessage {
+  id        String            @id @default(uuid())
+  adviceId  String
+  authorId  String
+  kind      AdviceMessageKind
+  body      String
+  createdAt DateTime          @default(now())
+
+  advice Advice @relation(fields: [adviceId], references: [id], onDelete: Cascade)
+
+  @@index([adviceId, createdAt])
+  @@schema("contracts")
+}

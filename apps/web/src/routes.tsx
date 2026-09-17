@@ -24,9 +24,9 @@ import { CompareDirectMock } from "./pages/mockups/CompareDirectMock";
 import { CompareSwapMock } from "./pages/mockups/CompareSwapMock";
 import { ComparePickerMock } from "./pages/mockups/ComparePickerMock";
 import { ContractLifecycleMock } from "./pages/mockups/lifecycle/ContractLifecycleMock";
-import { AdviceRequestMock } from "./pages/mockups/advice/AdviceRequestMock";
-import { AdviceListMock } from "./pages/mockups/advice/AdviceListMock";
-import { AdviceDetailMock } from "./pages/mockups/advice/AdviceDetailMock";
+import { AdviceListPage } from "./pages/advice/list/AdviceListPage";
+import { AdviceRequestPage } from "./pages/advice/request/AdviceRequestPage";
+import { AdviceDetailPage } from "./pages/advice/detail/AdviceDetailPage";
 import { NotFoundPage } from "./components/feedback/NotFoundPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -49,9 +49,6 @@ export function AppRoutes() {
         <Route path="/mockups/compare-swap" element={<CompareSwapMock />} />
         <Route path="/mockups/compare-picker" element={<ComparePickerMock />} />
         <Route path="/mockups/contract-lifecycle" element={<ContractLifecycleMock />} />
-        <Route path="/mockups/advice-request" element={<AdviceRequestMock />} />
-        <Route path="/mockups/advice-list" element={<AdviceListMock />} />
-        <Route path="/mockups/advice-detail" element={<AdviceDetailMock />} />
       </Route>
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
@@ -75,6 +72,9 @@ export function AppRoutes() {
         <Route path="/system" element={<SystemSettingsPage />} />
         <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
         <Route path="/settings/:tab" element={<SettingsPage />} />
+        <Route path="/advice" element={<AdviceListPage />} />
+        <Route path="/advice/request" element={<AdviceRequestPage />} />
+        <Route path="/advice/:id" element={<AdviceDetailPage />} />
         <Route path="/approvals/inbox" element={<ApprovalInboxPage />} />
         <Route path="/contract/:id/edit" element={<ContractEditPage />} />
         <Route path="/contract/:id" element={<ContractDetailPage />} />
