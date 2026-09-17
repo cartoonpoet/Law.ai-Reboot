@@ -167,7 +167,7 @@ describe("AdvicesService (법률자문)", () => {
         expect.objectContaining({
           targetType: "advice_request",
           targetId: "a1",
-          title: "[자문 요청] 해외 대리점 계약 준거법 문의",
+          title: "해외 대리점 계약 준거법 문의",
           steps: [
             { userId: "requester", name: "김수현", dept: "영업1팀", type: "draft" },
             { userId: "boss", name: "정민규", dept: "영업1팀", type: "approve" },
@@ -306,7 +306,7 @@ describe("AdvicesService (법률자문)", () => {
         answeredAt: null,
         messages: { create: { kind: "answer", state: "pendingApproval" } },
       });
-      expect(approvalsMock.submit).toHaveBeenCalledWith(expect.objectContaining({ targetType: "advice_answer", title: "[자문 회신] 해외 대리점 계약 준거법 문의" }));
+      expect(approvalsMock.submit).toHaveBeenCalledWith(expect.objectContaining({ targetType: "advice_answer", title: "해외 대리점 계약 준거법 문의" }));
       expect(res.notifications).toHaveLength(1);
     });
 

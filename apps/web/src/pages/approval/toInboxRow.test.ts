@@ -35,6 +35,10 @@ describe("toInboxRow", () => {
     expect([answer.href, answer.kindLabel]).toEqual(["/advice/A1", "자문 회신"]);
   });
 
+  it("제목 앞의 예전 구분 표시([자문 회신])는 떼고 보여준다", () => {
+    expect(toInboxRow({ ...item, title: "[자문 회신] 경업금지 약정 유효성 검토" }, NOW).title).toBe("경업금지 약정 유효성 검토");
+  });
+
   it("내 단계는 1-based 번호와 전체 단계 수", () => {
     const row = toInboxRow(item, NOW);
     expect([row.stepNumber, row.totalSteps]).toEqual([2, 3]);

@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApprovalInboxItem } from "@lawai/contracts";
 import { useAiInsights } from "../../components/ai/useAiInsights";
@@ -40,10 +40,13 @@ const PENDING = [
   createItem({ lineId: "old", title: "이틀 전 상신한 계약", myType: "agree", submittedAt: new Date(Date.now() - 2 * DAY_MS).toISOString() }),
 ];
 
+const LocationProbe = () => <span data-testid="location">{useLocation().pathname}</span>;
+
 const renderPage = () =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={["/approvals/inbox"]}>
       <ApprovalInboxPage />
+      <LocationProbe />
     </MemoryRouter>,
   );
 
@@ -58,16 +61,15 @@ describe("ApprovalInboxPage", () => {
     });
   });
 
-  it("설명 문구와 통계 카드(내 차례·예정·최근 30일 처리)를 보여준다", () => {
+  it("설명 문구·통계 카드 없이 탭에 건수를 붙인다", () => {
     renderPage();
-    expect(screen.getByText(/처리만/)).toBeInTheDocument();
-    const stat = (label: string) => screen.getAllByText(label).find((el) => el.parentElement?.textContent?.endsWith("건"))!.parentElement!;
-    expect(stat("내 차례").textContent).toBe("내 차례2건");
-    expect(stat("내 차례 예정").textContent).toBe("내 차례 예정1건");
-    expect(stat("최근 30일 처리").textContent).toBe("최근 30일 처리1건");
+    expect(screen.queryByText(/처리만/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "내 차례 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "예정 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "처리한 결재 1" })).toBeInTheDocument();
   });
 
-  it("오래 기다린 결재가 위, 첫 행에 경과 D+n 과 역할 배지, 관리번호 줄", () => {
+  it("오래 기다린 결재가 위, 첫 행에 경과 D+n 과 역할, 관리번호 줄", () => {
     renderPage();
     const rows = screen.getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("이틀 전 상신한 계약")).toBeInTheDocument();
@@ -83,16 +85,22 @@ describe("ApprovalInboxPage", () => {
     expect(screen.getAllByText("주의 1 — 손해배상 상한").length).toBeGreaterThan(0);
   });
 
-  it("예정 탭에는 내 차례를 기다리는 결재가 보기 버튼과 함께 나온다", async () => {
+  it("행을 누르면 문서 상세로 이동한다", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByRole("tab", { name: "예정" }));
-    expect(screen.getByText("예정 계약")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "보기" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "처리" })).not.toBeInTheDocument();
+    await user.click(screen.getByText("이틀 전 상신한 계약"));
+    expect(screen.getByTestId("location")).toHaveTextContent("/contract/C1");
   });
 
-  it("대상 계약이 삭제된 결재는 삭제됨으로 보이고 처리 버튼이 없다", () => {
+  it("예정 탭에는 내 차례를 기다리는 결재가 나온다", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: "예정 1" }));
+    expect(screen.getByText("예정 계약")).toBeInTheDocument();
+  });
+
+  it("대상 계약이 삭제된 결재는 삭제됨으로 보이고 눌러도 이동하지 않는다", async () => {
+    const user = userEvent.setup();
     vi.mocked(useApprovalInbox).mockReturnValue({
       pending: [createItem({ lineId: "gone", title: "삭제된 계약 품의", isTargetDeleted: true })],
       upcoming: [],
@@ -100,15 +108,15 @@ describe("ApprovalInboxPage", () => {
       isLoading: false,
     });
     renderPage();
-    const row = screen.getAllByRole("row")[1];
-    expect(within(row).getByText("C20260908-0142 · 계약 · 삭제됨")).toBeInTheDocument();
-    expect(within(row).queryByRole("button", { name: "처리" })).not.toBeInTheDocument();
+    expect(screen.getByText("C20260908-0142 · 계약 · 삭제됨")).toBeInTheDocument();
+    await user.click(screen.getByText("삭제된 계약 품의"));
+    expect(screen.getByTestId("location")).toHaveTextContent("/approvals/inbox");
   });
 
   it("처리한 결재 탭은 처리 결과와 처리일을 보여준다", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(screen.getByRole("tab", { name: "처리한 결재" }));
+    await user.click(screen.getByRole("button", { name: "처리한 결재 1" }));
     expect(screen.getByText("처리 결과")).toBeInTheDocument();
     expect(screen.getByText("승인")).toBeInTheDocument();
     expect(screen.getByText("09-10")).toBeInTheDocument();
