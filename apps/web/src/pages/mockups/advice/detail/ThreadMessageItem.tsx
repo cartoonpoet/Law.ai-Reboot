@@ -1,6 +1,6 @@
 import { Avatar, FileAttachBadge } from "@lawkit/ui";
-import * as css from "../adviceDetailV2.css";
-import { ROLE_AVATAR_COLOR, type ThreadMessage } from "./adviceDetailV2Data";
+import * as css from "../adviceDetail.css";
+import { ROLE_AVATAR_COLOR, type ThreadMessage } from "./adviceDetailData";
 
 interface ThreadMessageItemProps {
   message: ThreadMessage;

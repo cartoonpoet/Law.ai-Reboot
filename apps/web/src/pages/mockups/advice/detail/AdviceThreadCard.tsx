@@ -1,7 +1,7 @@
 import { Button, Icon, Textarea } from "@lawkit/ui";
 import * as base from "../../../contract/contractDetail.css";
-import * as css from "../adviceDetailV2.css";
-import { ADVICE, THREAD_MESSAGES } from "./adviceDetailV2Data";
+import * as css from "../adviceDetail.css";
+import { ADVICE, THREAD_MESSAGES } from "./adviceDetailData";
 import { ThreadMessageItem } from "./ThreadMessageItem";
 
 /** 질의·회신 스레드 — 대화 순서대로 읽고, 누구 차례인지 끝에서 바로 보이게 한다. */

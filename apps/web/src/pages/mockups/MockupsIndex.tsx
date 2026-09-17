@@ -24,15 +24,8 @@ export function MockupsIndex() {
       <Link to="/mockups/advice-detail" className={css.indexCard}>
         <h3>법률자문 상세</h3>
         <p>
-          계약 상세와 같은 구성 — 6칸 요약줄 + 좌측 본문(AI 도우미 · 자문 내용 · 질의/회신) + 우측 레일(결재선 · 관련 문서 · 이력).
-        </p>
-      </Link>
-
-      <Link to="/mockups/advice-detail-v2" className={css.indexCard}>
-        <h3>법률자문 상세 v2 (디자인 개선안)</h3>
-        <p>
-          같은 뼈대에서 질의·회신을 대화 스레드로, 우측 레일에 처리 현황(기한 임박) · 아바타 결재선 · 첨부 파일 ·
-          이력 타임라인을 두고, AI 도우미는 요지 → 쟁점·근거 → 지난 자문 순으로 정리한 개선안.
+          계약 상세와 같은 뼈대(요약줄 · 진행 게이지) + 좌측 본문(AI 자문 도우미 · 자문 요청 내용 · 대화형 질의/회신) + 우측
+          레일(처리 현황 · 결재선 · 첨부/관련 계약 · 이력 타임라인).
         </p>
       </Link>
 

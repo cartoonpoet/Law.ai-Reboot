@@ -2,7 +2,7 @@ import { style, styleVariants } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
 
 /* =========================================================================
- * 법률자문 상세 v2 — 계약 상세(contractDetail.css) 카드·요약줄 위에 얹는 자문 전용 부품.
+ * 법률자문 상세 — 계약 상세(contractDetail.css) 카드·요약줄 위에 얹는 자문 전용 부품.
  * themeVars + color-mix 파생만 사용(로컬 hex 0). 장식(강조 막대·그라데이션) 없음.
  * ======================================================================= */
 
