@@ -74,9 +74,8 @@ describe("ContractListPage", () => {
     expect(navigateMock).toHaveBeenCalledWith("/contract/uuid-1");
   });
 
-  it("검토 요청 버튼은 요청 화면으로 이동한다", async () => {
+  it("요청은 왼쪽 메뉴로 하므로 조회 화면에 검토 요청 버튼을 두지 않는다", () => {
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: /검토 요청/ }));
-    expect(navigateMock).toHaveBeenCalledWith("/contract/request");
+    expect(screen.queryByRole("button", { name: /검토 요청/ })).not.toBeInTheDocument();
   });
 });

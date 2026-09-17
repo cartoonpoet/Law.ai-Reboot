@@ -65,7 +65,7 @@ export const AdviceDetailPage = () => {
 
   return (
     <div className={base.page}>
-      <button type="button" className={base.backlink} onClick={() => navigate("/advice")}>
+      <button type="button" className={base.backlink} onClick={() => navigate("/advice/list")}>
         <Icon name="chevronLeft" size="sm" className={base.backIcon} />
         법률자문 조회
       </button>

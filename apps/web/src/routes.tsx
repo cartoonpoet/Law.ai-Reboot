@@ -72,7 +72,8 @@ export function AppRoutes() {
         <Route path="/system" element={<SystemSettingsPage />} />
         <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
         <Route path="/settings/:tab" element={<SettingsPage />} />
-        <Route path="/advice" element={<AdviceListPage />} />
+        <Route path="/advice" element={<Navigate to="/advice/list" replace />} />
+        <Route path="/advice/list" element={<AdviceListPage />} />
         <Route path="/advice/request" element={<AdviceRequestPage />} />
         <Route path="/advice/:id" element={<AdviceDetailPage />} />
         <Route path="/approvals/inbox" element={<ApprovalInboxPage />} />

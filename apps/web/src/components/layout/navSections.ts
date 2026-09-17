@@ -19,9 +19,15 @@ export const NAV_SECTIONS = [
     ],
   },
   {
+    label: "법률자문",
+    items: [
+      { id: "advice-request", label: "법률자문 요청", icon: "law", path: "/advice/request" },
+      { id: "advice-list", label: "법률자문 조회", icon: "fileFind", path: "/advice/list" },
+    ],
+  },
+  {
     label: "법무 업무",
     items: [
-      { id: "advice", label: "법률자문", icon: "law", path: "/advice" },
       { id: "litigation", label: "송무", icon: "litigation", path: "/litigation" },
       { id: "seal", label: "인감 사용 신청", icon: "seal", path: "/seal" },
       { id: "ip", label: "지식재산권", icon: "iPRs", path: "/ip" },

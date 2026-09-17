@@ -70,8 +70,8 @@ describe("Sidebar", () => {
   it("리프 메뉴 클릭 시 해당 경로로 이동한다", async () => {
     const user = userEvent.setup();
     renderSidebar();
-    await user.click(screen.getByRole("button", { name: /법률자문/ }));
-    expect(screen.getByTestId("location")).toHaveTextContent("/advice");
+    await user.click(screen.getByRole("button", { name: /법률자문 조회/ }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/advice/list");
   });
 
   it("계약 메뉴 클릭 시 그 경로로 이동한다", async () => {

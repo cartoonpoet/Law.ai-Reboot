@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import {
-  Button,
   ButtonGroup,
   ChipsNavigation,
   DataTable,
@@ -43,17 +42,8 @@ export const AdviceListPage = () => {
     <div>
       <div className={shared.pageHead}>
         <div className={shared.pageTitleGroup}>
-          <Eyebrow>법무 업무</Eyebrow>
-          <h1 className={shared.pageTitle}>법률자문</h1>
-        </div>
-        <div className={shared.pageActions}>
-          <Button
-            size="medium"
-            iconLeft={<Icon name="law" size="sm" className={shared.buttonIcon} />}
-            onClick={() => navigate("/advice/request")}
-          >
-            자문 요청
-          </Button>
+          <Eyebrow>법률자문</Eyebrow>
+          <h1 className={shared.pageTitle}>법률자문 조회</h1>
         </div>
       </div>
 
