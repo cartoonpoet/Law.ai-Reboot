@@ -27,6 +27,7 @@ import { ContractLifecycleMock } from "./pages/mockups/lifecycle/ContractLifecyc
 import { AdviceRequestMock } from "./pages/mockups/advice/AdviceRequestMock";
 import { AdviceListMock } from "./pages/mockups/advice/AdviceListMock";
 import { AdviceDetailMock } from "./pages/mockups/advice/AdviceDetailMock";
+import { AdviceDetailMockV2 } from "./pages/mockups/advice/AdviceDetailMockV2";
 import { NotFoundPage } from "./components/feedback/NotFoundPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -52,6 +53,7 @@ export function AppRoutes() {
         <Route path="/mockups/advice-request" element={<AdviceRequestMock />} />
         <Route path="/mockups/advice-list" element={<AdviceListMock />} />
         <Route path="/mockups/advice-detail" element={<AdviceDetailMock />} />
+        <Route path="/mockups/advice-detail-v2" element={<AdviceDetailMockV2 />} />
       </Route>
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
