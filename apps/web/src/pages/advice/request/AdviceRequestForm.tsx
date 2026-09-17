@@ -32,11 +32,11 @@ export const AdviceRequestForm = ({ initialValues }: AdviceRequestFormProps) => 
       <form onSubmit={handleSubmit} noValidate>
         <div className={shared.pageHead}>
           <div className={shared.pageTitleGroup}>
-            <Eyebrow>법무 업무</Eyebrow>
+            <Eyebrow>법률자문</Eyebrow>
             <h1 className={shared.pageTitle}>법률자문 요청</h1>
           </div>
           <div className={shared.pageActions}>
-            <Button type="button" variant="outline" color="secondary" onClick={() => navigate("/advice")}>
+            <Button type="button" variant="outline" color="secondary" onClick={() => navigate("/advice/list")}>
               목록
             </Button>
             <Button

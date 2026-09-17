@@ -136,19 +136,6 @@ export function ContractListPage() {
           >
             내보내기
           </Button>
-          <Button
-            size="medium"
-            iconLeft={
-              <Icon
-                name="contractEdit"
-                size="sm"
-                style={{ width: 14, height: 14 }}
-              />
-            }
-            onClick={() => navigate("/contract/request")}
-          >
-            검토 요청
-          </Button>
         </div>
       </div>
 
