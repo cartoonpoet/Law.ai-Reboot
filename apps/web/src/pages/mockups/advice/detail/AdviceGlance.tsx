@@ -1,8 +1,8 @@
 import { DdayBadge } from "@lawkit/ui";
 import { cx } from "../../../contract/cx";
 import * as base from "../../../contract/contractDetail.css";
-import * as css from "../adviceDetailV2.css";
-import { ADVICE, MOCK_TODAY, THREAD_MESSAGES } from "./adviceDetailV2Data";
+import * as css from "../adviceDetail.css";
+import { ADVICE, MOCK_TODAY, THREAD_MESSAGES } from "./adviceDetailData";
 
 /** 요약줄 6칸 — 상태는 진행 게이지가 보여주므로 넣지 않고, 기한·대기 중인 일을 앞세운다. */
 export const AdviceGlance = () => {

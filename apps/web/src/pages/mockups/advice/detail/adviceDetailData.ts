@@ -1,4 +1,4 @@
-// 법률자문 상세 v2 시안 데이터 — 화면 확인 전용(실 API 연결 전).
+// 법률자문 상세 시안 데이터 — 화면 확인 전용(실 API 연결 전).
 import type { AvatarColor, TimelineItem } from "@lawkit/ui";
 import type { Approver } from "../../../contract/request-schema";
 

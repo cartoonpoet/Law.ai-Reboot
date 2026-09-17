@@ -1,8 +1,8 @@
 import { FileItem, Icon, LinkBadge } from "@lawkit/ui";
 import type { IconName } from "@lawkit/ui";
 import * as base from "../../../contract/contractDetail.css";
-import * as css from "../adviceDetailV2.css";
-import { ATTACHMENTS, RELATED_CONTRACT } from "./adviceDetailV2Data";
+import * as css from "../adviceDetail.css";
+import { ATTACHMENTS, RELATED_CONTRACT } from "./adviceDetailData";
 
 // 확장자 → 파일 유형 아이콘.
 const getFileIconName = (filename: string): IconName => {
