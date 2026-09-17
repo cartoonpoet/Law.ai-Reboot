@@ -28,9 +28,11 @@ const focusable = style({
   selectors: { "&:focus-visible": { boxShadow: themeVars.shadow.focus } },
 });
 
-/* 카드 — contractDetail.card 와 같은 모양이지만 팝오버가 잘리지 않도록 overflow 를 열어 둔다 */
+/* 카드 — contractDetail.card 와 같은 모양이지만 팝오버가 잘리지 않도록 overflow 를 열어 둔다.
+ * 아래 본문 그리드와 간격은 위 요약줄(glance)과 같은 16px */
 export const card = style({
   position: "relative",
+  marginBottom: 16,
   zIndex: 2,
   padding: 18,
   background: c.neutralSurface,
