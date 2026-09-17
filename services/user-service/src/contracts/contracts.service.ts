@@ -650,10 +650,11 @@ export class ContractsService {
           ? { in: statusesFilter }
           : undefined;
 
-    const where: Prisma.ContractWhereInput = {
+    // 상태를 뺀 조건 — 그룹 탭 건수는 이 조건으로 센다. 만료 필터가 있으면 체결 이후 상태로만 센다.
+    const countWhere: Prisma.ContractWhereInput = {
       deletedAt: null,
       ...tenantScope(ctx),
-      ...(statusFilter !== undefined ? { status: statusFilter } : {}),
+      ...(req.expiry ? { status: { in: POST_SIGN_STATUSES } } : {}),
       ...(req.party ? { party: req.party } : {}),
       ...(req.categoryId ? { categoryId: req.categoryId } : {}),
       ...(req.mineOf ? { createdById: req.mineOf } : {}),
@@ -674,6 +675,10 @@ export class ContractsService {
           }
         : {}),
     };
+    const where: Prisma.ContractWhereInput = {
+      ...countWhere,
+      ...(statusFilter !== undefined ? { status: statusFilter } : {}),
+    };
 
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.contract.findMany({
@@ -693,6 +698,18 @@ export class ContractsService {
       }),
       this.prisma.contract.count({ where }),
     ]);
+    // 그룹 탭 건수 — 목록과 조건이 달라(상태 제외) 따로 센다.
+    const grouped = await this.prisma.contract.groupBy({
+      by: ["status"],
+      where: countWhere,
+      _count: { _all: true },
+    });
+    const counts = Object.fromEntries(
+      Object.keys(ALLOWED_TRANSITIONS).map((status) => [status, 0]),
+    ) as Record<ContractStatus, number>;
+    grouped.forEach((group) => {
+      counts[group.status] = group._count._all;
+    });
 
     const items: ContractSummary[] = rows.map((r) => {
       const first = r.counterparties[0];
@@ -720,7 +737,7 @@ export class ContractsService {
       };
     });
 
-    return { items, total, page, pageSize };
+    return { items, total, page, pageSize, counts };
   }
 
   async update(req: UpdateContractRequest): Promise<ContractResponse> {
