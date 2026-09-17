@@ -28,6 +28,14 @@ export function MockupsIndex() {
         </p>
       </Link>
 
+      <Link to="/mockups/advice-detail-v2" className={css.indexCard}>
+        <h3>법률자문 상세 v2 (디자인 개선안)</h3>
+        <p>
+          같은 뼈대에서 질의·회신을 대화 스레드로, 우측 레일에 처리 현황(기한 임박) · 아바타 결재선 · 첨부 파일 ·
+          이력 타임라인을 두고, AI 도우미는 요지 → 쟁점·근거 → 지난 자문 순으로 정리한 개선안.
+        </p>
+      </Link>
+
       <h2 className={css.indexHero}>계약 상세 진행 단계 바</h2>
       <Link to="/mockups/contract-lifecycle" className={css.indexCard}>
         <h3>D. 링 게이지 요약형 (채택)</h3>
