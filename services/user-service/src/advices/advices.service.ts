@@ -1,8 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
+import { ADVICE_APPROVAL_TARGET } from "@lawai/contracts";
 import type {
   AddAdviceMessageRequest,
+  AdviceMutationResult,
+  ApprovalLineDto,
+  ApproverSnapshot,
   AdviceDetails,
   AdviceMessageKindTypes,
   AdvicePerson,
@@ -16,12 +20,15 @@ import type {
   GetAdviceRequest,
   ListAdvicesRequest,
   ListAdvicesResponse,
+  ResubmitAdviceRequestApprovalRequest,
   TenantContext,
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+import { ApprovalsService } from "../approvals/approvals.service";
 import { resolveTenantId, tenantScope } from "../common/tenant-scope";
 import {
   checkCanSeeSecretCc,
+  checkCanSeeUnpublished,
   checkCanView,
   checkLegalRole,
   checkOwnerRole,
@@ -35,7 +42,16 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const CODE_RETRY_LIMIT = 3;
 
-const ADVICE_STATUSES: AdviceStatusTypes[] = ["received", "reviewing", "waitingRequester", "answered", "closed"];
+const ADVICE_STATUSES: AdviceStatusTypes[] = [
+  "requestApproval",
+  "requestRejected",
+  "received",
+  "reviewing",
+  "waitingRequester",
+  "answerApproval",
+  "answered",
+  "closed",
+];
 
 // 메시지 종류별로 할 수 있는 사람과 남긴 뒤의 상태.
 const MESSAGE_RULES: Record<
@@ -101,13 +117,36 @@ const toDetails = (value: unknown): AdviceDetails => {
   };
 };
 
-const toAuthzTarget = (row: AdviceBaseRow): AdviceAuthzTarget => ({
+// 자문에 걸린 가장 최근 요청 결재·회신 결재.
+export interface AdviceApprovals {
+  request: ApprovalLineDto | null;
+  answer: ApprovalLineDto | null;
+}
+
+const getStepUserIds = (line: ApprovalLineDto | null): string[] =>
+  (line?.steps ?? []).map((step) => step.userId).filter((id): id is string => Boolean(id));
+
+const toAuthzTarget = (row: AdviceBaseRow, approvals: AdviceApprovals): AdviceAuthzTarget => ({
   status: row.status,
   requesterId: row.requesterId,
   createdById: row.createdById,
   ownerId: row.ownerId,
   ccUserIds: toDetails(row.details).ccUsers.map((user) => user.id),
+  approverIds: [...getStepUserIds(approvals.request), ...getStepUserIds(approvals.answer)],
+  answerApproverIds: getStepUserIds(approvals.answer),
 });
+
+// 결재·합의 단계가 하나라도 있어야 결재를 거친다(기안·참조만 있으면 결재 없이 진행).
+const checkNeedsApproval = (approvers: ApproverSnapshot[] | undefined): boolean =>
+  (approvers ?? []).some((approver) => approver.type === "approve" || approver.type === "agree");
+
+// 결재할 사람이 정해지지 않은 결재·합의 단계는 아무도 처리할 수 없어 받지 않는다.
+const ensureApprovers = (approvers: ApproverSnapshot[]): void => {
+  const hasUnlinked = approvers.some(
+    (approver) => (approver.type === "approve" || approver.type === "agree") && !approver.userId,
+  );
+  if (hasUnlinked) throw new RpcException({ status: 400, message: "결재선의 결재자를 다시 선택해 주세요" });
+};
 
 const checkUniqueViolation = (error: unknown): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
@@ -118,9 +157,12 @@ const checkUniqueViolation = (error: unknown): boolean =>
  */
 @Injectable()
 export class AdvicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly approvals: ApprovalsService,
+  ) {}
 
-  async create(req: CreateAdviceRequest): Promise<AdviceResponse> {
+  async create(req: CreateAdviceRequest): Promise<AdviceMutationResult> {
     const tenantId = resolveTenantId(req.tenantContext);
     const viewer = await this.loadViewer(req.viewerId, req.tenantContext);
     const title = requireText(req.title, "자문명을 입력해 주세요");
@@ -128,10 +170,12 @@ export class AdvicesService {
     if (req.countries.length === 0) throw new RpcException({ status: 400, message: "국가를 선택해 주세요" });
     await this.ensureMember(req.requesterId, tenantId, "자문요청자를 찾을 수 없습니다");
     if (req.ownerId) await this.ensureOwnerCandidate(req.ownerId, tenantId);
+    const needsApproval = checkNeedsApproval(req.approvers);
+    if (needsApproval) ensureApprovers(req.approvers);
 
     const data = {
       title,
-      status: (req.ownerId ? "reviewing" : "received") as AdviceStatusTypes,
+      status: (needsApproval ? "requestApproval" : this.getStartStatus(req.ownerId)) as AdviceStatusTypes,
       securityLevel: req.securityLevel,
       categories: req.categories,
       region: req.region,
@@ -148,7 +192,10 @@ export class AdvicesService {
     };
 
     const row = await this.createWithUniqueCode(data);
-    return this.toResponse(row, viewer);
+    const notifications = needsApproval
+      ? await this.submitApproval(row, viewer.id, ADVICE_APPROVAL_TARGET.REQUEST, req.approvers)
+      : [];
+    return { advice: await this.toResponse(row, viewer), notifications };
   }
 
   async list(req: ListAdvicesRequest): Promise<ListAdvicesResponse> {
@@ -200,14 +247,14 @@ export class AdvicesService {
 
   async get(req: GetAdviceRequest): Promise<AdviceResponse> {
     const viewer = await this.loadViewer(req.viewerId, req.tenantContext);
-    const row = await this.loadVisible(req.id, req.tenantContext, viewer);
-    return this.toResponse(row, viewer);
+    const { row, approvals } = await this.loadVisible(req.id, req.tenantContext, viewer);
+    return this.toResponse(row, viewer, approvals);
   }
 
   async assign(req: AssignAdviceRequest): Promise<AdviceResponse> {
     const viewer = await this.loadViewer(req.viewerId, req.tenantContext);
-    const current = await this.loadVisible(req.id, req.tenantContext, viewer);
-    if (!getAdvicePermissions(viewer, toAuthzTarget(current)).canAssign) {
+    const { row: current, approvals, permissions } = await this.loadVisible(req.id, req.tenantContext, viewer);
+    if (!permissions.canAssign) {
       throw new RpcException({ status: 403, message: "담당 배정 권한이 없습니다" });
     }
     await this.ensureOwnerCandidate(req.ownerId, current.tenantId);
@@ -221,36 +268,65 @@ export class AdvicesService {
       },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
-    return this.toResponse(row, viewer);
+    return this.toResponse(row, viewer, approvals);
   }
 
-  async addMessage(req: AddAdviceMessageRequest): Promise<AdviceResponse> {
+  async addMessage(req: AddAdviceMessageRequest): Promise<AdviceMutationResult> {
     const viewer = await this.loadViewer(req.viewerId, req.tenantContext);
-    const current = await this.loadVisible(req.id, req.tenantContext, viewer);
+    const { row: current, permissions } = await this.loadVisible(req.id, req.tenantContext, viewer);
     const rule = MESSAGE_RULES[req.kind];
     if (!rule) throw new RpcException({ status: 400, message: "알 수 없는 메시지 종류입니다" });
-    if (!getAdvicePermissions(viewer, toAuthzTarget(current))[rule.permission]) {
+    if (!permissions[rule.permission]) {
       throw new RpcException({ status: 403, message: rule.deniedMessage });
     }
     const body = requireRichText(req.body, "내용을 입력해 주세요");
+    // 결재선이 있는 회신은 결재가 끝날 때까지 요청자에게 보이지 않는다.
+    const needsApproval = req.kind === "answer" && checkNeedsApproval(req.approvers);
+    if (needsApproval) ensureApprovers(req.approvers ?? []);
 
     const row = await this.prisma.advice.update({
       where: { id: current.id },
       data: {
-        status: rule.nextStatus,
-        // 회신하면 회신일을 남기고, 회신 뒤 다시 물으면 회신일을 비운다.
-        answeredAt: req.kind === "answer" ? new Date() : req.kind === "reply" ? null : current.answeredAt,
-        messages: { create: { authorId: viewer.id, kind: req.kind, body } },
+        status: needsApproval ? "answerApproval" : rule.nextStatus,
+        // 회신하면 회신일을 남기고(결재를 거치면 승인될 때), 회신 뒤 다시 물으면 회신일을 비운다.
+        answeredAt: this.getAnsweredAt(req.kind, needsApproval, current.answeredAt),
+        messages: {
+          create: { authorId: viewer.id, kind: req.kind, body, state: needsApproval ? "pendingApproval" : "published" },
+        },
       },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
-    return this.toResponse(row, viewer);
+    const notifications = needsApproval
+      ? await this.submitApproval(row, viewer.id, ADVICE_APPROVAL_TARGET.ANSWER, req.approvers ?? [])
+      : [];
+    return { advice: await this.toResponse(row, viewer), notifications };
+  }
+
+  async resubmitRequestApproval(req: ResubmitAdviceRequestApprovalRequest): Promise<AdviceMutationResult> {
+    const viewer = await this.loadViewer(req.viewerId, req.tenantContext);
+    const { row: current, permissions } = await this.loadVisible(req.id, req.tenantContext, viewer);
+    if (!permissions.canResubmitRequest) {
+      throw new RpcException({ status: 403, message: "반려된 요청만 작성자가 다시 올릴 수 있습니다" });
+    }
+    const needsApproval = checkNeedsApproval(req.approvers);
+    if (needsApproval) ensureApprovers(req.approvers);
+
+    // 결재·합의 단계를 모두 빼고 다시 올리면 결재 없이 바로 접수한다.
+    const row = await this.prisma.advice.update({
+      where: { id: current.id },
+      data: { status: needsApproval ? "requestApproval" : this.getStartStatus(current.ownerId) },
+      include: { messages: { orderBy: { createdAt: "asc" } } },
+    });
+    const notifications = needsApproval
+      ? await this.submitApproval(row, viewer.id, ADVICE_APPROVAL_TARGET.REQUEST, req.approvers)
+      : [];
+    return { advice: await this.toResponse(row, viewer), notifications };
   }
 
   async close(req: CloseAdviceRequest): Promise<AdviceResponse> {
     const viewer = await this.loadViewer(req.viewerId, req.tenantContext);
-    const current = await this.loadVisible(req.id, req.tenantContext, viewer);
-    if (!getAdvicePermissions(viewer, toAuthzTarget(current)).canClose) {
+    const { row: current, approvals, permissions } = await this.loadVisible(req.id, req.tenantContext, viewer);
+    if (!permissions.canClose) {
       throw new RpcException({ status: 403, message: "회신이 끝난 자문만 요청자나 담당자가 종결할 수 있습니다" });
     }
     const row = await this.prisma.advice.update({
@@ -258,7 +334,49 @@ export class AdvicesService {
       data: { status: "closed", closedAt: new Date() },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
-    return this.toResponse(row, viewer);
+    return this.toResponse(row, viewer, approvals);
+  }
+
+  // 결재 없이 시작할 때 — 담당이 정해져 있으면 바로 검토, 아니면 접수.
+  private getStartStatus(ownerId: string | null): AdviceStatusTypes {
+    return ownerId ? "reviewing" : "received";
+  }
+
+  private getAnsweredAt(kind: AdviceMessageKindTypes, needsApproval: boolean, current: Date | null): Date | null {
+    if (kind === "answer") return needsApproval ? current : new Date();
+    if (kind === "reply") return null;
+    return current;
+  }
+
+  private async submitApproval(
+    row: AdviceBaseRow,
+    submittedById: string,
+    targetType: (typeof ADVICE_APPROVAL_TARGET)[keyof typeof ADVICE_APPROVAL_TARGET],
+    approvers: ApproverSnapshot[],
+  ) {
+    const titlePrefix = targetType === ADVICE_APPROVAL_TARGET.REQUEST ? "[자문 요청]" : "[자문 회신]";
+    const { notifications } = await this.approvals.submit({
+      targetType,
+      targetId: row.id,
+      title: `${titlePrefix} ${row.title}`,
+      submittedById,
+      tenantId: row.tenantId,
+      steps: approvers.map((approver) => ({
+        userId: approver.userId ?? null,
+        name: approver.name,
+        dept: approver.dept,
+        type: approver.type,
+      })),
+    });
+    return notifications;
+  }
+
+  private async loadApprovals(adviceId: string): Promise<AdviceApprovals> {
+    const [request, answer] = await Promise.all([
+      this.approvals.getActive(ADVICE_APPROVAL_TARGET.REQUEST, adviceId),
+      this.approvals.getActive(ADVICE_APPROVAL_TARGET.ANSWER, adviceId),
+    ]);
+    return { request: request.line, answer: answer.line };
   }
 
   private async createWithUniqueCode(data: Omit<Prisma.AdviceUncheckedCreateInput, "code">): Promise<AdviceRow> {
@@ -285,16 +403,17 @@ export class AdvicesService {
     return { id: viewerId, role: membership.role };
   }
 
-  // 볼 권한이 없으면 있는지조차 알리지 않도록 404.
-  private async loadVisible(id: string, ctx: TenantContext, viewer: AdviceViewer): Promise<AdviceRow> {
+  // 볼 권한이 없으면 있는지조차 알리지 않도록 404. 권한 판단에 쓴 결재와 할 수 있는 일을 함께 돌려준다.
+  private async loadVisible(id: string, ctx: TenantContext, viewer: AdviceViewer) {
     const row = await this.prisma.advice.findFirst({
       where: { id, deletedAt: null, ...tenantScope(ctx) },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
-    if (!row || !checkCanView(viewer, toAuthzTarget(row))) {
+    const approvals = row ? await this.loadApprovals(row.id) : null;
+    if (!row || !approvals || !checkCanView(viewer, toAuthzTarget(row, approvals))) {
       throw new RpcException({ status: 404, message: NOT_FOUND_MESSAGE });
     }
-    return row;
+    return { row, approvals, permissions: getAdvicePermissions(viewer, toAuthzTarget(row, approvals)) };
   }
 
   private getVisibleWhere(viewer: AdviceViewer): Prisma.AdviceWhereInput {
@@ -357,16 +476,19 @@ export class AdvicesService {
     };
   }
 
-  private async toResponse(row: AdviceRow, viewer: AdviceViewer): Promise<AdviceResponse> {
-    const people = await this.loadPeople([
-      row.requesterId,
-      row.ownerId,
-      row.createdById,
-      ...row.messages.map((message) => message.authorId),
+  // 결재가 바뀌지 않은 동작은 이미 읽은 결재를 넘기고, 상신이 일어난 동작은 새로 읽는다.
+  private async toResponse(row: AdviceRow, viewer: AdviceViewer, knownApprovals?: AdviceApprovals): Promise<AdviceResponse> {
+    const [people, approvals] = await Promise.all([
+      this.loadPeople([row.requesterId, row.ownerId, row.createdById, ...row.messages.map((message) => message.authorId)]),
+      knownApprovals ?? this.loadApprovals(row.id),
     ]);
-    const target = toAuthzTarget(row);
+    const target = toAuthzTarget(row, approvals);
     const details = toDetails(row.details);
     const getPerson = (id: string): AdvicePerson => people.get(id) ?? { id, name: null, dept: null };
+    // 요청자 쪽에는 결재가 끝난(공개된) 회신만 보인다.
+    const messages = checkCanSeeUnpublished(viewer, target)
+      ? row.messages
+      : row.messages.filter((message) => message.state === "published");
     return {
       ...this.toSummary(row, people),
       countries: row.countries,
@@ -376,14 +498,17 @@ export class AdvicesService {
       details: checkCanSeeSecretCc(viewer, target) ? details : { ...details, ccSecret: [] },
       createdBy: getPerson(row.createdById),
       closedAt: row.closedAt?.toISOString() ?? null,
-      messages: row.messages.map((message) => ({
+      messages: messages.map((message) => ({
         id: message.id,
         kind: message.kind,
+        state: message.state,
         body: message.body,
         author: getPerson(message.authorId),
         createdAt: message.createdAt.toISOString(),
       })),
       permissions: getAdvicePermissions(viewer, target),
+      requestApproval: approvals.request,
+      answerApproval: approvals.answer,
     };
   }
 }

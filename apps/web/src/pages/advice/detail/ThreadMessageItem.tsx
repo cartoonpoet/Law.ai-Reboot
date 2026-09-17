@@ -1,6 +1,6 @@
 import { Avatar } from "@lawkit/ui";
 import type { AdviceMessageDto, AdviceMessageKindTypes } from "@lawai/contracts";
-import { MESSAGE_KIND_LABEL } from "../adviceMeta";
+import { MESSAGE_KIND_LABEL, MESSAGE_STATE_LABEL } from "../adviceMeta";
 import { formatShortDateTime } from "./toAdviceHistory";
 import * as css from "./adviceDetail.css";
 
@@ -30,11 +30,16 @@ export const ThreadMessageItem = ({ message }: ThreadMessageItemProps) => {
           <span className={css.messageAuthor}>{authorName}</span>
           {message.author.dept && <span className={css.messageDept}>{message.author.dept}</span>}
           <span className={css.messageKind[side]}>{MESSAGE_KIND_LABEL[message.kind]}</span>
+          {message.state !== "published" && (
+            <span className={css.messageState[message.state]}>{MESSAGE_STATE_LABEL[message.state]}</span>
+          )}
           <time className={css.messageTime} dateTime={message.createdAt}>
             {formatShortDateTime(message.createdAt)}
           </time>
         </div>
-        <div className={css.bubble[side]}>{message.body}</div>
+        <div className={message.state === "rejected" ? `${css.bubble[side]} ${css.bubbleRejected}` : css.bubble[side]}>
+          {message.body}
+        </div>
       </div>
     </li>
   );

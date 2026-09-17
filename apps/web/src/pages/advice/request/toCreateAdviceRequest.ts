@@ -15,6 +15,7 @@ export const toCreateAdviceRequest = (form: AdviceRequestFormTypes): CreateAdvic
   question: form.question,
   etcRequest: form.etcRequest.trim() || null,
   dueDate: form.dueDate || null,
+  approvers: form.approvers,
   details: {
     ccUsers: form.ccUsers,
     ccDepts: form.ccDepts,

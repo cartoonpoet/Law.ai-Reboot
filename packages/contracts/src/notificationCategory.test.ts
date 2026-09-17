@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { getNotificationCategory, getNotificationContractId } from "./dto/notification.dto";
+import { getNotificationAdviceId, getNotificationCategory, getNotificationContractId } from "./dto/notification.dto";
+
+describe("getNotificationAdviceId", () => {
+  it("자문 요청·회신 결재 알림은 detail.targetId", () => {
+    expect(getNotificationAdviceId({ targetType: "advice_request", targetId: "a-1" })).toBe("a-1");
+    expect(getNotificationAdviceId({ targetType: "advice_answer", targetId: "a-2" })).toBe("a-2");
+  });
+
+  it("자문 알림이 아니면 null", () => {
+    expect(getNotificationAdviceId({ targetType: "contract", targetId: "k-1" })).toBeNull();
+    expect(getNotificationAdviceId(null)).toBeNull();
+  });
+});
 
 describe("getNotificationContractId", () => {
   it("코멘트 알림은 detail.contractId", () => {

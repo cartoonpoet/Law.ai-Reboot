@@ -5,11 +5,15 @@ import { Badge } from "../../../components/ui/Badge";
 import { cx } from "../../contract/cx";
 import { LifecycleRing } from "../../contract/sections/LifecycleRing";
 import { AssignModal } from "../../contract/sections/AssignModal";
+import { ApprovalLineModal } from "../../contract/sections/ApprovalLineModal";
+import { useMe } from "../../../components/layout/hooks/useMe";
+import { createDraftApprover } from "../approval/adviceApprovers";
 import { ContractDetailSkeleton } from "../../contract/sections/ContractDetailSkeleton";
 import { ADVICE_STATUS_COLOR, ADVICE_STATUS_LABEL } from "../adviceMeta";
 import { getAdviceProgress } from "../getAdviceProgress";
-import { useAdviceDetail } from "../hooks/useAdviceDetail";
+import { useAdviceDetail, type AdviceMessageInput } from "../hooks/useAdviceDetail";
 import { AdviceActionPanel } from "./AdviceActionPanel";
+import { AdviceApprovalCard } from "./AdviceApprovalCard";
 import { AdviceContentCard } from "./AdviceContentCard";
 import { AdviceGlance } from "./AdviceGlance";
 import { AdviceHistoryCard } from "./AdviceHistoryCard";
@@ -21,8 +25,11 @@ import * as base from "../../contract/contractDetail.css";
 export const AdviceDetailPage = () => {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { advice, isLoading, assign, isAssigning, sendMessage, isSending, close, isClosing } = useAdviceDetail(id);
+  const detail = useAdviceDetail(id);
+  const { advice, isLoading } = detail;
+  const { me } = useMe();
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [isResubmitOpen, setIsResubmitOpen] = useState(false);
 
   // 상세 로딩은 같은 뼈대의 스켈레톤(계약 상세와 동일).
   if (isLoading) return <ContractDetailSkeleton />;
@@ -38,11 +45,23 @@ export const AdviceDetailPage = () => {
   const now = new Date();
   const lastActivityAt = advice.messages.at(-1)?.createdAt ?? advice.createdAt;
 
-  const handleAssign = (ownerId: string) =>
-    assign(ownerId, { onSuccess: () => setIsAssignOpen(false) });
+  const draftApprover = me ? createDraftApprover(me) : null;
+  // 다시 올릴 때는 반려된 결재선을 그대로 불러와 고친다.
+  const rejectedRequestApprovers = (advice.requestApproval?.steps ?? []).map((step) => ({
+    userId: step.userId,
+    name: step.name,
+    dept: step.dept,
+    type: step.type,
+  }));
 
-  const handleSend = (kind: Parameters<typeof sendMessage>[0]["kind"], body: string, onSent: () => void) =>
-    sendMessage({ kind, body }, { onSuccess: onSent });
+  const handleAssign = (ownerId: string) =>
+    detail.assign(ownerId, { onSuccess: () => setIsAssignOpen(false) });
+
+  const handleSend = (message: AdviceMessageInput, onSent: () => void) =>
+    detail.sendMessage(message, { onSuccess: onSent });
+
+  const handleDecide = (lineId: string, decision: "approve" | "reject", comment: string) =>
+    detail.decide({ lineId, decision, comment });
 
   return (
     <div className={base.page}>
@@ -77,24 +96,48 @@ export const AdviceDetailPage = () => {
       <div className={base.railGrid}>
         <div className={base.stack}>
           <AdviceContentCard advice={advice} />
-          <AdviceThreadCard advice={advice} isSending={isSending} onSend={handleSend} />
+          <AdviceThreadCard
+            advice={advice}
+            draftApprover={draftApprover}
+            isSending={detail.isSending}
+            onSend={handleSend}
+          />
         </div>
 
         <div className={cx(base.stack, base.sticky)}>
           <AdviceActionPanel
             advice={advice}
             now={now}
-            isAssigning={isAssigning}
-            isClosing={isClosing}
+            isAssigning={detail.isAssigning}
+            isClosing={detail.isClosing}
+            isResubmitting={detail.isResubmitting}
             onAssignClick={() => setIsAssignOpen(true)}
-            onClose={close}
+            onClose={detail.close}
+            onResubmitClick={() => setIsResubmitOpen(true)}
+          />
+          <AdviceApprovalCard
+            advice={advice}
+            viewerId={me?.id ?? null}
+            isDeciding={detail.isDeciding}
+            onDecide={handleDecide}
           />
           <AdviceHistoryCard advice={advice} />
         </div>
       </div>
 
       {isAssignOpen && (
-        <AssignModal onClose={() => setIsAssignOpen(false)} onAssign={handleAssign} isAssigning={isAssigning} />
+        <AssignModal onClose={() => setIsAssignOpen(false)} onAssign={handleAssign} isAssigning={detail.isAssigning} />
+      )}
+
+      {isResubmitOpen && (
+        <ApprovalLineModal
+          initial={rejectedRequestApprovers}
+          onClose={() => setIsResubmitOpen(false)}
+          onApply={(approvers) => {
+            setIsResubmitOpen(false);
+            detail.resubmitRequestApproval(approvers);
+          }}
+        />
       )}
     </div>
   );

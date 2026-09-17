@@ -5,16 +5,22 @@ import { getDaysLeft } from "../dashboard/getDaysLeft";
 // targetType → 상세 딥링크. 새 도메인이 결재를 쓰면 여기에 경로만 추가한다.
 const TARGET_ROUTE: Record<string, (id: string) => string> = {
   contract: (id) => `/contract/${id}`,
+  advice_request: (id) => `/advice/${id}`,
+  advice_answer: (id) => `/advice/${id}`,
 };
 
 // targetType → "결재 유형" 배지 라벨(문서 종류).
 const TARGET_KIND_LABEL: Record<string, string> = {
   contract: "체결 품의",
+  advice_request: "자문 요청",
+  advice_answer: "자문 회신",
 };
 
 // targetType → 문서 아래 보조 줄의 업무 이름("C20260908-0142 · 계약").
 const TARGET_DOMAIN_LABEL: Record<string, string> = {
   contract: "계약",
+  advice_request: "법률자문",
+  advice_answer: "법률자문",
 };
 
 // 대상 문서가 삭제된 결재의 보조 줄 끝 표시.
