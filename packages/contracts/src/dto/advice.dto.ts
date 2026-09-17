@@ -1,12 +1,30 @@
 // 법률자문 — 요청자가 법무팀에 묻고(질의) 담당자가 답한다(회신).
-// 흐름: 접수(received) → 법무 검토(reviewing) ⇄ 추가 질의(waitingRequester) → 회신 완료(answered) → 종결(closed)
-import type { SecurityLevel } from "./contract.dto";
+// 흐름: (요청 결재) → 접수(received) → 법무 검토(reviewing) ⇄ 추가 질의(waitingRequester) → (회신 결재) → 회신 완료(answered) → 종결(closed)
+// 요청 결재·회신 결재는 결재선에 결재·합의 단계가 있을 때만 거친다(공용 ApprovalLine, targetType advice_request / advice_answer).
+import type { ApprovalLineDto } from "./approval.dto";
+import type { PushNotification } from "./comment.dto";
+import type { ApproverSnapshot, SecurityLevel } from "./contract.dto";
 import type { TenantContext } from "./tenant.dto";
 
-export type AdviceStatusTypes = "received" | "reviewing" | "waitingRequester" | "answered" | "closed";
+export type AdviceStatusTypes =
+  | "requestApproval"
+  | "requestRejected"
+  | "received"
+  | "reviewing"
+  | "waitingRequester"
+  | "answerApproval"
+  | "answered"
+  | "closed";
+
+export const ADVICE_APPROVAL_TARGET = {
+  REQUEST: "advice_request",
+  ANSWER: "advice_answer",
+} as const;
 export type AdviceRegionTypes = "domestic" | "overseas" | "both";
 // followup: 담당자 추가 질의 · reply: 요청자 답변 · answer: 담당자 정식 회신
 export type AdviceMessageKindTypes = "followup" | "reply" | "answer";
+// 결재를 거치는 회신은 승인 전까지 요청자에게 보이지 않는다.
+export type AdviceMessageStateTypes = "published" | "pendingApproval" | "rejected";
 
 export interface AdviceRef {
   id: string;
@@ -49,6 +67,7 @@ export interface AdviceSummary {
 export interface AdviceMessageDto {
   id: string;
   kind: AdviceMessageKindTypes;
+  state: AdviceMessageStateTypes;
   body: string;
   author: AdvicePerson;
   createdAt: string; // ISO
@@ -61,6 +80,8 @@ export interface AdvicePermissions {
   canAnswer: boolean;
   canReply: boolean;
   canClose: boolean;
+  // 요청 결재가 반려된 자문을 결재선을 고쳐 다시 올릴 수 있는지(작성자).
+  canResubmitRequest: boolean;
 }
 
 export interface AdviceResponse extends AdviceSummary {
@@ -73,6 +94,15 @@ export interface AdviceResponse extends AdviceSummary {
   closedAt: string | null; // ISO
   messages: AdviceMessageDto[];
   permissions: AdvicePermissions;
+  // 가장 최근 요청 결재·회신 결재(없으면 null).
+  requestApproval: ApprovalLineDto | null;
+  answerApproval: ApprovalLineDto | null;
+}
+
+// 결재 상신이 함께 일어나는 동작의 결과 — 게이트웨이가 알림을 실시간(SSE)으로 밀고 advice 만 돌려준다.
+export interface AdviceMutationResult {
+  advice: AdviceResponse;
+  notifications: PushNotification[];
 }
 
 interface AdviceViewerRequest {
@@ -94,6 +124,8 @@ export interface CreateAdviceRequest extends AdviceViewerRequest {
   etcRequest: string | null;
   dueDate: string | null; // YYYY-MM-DD
   details: AdviceDetails;
+  // 요청 결재선(기안자 포함). 결재·합의 단계가 없으면 결재 없이 바로 접수된다.
+  approvers: ApproverSnapshot[];
 }
 
 export interface ListAdvicesRequest extends AdviceViewerRequest {
@@ -129,6 +161,13 @@ export interface AddAdviceMessageRequest extends AdviceViewerRequest {
   id: string;
   kind: AdviceMessageKindTypes;
   body: string;
+  // 회신(answer) 결재선. 결재·합의 단계가 있으면 회신 결재를 거친다.
+  approvers?: ApproverSnapshot[];
+}
+
+export interface ResubmitAdviceRequestApprovalRequest extends AdviceViewerRequest {
+  id: string;
+  approvers: ApproverSnapshot[];
 }
 
 export interface CloseAdviceRequest extends AdviceViewerRequest {

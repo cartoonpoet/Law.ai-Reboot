@@ -12,6 +12,12 @@ interface AdviceGlanceProps {
 // 지금 누구 차례인지 — 상태는 진행 게이지가 보여주므로 여기서는 기다리는 쪽만 말한다.
 const getWaitingLabel = (advice: AdviceResponse): string => {
   switch (advice.status) {
+    case "requestApproval":
+      return "요청 결재";
+    case "requestRejected":
+      return "작성자 재상신";
+    case "answerApproval":
+      return "회신 결재";
     case "received":
       return "담당 배정";
     case "reviewing":

@@ -1,4 +1,4 @@
-import type { AdviceResponse, AdviceStatusTypes } from "@lawai/contracts";
+import type { AdviceResponse, AdviceStatusTypes, ApprovalLineDto } from "@lawai/contracts";
 import type { LifecycleProgress, LifecycleStepStateTypes } from "../contract/getLifecycleProgress";
 import { getDaysLeft } from "./getDaysLeft";
 
@@ -15,11 +15,14 @@ const ADVICE_PHASES = [
 const STEPS = ADVICE_PHASES.flatMap((phase) => phase.labels.map((label) => ({ label, phase: phase.name })));
 const LAST_INDEX = STEPS.length - 1;
 
-// 접수는 "담당 배정" 단계를 기다리는 중, 답변 대기는 "추가 질의" 단계.
+// 요청 결재는 "자문 요청" 단계 안, 접수는 "담당 배정"을 기다리는 중, 답변 대기는 "추가 질의", 회신 결재는 "회신 완료" 단계 안.
 const STATUS_TO_INDEX: Record<AdviceStatusTypes, number> = {
+  requestApproval: 0,
+  requestRejected: 0,
   received: 1,
   reviewing: 2,
   waitingRequester: 3,
+  answerApproval: 4,
   answered: 4,
   closed: 5,
 };
@@ -37,12 +40,29 @@ const getDueText = (dueDate: string | null, now: Date): string => {
   return daysLeft > 0 ? ` · 회신기한 D-${daysLeft}` : ` · 회신기한 D+${-daysLeft} 지남`;
 };
 
-type AdviceProgressInput = Pick<AdviceResponse, "status" | "owner" | "requester" | "dueDate" | "answeredAt" | "closedAt">;
+type AdviceProgressInput = Pick<
+  AdviceResponse,
+  "status" | "owner" | "requester" | "dueDate" | "answeredAt" | "closedAt" | "requestApproval" | "answerApproval"
+>;
+
+// 결재·합의 단계 중 승인된 수 — "결재 1/2 승인".
+const getApprovalText = (line: ApprovalLineDto | null): string => {
+  const decisionSteps = (line?.steps ?? []).filter((step) => step.type === "approve" || step.type === "agree");
+  if (decisionSteps.length === 0) return "";
+  const approvedCount = decisionSteps.filter((step) => step.status === "approved").length;
+  return ` · ${approvedCount}/${decisionSteps.length} 승인`;
+};
 
 const getNote = (advice: AdviceProgressInput, now: Date): string => {
   const dueText = getDueText(advice.dueDate, now);
   const ownerName = advice.owner?.name ?? "담당자";
   switch (advice.status) {
+    case "requestApproval":
+      return `요청 결재 중${getApprovalText(advice.requestApproval)}`;
+    case "requestRejected":
+      return "요청 결재가 반려됐어요 · 결재선을 고쳐 다시 올려 주세요";
+    case "answerApproval":
+      return `회신 결재 중${getApprovalText(advice.answerApproval)}`;
     case "received":
       return `법무팀 담당 배정 대기${dueText}`;
     case "reviewing":

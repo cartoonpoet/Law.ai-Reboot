@@ -33,6 +33,12 @@ export const getNotificationContractId = (detail: Record<string, unknown> | null
   return null;
 };
 
+// 알림 detail → 법률자문 id(자문 요청·회신 결재 알림). 자문 알림이 아니면 null.
+export const getNotificationAdviceId = (detail: Record<string, unknown> | null): string | null => {
+  const isAdviceTarget = detail?.targetType === "advice_request" || detail?.targetType === "advice_answer";
+  return isAdviceTarget && typeof detail?.targetId === "string" ? detail.targetId : null;
+};
+
 // 알림 type("approval_turn", "comment_mention" 등) → 묶음. 어느 묶음에도 속하지 않으면 null(항상 받음).
 export const getNotificationCategory = (type: string): NotificationCategory | null => {
   if (type.startsWith("approval_")) return "approval";

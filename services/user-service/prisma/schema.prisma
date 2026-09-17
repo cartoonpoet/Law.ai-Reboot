@@ -624,9 +624,12 @@ model AiAnalysis {
 // 요청자가 법무팀에 묻고(질의) 담당자가 답하는(회신) 업무. 계약과 같은 테넌트·보안등급 체계를 쓴다.
 // 사람 id(requester/owner/createdBy/author)는 SupportThread 선례대로 FK 없이 저장하고 이름은 한 번에 조회한다.
 enum AdviceStatus {
+  requestApproval // 요청 결재 중(부서장 등) — 승인되면 접수
+  requestRejected // 요청 결재 반려 — 요청자가 결재선을 고쳐 다시 올린다
   received // 접수(담당 배정 전)
   reviewing // 법무 검토 중
   waitingRequester // 추가 질의 — 요청자 답변 대기
+  answerApproval // 회신 결재 중 — 승인되면 요청자에게 회신이 공개된다
   answered // 회신 완료
   closed // 종결
 
@@ -688,11 +691,21 @@ model Advice {
   @@schema("contracts")
 }
 
+// 회신 결재를 거치는 회신은 승인 전까지 요청자에게 보이지 않는다.
+enum AdviceMessageState {
+  published // 공개
+  pendingApproval // 결재 중
+  rejected // 결재 반려
+
+  @@schema("contracts")
+}
+
 model AdviceMessage {
   id        String            @id @default(uuid())
   adviceId  String
   authorId  String
   kind      AdviceMessageKind
+  state     AdviceMessageState @default(published)
   body      String
   createdAt DateTime          @default(now())
 

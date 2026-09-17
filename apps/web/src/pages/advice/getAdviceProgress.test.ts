@@ -10,7 +10,17 @@ const base = {
   dueDate: "2026-09-18T00:00:00.000Z",
   answeredAt: null,
   closedAt: null,
+  requestApproval: null,
+  answerApproval: null,
 };
+
+const approvalLine = (statuses: ("approved" | "pending")[]) =>
+  ({
+    steps: [
+      { type: "draft", status: "approved" },
+      ...statuses.map((status) => ({ type: "approve", status })),
+    ],
+  }) as unknown as NonNullable<(typeof base)["requestApproval"]>;
 
 describe("getAdviceProgress", () => {
   it("검토 중이면 3/6 단계, 담당자와 남은 기한을 보여준다", () => {
@@ -29,6 +39,18 @@ describe("getAdviceProgress", () => {
 
   it("기한이 지나면 지난 일수를 보여준다", () => {
     expect(getAdviceProgress({ ...base, dueDate: "2026-09-14T00:00:00.000Z" }, NOW).note).toBe("박지훈 검토 중 · 회신기한 D+2 지남");
+  });
+
+  it("요청 결재 중이면 첫 단계에서 승인 진행을 보여준다", () => {
+    const progress = getAdviceProgress({ ...base, status: "requestApproval", requestApproval: approvalLine(["approved", "pending"]) }, NOW);
+    expect(progress.currentIndex).toBe(0);
+    expect(progress.note).toBe("요청 결재 중 · 1/2 승인");
+  });
+
+  it("회신 결재 중이면 회신 단계에서 승인 진행을 보여준다", () => {
+    const progress = getAdviceProgress({ ...base, status: "answerApproval", answerApproval: approvalLine(["pending"]) }, NOW);
+    expect(progress.steps[progress.currentIndex].label).toBe("회신 완료");
+    expect(progress.note).toBe("회신 결재 중 · 0/1 승인");
   });
 
   it("종결은 100%", () => {

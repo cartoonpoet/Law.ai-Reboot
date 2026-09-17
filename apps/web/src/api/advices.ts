@@ -1,6 +1,7 @@
 // 법률자문 API — 요청 · 조회 · 담당 배정 · 질의/회신 · 종결.
 import type {
   AdviceMessageKindTypes,
+  ApproverSnapshot,
   AdviceResponse,
   CreateAdviceRequest,
   ListAdvicesResponse,
@@ -38,8 +39,15 @@ export const createAdvice = (body: CreateAdviceBody): Promise<AdviceResponse> =>
 export const assignAdvice = (id: string, ownerId: string): Promise<AdviceResponse> =>
   apiFetch<AdviceResponse>(`/advices/${id}/assign`, { method: "POST", body: JSON.stringify({ ownerId }) });
 
-export const addAdviceMessage = (id: string, kind: AdviceMessageKindTypes, body: string): Promise<AdviceResponse> =>
-  apiFetch<AdviceResponse>(`/advices/${id}/messages`, { method: "POST", body: JSON.stringify({ kind, body }) });
+// approvers 는 회신(answer)에만 — 결재·합의 단계가 있으면 회신 결재를 거친다.
+export const addAdviceMessage = (
+  id: string,
+  message: { kind: AdviceMessageKindTypes; body: string; approvers?: ApproverSnapshot[] },
+): Promise<AdviceResponse> =>
+  apiFetch<AdviceResponse>(`/advices/${id}/messages`, { method: "POST", body: JSON.stringify(message) });
+
+export const resubmitAdviceRequestApproval = (id: string, approvers: ApproverSnapshot[]): Promise<AdviceResponse> =>
+  apiFetch<AdviceResponse>(`/advices/${id}/request-approval`, { method: "POST", body: JSON.stringify({ approvers }) });
 
 export const closeAdvice = (id: string): Promise<AdviceResponse> =>
   apiFetch<AdviceResponse>(`/advices/${id}/close`, { method: "POST" });

@@ -12,16 +12,27 @@ interface AdviceActionPanelProps {
   now: Date;
   isAssigning: boolean;
   isClosing: boolean;
+  isResubmitting: boolean;
   onAssignClick: () => void;
   onClose: () => void;
+  onResubmitClick: () => void;
 }
 
 /** 우측 레일 최상단 — 지금 누가 무엇을 언제까지 해야 하는지와 그에 맞는 동작. */
-export const AdviceActionPanel = ({ advice, now, isAssigning, isClosing, onAssignClick, onClose }: AdviceActionPanelProps) => {
+export const AdviceActionPanel = ({
+  advice,
+  now,
+  isAssigning,
+  isClosing,
+  isResubmitting,
+  onAssignClick,
+  onClose,
+  onResubmitClick,
+}: AdviceActionPanelProps) => {
   const isOpen = advice.status !== "answered" && advice.status !== "closed";
   const daysLeft = isOpen ? getDaysLeft(advice.dueDate, now) : null;
   const elapsedDays = getElapsedDays(advice.createdAt, now);
-  const { canAssign, canClose } = advice.permissions;
+  const { canAssign, canClose, canResubmitRequest } = advice.permissions;
 
   return (
     <section className={base.card}>
@@ -65,8 +76,21 @@ export const AdviceActionPanel = ({ advice, now, isAssigning, isClosing, onAssig
           </Callout>
         )}
 
-        {(canAssign || canClose) && (
+        {advice.status === "requestRejected" && (
+          <Callout intent="danger" title="요청 결재 반려">
+            {canResubmitRequest
+              ? "결재 의견을 확인하고 결재선을 고쳐 다시 올려 주세요."
+              : "작성자가 결재선을 고쳐 다시 올리면 진행됩니다."}
+          </Callout>
+        )}
+
+        {(canAssign || canClose || canResubmitRequest) && (
           <div className={base.stack}>
+            {canResubmitRequest && (
+              <Button size="small" disabled={isResubmitting} onClick={onResubmitClick}>
+                결재선 고쳐 다시 올리기
+              </Button>
+            )}
             {canAssign && (
               <Button variant="outline" color="secondary" size="small" disabled={isAssigning} onClick={onAssignClick}>
                 {advice.owner ? "담당 변경" : "담당 배정"}

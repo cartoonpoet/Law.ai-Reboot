@@ -124,7 +124,7 @@ const toStepStatusKind = (
   return s.id === currentStepId ? "now" : "wait";
 };
 
-const toApprovalStep = (
+export const toApprovalStep = (
   s: ApprovalStepResponse,
   currentStepId: string | null,
 ): ApprovalStepView => ({
