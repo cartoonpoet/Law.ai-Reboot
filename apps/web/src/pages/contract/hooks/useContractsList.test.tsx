@@ -1,3 +1,4 @@
+import type { ListContractsResponse } from "@lawai/contracts";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ReactNode } from "react";
@@ -16,7 +17,7 @@ const wrapper = ({ children }: { children: ReactNode }) => {
 describe("useContractsList", () => {
   beforeEach(() => {
     mockListContracts.mockReset();
-    mockListContracts.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 });
+    mockListContracts.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20, counts: {} as ListContractsResponse["counts"] });
   });
 
   it("changeGroup 은 세부 상태(status)를 초기화한다", () => {

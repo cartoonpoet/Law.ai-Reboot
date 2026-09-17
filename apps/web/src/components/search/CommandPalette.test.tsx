@@ -1,3 +1,4 @@
+import type { ListContractsResponse } from "@lawai/contracts";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -80,7 +81,7 @@ describe("CommandPalette", () => {
       markRead: vi.fn(),
       markAllRead: vi.fn(),
     });
-    vi.mocked(listContracts).mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 5 });
+    vi.mocked(listContracts).mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 5, counts: {} as ListContractsResponse["counts"] });
   });
 
   it("Ctrl+K 로 열리고 입력칸에 바로 포커스가 가며, Esc 로 닫힌다", async () => {
@@ -101,7 +102,7 @@ describe("CommandPalette", () => {
   });
 
   it("검색어를 입력하면 계약을 찾아 보여주고, Enter 로 첫 결과 계약을 연다", async () => {
-    vi.mocked(listContracts).mockResolvedValue({ items: [CONTRACT], total: 1, page: 1, pageSize: 5 });
+    vi.mocked(listContracts).mockResolvedValue({ items: [CONTRACT], total: 1, page: 1, pageSize: 5, counts: {} as ListContractsResponse["counts"] });
     const user = await openPalette();
     await user.type(screen.getByRole("combobox", { name: "통합검색어" }), "삼성");
 

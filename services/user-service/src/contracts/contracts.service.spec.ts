@@ -97,6 +97,8 @@ describe("ContractsService", () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
+      // 목록 그룹 탭 건수.
+      groupBy: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
       // 갱신·해지 계약 체결 시 원 계약 종료(closeOriginOnSigning).
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -354,6 +356,35 @@ describe("ContractsService", () => {
     // toSummary 가 requester/owner 관계의 실명을 노출한다(없으면 null).
     expect(res.items[0].requesterName).toBe("손준호");
     expect(res.items[0].ownerName).toBeNull();
+  });
+
+  it("list 는 상태 필터를 뺀 같은 조건으로 상태별 건수를 센다(그룹 탭 숫자)", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+    prismaMock.contract.groupBy.mockResolvedValueOnce([
+      { status: "legalReview", _count: { _all: 2 } },
+      { status: "signed", _count: { _all: 1 } },
+    ]);
+
+    const res = await service.list({ q: "계약", statuses: "signing,signed", page: 1, pageSize: 20, ...makeCtx() });
+
+    const groupArg = prismaMock.contract.groupBy.mock.calls[0][0];
+    expect(groupArg.by).toEqual(["status"]);
+    expect(groupArg.where.status).toBeUndefined();
+    expect(groupArg.where.OR).toBeDefined(); // 검색 조건은 그대로
+    expect(res.counts.legalReview).toBe(2);
+    expect(res.counts.signed).toBe(1);
+    expect(res.counts.draft).toBe(0);
+  });
+
+  it("list 만료 필터가 있으면 건수도 체결 이후 상태로만 센다", async () => {
+    prismaMock.contract.findMany.mockResolvedValue([]);
+    prismaMock.contract.count.mockResolvedValue(0);
+
+    await service.list({ expiry: "d90", page: 1, pageSize: 20, ...makeCtx() });
+
+    const groupArg = prismaMock.contract.groupBy.mock.calls[0][0];
+    expect(groupArg.where.status).toEqual({ in: ["signed", "fulfilling", "closed"] });
   });
 
   it("list ?categoryId= 는 categoryId 정확 일치 where 조건을 적용한다", async () => {

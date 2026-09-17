@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { ContractStatus } from "@lawai/contracts";
 import { listContracts } from "../../../api/contracts";
 import { toListRow } from "../toListRow";
-import { getGroupStatuses, type StatusGroup } from "../statusGroups";
+import { getGroupCount, getGroupStatuses, type StatusGroup } from "../statusGroups";
 
 const PAGE_SIZE = 20;
 
@@ -75,6 +75,7 @@ export const useContractsList = () => {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return {
+    getGroupCount: (value: StatusGroup) => getGroupCount(data?.counts, value),
     rows,
     total,
     totalPages,
