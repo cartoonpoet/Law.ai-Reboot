@@ -239,6 +239,17 @@ describe("ApprovalsService", () => {
       expect(res.processed).toHaveLength(1);
     });
 
+    it("처리한 결재는 내가 결재·합의로 판단한 라인만 찾는다(내가 올린 기안 제외)", async () => {
+      prisma.approvalLine.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      await svc.inbox({ viewerId: "me", tenantContext: ctx });
+      const processedWhere = prisma.approvalLine.findMany.mock.calls[1][0].where;
+      expect(processedWhere.steps.some).toEqual({
+        userId: "me",
+        decidedAt: { not: null },
+        type: { in: ["approve", "agree"] },
+      });
+    });
+
     it("내 스텝이 있어도 앞 단계가 pending 이면 pending 목록에 없음", async () => {
       prisma.approvalLine.findMany
         .mockResolvedValueOnce([makeLine([step(0), step(1, { userId: "me" })])])
