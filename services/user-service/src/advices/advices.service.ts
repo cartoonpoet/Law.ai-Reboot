@@ -354,11 +354,11 @@ export class AdvicesService {
     targetType: (typeof ADVICE_APPROVAL_TARGET)[keyof typeof ADVICE_APPROVAL_TARGET],
     approvers: ApproverSnapshot[],
   ) {
-    const titlePrefix = targetType === ADVICE_APPROVAL_TARGET.REQUEST ? "[자문 요청]" : "[자문 회신]";
+    // 요청·회신 구분은 결재 유형(targetType)이 나타내므로 제목은 자문명 그대로 둔다.
     const { notifications } = await this.approvals.submit({
       targetType,
       targetId: row.id,
-      title: `${titlePrefix} ${row.title}`,
+      title: row.title,
       submittedById,
       tenantId: row.tenantId,
       steps: approvers.map((approver) => ({

@@ -315,7 +315,8 @@ export class ApprovalsService {
     const processedRows = (await this.prisma.approvalLine.findMany({
       where: {
         ...(tenantId ? { tenantId } : {}),
-        steps: { some: { userId: viewerId, decidedAt: { not: null } } },
+        // 결재·합의로 실제 판단한 라인만 — 내가 올린 기안(상신 시 자동 완료)은 처리한 결재가 아니다.
+        steps: { some: { userId: viewerId, decidedAt: { not: null }, type: { in: ["approve", "agree"] } } },
         submittedAt: { gte: since },
       },
       include: lineInclude,

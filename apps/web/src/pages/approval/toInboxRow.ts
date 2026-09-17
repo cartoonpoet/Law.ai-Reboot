@@ -42,6 +42,9 @@ const MY_STATUS_LABEL: Record<StepStatus, string> = {
 
 export type ElapsedToneTypes = "today" | "overdue";
 
+// 예전에 제목 앞에 붙이던 "[자문 회신]" 같은 구분 표시 — 결재 유형 배지가 따로 있어 떼고 보여준다.
+const LEGACY_TITLE_PREFIX = /^\[[^\]]+\]\s*/;
+
 // "MM-DD" (ISO 기준).
 const toMonthDay = (iso: string): string => iso.slice(5, 10);
 
@@ -74,7 +77,7 @@ export const toInboxRow = (item: ApprovalInboxItem, now: Date): InboxRow => {
   const domainLabel = TARGET_DOMAIN_LABEL[item.targetType] ?? "결재";
   return {
     lineId: item.lineId,
-    title: item.title,
+    title: item.title.replace(LEGACY_TITLE_PREFIX, ""),
     kindLabel: TARGET_KIND_LABEL[item.targetType] ?? "결재",
     docMeta: [item.targetCode, domainLabel, item.isTargetDeleted ? DELETED_LABEL : null]
       .filter((part): part is string => part !== null)
