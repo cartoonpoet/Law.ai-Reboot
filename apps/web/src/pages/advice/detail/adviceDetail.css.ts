@@ -191,3 +191,57 @@ export const fileList = style({ display: "flex", flexDirection: "column", gap: 6
 export const fileUpload = style({ marginTop: 12 });
 
 export const fileError = style({ margin: "8px 0 0", fontSize: 12, color: c.accentDanger });
+
+/* ── AI 자문 도우미 ── */
+
+export const aiBody = style({ display: "flex", flexDirection: "column", gap: 18 });
+
+export const sectionLabel = style({ fontSize: 12, fontWeight: 700, color: MUTED, marginBottom: 8 });
+
+export const aiSummary = style({ margin: 0, fontSize: 14, lineHeight: 1.7, fontWeight: 500, color: HEADING });
+
+export const aiStatus = style({ display: "flex", alignItems: "center", gap: 6, margin: 0, fontSize: 12.5, color: MUTED });
+
+export const aiStatusIcon = style({ width: 14, height: 14 });
+
+export const aiFailRow = style({ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 });
+
+export const aiLink = style({
+  border: "none",
+  background: "none",
+  padding: 0,
+  color: PRIMARY,
+  fontWeight: 600,
+  cursor: "pointer",
+  textDecoration: "underline",
+});
+
+export const issueList = style({
+  listStyle: "none",
+  margin: 0,
+  padding: 0,
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 10,
+});
+
+export const issueItem = style({
+  border: `1px solid ${BORDER}`,
+  borderRadius: themeVars.radius.md,
+  padding: "11px 12px",
+  display: "flex",
+  flexDirection: "column",
+  gap: 6,
+});
+
+export const issueNum = style({ fontSize: 11, fontWeight: 700, color: PRIMARY, fontVariantNumeric: "tabular-nums" });
+
+export const issueTitle = style({ fontSize: 13, fontWeight: 700, color: HEADING, lineHeight: 1.45 });
+
+export const issueBasis = style({ fontSize: 11.5, color: MUTED, lineHeight: 1.5 });
+
+export const checkList = style({ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 });
+
+export const checkItem = style({ fontSize: 13, lineHeight: 1.6, color: BODY });
+
+export const aiDisclaimer = style({ margin: 0, fontSize: 11.5, color: FAINT });
