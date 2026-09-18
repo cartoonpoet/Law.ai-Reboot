@@ -7,6 +7,7 @@ import { useAssistant } from "../assistant/useAssistant";
 import { useCommandPalette } from "./useCommandPalette";
 import { useCommandPaletteResults } from "./useCommandPaletteResults";
 import type { PaletteItemTypes } from "./useCommandPaletteResults";
+import { ASSISTANT_NAME } from "../assistant/assistantData";
 import * as css from "./commandPalette.css";
 
 const LISTBOX_ID = "command-palette-list";
@@ -81,7 +82,7 @@ const CommandPaletteDialog = ({ onClose }: CommandPaletteDialogProps) => {
             value={results.query}
             onChange={(event) => results.changeQuery(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="계약·메뉴를 찾거나 AI 비서에게 물어보세요"
+            placeholder={`계약·메뉴를 찾거나 ${ASSISTANT_NAME}에게 물어보세요`}
             aria-label="통합검색어"
             role="combobox"
             aria-expanded="true"
@@ -135,7 +136,7 @@ const CommandPaletteDialog = ({ onClose }: CommandPaletteDialogProps) => {
                 <Icon name="autoAwesome" size="sm" className={css.aiGlyph} />
               </span>
               <span className={css.optionMain}>
-                <span className={css.aiTitle}>AI 비서에게 물어보기</span>
+                <span className={css.aiTitle}>{ASSISTANT_NAME}에게 물어보기</span>
                 <span className={css.optionMeta}>
                   {results.keyword ? `“${results.keyword}”` : "문장으로 물으면 내 계약·결재 데이터로 답해요"}
                 </span>
@@ -148,7 +149,7 @@ const CommandPaletteDialog = ({ onClose }: CommandPaletteDialogProps) => {
         <div className={css.footer}>
           <span className={css.hint}><kbd className={css.kbd}>↑↓</kbd>이동</span>
           <span className={css.hint}><kbd className={css.kbd}>Enter</kbd>열기</span>
-          <span className={css.hint}><kbd className={css.kbd}>Tab</kbd>AI 비서에게</span>
+          <span className={css.hint}><kbd className={css.kbd}>Tab</kbd>{ASSISTANT_NAME}에게</span>
           <span className={css.hint}><kbd className={css.kbd}>Esc</kbd>닫기</span>
         </div>
       </div>

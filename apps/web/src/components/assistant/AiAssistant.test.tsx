@@ -69,7 +69,7 @@ const renderAssistant = (path = "/") =>
     </QueryClientProvider>,
   );
 
-const getBottomNav = () => within(screen.getByRole("navigation", { name: "AI 비서 메뉴" }));
+const getBottomNav = () => within(screen.getByRole("navigation", { name: "로아이 메뉴" }));
 
 describe("AiAssistant", () => {
   beforeEach(() => {
@@ -82,13 +82,13 @@ describe("AiAssistant", () => {
   it("홈 인사에 로그인 사용자 이름을 쓰고, 불러오기 전엔 이름 없이 인사한다", async () => {
     const user = userEvent.setup();
     const { unmount } = renderAssistant();
-    await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+    await user.click(screen.getByRole("button", { name: "로아이 열기" }));
     expect(screen.getByText(/안녕하세요, 김지원 님/)).toBeInTheDocument();
     unmount();
 
     vi.mocked(useMe).mockReturnValue({ me: null });
     renderAssistant();
-    await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+    await user.click(screen.getByRole("button", { name: "로아이 열기" }));
     expect(screen.getByRole("heading", { name: /^안녕하세요\s*무엇을 도와드릴까요\?$/ })).toBeInTheDocument();
   });
 
@@ -103,7 +103,7 @@ describe("AiAssistant", () => {
   it("런처로 열면 홈에 지금 보고 있는 화면을 보여주고, 대화 전엔 최근 대화가 없다", async () => {
     const user = userEvent.setup();
     renderAssistant("/contract/list");
-    await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+    await user.click(screen.getByRole("button", { name: "로아이 열기" }));
     expect(screen.getByText(/보고 있는 화면: 계약 조회/)).toBeInTheDocument();
     expect(screen.queryByText("최근 대화")).not.toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe("AiAssistant", () => {
     const user = userEvent.setup();
     vi.mocked(chatWithAssistant).mockResolvedValue({ reply: "처리할 일은 2건이에요.", actions: [], needsSetup: false });
     renderAssistant("/approvals/inbox");
-    await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+    await user.click(screen.getByRole("button", { name: "로아이 열기" }));
     await user.click(screen.getByRole("button", { name: ASSISTANT_SUGGESTIONS[0] }));
     expect(await screen.findByText("처리할 일은 2건이에요.")).toBeInTheDocument();
     expect(vi.mocked(chatWithAssistant).mock.calls[0][0]).toMatchObject({ screen: "결재 대기함" });
@@ -135,7 +135,7 @@ describe("AiAssistant", () => {
     vi.mocked(updateContractStatus).mockResolvedValue({} as never);
     renderAssistant();
     await user.click(screen.getByText(ASSISTANT_POPUP));
-    await user.type(screen.getByRole("textbox", { name: "AI 비서에게 메시지" }), "미배정 계약 배정해줘");
+    await user.type(screen.getByRole("textbox", { name: "로아이에게 메시지" }), "미배정 계약 배정해줘");
     await user.click(screen.getByRole("button", { name: "보내기" }));
 
     expect(await screen.findByText("'유지보수 계약' 계약을 김법무에게 배정할까요?")).toBeInTheDocument();
@@ -166,19 +166,19 @@ describe("AiAssistant", () => {
     it("비서 버튼에 안 읽은 알림 수를 표시하고, 99 를 넘으면 99+ 로 줄인다", () => {
       mockNotifications({ unreadCount: 3 });
       const { unmount } = renderAssistant();
-      expect(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 3건" })).toHaveTextContent("3");
+      expect(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 3건" })).toHaveTextContent("3");
       unmount();
 
       mockNotifications({ unreadCount: 150 });
       renderAssistant();
-      expect(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 99+건" })).toHaveTextContent("99+");
+      expect(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 99+건" })).toHaveTextContent("99+");
     });
 
     it("안 읽은 알림이 없으면 비서 버튼에 숫자가 없고 홈에 알림 카드도 없다", async () => {
       const user = userEvent.setup();
       mockNotifications({ notifications: [noti({ isRead: true })], unreadCount: 0 });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기" }));
       expect(screen.queryByRole("region", { name: "새 알림" })).not.toBeInTheDocument();
     });
 
@@ -193,7 +193,7 @@ describe("AiAssistant", () => {
       ];
       mockNotifications({ notifications, unreadCount: 4 });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 4건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 4건" }));
 
       const card = within(screen.getByRole("region", { name: "새 알림" }));
       expect(card.getByText("가")).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe("AiAssistant", () => {
       const user = userEvent.setup();
       const { markRead } = mockNotifications({ notifications: [noti()], unreadCount: 1 });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 1건" }));
       await user.click(within(screen.getByRole("region", { name: "새 알림" })).getByText("홍길동"));
 
       expect(markRead).toHaveBeenCalledWith("n-1");
@@ -223,7 +223,7 @@ describe("AiAssistant", () => {
       const user = userEvent.setup();
       const { markRead } = mockNotifications({ notifications: [noti({ isTargetDeleted: true })], unreadCount: 1 });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 1건" }));
       const card = within(screen.getByRole("region", { name: "새 알림" }));
       expect(card.getByText("삭제된 계약이에요")).toBeInTheDocument();
       await user.click(card.getByText("홍길동"));
@@ -240,7 +240,7 @@ describe("AiAssistant", () => {
         unreadCount: 1,
       });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 1건" }));
       await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
 
       expect(screen.getByText("읽은분")).toBeInTheDocument();
@@ -262,7 +262,7 @@ describe("AiAssistant", () => {
         unreadCount: 2,
       });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 2건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 2건" }));
       await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
       const filters = within(screen.getByRole("group", { name: "알림 필터" }));
 
@@ -284,7 +284,7 @@ describe("AiAssistant", () => {
         unreadCount: 1,
       });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 1건" }));
       const card = within(screen.getByRole("region", { name: "새 알림" }));
       expect(card.getByText("결재 차례예요")).toBeInTheDocument();
       expect(card.getByText("공급계약 체결 품의")).toBeInTheDocument();
@@ -310,7 +310,7 @@ describe("AiAssistant", () => {
         unreadCount: 1,
       });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 1건" }));
       const card = within(screen.getByRole("region", { name: "새 알림" }));
       expect(card.getByText("Law.ai")).toBeInTheDocument();
       expect(card.getByText("계약 만료 30일 전이에요")).toBeInTheDocument();
@@ -330,7 +330,7 @@ describe("AiAssistant", () => {
         unreadCount: 2,
       });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 2건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 2건" }));
       await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
       await user.click(within(screen.getByRole("group", { name: "알림 필터" })).getByRole("button", { name: "계약 만료" }));
 
@@ -342,7 +342,7 @@ describe("AiAssistant", () => {
       const user = userEvent.setup();
       mockNotifications({ notifications: [noti({ type: "comment_mention" })], unreadCount: 1 });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 1건" }));
       await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
       await user.click(within(screen.getByRole("group", { name: "알림 필터" })).getByRole("button", { name: "결재" }));
       expect(screen.getByText("결재 알림이 없어요.")).toBeInTheDocument();
@@ -352,7 +352,7 @@ describe("AiAssistant", () => {
       const user = userEvent.setup();
       mockNotifications({ notifications: [noti({ isRead: true })], unreadCount: 0 });
       renderAssistant();
-      await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+      await user.click(screen.getByRole("button", { name: "로아이 열기" }));
       await user.click(getBottomNav().getByRole("button", { name: /알림/ }));
       expect(screen.getByRole("button", { name: "모두 읽음" })).toBeDisabled();
       await user.click(screen.getByRole("button", { name: "안 읽음 0" }));

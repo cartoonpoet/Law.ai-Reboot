@@ -8,15 +8,15 @@ import { AssistantHome } from "./AssistantHome";
 import { AssistantNoticeCard } from "./AssistantNoticeCard";
 import { AssistantNotifications } from "./AssistantNotifications";
 import { AssistantSupport } from "./AssistantSupport";
-import { ASSISTANT_POPUP, ASSISTANT_PROFILE } from "./assistantData";
+import { ASSISTANT_POPUP, ASSISTANT_PROFILE, ASSISTANT_NAME } from "./assistantData";
 import { useAssistant } from "./useAssistant";
 import type { AssistantViewTypes } from "./useAssistantState";
 import { useAssistantNotifications } from "./useAssistantNotifications";
 import * as css from "./aiAssistant.css";
 
 const getLauncherLabel = (isOpen: boolean, badgeLabel: string | null) => {
-  if (isOpen) return "AI 비서 닫기";
-  return badgeLabel ? `AI 비서 열기, 안 읽은 알림 ${badgeLabel}건` : "AI 비서 열기";
+  if (isOpen) return `${ASSISTANT_NAME} 닫기`;
+  return badgeLabel ? `${ASSISTANT_NAME} 열기, 안 읽은 알림 ${badgeLabel}건` : `${ASSISTANT_NAME} 열기`;
 };
 
 /**
@@ -112,7 +112,7 @@ export const AiAssistant = () => {
       )}
 
       {isOpen && (
-        <section className={css.panel} aria-label="AI 비서">
+        <section className={css.panel} aria-label={ASSISTANT_NAME}>
           {panelViews[view]}
         </section>
       )}

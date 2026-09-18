@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "@lawkit/ui";
-import { ASSISTANT_PROFILE, ASSISTANT_SUGGESTIONS } from "./assistantData";
+import { ASSISTANT_PROFILE, ASSISTANT_SUGGESTIONS, ASSISTANT_NAME } from "./assistantData";
 import type { ChatMessage } from "./assistantData";
 import * as css from "./aiAssistant.css";
 
@@ -34,7 +34,7 @@ export const AssistantHome = ({
       <header className={css.homeHero}>
         <div className={css.heroTop}>
           <span className={css.heroBrand}>Law.ai</span>
-          <button type="button" className={css.heroClose} onClick={onClose} aria-label="AI 비서 닫기">
+          <button type="button" className={css.heroClose} onClick={onClose} aria-label={`${ASSISTANT_NAME} 닫기`}>
             <Icon name="close" size="sm" />
           </button>
         </div>
@@ -87,7 +87,7 @@ export const AssistantHome = ({
                 <Icon name="autoAwesome" size="sm" className={css.botAvatarIcon} />
               </span>
               <span className={css.recentMain}>
-                <span className={css.operatorName}>{lastMessage.role === "assistant" ? "AI 비서" : "나"}</span>
+                <span className={css.operatorName}>{lastMessage.role === "assistant" ? ASSISTANT_NAME : "나"}</span>
                 <span className={css.recentPreview}>{lastMessage.text}</span>
               </span>
               <span className={css.recentTime}>{lastMessage.time}</span>
