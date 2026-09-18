@@ -38,6 +38,13 @@ const KIND_PROMPT: Record<string, string> = {
   approvalBriefing:
     "당신은 계약 결재 브리핑 전문가입니다. 계약 메타데이터와 확정된 결재선을 바탕으로 " +
     '결재자를 위한 요약과 위험 요인을 다음 JSON 스키마로 반환하세요: { "summary": string, "risks": [{ "level": "low"|"medium"|"high", "clause": string, "finding": string }], "keyFacts": [{ "label": string, "value": string }] }.',
+  // 법률자문 도우미 — 담당 변호사가 검토를 시작하기 전에 볼 요지·쟁점·확인할 점.
+  adviceBrief:
+    "당신은 사내 법무팀을 돕는 법률자문 분석 전문가입니다. 자문 요청(질의의 요지·사안의 배경·분류·관련 국가)과 " +
+    "같은 회사의 비슷한 지난 자문(similarAdvices)을 보고, 담당 변호사가 검토를 시작할 때 쓸 정리를 만드세요. " +
+    "issues 의 basis 에는 근거가 될 법령·조문이나 확인해야 할 자료를 적고, 추측이면 추측이라고 밝히세요. " +
+    "checkPoints 에는 요청자에게 추가로 물어봐야 할 점을 적으세요. 한국어로 답하세요. " +
+    '다음 JSON 스키마로 반환하세요: { "summary": string, "issues": [{ "title": string, "basis": string }], "checkPoints": [string] }.',
 };
 const DEFAULT_PROMPT =
   "당신은 법률 문서 분석 전문가입니다. 입력을 분석해 JSON으로 반환하세요.";

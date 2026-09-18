@@ -5,6 +5,7 @@ import { AdvicesService } from "./advices.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { NotificationService } from "../notifications/notifications.service";
+import { AiAnalysisService } from "../ai-analysis/ai-analysis.service";
 
 describe("AdvicesService (법률자문)", () => {
   let service: AdvicesService;
@@ -24,6 +25,7 @@ describe("AdvicesService (법률자문)", () => {
 
   const approvalsMock = { submit: jest.fn(), getActive: jest.fn() };
   const notificationsMock = { createMany: jest.fn() };
+  const aiAnalysisMock = { trigger: jest.fn() };
   const NO_LINE = { line: null, historyCount: 0 };
 
   const ctx = { tenantId: "t1", isSystemAdmin: false };
@@ -123,6 +125,8 @@ describe("AdvicesService (법률자문)", () => {
       { id: "owner", name: "박지훈", department: { name: "법무팀" } },
     ]);
     prismaMock.file.findMany.mockResolvedValue([]);
+    prismaMock.advice.findMany.mockResolvedValue([]);
+    aiAnalysisMock.trigger.mockResolvedValue(undefined);
     approvalsMock.getActive.mockResolvedValue(NO_LINE);
     notificationsMock.createMany.mockImplementation((items: { recipientId: string }[]) =>
       Promise.resolve(items.map((item) => ({ recipientId: item.recipientId, notification: {} }))),
@@ -134,6 +138,7 @@ describe("AdvicesService (법률자문)", () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: ApprovalsService, useValue: approvalsMock },
         { provide: NotificationService, useValue: notificationsMock },
+        { provide: AiAnalysisService, useValue: aiAnalysisMock },
       ],
     }).compile();
     service = moduleRef.get(AdvicesService);
@@ -157,6 +162,37 @@ describe("AdvicesService (법률자문)", () => {
       expect(res.advice.requester).toEqual({ id: "requester", name: "김수현", dept: "영업1팀" });
       expect(approvalsMock.submit).not.toHaveBeenCalled();
       expect(res.notifications).toEqual([]);
+    });
+
+    it("요청이 접수되면 AI 자문 도우미 분석을 백그라운드로 시작한다", async () => {
+      prismaMock.advice.create.mockResolvedValue(row({ status: "received" }));
+      prismaMock.advice.findMany.mockResolvedValue([
+        {
+          code: "ADV-2026-0032",
+          title: "인도네시아 총판 분쟁해결 조항",
+          categories: ["계약해석"],
+          answeredAt: new Date("2026-03-11T00:00:00Z"),
+          messages: [{ body: "<p>SIAC 중재를 권고</p>" }],
+        },
+      ]);
+
+      await service.create(createInput);
+      // 트리거는 기다리지 않고 시작하므로(백그라운드) 다음 턴에 호출이 잡힌다.
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const similarWhere = prismaMock.advice.findMany.mock.calls[0][0].where;
+      expect(similarWhere).toMatchObject({ tenantId: "t1", status: { in: ["answered", "closed"] } });
+      expect(aiAnalysisMock.trigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetType: "advice",
+          kind: "adviceBrief",
+          targetId: "a1",
+          payload: expect.objectContaining({
+            question: "질의",
+            similarAdvices: [expect.objectContaining({ code: "ADV-2026-0032", answer: "SIAC 중재를 권고" })],
+          }),
+        }),
+      );
     });
 
     it("담당자를 정해 요청하면 바로 법무 검토로 시작한다", async () => {
