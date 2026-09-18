@@ -7,6 +7,7 @@ import { getActiveAiKind } from "../getActiveAiKind";
 import { useAiAnalysis } from "../hooks/useAiAnalysis";
 import { useRetryAiAnalysis } from "../hooks/useRetryAiAnalysis";
 import { cx } from "../cx";
+import { sparkle } from "../../../components/ui/sparkle.css";
 import * as css from "../contractDetail.css";
 
 /* =========================================================================
@@ -59,7 +60,9 @@ export function AiRiskCard({ contractId, status }: AiRiskCardProps) {
   return (
     <section className={css.card}>
       <header className={css.chead}>
-        <Icon name="autoAwesome" size="sm" className={css.cheadIcon} />
+        <span key={analysis?.status ?? "none"} className={parsed ? sparkle : undefined}>
+          <Icon name="autoAwesome" size="sm" className={css.cheadIcon} />
+        </span>
         AI 계약 리스크
         {parsed && parsed.risks.length > 0 && (
           <span className={css.riskCount}>

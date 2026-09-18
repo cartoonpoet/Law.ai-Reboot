@@ -4,6 +4,7 @@ import { Icon } from "@lawkit/ui";
 import type { SupportContext, SupportStatusTypes, SupportThreadDto } from "@lawai/contracts";
 import { cx } from "../../pages/contract/cx";
 import { useSupport } from "./useSupport";
+import { ASSISTANT_NAME } from "./assistantData";
 import * as css from "./aiAssistant.css";
 import * as supportCss from "./assistantSupport.css";
 
@@ -80,7 +81,7 @@ export const AssistantSupport = ({
         </button>
       )}
       <h2 className={cx(supportCss.headerTitle, !onBack && supportCss.headerTitleFlush)}>{title}</h2>
-      <button type="button" className={css.iconButton} onClick={onClose} aria-label="AI 비서 닫기">
+      <button type="button" className={css.iconButton} onClick={onClose} aria-label={`${ASSISTANT_NAME} 닫기`}>
         <Icon name="close" size="sm" />
       </button>
     </header>

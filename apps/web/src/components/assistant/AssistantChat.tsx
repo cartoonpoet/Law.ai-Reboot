@@ -1,9 +1,10 @@
 import { Icon } from "@lawkit/ui";
 import type { AssistantAction } from "@lawai/contracts";
-import { ASSISTANT_PROFILE } from "./assistantData";
+import { ASSISTANT_PROFILE, ASSISTANT_NAME } from "./assistantData";
 import type { ChatMessage } from "./assistantData";
 import { getActionKey } from "./useAssistantChat";
 import type { ActionStateTypes } from "./useAssistantChat";
+import { sparkle } from "../ui/sparkle.css";
 import * as css from "./aiAssistant.css";
 
 interface AssistantChatProps {
@@ -28,8 +29,9 @@ const getConfirmText = (action: Exclude<AssistantAction, { type: "open" }>) =>
     ? `'${action.contractTitle}' 계약을 ${action.ownerName}에게 배정할까요?`
     : `'${action.contractTitle}' 계약의 법무 검토를 시작할까요?`;
 
-const BotAvatar = () => (
-  <span className={css.botAvatar}>
+// isSparkling 이면 한 번 반짝인다(답변이 막 도착한 말풍선).
+const BotAvatar = ({ isSparkling }: { isSparkling?: boolean }) => (
+  <span className={isSparkling ? `${css.botAvatar} ${sparkle}` : css.botAvatar}>
     <Icon name="autoAwesome" size="sm" className={css.botAvatarIcon} />
   </span>
 );
@@ -47,6 +49,9 @@ export const AssistantChat = ({
   onClose,
 }: AssistantChatProps) => {
   const isLastFromAssistant = messages.at(-1)?.role === "assistant";
+  // 막 도착한 답변 하나만 반짝인다(첫 인사말은 제외).
+  const lastMessage = messages.at(-1);
+  const lastAssistantMessageId = isLastFromAssistant && lastMessage?.id !== "greeting" ? lastMessage?.id : null;
 
   // React 19 폼 액션 — 제출 후 입력은 자동으로 비워진다.
   const handleSubmit = (formData: FormData) => {
@@ -68,7 +73,7 @@ export const AssistantChat = ({
             {ASSISTANT_PROFILE.status}
           </span>
         </span>
-        <button type="button" className={css.iconButton} onClick={onClose} aria-label="AI 비서 닫기">
+        <button type="button" className={css.iconButton} onClick={onClose} aria-label={`${ASSISTANT_NAME} 닫기`}>
           <Icon name="close" size="sm" />
         </button>
       </header>
@@ -80,10 +85,10 @@ export const AssistantChat = ({
           {messages.map((m) =>
             m.role === "assistant" ? (
               <div key={m.id} className={css.msgRow}>
-                <BotAvatar />
+                <BotAvatar isSparkling={m.id === lastAssistantMessageId} />
                 <div className={css.msgMain}>
                   <span className={css.msgMeta}>
-                    <b className={css.msgName}>AI 비서</b>
+                    <b className={css.msgName}>{ASSISTANT_NAME}</b>
                     {m.time}
                   </span>
                   <div className={css.bubbleBot}>{m.text}</div>
@@ -169,7 +174,7 @@ export const AssistantChat = ({
             name="message"
             className={css.composerInput}
             placeholder={isReplying ? "답을 준비하고 있어요" : "메시지를 입력하세요"}
-            aria-label="AI 비서에게 메시지"
+            aria-label={`${ASSISTANT_NAME}에게 메시지`}
             autoComplete="off"
             maxLength={2000}
           />

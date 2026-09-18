@@ -88,9 +88,9 @@ const renderAssistant = () =>
   );
 
 const openSupportTab = async (user: ReturnType<typeof userEvent.setup>) => {
-  await user.click(screen.getByRole("button", { name: "AI 비서 열기" }));
+  await user.click(screen.getByRole("button", { name: "로아이 열기" }));
   await user.click(
-    within(screen.getByRole("navigation", { name: "AI 비서 메뉴" })).getByRole("button", { name: /문의/ }),
+    within(screen.getByRole("navigation", { name: "로아이 메뉴" })).getByRole("button", { name: /문의/ }),
   );
 };
 
@@ -171,9 +171,9 @@ describe("AI 비서 — 문의", () => {
     const { markRead } = mockNotifications({ notifications: [reply], unreadCount: 1 });
     renderAssistant();
 
-    await user.click(screen.getByRole("button", { name: "AI 비서 열기, 안 읽은 알림 1건" }));
+    await user.click(screen.getByRole("button", { name: "로아이 열기, 안 읽은 알림 1건" }));
     await user.click(
-      within(screen.getByRole("navigation", { name: "AI 비서 메뉴" })).getByRole("button", { name: /알림/ }),
+      within(screen.getByRole("navigation", { name: "로아이 메뉴" })).getByRole("button", { name: /알림/ }),
     );
     await user.click(screen.getByText("문의에 답변이 달렸어요"));
 

@@ -143,10 +143,10 @@ describe("CommandPalette", () => {
     expect(vi.mocked(chatWithAssistant).mock.calls[0][0].messages).toContainEqual({ role: "user", content: "삼성 계약 알려줘" });
   });
 
-  it("검색어 없이 AI 비서에게 물어보기를 누르면 질문 없이 대화만 연다", async () => {
+  it("검색어 없이 로아이에게 물어보기를 누르면 질문 없이 대화만 연다", async () => {
     const user = await openPalette();
-    await user.click(screen.getByRole("option", { name: /AI 비서에게 물어보기/ }));
-    expect(screen.getByRole("textbox", { name: "AI 비서에게 메시지" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: /로아이에게 물어보기/ }));
+    expect(screen.getByRole("textbox", { name: "로아이에게 메시지" })).toBeInTheDocument();
     expect(chatWithAssistant).not.toHaveBeenCalled();
   });
 });

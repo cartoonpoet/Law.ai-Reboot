@@ -1,6 +1,7 @@
 import { Icon } from "@lawkit/ui";
 import { cx } from "../../pages/contract/cx";
 import type { AssistantViewTypes } from "./useAssistantState";
+import { ASSISTANT_NAME } from "./assistantData";
 import * as css from "./aiAssistant.css";
 import * as noticeCss from "./assistantNotifications.css";
 
@@ -23,7 +24,7 @@ const TABS: {
 
 /** AI 비서 하단 탭 — 홈 · 대화 · 알림(안 읽은 수) · 문의. */
 export const AssistantBottomNav = ({ view, badgeLabel, onSelect }: AssistantBottomNavProps) => (
-  <nav className={css.bottomNav} aria-label="AI 비서 메뉴">
+  <nav className={css.bottomNav} aria-label={`${ASSISTANT_NAME} 메뉴`}>
     {TABS.map((tab) => {
       const isActive = tab.view === view;
       return (
