@@ -63,6 +63,7 @@ export interface InboxRow {
   // 상신 후 지난 날 — 당일은 "오늘", 하루 이상 지나면 D+n(경고색)
   elapsedLabel: string;
   elapsedTone: ElapsedToneTypes;
+  waitingDays: number;
   // 대상 문서 화면 경로. 대상이 삭제됐으면 null(열 수 없음).
   href: string | null;
   myStatus: StepStatus;
@@ -91,6 +92,7 @@ export const toInboxRow = (item: ApprovalInboxItem, now: Date): InboxRow => {
     submittedAtLabel: toMonthDay(item.submittedAt),
     elapsedLabel: elapsedDays <= 0 ? "오늘" : `D+${elapsedDays}`,
     elapsedTone: elapsedDays <= 0 ? "today" : "overdue",
+    waitingDays: Math.max(0, elapsedDays),
     href: item.isTargetDeleted ? null : (TARGET_ROUTE[item.targetType]?.(item.targetId) ?? "/"),
     myStatus: item.myStatus,
     myStatusLabel: MY_STATUS_LABEL[item.myStatus],
