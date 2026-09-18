@@ -16,6 +16,7 @@ export type SupportFilterTypes = SupportStatusTypes | "";
 export const useSupportInbox = () => {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<SupportFilterTypes>("open");
+  const [keyword, setKeyword] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const listQuery = useQuery({
@@ -40,12 +41,24 @@ export const useSupportInbox = () => {
     setSelectedId(null);
   };
 
+  // 제목·문의한 사람·회사로 걸러 본다(목록이 길어지면 서버 검색으로 옮긴다).
+  const allThreads = listQuery.data?.items ?? [];
+  const search = keyword.trim().toLowerCase();
+  const threads = search
+    ? allThreads.filter((thread) =>
+        `${thread.subject} ${thread.userName ?? ""} ${thread.tenantName ?? ""}`.toLowerCase().includes(search),
+      )
+    : allThreads;
+
   return {
     status,
     changeStatus,
+    keyword,
+    changeKeyword: setKeyword,
+    totalCount: allThreads.length,
     selectedId,
     select: setSelectedId,
-    threads: listQuery.data?.items ?? [],
+    threads,
     openCount: listQuery.data?.openCount ?? 0,
     isLoading: listQuery.isLoading,
     thread: threadQuery.data ?? null,

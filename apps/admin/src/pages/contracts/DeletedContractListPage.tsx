@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Modal, Spinner, themeVars } from "@lawkit/ui";
 import type { AdminDeletedContractItem, ContractStatus } from "@lawai/contracts";
-import { AdminShell } from "../../components/AdminShell";
+import { AdminShell } from "../../components/layout/AdminShell";
 import { listDeletedContracts, restoreContract } from "../../api/adminContracts";
 import { formatRelative } from "../tenants/tenantLabels";
 
@@ -86,14 +86,16 @@ export function DeletedContractListPage() {
 
   if (query.isLoading) {
     return (
-      <AdminShell breadcrumbLabel="삭제된 계약">
+      <AdminShell title="삭제된 계약"
+      description="삭제된 계약을 확인하고 필요하면 되살립니다.">
         <Spinner label="불러오는 중..." />
       </AdminShell>
     );
   }
   if (!query.data) {
     return (
-      <AdminShell breadcrumbLabel="삭제된 계약">
+      <AdminShell title="삭제된 계약"
+      description="삭제된 계약을 확인하고 필요하면 되살립니다.">
         <div style={{ color: themeVars.color.textSecondary }}>삭제된 계약 목록을 불러오지 못했습니다.</div>
       </AdminShell>
     );
@@ -102,7 +104,8 @@ export function DeletedContractListPage() {
   const items = query.data.items;
 
   return (
-    <AdminShell breadcrumbLabel="삭제된 계약">
+    <AdminShell title="삭제된 계약"
+      description="삭제된 계약을 확인하고 필요하면 되살립니다.">
       <p style={intro}>
         사용자가 삭제한 계약입니다(최근 삭제 순). 복구하면 그 회사의 계약 목록·검색·대시보드와 알림 링크에서 다시 열 수 있어요.
       </p>

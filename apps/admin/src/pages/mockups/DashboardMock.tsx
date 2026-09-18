@@ -6,7 +6,7 @@ import {
   themeVars,
   Widget,
 } from "@lawkit/ui";
-import { AdminShell } from "../../components/AdminShell";
+import { AdminShell } from "../../components/layout/AdminShell";
 import { useCountUp } from "../../components/dashboard/useCountUp";
 import { Sparkline } from "../../components/dashboard/Sparkline";
 
@@ -181,8 +181,8 @@ function Kpi({
 export function DashboardMock() {
   return (
     <AdminShell
-      breadcrumbLabel="운영 대시보드"
-      topbarExtra={
+      title="운영 대시보드"
+      actions={
         <div style={{ display: "flex", gap: 8 }}>
           <Button size="small" variant="outline" iconLeft={<Icon name="filterList" size="sm" />}>
             기간

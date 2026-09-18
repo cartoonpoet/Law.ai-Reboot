@@ -1,5 +1,5 @@
 import { Button, DatePicker, Dropdown, Input, Pagination, Spinner } from "@lawkit/ui";
-import { AdminShell } from "../../components/AdminShell";
+import { AdminShell } from "../../components/layout/AdminShell";
 import { formatRelative } from "../tenants/tenantLabels";
 import {
   AUDIT_ACTION_OPTIONS,
@@ -32,7 +32,8 @@ export const AuditLogPage = () => {
   const isReady = !auditQuery.isLoading && auditQuery.error === null;
 
   return (
-    <AdminShell breadcrumbLabel="감사 로그">
+    <AdminShell title="감사 로그"
+      description="시스템 전체의 기록입니다. 누가 무엇을 언제 했는지 찾아볼 수 있어요.">
       <p className={css.intro}>
         계약을 만들고·고치고·지우고·상태를 바꾸고·열어본 기록입니다(최근 순). 기간·회사·행위·사람으로 걸러 볼 수 있어요.
       </p>

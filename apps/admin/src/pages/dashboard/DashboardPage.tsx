@@ -1,38 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Card, CardBody, themeVars } from "@lawkit/ui";
-import { clearTokens, getEmail, getName } from "../../api/tokens";
+import { getName } from "../../api/tokens";
 import { getAdminAudit, getAdminStats } from "../../api/admin";
-
-const wrap: React.CSSProperties = {
-  maxWidth: 1100,
-  margin: "32px auto",
-  padding: "0 24px",
-  display: "flex",
-  flexDirection: "column",
-  gap: 16,
-};
-
-const headerRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 4,
-};
-
-const title: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 800,
-  color: themeVars.color.textHeading,
-  margin: 0,
-  letterSpacing: -0.4,
-};
-
-const sub: React.CSSProperties = {
-  fontSize: 13,
-  color: themeVars.color.textMuted,
-  margin: "4px 0 0",
-};
+import { AdminShell } from "../../components/layout/AdminShell";
+import { useSupportOpenCount } from "../support/hooks/useSupportOpenCount";
 
 const grid: React.CSSProperties = {
   display: "grid",
@@ -122,7 +94,7 @@ const formatRelative = (iso: string): string => {
 export function DashboardPage() {
   const navigate = useNavigate();
   const name = getName();
-  const email = getEmail();
+  const { openCount } = useSupportOpenCount();
 
   const stats = useQuery({
     queryKey: ["admin-stats"],
@@ -132,11 +104,6 @@ export function DashboardPage() {
     queryKey: ["admin-audit", 20],
     queryFn: () => getAdminAudit({ limit: 20 }),
   });
-
-  const handleLogout = () => {
-    clearTokens();
-    navigate("/login", { replace: true });
-  };
 
   const renderStat = (
     label: string,
@@ -155,19 +122,15 @@ export function DashboardPage() {
   );
 
   return (
-    <div style={wrap}>
-      <div style={headerRow}>
-        <div>
-          <h1 style={title}>대시보드</h1>
-          <p style={sub}>
-            {name ? `${name} 님` : "관리자"} 환영합니다. ({email})
-          </p>
-        </div>
-        <Button variant="outline" color="secondary" onClick={handleLogout}>
-          로그아웃
-        </Button>
-      </div>
-
+    <AdminShell
+      title="대시보드"
+      description={`${name ? `${name} 님, ` : ""}오늘 서비스 상태입니다.`}
+      actions={
+        openCount !== null && openCount > 0 ? (
+          <Button onClick={() => navigate("/support")}>답변 대기 문의 {openCount}건</Button>
+        ) : undefined
+      }
+    >
       <div style={grid}>
         {renderStat(
           "계약 총건",
@@ -184,10 +147,7 @@ export function DashboardPage() {
           stats.data?.files.total ?? null,
           stats.data ? formatBytes(stats.data.files.bytesTotal) : undefined,
         )}
-        {renderStat(
-          "최근 7일 비교 보고서",
-          stats.data?.recentCompareReports ?? null,
-        )}
+        {renderStat("답변 대기 문의", openCount, "로아이에서 들어온 문의")}
       </div>
 
       <Card bordered title="최근 감사 이벤트">
@@ -221,6 +181,6 @@ export function DashboardPage() {
           )}
         </CardBody>
       </Card>
-    </div>
+    </AdminShell>
   );
 }
