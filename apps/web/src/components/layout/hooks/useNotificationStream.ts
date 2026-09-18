@@ -1,7 +1,12 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import type { NotificationDto } from "@lawai/contracts";
 import { getApiBaseUrl } from "../../../api/client";
 import { getAccessToken, refreshAccessToken } from "../../../api/tokens";
+import { showToast } from "../../../lib/toast/toastStore";
+import { setStreamConnected } from "./notificationStreamState";
+import { showDesktopNotification } from "./showDesktopNotification";
+import { toNotificationAlert } from "./toNotificationAlert";
 import { NOTIFICATIONS_QUERY_KEY } from "./useNotifications";
 
 // EventSource 는 명령형 외부 구독이라 useEffect 정당 예외 — CLAUDE.md 승인됨.
@@ -16,6 +21,17 @@ import { NOTIFICATIONS_QUERY_KEY } from "./useNotifications";
 // single-flight 변수 = 중복 refresh 차단)으로 새 토큰을 받아 1회만 재연결한다.
 // refresh 가 실패하면 더는 재시도하지 않는다(폭주·무한루프 방지). 로그인 이동은
 // apiFetch 경로가 주도하므로 여기서는 중단만 하고 폴링(useNotifications)을 백업으로 둔다.
+// SSE 로 온 값이 알림 한 건이면 그대로, 아니면 null(형식이 달라도 목록 갱신은 이미 끝났다).
+const parseNotification = (raw: string): NotificationDto | null => {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    const candidate = parsed as NotificationDto;
+    return candidate && typeof candidate.type === "string" ? candidate : null;
+  } catch {
+    return null;
+  }
+};
+
 export const useNotificationStream = () => {
   const queryClient = useQueryClient();
 
@@ -32,14 +48,27 @@ export const useNotificationStream = () => {
       const es = new EventSource(url);
       eventSource = es;
 
-      es.onmessage = () => {
+      es.onopen = () => setStreamConnected(true);
+
+      es.onmessage = (event: MessageEvent<string>) => {
         void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
+        // 배지만 바뀌면 보고 있어도 놓치기 쉬워, 도착한 내용을 그 자리에서 한 줄로 띄운다.
+        // 다른 탭·다른 앱을 보고 있으면 브라우저 알림으로 대신 알린다.
+        const notification = parseNotification(event.data);
+        if (!notification) return;
+        const alert = toNotificationAlert(notification);
+        // 화면을 안 보고 있으면 브라우저 알림으로, 그게 막혀 있으면 돌아왔을 때 보이도록 토스트로.
+        const isHidden = document.visibilityState === "hidden";
+        if (isHidden && showDesktopNotification(alert)) return;
+        showToast({ intent: "info", title: alert.title, description: alert.body });
       };
 
       // 일시적 네트워크 끊김이면 readyState 는 CONNECTING — 브라우저 기본 자동
       // 재연결에 위임한다(아무것도 안 함). 치명적 종료(CLOSED, 예: 서버가 끊음·
       // 토큰 만료)면 브라우저가 재연결하지 않으므로 명시적으로 처리한다.
       es.onerror = () => {
+        // 끊긴 동안에는 목록 확인을 자주 하도록 알린다(백업 폴링이 촘촘해진다).
+        setStreamConnected(false);
         // CLOSED가 아니면 일시 끊김 → 브라우저 자동 재연결에 위임(개입 안 함).
         if (es.readyState !== EventSource.CLOSED) return;
         es.close();
@@ -65,6 +94,7 @@ export const useNotificationStream = () => {
     // cleanup: unmount 시 연결 정리(메모리 누수·좀비 재연결 방지).
     return () => {
       disposed = true;
+      setStreamConnected(false);
       eventSource?.close();
     };
   }, [queryClient]);

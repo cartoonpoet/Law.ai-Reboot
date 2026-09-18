@@ -4,6 +4,7 @@ import {
   ADVICE_NOTIFICATION_TARGET,
   ADVICE_NOTIFICATION_TYPE,
   type ApprovalLineDto,
+  type PushNotification,
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationService } from "../notifications/notifications.service";
@@ -85,7 +86,7 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
     this.registry.register(this);
   }
 
-  async onApproved(line: ApprovalLineDto): Promise<void> {
+  async onApproved(line: ApprovalLineDto): Promise<PushNotification[]> {
     await this.prisma.$transaction([
       this.prisma.adviceMessage.updateMany({
         where: { adviceId: line.targetId, state: "pendingApproval" },
@@ -96,20 +97,20 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
         data: { status: "answered", answeredAt: new Date() },
       }),
     ]);
-    await this.notifyAnswered(line);
+    return this.notifyAnswered(line);
   }
 
-  // 결재를 거친 회신이 공개되면 요청자 쪽에 알린다(결재 응답 경로라 실시간 push 없이 알림함에 쌓인다).
-  private async notifyAnswered(line: ApprovalLineDto): Promise<void> {
+  // 결재를 거친 회신이 공개되면 요청자 쪽에 알린다. 만든 알림은 approvals 가 실시간으로 밀어 준다.
+  private async notifyAnswered(line: ApprovalLineDto): Promise<PushNotification[]> {
     const advice = await this.prisma.advice.findUnique({
       where: { id: line.targetId },
       select: { id: true, code: true, title: true, tenantId: true, requesterId: true, createdById: true, ownerId: true },
     });
-    if (!advice) return;
+    if (!advice) return [];
     const recipients = Array.from(new Set([advice.requesterId, advice.createdById])).filter(
       (id) => id !== advice.ownerId,
     );
-    await this.notifications.createMany(
+    return this.notifications.createMany(
       recipients.map((recipientId) => ({
         recipientId,
         type: ADVICE_NOTIFICATION_TYPE.ANSWERED,
