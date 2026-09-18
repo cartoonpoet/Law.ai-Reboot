@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { getNotificationAdviceId, getNotificationCategory, getNotificationContractId } from "./dto/notification.dto";
 
 describe("getNotificationAdviceId", () => {
+  it("자문 진행 알림(배정·질의·회신·종결)은 detail.adviceId", () => {
+    expect(getNotificationAdviceId({ adviceId: "a-9", code: "ADV-2026-0091", title: "준거법 문의" })).toBe("a-9");
+  });
+
   it("자문 요청·회신 결재 알림은 detail.targetId", () => {
     expect(getNotificationAdviceId({ targetType: "advice_request", targetId: "a-1" })).toBe("a-1");
     expect(getNotificationAdviceId({ targetType: "advice_answer", targetId: "a-2" })).toBe("a-2");

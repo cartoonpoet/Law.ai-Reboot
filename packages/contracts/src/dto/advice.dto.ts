@@ -16,6 +16,18 @@ export type AdviceStatusTypes =
   | "answered"
   | "closed";
 
+// 자문 알림의 대상 종류 — 알림을 누르면 이 자문 상세로 간다.
+export const ADVICE_NOTIFICATION_TARGET = "Advice";
+
+// 자문 알림 종류.
+export const ADVICE_NOTIFICATION_TYPE = {
+  ASSIGNED: "advice_assigned",
+  FOLLOWUP: "advice_followup",
+  REPLY: "advice_reply",
+  ANSWERED: "advice_answered",
+  CLOSED: "advice_closed",
+} as const;
+
 export const ADVICE_APPROVAL_TARGET = {
   REQUEST: "advice_request",
   ANSWER: "advice_answer",

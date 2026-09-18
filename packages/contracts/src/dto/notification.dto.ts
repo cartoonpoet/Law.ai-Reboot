@@ -35,8 +35,10 @@ export const getNotificationContractId = (detail: Record<string, unknown> | null
 
 // 알림 detail → 법률자문 id(자문 요청·회신 결재 알림). 자문 알림이 아니면 null.
 export const getNotificationAdviceId = (detail: Record<string, unknown> | null): string | null => {
-  const isAdviceTarget = detail?.targetType === "advice_request" || detail?.targetType === "advice_answer";
-  return isAdviceTarget && typeof detail?.targetId === "string" ? detail.targetId : null;
+  // 자문 진행 알림은 detail.adviceId, 자문 결재 알림은 결재 대상(targetType/targetId)으로 자문을 가리킨다.
+  if (typeof detail?.adviceId === "string") return detail.adviceId;
+  const isAdviceApproval = detail?.targetType === "advice_request" || detail?.targetType === "advice_answer";
+  return isAdviceApproval && typeof detail?.targetId === "string" ? detail.targetId : null;
 };
 
 // 알림 type("approval_turn", "comment_mention" 등) → 묶음. 어느 묶음에도 속하지 않으면 null(항상 받음).
@@ -75,6 +77,11 @@ export interface MarkNotificationReadRequest {
 }
 
 // 전체 읽음 처리. 본인 알림 전체(서버가 viewerId 로 판정).
+// 읽음 처리 응답 — 빈 응답이면 게이트웨이의 firstValueFrom 이 터지므로 항상 값을 돌려준다.
+export interface MarkNotificationReadResult {
+  ok: true;
+}
+
 export interface MarkAllNotificationsReadRequest {
   viewerId?: string;
   // gateway 가 JWT 에서 추출해 주입(테넌트 격리).

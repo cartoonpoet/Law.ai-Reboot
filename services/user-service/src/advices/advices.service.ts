@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
-import { ADVICE_APPROVAL_TARGET } from "@lawai/contracts";
+import { ADVICE_APPROVAL_TARGET, ADVICE_NOTIFICATION_TARGET, ADVICE_NOTIFICATION_TYPE } from "@lawai/contracts";
 import type {
   AddAdviceMessageRequest,
   AdviceMutationResult,
@@ -15,6 +15,7 @@ import type {
   AdviceStatusTypes,
   AdviceSummary,
   AssignAdviceRequest,
+  PushNotification,
   CloseAdviceRequest,
   CreateAdviceRequest,
   GetAdviceRequest,
@@ -25,6 +26,8 @@ import type {
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApprovalsService } from "../approvals/approvals.service";
+import { NotificationService } from "../notifications/notifications.service";
+import type { CreateNotificationInput } from "../notifications/notifications.service";
 import { resolveTenantId, tenantScope } from "../common/tenant-scope";
 import {
   checkCanSeeSecretCc,
@@ -160,6 +163,7 @@ export class AdvicesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly approvals: ApprovalsService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(req: CreateAdviceRequest): Promise<AdviceMutationResult> {
@@ -251,7 +255,7 @@ export class AdvicesService {
     return this.toResponse(row, viewer, approvals);
   }
 
-  async assign(req: AssignAdviceRequest): Promise<AdviceResponse> {
+  async assign(req: AssignAdviceRequest): Promise<AdviceMutationResult> {
     const viewer = await this.loadViewer(req.viewerId, req.tenantContext);
     const { row: current, approvals, permissions } = await this.loadVisible(req.id, req.tenantContext, viewer);
     if (!permissions.canAssign) {
@@ -268,7 +272,9 @@ export class AdvicesService {
       },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
-    return this.toResponse(row, viewer, approvals);
+    // 배정받은 담당자에게 알린다(스스로 맡으면 알리지 않는다).
+    const notifications = await this.notify(row, [req.ownerId], ADVICE_NOTIFICATION_TYPE.ASSIGNED, viewer.id);
+    return { advice: await this.toResponse(row, viewer, approvals), notifications };
   }
 
   async addMessage(req: AddAdviceMessageRequest): Promise<AdviceMutationResult> {
@@ -298,8 +304,16 @@ export class AdvicesService {
     });
     const notifications = needsApproval
       ? await this.submitApproval(row, viewer.id, ADVICE_APPROVAL_TARGET.ANSWER, req.approvers ?? [])
-      : [];
+      : await this.notifyMessage(row, req.kind, viewer.id);
     return { advice: await this.toResponse(row, viewer), notifications };
+  }
+
+  // 추가 질의는 요청자 쪽에, 답변은 담당자에게, 회신은 요청자 쪽에 알린다.
+  private notifyMessage(row: AdviceBaseRow, kind: AdviceMessageKindTypes, actorId: string): Promise<PushNotification[]> {
+    const requesterSide = [row.requesterId, row.createdById];
+    if (kind === "followup") return this.notify(row, requesterSide, ADVICE_NOTIFICATION_TYPE.FOLLOWUP, actorId);
+    if (kind === "reply") return this.notify(row, [row.ownerId], ADVICE_NOTIFICATION_TYPE.REPLY, actorId);
+    return this.notify(row, requesterSide, ADVICE_NOTIFICATION_TYPE.ANSWERED, actorId);
   }
 
   async resubmitRequestApproval(req: ResubmitAdviceRequestApprovalRequest): Promise<AdviceMutationResult> {
@@ -323,7 +337,7 @@ export class AdvicesService {
     return { advice: await this.toResponse(row, viewer), notifications };
   }
 
-  async close(req: CloseAdviceRequest): Promise<AdviceResponse> {
+  async close(req: CloseAdviceRequest): Promise<AdviceMutationResult> {
     const viewer = await this.loadViewer(req.viewerId, req.tenantContext);
     const { row: current, approvals, permissions } = await this.loadVisible(req.id, req.tenantContext, viewer);
     if (!permissions.canClose) {
@@ -334,7 +348,14 @@ export class AdvicesService {
       data: { status: "closed", closedAt: new Date() },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
-    return this.toResponse(row, viewer, approvals);
+    // 종결은 담당자와 요청자 쪽 모두에게 알린다(종결한 본인 제외).
+    const notifications = await this.notify(
+      row,
+      [row.ownerId, row.requesterId, row.createdById],
+      ADVICE_NOTIFICATION_TYPE.CLOSED,
+      viewer.id,
+    );
+    return { advice: await this.toResponse(row, viewer, approvals), notifications };
   }
 
   // 결재 없이 시작할 때 — 담당이 정해져 있으면 바로 검토, 아니면 접수.
@@ -369,6 +390,31 @@ export class AdvicesService {
       })),
     });
     return notifications;
+  }
+
+  /** 자문 알림 한 건 입력 — 클릭하면 그 자문 상세로 간다. */
+  private toNotification(row: AdviceBaseRow, recipientId: string, type: string, actorId: string): CreateNotificationInput {
+    return {
+      recipientId,
+      type,
+      actorId,
+      targetType: ADVICE_NOTIFICATION_TARGET,
+      targetId: row.id,
+      tenantId: row.tenantId,
+      detail: { adviceId: row.id, code: row.code, title: row.title },
+    };
+  }
+
+  // 같은 사람에게 두 번 보내지 않고, 자기가 한 일은 자기에게 알리지 않는다.
+  private async notify(
+    row: AdviceBaseRow,
+    recipientIds: (string | null)[],
+    type: string,
+    actorId: string,
+  ): Promise<PushNotification[]> {
+    const targets = Array.from(new Set(recipientIds.filter((id): id is string => Boolean(id) && id !== actorId)));
+    if (targets.length === 0) return [];
+    return this.notifications.createMany(targets.map((recipientId) => this.toNotification(row, recipientId, type, actorId)));
   }
 
   private async loadApprovals(adviceId: string): Promise<AdviceApprovals> {

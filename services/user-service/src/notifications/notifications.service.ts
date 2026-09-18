@@ -6,6 +6,7 @@ import type {
   ListNotificationsRequest,
   ListNotificationsResponse,
   MarkNotificationReadRequest,
+  MarkNotificationReadResult,
   MarkAllNotificationsReadRequest,
   NotificationDto,
   PushNotification,
@@ -245,8 +246,10 @@ export class NotificationService {
    * 단건 읽음 처리. 본인(recipientId === viewerId) 알림만 — 타인 알림은 0건 영향(차단).
    * tenantScope 로 타 테넌트 알림을 읽음 처리하는 것도 차단한다.
    */
-  async markRead(req: MarkNotificationReadRequest): Promise<void> {
-    if (!req.viewerId) return;
+  // TCP 마이크로서비스 응답이 비면 게이트웨이의 firstValueFrom 이 "no elements in sequence" 로 터진다.
+  // 그래서 읽음 처리는 결과가 없어도 { ok: true } 를 돌려준다.
+  async markRead(req: MarkNotificationReadRequest): Promise<MarkNotificationReadResult> {
+    if (!req.viewerId) return { ok: true };
     const ctx = req.tenantContext;
     if (!ctx) {
       throw new RpcException({ status: 400, message: "테넌트 컨텍스트가 없습니다" });
@@ -256,14 +259,15 @@ export class NotificationService {
       where: { id: req.id, recipientId: req.viewerId, readAt: null, ...tScope },
       data: { readAt: new Date() },
     });
+    return { ok: true };
   }
 
   /**
    * 전체 읽음 처리. viewer 본인 안읽음 전부.
    * tenantScope 로 타 테넌트 알림이 섞이지 않도록 격리한다.
    */
-  async markAllRead(req: MarkAllNotificationsReadRequest): Promise<void> {
-    if (!req.viewerId) return;
+  async markAllRead(req: MarkAllNotificationsReadRequest): Promise<MarkNotificationReadResult> {
+    if (!req.viewerId) return { ok: true };
     const ctx = req.tenantContext;
     if (!ctx) {
       throw new RpcException({ status: 400, message: "테넌트 컨텍스트가 없습니다" });
@@ -273,5 +277,6 @@ export class NotificationService {
       where: { recipientId: req.viewerId, readAt: null, ...tScope },
       data: { readAt: new Date() },
     });
+    return { ok: true };
   }
 }

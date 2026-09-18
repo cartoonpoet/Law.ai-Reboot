@@ -90,7 +90,7 @@ export class AdvicesController {
     return this.send<AdviceResponse>(ADVICE_PATTERNS.GET, payload);
   }
 
-  @ApiOperation({ summary: "담당 배정·변경", description: "법무팀 전용. 접수 상태면 검토를 시작한다." })
+  @ApiOperation({ summary: "담당 배정·변경", description: "법무팀 전용. 접수 상태면 검토를 시작하고 담당자에게 알린다." })
   @Post(":id/assign")
   assign(@Param("id") id: string, @Body() dto: AssignAdviceDto, @Req() req: Request): Promise<AdviceResponse> {
     const payload: AssignAdviceRequest = {
@@ -99,7 +99,7 @@ export class AdvicesController {
       viewerId: getViewerId(req),
       tenantContext: extractTenantContext(req),
     };
-    return this.send<AdviceResponse>(ADVICE_PATTERNS.ASSIGN, payload);
+    return this.sendAndPush(ADVICE_PATTERNS.ASSIGN, payload);
   }
 
   @ApiOperation({
@@ -135,11 +135,11 @@ export class AdvicesController {
     return this.sendAndPush(ADVICE_PATTERNS.RESUBMIT_REQUEST_APPROVAL, payload);
   }
 
-  @ApiOperation({ summary: "종결", description: "회신 완료된 자문을 요청자나 담당자가 닫는다." })
+  @ApiOperation({ summary: "종결", description: "회신 완료된 자문을 요청자나 담당자가 닫고 상대에게 알린다." })
   @Post(":id/close")
   close(@Param("id") id: string, @Req() req: Request): Promise<AdviceResponse> {
     const payload: CloseAdviceRequest = { id, viewerId: getViewerId(req), tenantContext: extractTenantContext(req) };
-    return this.send<AdviceResponse>(ADVICE_PATTERNS.CLOSE, payload);
+    return this.sendAndPush(ADVICE_PATTERNS.CLOSE, payload);
   }
 
   // 결재 상신이 함께 일어나는 동작 — 만들어진 알림(결재 차례·참조)을 실시간으로 밀고 자문만 돌려준다.

@@ -22,6 +22,7 @@ import {
   type ListNotificationsResponse,
   type MarkAllNotificationsReadRequest,
   type MarkNotificationReadRequest,
+  type MarkNotificationReadResult,
 } from "@lawai/contracts";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { SseJwtGuard } from "../auth/sse-jwt.guard";
@@ -85,7 +86,7 @@ export class NotificationsController {
   })
   @Patch("read-all")
   @UseGuards(JwtAuthGuard)
-  markAllRead(@Req() req: Request): Promise<void> {
+  markAllRead(@Req() req: Request): Promise<MarkNotificationReadResult> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
     const payload: MarkAllNotificationsReadRequest = {
       viewerId: sub,
@@ -93,7 +94,7 @@ export class NotificationsController {
     };
     return firstValueFrom(
       this.userClient
-        .send<void>(NOTIFICATION_PATTERNS.MARK_ALL_READ, payload)
+        .send<MarkNotificationReadResult>(NOTIFICATION_PATTERNS.MARK_ALL_READ, payload)
         .pipe(rpcToHttp()),
     );
   }
@@ -104,7 +105,7 @@ export class NotificationsController {
   })
   @Patch(":id/read")
   @UseGuards(JwtAuthGuard)
-  markRead(@Param("id") id: string, @Req() req: Request): Promise<void> {
+  markRead(@Param("id") id: string, @Req() req: Request): Promise<MarkNotificationReadResult> {
     const { sub } = (req as Request & { user: JwtPayload }).user;
     const payload: MarkNotificationReadRequest = {
       id,
@@ -113,7 +114,7 @@ export class NotificationsController {
     };
     return firstValueFrom(
       this.userClient
-        .send<void>(NOTIFICATION_PATTERNS.MARK_READ, payload)
+        .send<MarkNotificationReadResult>(NOTIFICATION_PATTERNS.MARK_READ, payload)
         .pipe(rpcToHttp()),
     );
   }
