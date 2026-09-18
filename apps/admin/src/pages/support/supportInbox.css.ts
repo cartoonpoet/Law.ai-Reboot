@@ -1,6 +1,12 @@
 import { style } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
 
+export const searchBox = style({ flex: 1, minWidth: 200, maxWidth: 320 });
+
+export const searchIcon = style({ width: 15, height: 15, color: themeVars.color.textDisabled });
+
+export const listCount = style({ fontSize: 12.5, color: themeVars.color.textMuted, fontVariantNumeric: "tabular-nums" });
+
 export const intro = style({
   fontSize: 12.5,
   color: themeVars.color.textSecondary,
