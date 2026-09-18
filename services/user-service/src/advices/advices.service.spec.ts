@@ -18,6 +18,7 @@ describe("AdvicesService (법률자문)", () => {
       groupBy: jest.fn(),
     },
     userTenant: { findFirst: jest.fn() },
+    file: { findMany: jest.fn() },
     user: { findMany: jest.fn() },
   };
 
@@ -121,6 +122,7 @@ describe("AdvicesService (법률자문)", () => {
       { id: "requester", name: "김수현", department: { name: "영업1팀" } },
       { id: "owner", name: "박지훈", department: { name: "법무팀" } },
     ]);
+    prismaMock.file.findMany.mockResolvedValue([]);
     approvalsMock.getActive.mockResolvedValue(NO_LINE);
     notificationsMock.createMany.mockImplementation((items: { recipientId: string }[]) =>
       Promise.resolve(items.map((item) => ({ recipientId: item.recipientId, notification: {} }))),
@@ -228,6 +230,20 @@ describe("AdvicesService (법률자문)", () => {
         closed: 0,
       });
       expect(res.items[0].owner).toEqual({ id: "owner", name: "박지훈", dept: "법무팀" });
+    });
+
+    it("자문에 올린 첨부 파일을 함께 내려준다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(row());
+      prismaMock.file.findMany.mockResolvedValue([
+        { id: "f1", name: "협의 메일.pdf", size: 1024, mimeType: "application/pdf", checksum: "abc", createdAt: new Date("2026-09-14T00:00:00Z") },
+      ]);
+
+      const res = await service.get({ viewerId: "owner", tenantContext: ctx, id: "a1" });
+
+      expect(prismaMock.file.findMany).toHaveBeenCalledWith({ where: { adviceId: "a1" }, orderBy: { sortOrder: "asc" } });
+      expect(res.files).toEqual([
+        { id: "f1", name: "협의 메일.pdf", size: 1024, mimeType: "application/pdf", sha256: "abc", createdAt: "2026-09-14T00:00:00.000Z" },
+      ]);
     });
 
     it("관계없는 사람이 상세를 열면 있는지 알리지 않고 404", async () => {

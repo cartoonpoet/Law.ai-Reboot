@@ -30,6 +30,8 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../contracts/contracts.audit";
 import { evaluate } from "../contracts/contracts.authz";
+import { checkCanView } from "../advices/advices.authz";
+import type { AdviceViewer } from "../advices/advices.authz";
 import type {
   AuthzContract,
   AuthzViewer,
@@ -146,6 +148,42 @@ export class FilesService {
     return row;
   }
 
+  /**
+   * 자문 첨부 권한 — 그 자문을 볼 수 있는 사람만 올리고 내려받는다.
+   * (법무팀·담당자·요청자 쪽·참조수신자. 결재자는 결재 화면에서 문서를 보므로 첨부 권한에서 제외.)
+   */
+  private async authorizeAdvice(adviceId: string, viewerId: string | undefined, ctx: TenantContext) {
+    const advice = await this.prisma.advice.findFirst({
+      where: { id: adviceId, deletedAt: null, ...tenantScope(ctx) },
+    });
+    if (!advice) throw new RpcException({ status: 404, message: "자문을 찾을 수 없습니다" });
+    const viewer = await this.loadAdviceViewer(viewerId, ctx);
+    const ccUserIds = (((advice.details ?? {}) as { ccUsers?: { id: string }[] }).ccUsers ?? []).map((cc) => cc.id);
+    const canView = checkCanView(viewer, {
+      status: advice.status,
+      requesterId: advice.requesterId,
+      createdById: advice.createdById,
+      ownerId: advice.ownerId,
+      ccUserIds,
+      approverIds: [],
+      answerApproverIds: [],
+    });
+    if (!canView) throw new RpcException({ status: 403, message: "자문 첨부 권한이 없습니다" });
+    return advice;
+  }
+
+  // 자문 권한 판단용 조회자(역할). 시스템 관리자는 법무팀과 같은 범위.
+  private async loadAdviceViewer(viewerId: string | undefined, ctx: TenantContext): Promise<AdviceViewer> {
+    if (!viewerId) throw new RpcException({ status: 401, message: "인증이 필요합니다" });
+    if (ctx.isSystemAdmin) return { id: viewerId, role: "inHouseCounsel" };
+    const membership = await this.prisma.userTenant.findFirst({
+      where: { userId: viewerId, tenantId: ctx.tenantId },
+      select: { role: true },
+    });
+    if (!membership) throw new RpcException({ status: 403, message: "회사 구성원만 이용할 수 있습니다" });
+    return { id: viewerId, role: membership.role };
+  }
+
   private async authorizeCanView(
     contract: ContractForAuthz,
     viewerId: string | undefined,
@@ -236,6 +274,8 @@ export class FilesService {
   async presign(req: PresignUploadRequest): Promise<PresignUploadResponse> {
     const ctx = req.tenantContext!;
     this.ensureEnabled();
+    if (req.adviceId) return this.presignAdviceFile(req, req.adviceId, ctx);
+    if (!req.contractId) throw new RpcException({ status: 400, message: "첨부 대상이 없습니다" });
     const contract = await this.loadContract(req.contractId, ctx);
     const viewer = await this.authorizeCanView(contract, req.viewerId, ctx);
     if (req.role === "signed") {
@@ -295,6 +335,46 @@ export class FilesService {
     };
   }
 
+  /** 자문 첨부 presign — 계약과 같은 방식(우리 서버 경유 업로드 + 토큰). */
+  private async presignAdviceFile(
+    req: PresignUploadRequest,
+    adviceId: string,
+    ctx: TenantContext,
+  ): Promise<PresignUploadResponse> {
+    const viewer = await this.authorizeAdvice(adviceId, req.viewerId, ctx);
+    this.validateFileMeta({
+      fileName: req.fileName,
+      size: req.size,
+      mimeType: req.mimeType,
+      sha256: req.sha256,
+    });
+    const safeName = sanitizeFileName(req.fileName);
+    const storageKey = `advices/${adviceId}/${randomUUID()}/${safeName}`;
+    const uploadToken = signUploadToken(
+      {
+        sub: req.viewerId as string,
+        adviceId,
+        contractId: null,
+        commentId: null,
+        // 자문 첨부는 모두 참고자료(attach).
+        role: "attach",
+        storageKey,
+        fileName: req.fileName,
+        sha256: req.sha256,
+        size: req.size,
+        mimeType: req.mimeType,
+      },
+      PRESIGN_TTL_SEC,
+    );
+    void viewer;
+    return {
+      uploadUrl: `/files/upload?token=${encodeURIComponent(uploadToken)}`,
+      uploadToken,
+      storageKey,
+      expiresIn: PRESIGN_TTL_SEC,
+    };
+  }
+
   async confirm(req: ConfirmUploadRequest): Promise<FileAttachmentDto> {
     const ctx = req.tenantContext!;
     this.ensureEnabled();
@@ -316,12 +396,12 @@ export class FilesService {
 
     // 토큰의 role 은 presign 시점 판단이다. 토큰 유효기간(15분) 사이에 계약이 배정·전이됐을 수
     // 있으므로 signed 는 File 행을 만들기 직전에 현재 계약 상태로 다시 확인한다.
-    if (claims.role === "signed") {
+    if (claims.role === "signed" && claims.contractId) {
       const contract = await this.loadContract(claims.contractId, ctx);
       this.assertSignedUploadAllowed(contract, claims.sub, claims.commentId);
     }
     // 계약서도 같은 이유로 재확인한다 — presign 뒤 15분 안에 체결 결재가 시작됐을 수 있다.
-    if (claims.role === "contract") {
+    if (claims.role === "contract" && claims.contractId) {
       const contract = await this.loadContract(claims.contractId, ctx);
       if (isFileLockedStatus(contract.status)) {
         throw new RpcException({ status: 400, message: FILE_LOCKED_CONTRACT_UPLOAD_MESSAGE });
@@ -344,9 +424,12 @@ export class FilesService {
       });
     }
 
-    // sortOrder = 동일 contract 의 max+1(코멘트 기준이 아니라 contract 기준 — 기존 패턴).
+    // 자문 첨부는 토큰이 만들어진 뒤 상태가 바뀌었을 수 있으므로 행을 만들기 직전에 권한을 다시 본다.
+    if (claims.adviceId) await this.authorizeAdvice(claims.adviceId, claims.sub, ctx);
+
+    // sortOrder = 같은 대상(계약 또는 자문)의 max+1.
     const last = await this.prisma.file.findFirst({
-      where: { contractId: claims.contractId },
+      where: claims.adviceId ? { adviceId: claims.adviceId } : { contractId: claims.contractId },
       orderBy: { sortOrder: "desc" },
       select: { sortOrder: true },
     });
@@ -354,7 +437,8 @@ export class FilesService {
 
     const created = await this.prisma.file.create({
       data: {
-        contractId: claims.contractId,
+        contractId: claims.contractId ?? null,
+        adviceId: claims.adviceId ?? null,
         commentId: claims.commentId ?? null,
         tenantId: resolveTenantId(ctx),
         role: claims.role,
@@ -388,6 +472,17 @@ export class FilesService {
         status: 404,
         message: "파일을 찾을 수 없습니다",
       });
+    }
+    if (file.adviceId) {
+      await this.authorizeAdvice(file.adviceId, req.viewerId, ctx);
+      const adviceToken = signContentToken(file.id, PRESIGN_TTL_SEC);
+      return {
+        url: `/files/${file.id}/content?token=${encodeURIComponent(adviceToken)}`,
+        expiresIn: PRESIGN_TTL_SEC,
+      };
+    }
+    if (!file.contract) {
+      throw new RpcException({ status: 404, message: "파일을 찾을 수 없습니다" });
     }
     if (file.contract.deletedAt) {
       throw new RpcException({
@@ -441,7 +536,7 @@ export class FilesService {
     if (
       !file ||
       !file.storageKey ||
-      file.contract.deletedAt ||
+      file.contract?.deletedAt ||
       file.comment?.deletedAt
     ) {
       throw new RpcException({

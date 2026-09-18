@@ -30,6 +30,8 @@ export const adviceRequestSchema = z
     dueDate: z.string().min(1, "자문 회신 기한을 선택해 주세요"),
     // 요청 결재선 — 기안자(본인)만 있으면 결재 없이 바로 접수된다.
     approvers: z.array(approverSchema),
+    // 함께 올릴 파일 — 자문이 만들어진 뒤에 올리므로 검증 대상이 아니다(브라우저 File 객체).
+    files: z.array(z.instanceof(File)),
   })
   .superRefine((form, ctx) => {
     if (form.requester === null) {
@@ -64,4 +66,5 @@ export const createAdviceRequestDefaults = (me: RequestUser): AdviceRequestFormT
   etcRequest: "",
   dueDate: "",
   approvers: [createDraftApprover(me)],
+  files: [],
 });

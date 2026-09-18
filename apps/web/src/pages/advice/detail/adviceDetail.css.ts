@@ -183,3 +183,11 @@ export const kvValue = style({
 export const kvValueMuted = style({ color: MUTED, fontWeight: 500 });
 
 export const panelBody = style({ display: "flex", flexDirection: "column", gap: 14 });
+
+/* ── 첨부 ── */
+
+export const fileList = style({ display: "flex", flexDirection: "column", gap: 6 });
+
+export const fileUpload = style({ marginTop: 12 });
+
+export const fileError = style({ margin: "8px 0 0", fontSize: 12, color: c.accentDanger });

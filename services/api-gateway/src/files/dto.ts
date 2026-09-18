@@ -17,11 +17,19 @@ import {
 } from "@lawai/contracts";
 
 // presign 요청 — fileName/size/mimeType/sha256(64자 hex) 검증.
+// 첨부 대상은 계약(contractId) 또는 자문(adviceId) 하나 — 어느 쪽인지는 user-service 가 확인한다.
 export class PresignDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: "계약 첨부일 때 계약 id" })
+  @IsOptional()
   @IsString()
   @MaxLength(64)
-  contractId!: string;
+  contractId?: string;
+
+  @ApiPropertyOptional({ description: "자문 첨부일 때 자문 id" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  adviceId?: string;
 
   @ApiPropertyOptional({ description: "코멘트 첨부 후 첨부 시 코멘트 id(현 P3 흐름은 null)" })
   @IsOptional()

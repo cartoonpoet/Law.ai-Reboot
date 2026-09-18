@@ -44,7 +44,9 @@ export const MAX_FILES_PER_COMMENT = 5;
 
 // presign 요청 — 클라이언트가 SubtleCrypto sha256 hex 계산 후 호출.
 export interface PresignUploadRequest {
-  contractId: string;
+  // 계약 첨부면 contractId, 자문 첨부면 adviceId — 둘 중 하나만 보낸다.
+  contractId?: string;
+  adviceId?: string;
   // 코멘트 생성 전 첨부는 null. presign 단계에서 commentId 지정도 허용(미래).
   commentId?: string | null;
   // 어떤 슬롯의 파일인지 — 계약 본 파일은 contract/attach/ref, 코멘트 첨부는 (생략 시) attach.
