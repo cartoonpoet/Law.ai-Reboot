@@ -130,3 +130,6 @@ export const tenantRole = style({ fontSize: 11, color: T.muted, marginTop: 1 });
 export const tenantCheck = style({ color: T.primary, fontWeight: 800, fontSize: 12 });
 
 export const errorText = style({ margin: 0, padding: "6px 10px", fontSize: 11.5, color: T.danger });
+
+// 새 탭으로 여는 메뉴 오른쪽 작은 화살표.
+export const menuIconTrailing = style({ width: 13, height: 13, marginLeft: "auto", opacity: 0.6 });
