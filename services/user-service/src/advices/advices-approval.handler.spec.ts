@@ -2,20 +2,31 @@ import type { ApprovalLineDto } from "@lawai/contracts";
 import { AdviceAnswerApprovalHandler, AdviceRequestApprovalHandler } from "./advices-approval.handler";
 import type { PrismaService } from "../prisma/prisma.service";
 import type { ApprovalOutcomeRegistry } from "../approvals/approval-outcome";
+import type { NotificationService } from "../notifications/notifications.service";
 
 describe("법률자문 결재 확정 핸들러", () => {
   const prismaMock = {
-    advice: { updateMany: jest.fn(), findMany: jest.fn() },
+    advice: { updateMany: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
     adviceMessage: { updateMany: jest.fn() },
     $transaction: jest.fn((operations: unknown[]) => Promise.all(operations)),
   };
   const registry = { register: jest.fn() } as unknown as ApprovalOutcomeRegistry;
+  const notifications = { createMany: jest.fn() } as unknown as NotificationService;
   const line = { targetId: "a1" } as ApprovalLineDto;
 
   beforeEach(() => {
     jest.clearAllMocks();
     prismaMock.advice.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.adviceMessage.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.advice.findUnique.mockResolvedValue({
+      id: "a1",
+      code: "ADV-2026-0091",
+      title: "해외 대리점 계약 준거법 문의",
+      tenantId: "t1",
+      requesterId: "requester",
+      createdById: "requester",
+      ownerId: "owner",
+    });
   });
 
   describe("요청 결재", () => {
@@ -48,7 +59,7 @@ describe("법률자문 결재 확정 핸들러", () => {
   });
 
   describe("회신 결재", () => {
-    const handler = new AdviceAnswerApprovalHandler(prismaMock as unknown as PrismaService, registry);
+    const handler = new AdviceAnswerApprovalHandler(prismaMock as unknown as PrismaService, registry, notifications);
 
     it("승인되면 결재 중이던 회신을 공개하고 회신 완료로 바꾼다", async () => {
       await handler.onApproved(line);
@@ -60,6 +71,10 @@ describe("법률자문 결재 확정 핸들러", () => {
         where: { id: "a1", status: "answerApproval" },
         data: { status: "answered", answeredAt: expect.any(Date) },
       });
+      // 공개된 회신을 요청자에게 알린다.
+      expect(notifications.createMany).toHaveBeenCalledWith([
+        expect.objectContaining({ recipientId: "requester", type: "advice_answered", targetId: "a1" }),
+      ]);
     });
 
     it("반려되면 회신을 반려로 남기고 다시 검토 중으로 돌린다", async () => {
