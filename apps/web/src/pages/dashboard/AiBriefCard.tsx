@@ -4,6 +4,7 @@ import { Button, Icon } from "@lawkit/ui";
 import type { AssistantAction, BriefToneTypes } from "@lawai/contracts";
 import { useAssistantActions } from "../../components/assistant/useAssistantActions";
 import { useDashboardBrief } from "./hooks/useDashboardBrief";
+import { sparkle } from "../../components/ui/sparkle.css";
 import * as css from "./dashboard.css";
 
 const formatTime = (iso: string) => new Date(iso).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" });
@@ -52,7 +53,7 @@ export const AiBriefCard = () => {
   return (
     <section className={css.brief} aria-label="AI 브리핑">
       <div className={css.briefTop}>
-        <span className={css.briefAvatar}>
+        <span key={hasBrief ? brief.generatedAt : "empty"} className={hasBrief ? `${css.briefAvatar} ${sparkle}` : css.briefAvatar}>
           <Icon name="autoAwesome" size="sm" className={css.briefAvatarIcon} />
         </span>
         <span className={css.briefTitleGroup}>

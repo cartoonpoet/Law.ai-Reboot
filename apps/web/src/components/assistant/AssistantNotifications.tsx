@@ -5,6 +5,7 @@ import { getNotificationCategory } from "@lawai/contracts";
 import type { NotificationCategory, NotificationDto } from "@lawai/contracts";
 import { cx } from "../../pages/contract/cx";
 import { NotificationItem } from "../notifications/NotificationItem";
+import { ASSISTANT_NAME } from "./assistantData";
 import * as css from "./aiAssistant.css";
 import * as noticeCss from "./assistantNotifications.css";
 
@@ -60,7 +61,7 @@ export const AssistantNotifications = ({
         <button type="button" className={noticeCss.markAllButton} disabled={unreadCount === 0} onClick={onMarkAllRead}>
           모두 읽음
         </button>
-        <button type="button" className={css.iconButton} onClick={onClose} aria-label="AI 비서 닫기">
+        <button type="button" className={css.iconButton} onClick={onClose} aria-label={`${ASSISTANT_NAME} 닫기`}>
           <Icon name="close" size="sm" />
         </button>
       </header>
