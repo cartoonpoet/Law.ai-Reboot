@@ -1,6 +1,12 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
-import { ADVICE_APPROVAL_TARGET, type ApprovalLineDto } from "@lawai/contracts";
+import {
+  ADVICE_APPROVAL_TARGET,
+  ADVICE_NOTIFICATION_TARGET,
+  ADVICE_NOTIFICATION_TYPE,
+  type ApprovalLineDto,
+} from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+import { NotificationService } from "../notifications/notifications.service";
 import {
   ApprovalOutcomeRegistry,
   type ApprovalOutcomeHandler,
@@ -72,6 +78,7 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: ApprovalOutcomeRegistry,
+    private readonly notifications: NotificationService,
   ) {}
 
   onModuleInit(): void {
@@ -89,6 +96,30 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
         data: { status: "answered", answeredAt: new Date() },
       }),
     ]);
+    await this.notifyAnswered(line);
+  }
+
+  // 결재를 거친 회신이 공개되면 요청자 쪽에 알린다(결재 응답 경로라 실시간 push 없이 알림함에 쌓인다).
+  private async notifyAnswered(line: ApprovalLineDto): Promise<void> {
+    const advice = await this.prisma.advice.findUnique({
+      where: { id: line.targetId },
+      select: { id: true, code: true, title: true, tenantId: true, requesterId: true, createdById: true, ownerId: true },
+    });
+    if (!advice) return;
+    const recipients = Array.from(new Set([advice.requesterId, advice.createdById])).filter(
+      (id) => id !== advice.ownerId,
+    );
+    await this.notifications.createMany(
+      recipients.map((recipientId) => ({
+        recipientId,
+        type: ADVICE_NOTIFICATION_TYPE.ANSWERED,
+        actorId: advice.ownerId ?? recipientId,
+        targetType: ADVICE_NOTIFICATION_TARGET,
+        targetId: advice.id,
+        tenantId: advice.tenantId,
+        detail: { adviceId: advice.id, code: advice.code, title: advice.title },
+      })),
+    );
   }
 
   async onRejected(line: ApprovalLineDto): Promise<void> {

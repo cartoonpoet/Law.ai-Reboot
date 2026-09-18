@@ -483,6 +483,14 @@ describe("NotificationService", () => {
   });
 
   describe("markRead", () => {
+    it("빈 응답이면 게이트웨이가 터지므로 결과 객체를 돌려준다", async () => {
+      const tenantContext = { tenantId: "tenant-1", isSystemAdmin: false };
+      prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
+      await expect(service.markRead({ id: "n-1", viewerId: "u-1", tenantContext })).resolves.toEqual({ ok: true });
+      await expect(service.markAllRead({ viewerId: "u-1", tenantContext })).resolves.toEqual({ ok: true });
+      await expect(service.markRead({ id: "n-1" })).resolves.toEqual({ ok: true });
+    });
+
     it("tenantContext 없으면 RpcException 을 던진다(M5 fail-closed)", async () => {
       await expect(
         service.markRead({ id: "n-1", viewerId: "u-1" }),
