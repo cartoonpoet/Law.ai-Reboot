@@ -250,14 +250,16 @@ export class ApprovalsService {
     const dto = this.toLineDto(updated);
 
     // 확정 시 대상 도메인으로 역전파(핸들러 미등록 targetType 은 no-op).
+    // 도메인이 만든 알림(예: 회신 공개)도 함께 돌려받아 같은 응답으로 밀어 준다.
+    let outcomeNotifications: PushNotification[] = [];
     if (dto.status === "rejected") {
-      await this.registry.get(dto.targetType)?.onRejected(dto, current.id);
+      outcomeNotifications = (await this.registry.get(dto.targetType)?.onRejected(dto, current.id)) || [];
     } else if (dto.status === "approved") {
-      await this.registry.get(dto.targetType)?.onApproved(dto);
+      outcomeNotifications = (await this.registry.get(dto.targetType)?.onApproved(dto)) || [];
     }
 
     const notifications = await this.noti.createMany(items);
-    return { line: dto, notifications };
+    return { line: dto, notifications: [...notifications, ...outcomeNotifications] };
   }
 
   private toInboxItem(
