@@ -13,7 +13,7 @@ import {
   themeVars,
 } from "@lawkit/ui";
 import type { AdminTenantListItem, TenantPlan } from "@lawai/contracts";
-import { AdminShell } from "../../components/AdminShell";
+import { AdminShell } from "../../components/layout/AdminShell";
 import { createAdminTenant, listAdminTenants } from "../../api/adminTenants";
 import {
   PLAN_LABELS,
@@ -114,7 +114,8 @@ export function TenantListPage() {
 
   if (query.isLoading) {
     return (
-      <AdminShell breadcrumbLabel="고객사">
+      <AdminShell title="고객사"
+      description="서비스를 쓰는 회사와 사용 현황입니다.">
         <Spinner label="불러오는 중..." />
       </AdminShell>
     );
@@ -122,7 +123,8 @@ export function TenantListPage() {
   const data = query.data;
   if (!data) {
     return (
-      <AdminShell breadcrumbLabel="고객사">
+      <AdminShell title="고객사"
+      description="서비스를 쓰는 회사와 사용 현황입니다.">
         <div style={{ color: themeVars.color.textSecondary }}>
           고객사 목록을 불러오지 못했습니다.
         </div>
@@ -136,8 +138,9 @@ export function TenantListPage() {
 
   return (
     <AdminShell
-      breadcrumbLabel="고객사"
-      topbarExtra={<Button onClick={handleOpenCreate}>+ 고객사 추가</Button>}
+      title="고객사"
+      description="서비스를 쓰는 회사와 사용 현황입니다."
+      actions={<Button onClick={handleOpenCreate}>+ 고객사 추가</Button>}
     >
       <div style={kpiGrid}>
         <div style={kpiCard}>

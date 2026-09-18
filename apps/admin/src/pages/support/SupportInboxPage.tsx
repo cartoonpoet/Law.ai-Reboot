@@ -1,6 +1,6 @@
-import { Button, Dropdown, Spinner } from "@lawkit/ui";
+import { Button, ButtonGroup, Icon, Input, Spinner } from "@lawkit/ui";
 import type { AdminSupportThreadRow, SupportContext, SupportStatusTypes } from "@lawai/contracts";
-import { AdminShell } from "../../components/AdminShell";
+import { AdminShell } from "../../components/layout/AdminShell";
 import { formatRelative } from "../tenants/tenantLabels";
 import { useSupportInbox } from "./hooks/useSupportInbox";
 import * as css from "./supportInbox.css";
@@ -11,7 +11,7 @@ const STATUS_LABEL: Record<SupportStatusTypes, string> = {
   closed: "종료",
 };
 
-const STATUS_OPTIONS = [
+const STATUS_TABS: { value: SupportStatusTypes | ""; label: string }[] = [
   { value: "open", label: "답변 대기" },
   { value: "answered", label: "답변 완료" },
   { value: "closed", label: "종료" },
@@ -68,19 +68,31 @@ export const SupportInboxPage = () => {
   );
 
   return (
-    <AdminShell breadcrumbLabel="문의함">
-      <p className={css.intro}>
-        사용자가 AI 비서에서 남긴 문의입니다. 답변을 보내면 문의한 사람 화면에 바로 알림으로 뜹니다.
-      </p>
-
+    <AdminShell title="문의함"
+      description="사용자가 로아이에게 남긴 문의입니다. 답변을 보내면 문의한 사람 화면에 바로 알림으로 뜹니다.">
       <div className={css.filterBar}>
-        <span className={css.filterLabel}>상태</span>
-        <Dropdown
-          options={STATUS_OPTIONS}
+        <ButtonGroup
+          variant="segmented"
           value={inbox.status}
           onChange={(next) => inbox.changeStatus(String(next) as typeof inbox.status)}
+          items={STATUS_TABS.map((tab) => ({
+            value: tab.value,
+            label: tab.value === "open" && inbox.openCount > 0 ? `${tab.label} ${inbox.openCount}` : tab.label,
+          }))}
         />
-        {inbox.openCount > 0 && <span className={css.openCount}>답변 대기 {inbox.openCount}건</span>}
+        <div className={css.searchBox}>
+          <Input
+            inputSize="medium"
+            placeholder="제목·문의한 사람·회사 검색"
+            value={inbox.keyword}
+            onChange={(event) => inbox.changeKeyword(event.target.value)}
+            leftIcon={<Icon name="search" size="sm" className={css.searchIcon} />}
+          />
+        </div>
+        <span className={css.listCount}>
+          {inbox.threads.length}
+          {inbox.keyword.trim() ? ` / ${inbox.totalCount}` : ""}건
+        </span>
       </div>
 
       {inbox.isLoading ? (
@@ -89,7 +101,9 @@ export const SupportInboxPage = () => {
         <div className={css.layout}>
           <div className={css.listBox}>
             {inbox.threads.length === 0 ? (
-              <p className={css.placeholder}>이 상태의 문의가 없습니다.</p>
+              <p className={css.placeholder}>
+                {inbox.keyword.trim() ? "검색과 맞는 문의가 없습니다." : "이 상태의 문의가 없습니다."}
+              </p>
             ) : (
               inbox.threads.map(renderThread)
             )}
