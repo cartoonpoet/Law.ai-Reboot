@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import {
   Icon,
-  Button,
   Input,
   Dropdown,
   Switch,
@@ -121,22 +120,6 @@ export function ContractListPage() {
           >
             계약 조회
           </h1>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <Button
-            variant="outline"
-            color="secondary"
-            size="medium"
-            iconLeft={
-              <Icon
-                name="externalLink"
-                size="sm"
-                style={{ width: 14, height: 14 }}
-              />
-            }
-          >
-            내보내기
-          </Button>
         </div>
       </div>
 
