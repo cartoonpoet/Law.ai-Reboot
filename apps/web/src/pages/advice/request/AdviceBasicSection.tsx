@@ -1,6 +1,7 @@
 import { Controller, useFormContext } from "react-hook-form";
-import { ButtonGroup, Card, Checkbox, Input } from "@lawkit/ui";
+import { ButtonGroup, Card, Checkbox, FileItem, FileUploadArea, Input } from "@lawkit/ui";
 import { searchDepartments, searchProjects, searchUsers } from "../../../api/directory";
+import { formatFileMeta } from "../../contract/fileMeta";
 import { CardTitle, ErrText, Field } from "../../contract/sections/_shared";
 import { EntityAutoComplete } from "../../contract/sections/EntityAutoComplete";
 import { ADVICE_CATEGORIES, SECURITY_LEVEL_OPTIONS } from "../adviceMeta";
@@ -80,6 +81,37 @@ export const AdviceBasicSection = () => {
           />
           <ErrText msg={errors.requester?.message} />
         </Field>
+
+        <div className={formCss.full}>
+          <Field label="관련자료 첨부" info="질의와 함께 볼 자료입니다. 요청한 뒤 상세 화면에서도 올릴 수 있어요.">
+            <Controller
+              name="files"
+              control={control}
+              render={({ field }) => (
+                <FileUploadArea
+                  variant="basic"
+                  description="파일을 여기에 놓거나 버튼으로 고르세요."
+                  onFilesAdded={(added: File[]) => field.onChange([...field.value, ...added])}
+                >
+                  {field.value.length > 0 && (
+                    <div className={formCss.fileList}>
+                      {field.value.map((file, index) => (
+                        <FileItem
+                          key={`${file.name}-${index}`}
+                          filename={file.name}
+                          fileMeta={formatFileMeta(file)}
+                          onDelete={() =>
+                            field.onChange(field.value.filter((_, fileIndex) => fileIndex !== index))
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                </FileUploadArea>
+              )}
+            />
+          </Field>
+        </div>
 
         <Field label="참조수신자" info="진행 상황을 공유받고 자문을 열람할 수 있는 사람입니다.">
           <Controller

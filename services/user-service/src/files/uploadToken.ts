@@ -4,7 +4,9 @@ import jwt from "jsonwebtoken";
 // confirm 호출하는 위변조를 차단한다.
 export interface UploadTokenClaims {
   sub: string; // viewerId
-  contractId: string;
+  // 계약 첨부면 contractId, 자문 첨부면 adviceId.
+  contractId?: string | null;
+  adviceId?: string | null;
   commentId?: string | null;
   // 어떤 슬롯의 파일인지 — 코멘트 첨부는 항상 attach, 계약 본 파일은 contract/attach/ref.
   // presign 시 클라이언트가 지정, confirm 시 token 에서 그대로 사용(서버 결정 유지).
@@ -37,7 +39,8 @@ export const verifyUploadToken = (token: string): UploadTokenClaims => {
   }
   return {
     sub: payload.sub,
-    contractId: payload.contractId,
+    contractId: payload.contractId ?? null,
+    adviceId: payload.adviceId ?? null,
     commentId: payload.commentId ?? null,
     role: payload.role,
     storageKey: payload.storageKey,

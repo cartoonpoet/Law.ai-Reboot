@@ -437,7 +437,9 @@ enum FileRole {
 // ERD 는 폴리모픽(ownerType/ownerId)이나 MVP 는 Counterparty/ApprovalLine 과 동일하게 contractId 직접 FK(§9 수렴 항목).
 model File {
   id         String   @id @default(uuid())
-  contractId String
+  // 계약 첨부면 contractId, 자문 첨부면 adviceId — 둘 중 하나만 채운다(앱 레벨 보장).
+  contractId String?
+  adviceId   String?
   commentId  String?
   tenantId   String
   role       FileRole
@@ -450,10 +452,12 @@ model File {
   sortOrder  Int
   createdAt  DateTime @default(now())
 
-  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  comment  Comment? @relation("CommentFiles", fields: [commentId], references: [id], onDelete: Cascade)
+  contract Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  advice   Advice?   @relation(fields: [adviceId], references: [id], onDelete: Cascade)
+  comment  Comment?  @relation("CommentFiles", fields: [commentId], references: [id], onDelete: Cascade)
 
   @@index([contractId])
+  @@index([adviceId])
   @@index([commentId])
   @@index([tenantId])
   @@schema("shared")
@@ -683,6 +687,7 @@ model Advice {
   updatedAt  DateTime  @updatedAt
 
   messages AdviceMessage[]
+  files    File[]
 
   @@index([tenantId, status])
   @@index([requesterId])

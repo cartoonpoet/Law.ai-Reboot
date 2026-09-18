@@ -15,6 +15,7 @@ import { useAdviceDetail, type AdviceMessageInput } from "../hooks/useAdviceDeta
 import { AdviceActionPanel } from "./AdviceActionPanel";
 import { AdviceApprovalCard } from "./AdviceApprovalCard";
 import { AdviceContentCard } from "./AdviceContentCard";
+import { AdviceFilesCard } from "./AdviceFilesCard";
 import { AdviceGlance } from "./AdviceGlance";
 import { AdviceHistoryCard } from "./AdviceHistoryCard";
 import { AdviceThreadCard } from "./AdviceThreadCard";
@@ -121,6 +122,7 @@ export const AdviceDetailPage = () => {
             isDeciding={detail.isDeciding}
             onDecide={handleDecide}
           />
+          <AdviceFilesCard advice={advice} canUpload={advice.status !== "closed"} />
           <AdviceHistoryCard advice={advice} />
         </div>
       </div>
