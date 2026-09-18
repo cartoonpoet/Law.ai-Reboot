@@ -40,3 +40,33 @@ export const elapsed = styleVariants({
   today: { fontSize: 12, fontWeight: 600, color: c.textMuted, whiteSpace: "nowrap" },
   overdue: { fontSize: 12, fontWeight: 800, color: c.accentWarningActive, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
 });
+
+export const grow = style({ flex: 1, minWidth: 0 });
+
+// 카드 제목 — 누르면 문서로 간다(버튼이지만 본문 글자처럼 보이게).
+export const cardTitle = style({
+  padding: 0,
+  border: "none",
+  background: "none",
+  fontSize: 14.5,
+  fontWeight: 700,
+  color: c.textHeading,
+  textAlign: "left",
+  cursor: "pointer",
+  selectors: {
+    "&:hover": { textDecoration: "underline" },
+    "&:focus-visible": { outline: "none", boxShadow: themeVars.shadow.focus },
+  },
+});
+
+export const cardTitleDeleted = style([cardTitle, { color: c.textDisabled, textDecoration: "line-through", cursor: "default" }]);
+
+export const meta = style({ fontSize: 12, color: c.textMuted });
+
+export const metaCode = style({ fontSize: 12, color: c.textMuted, fontVariantNumeric: "tabular-nums" });
+
+export const pager = style({ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4 });
+
+export const empty = style({ padding: "48px 0", textAlign: "center", fontSize: 13, color: c.textMuted });
+
+export const modalDoc = style({ margin: 0, fontSize: 13, fontWeight: 700, color: c.textHeading });
