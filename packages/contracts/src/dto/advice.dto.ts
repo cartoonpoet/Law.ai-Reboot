@@ -2,6 +2,7 @@
 // 흐름: (요청 결재) → 접수(received) → 법무 검토(reviewing) ⇄ 추가 질의(waitingRequester) → (회신 결재) → 회신 완료(answered) → 종결(closed)
 // 요청 결재·회신 결재는 결재선에 결재·합의 단계가 있을 때만 거친다(공용 ApprovalLine, targetType advice_request / advice_answer).
 import type { ApprovalLineDto } from "./approval.dto";
+import type { FileAttachmentDto } from "./file.dto";
 import type { PushNotification } from "./comment.dto";
 import type { ApproverSnapshot, SecurityLevel } from "./contract.dto";
 import type { TenantContext } from "./tenant.dto";
@@ -105,6 +106,8 @@ export interface AdviceResponse extends AdviceSummary {
   createdBy: AdvicePerson;
   closedAt: string | null; // ISO
   messages: AdviceMessageDto[];
+  // 요청·검토 과정에서 올린 첨부 파일(올린 순서).
+  files: FileAttachmentDto[];
   permissions: AdvicePermissions;
   // 가장 최근 요청 결재·회신 결재(없으면 null).
   requestApproval: ApprovalLineDto | null;

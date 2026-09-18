@@ -27,6 +27,7 @@ describe("FilesService", () => {
 
   const prismaMock = {
     contract: { findFirst: jest.fn() },
+    advice: { findFirst: jest.fn() },
     user: { findUnique: jest.fn() },
     userTenant: { findFirst: jest.fn() },
     file: {
@@ -254,6 +255,87 @@ describe("FilesService", () => {
   });
 
   // N4: role=signed presign 은 체결 완료 등록 경로(unassigned + ownerId null + 생성자 본인)만.
+  describe("자문 첨부", () => {
+    const adviceRow = (over: Record<string, unknown> = {}) => ({
+      id: "advice-1",
+      status: "reviewing",
+      requesterId: "u-requester",
+      createdById: "u-requester",
+      ownerId: "u-owner",
+      deletedAt: null,
+      details: { ccUsers: [{ id: "u-cc", name: "참조자" }] },
+      ...over,
+    });
+
+    const adviceReq = (viewerId: string) => ({
+      adviceId: "advice-1",
+      fileName: "협의 메일.pdf",
+      size: 1024,
+      mimeType: VALID_MIME,
+      sha256: VALID_SHA,
+      viewerId,
+      tenantContext: makeCtx(),
+    });
+
+    it("자문을 볼 수 있는 사람은 자문 경로로 업로드 주소를 받는다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(adviceRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general" });
+
+      const res = await service.presign(adviceReq("u-requester"));
+
+      expect(res.storageKey).toMatch(/^advices\/advice-1\//);
+      expect(res.uploadUrl).toContain("/files/upload?token=");
+    });
+
+    it("참조수신자도 올릴 수 있다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(adviceRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general" });
+
+      await expect(service.presign(adviceReq("u-cc"))).resolves.toBeDefined();
+    });
+
+    it("관계없는 사람은 403", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(adviceRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general" });
+
+      await expect(service.presign(adviceReq("u-stranger"))).rejects.toMatchObject({ error: { status: 403 } });
+    });
+
+    it("없는 자문이면 404", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(null);
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general" });
+
+      await expect(service.presign(adviceReq("u-requester"))).rejects.toMatchObject({ error: { status: 404 } });
+    });
+
+    it("confirm 은 자문 파일 행을 만들고 권한을 다시 확인한다", async () => {
+      prismaMock.advice.findFirst.mockResolvedValue(adviceRow());
+      prismaMock.userTenant.findFirst.mockResolvedValue({ role: "general" });
+      const presigned = await service.presign(adviceReq("u-requester"));
+      sendMock.mockResolvedValue({ ContentLength: 1024 });
+      prismaMock.file.findFirst.mockResolvedValue({ sortOrder: 2 });
+      prismaMock.file.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ id: "f-1", createdAt: new Date("2026-09-18T00:00:00Z"), checksum: null, ...data }),
+      );
+
+      await service.confirm({
+        uploadToken: presigned.uploadToken,
+        etag: "etag-1",
+        viewerId: "u-requester",
+        tenantContext: makeCtx(),
+      });
+
+      expect(prismaMock.file.create.mock.calls[0][0].data).toMatchObject({
+        adviceId: "advice-1",
+        contractId: null,
+        role: "attach",
+        sortOrder: 3,
+      });
+      // 토큰 발급 시 1번 + 행 만들기 직전 1번.
+      expect(prismaMock.advice.findFirst).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("presign role=signed 게이트", () => {
     const signedReq = (over: Record<string, unknown> = {}) => ({
       contractId: "contract-1",

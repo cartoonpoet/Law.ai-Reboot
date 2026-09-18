@@ -524,9 +524,10 @@ export class AdvicesService {
 
   // 결재가 바뀌지 않은 동작은 이미 읽은 결재를 넘기고, 상신이 일어난 동작은 새로 읽는다.
   private async toResponse(row: AdviceRow, viewer: AdviceViewer, knownApprovals?: AdviceApprovals): Promise<AdviceResponse> {
-    const [people, approvals] = await Promise.all([
+    const [people, approvals, files] = await Promise.all([
       this.loadPeople([row.requesterId, row.ownerId, row.createdById, ...row.messages.map((message) => message.authorId)]),
       knownApprovals ?? this.loadApprovals(row.id),
+      this.prisma.file.findMany({ where: { adviceId: row.id }, orderBy: { sortOrder: "asc" } }),
     ]);
     const target = toAuthzTarget(row, approvals);
     const details = toDetails(row.details);
@@ -551,6 +552,14 @@ export class AdvicesService {
         body: message.body,
         author: getPerson(message.authorId),
         createdAt: message.createdAt.toISOString(),
+      })),
+      files: files.map((file) => ({
+        id: file.id,
+        name: file.name,
+        size: file.size ?? 0,
+        mimeType: file.mimeType ?? "",
+        sha256: file.checksum,
+        createdAt: file.createdAt.toISOString(),
       })),
       permissions: getAdvicePermissions(viewer, target),
       requestApproval: approvals.request,
