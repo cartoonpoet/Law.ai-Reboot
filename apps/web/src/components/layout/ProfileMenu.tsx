@@ -7,6 +7,7 @@ import { cx } from "../../pages/contract/cx";
 import { getTenantRoleLabel } from "../../utils/tenantRoleLabel";
 import { UserAvatar } from "../ui/UserAvatar";
 import { useMe } from "./hooks/useMe";
+import { getAdminConsoleUrl } from "./getAdminConsoleUrl";
 import { useTenantSwitcher } from "./hooks/useTenantSwitcher";
 import * as css from "./profileMenu.css";
 
@@ -24,6 +25,11 @@ export const ProfileMenu = () => {
   const roleLabel = activeMembership ? getTenantRoleLabel(activeMembership.role) : "";
   const summary = [activeMembership?.name, roleLabel].filter(Boolean).join(" · ");
   const hasTenantChoice = memberships.length > 1;
+
+  const handleAdminConsole = () => {
+    setIsOpen(false);
+    window.open(getAdminConsoleUrl(import.meta.env.VITE_ADMIN_URL, window.location), "_blank", "noopener");
+  };
   const isSwitching = switchingTenantId !== null;
 
   const handleSettings = () => {
@@ -72,6 +78,15 @@ export const ProfileMenu = () => {
               <Icon name="settings" size="sm" className={css.menuIcon} />
               설정
             </button>
+
+            {/* 시스템 관리자에게만 보이는 관리자 콘솔 입구 — 콘솔은 다른 주소라 새 탭으로 연다. */}
+            {me?.isSystemAdmin && (
+              <button type="button" role="menuitem" className={css.menuItem} onClick={handleAdminConsole}>
+                <Icon name="shield" size="sm" className={css.menuIcon} />
+                관리자 콘솔
+                <Icon name="externalLink" size="sm" className={css.menuIconTrailing} />
+              </button>
+            )}
 
             {hasTenantChoice && (
               <div className={css.group}>

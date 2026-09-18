@@ -68,6 +68,26 @@ describe("ProfileMenu", () => {
     expect(screen.getByRole("menuitem", { name: "로그아웃" })).toBeInTheDocument();
   });
 
+  it("시스템 관리자가 아니면 관리자 콘솔 입구가 없다", async () => {
+    mockTenants({ memberships: [m1] });
+    await renderMenu();
+    expect(screen.queryByRole("menuitem", { name: /관리자 콘솔/ })).not.toBeInTheDocument();
+  });
+
+  it("시스템 관리자는 관리자 콘솔을 새 탭으로 연다", async () => {
+    mockTenants({ memberships: [m1] });
+    vi.mocked(useMe).mockReturnValue({
+      me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: true, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: null },
+    });
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    const user = await renderMenu();
+    await user.click(screen.getByRole("menuitem", { name: /관리자 콘솔/ }));
+
+    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining("localhost:5175"), "_blank", "noopener");
+    openSpy.mockRestore();
+  });
+
   it("프로필 사진이 있으면 이름 첫 글자 대신 사진을 보여준다", () => {
     mockTenants({ memberships: [m1] });
     vi.mocked(useMe).mockReturnValue({
