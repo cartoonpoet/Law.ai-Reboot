@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Button, ButtonGroup, Checkbox } from "@lawkit/ui";
-import { Tag } from "../../../components/ui/Tag";
+import { Button, ButtonGroup, Card, Checkbox, HStack, StatCell, StatGrid, VStack, Widget } from "@lawkit/ui";
 import { AiLine } from "./AiLine";
+import { KindBadge } from "./KindBadge";
 import { MockPageHead } from "./MockPageHead";
 import { WaitingLabel } from "./WaitingLabel";
 import {
-  KIND_LABEL,
   PENDING_ITEMS,
   PROCESSED_COUNT,
   ROLE_LABEL,
@@ -16,6 +15,7 @@ import * as css from "./approvalInboxMock.css";
 
 // 오래 기다린 것부터 — 첫 카드가 가장 급한 결재.
 const SORTED_ITEMS = PENDING_ITEMS.toSorted((a, b) => b.waitingDays - a.waitingDays);
+const LATE_COUNT = PENDING_ITEMS.filter((item) => item.waitingDays >= 3).length;
 
 interface QueueCardProps {
   item: MockInboxItem;
@@ -24,47 +24,49 @@ interface QueueCardProps {
 }
 
 const QueueCard = ({ item, isSelected, onToggle }: QueueCardProps) => (
-  <article className={isSelected ? `${css.queueCard} ${css.queueCardSelected}` : css.queueCard}>
-    <Checkbox checked={isSelected} onCheckedChange={onToggle} aria-label={`${item.title} 선택`} />
-    <div className={css.queueMain}>
-      <div className={css.queueTitleRow}>
-        <Tag>{KIND_LABEL[item.kind]}</Tag>
-        <span className={css.queueTitle}>{item.title}</span>
-      </div>
-      <div className={css.queueMeta}>
-        <span className={css.mono}>{item.code}</span>
-        <span>·</span>
-        <span>
-          {item.submitterName} {item.submitterDept}
-        </span>
-        <span>·</span>
-        <span>
-          {ROLE_LABEL[item.myRole]} {item.myStep}/{item.totalSteps}
-        </span>
-      </div>
-      <div className={css.factRow}>
-        {item.facts.map((fact) => (
-          <div key={fact.label} className={css.fact}>
-            <span className={css.factLabel}>{fact.label}</span>
-            <span className={css.factValue}>{fact.value}</span>
-          </div>
-        ))}
-      </div>
-      <AiLine item={item} />
-    </div>
-    <div className={css.queueSide}>
-      <WaitingLabel days={item.waitingDays} />
-      <div className={css.buttonRow}>
-        <Button size="small" variant="outline" color="secondary">
-          자세히
-        </Button>
-        <Button size="small" variant="outline" color="danger">
-          반려
-        </Button>
-        <Button size="small">{item.myRole === "agree" ? "합의" : "승인"}</Button>
-      </div>
-    </div>
-  </article>
+  <Card bordered>
+    <HStack gap="x4" align="start">
+      <Checkbox checked={isSelected} onCheckedChange={onToggle} aria-label={`${item.title} 선택`} />
+
+      <VStack gap="x2" className={css.grow}>
+        <HStack gap="x2" align="center">
+          <KindBadge kind={item.kind} />
+          <span className={css.cardTitle}>{item.title}</span>
+        </HStack>
+        <HStack gap="x2" align="center">
+          <span className={css.metaCode}>{item.code}</span>
+          <span className={css.meta}>
+            {item.submitterName} {item.submitterDept}
+          </span>
+          <span className={css.meta}>
+            {ROLE_LABEL[item.myRole]} {item.myStep}/{item.totalSteps}
+          </span>
+        </HStack>
+        <HStack gap="x6" align="start">
+          {item.facts.map((fact) => (
+            <VStack key={fact.label} gap="x1">
+              <span className={css.factLabel}>{fact.label}</span>
+              <span className={css.factValue}>{fact.value}</span>
+            </VStack>
+          ))}
+        </HStack>
+        <AiLine item={item} />
+      </VStack>
+
+      <VStack gap="x3" align="end">
+        <WaitingLabel days={item.waitingDays} />
+        <HStack gap="x1">
+          <Button size="small" variant="outline" color="secondary">
+            자세히
+          </Button>
+          <Button size="small" variant="outline" color="danger">
+            반려
+          </Button>
+          <Button size="small">{item.myRole === "agree" ? "합의" : "승인"}</Button>
+        </HStack>
+      </VStack>
+    </HStack>
+  </Card>
 );
 
 /** 시안 A — 처리 큐형: 급한 결재부터 카드로 쌓고, 핵심 정보·AI 한 줄을 보고 그 자리에서 승인·반려. */
@@ -76,18 +78,22 @@ export const ApprovalQueueMock = () => {
     setSelectedIds((prev) => (isChecked ? [...prev, id] : prev.filter((selectedId) => selectedId !== id)));
 
   return (
-    <div className={css.page}>
+    <VStack gap="x4">
       <MockPageHead
         variant="A. 처리 큐형"
         description="급한 결재부터 카드로 보여주고, 금액·기간 같은 핵심 정보와 AI 한 줄을 보고 목록에서 바로 승인·반려합니다. 여러 건을 골라 한꺼번에 승인할 수 있어요."
-      >
-        <p className={css.headSummary}>
-          처리할 결재 <span className={css.headStrong}>{PENDING_ITEMS.length}건</span> · 3일 넘게 기다린 결재{" "}
-          <span className={css.headStrong}>{PENDING_ITEMS.filter((item) => item.waitingDays >= 3).length}건</span>
-        </p>
-      </MockPageHead>
+      />
 
-      <div className={css.queueToolbar}>
+      <Widget title="내 결재">
+        <StatGrid>
+          <StatCell label="내 차례" value={PENDING_ITEMS.length} valueColor="primary" active />
+          <StatCell label="3일 넘게 대기" value={LATE_COUNT} valueColor="danger" />
+          <StatCell label="내 차례 예정" value={UPCOMING_COUNT} valueColor="heading" />
+          <StatCell label="최근 30일 처리" value={PROCESSED_COUNT} valueColor="heading" />
+        </StatGrid>
+      </Widget>
+
+      <HStack gap="x3" justify="between" align="center">
         <ButtonGroup
           variant="segmented"
           value={tab}
@@ -101,9 +107,9 @@ export const ApprovalQueueMock = () => {
         <Button size="small" disabled={selectedIds.length === 0}>
           선택한 {selectedIds.length}건 승인
         </Button>
-      </div>
+      </HStack>
 
-      <div className={css.queueList}>
+      <VStack gap="x3">
         {SORTED_ITEMS.map((item) => (
           <QueueCard
             key={item.id}
@@ -112,7 +118,7 @@ export const ApprovalQueueMock = () => {
             onToggle={(isChecked) => handleToggle(item.id, isChecked)}
           />
         ))}
-      </div>
-    </div>
+      </VStack>
+    </VStack>
   );
 };
