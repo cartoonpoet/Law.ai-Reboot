@@ -13,6 +13,7 @@ import { ADVICE_STATUS_COLOR, ADVICE_STATUS_LABEL } from "../adviceMeta";
 import { getAdviceProgress } from "../getAdviceProgress";
 import { useAdviceDetail, type AdviceMessageInput } from "../hooks/useAdviceDetail";
 import { AdviceActionPanel } from "./AdviceActionPanel";
+import { AdviceAiCard } from "./AdviceAiCard";
 import { AdviceApprovalCard } from "./AdviceApprovalCard";
 import { AdviceContentCard } from "./AdviceContentCard";
 import { AdviceFilesCard } from "./AdviceFilesCard";
@@ -96,6 +97,7 @@ export const AdviceDetailPage = () => {
 
       <div className={base.railGrid}>
         <div className={base.stack}>
+          <AdviceAiCard adviceId={advice.id} />
           <AdviceContentCard advice={advice} />
           <AdviceThreadCard
             advice={advice}

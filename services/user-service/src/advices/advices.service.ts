@@ -28,6 +28,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { NotificationService } from "../notifications/notifications.service";
 import type { CreateNotificationInput } from "../notifications/notifications.service";
+import { AiAnalysisService } from "../ai-analysis/ai-analysis.service";
+import { buildAdviceBriefPayload } from "./advice-brief.payload";
 import { resolveTenantId, tenantScope } from "../common/tenant-scope";
 import {
   checkCanSeeSecretCc,
@@ -41,6 +43,10 @@ import {
 } from "./advices.authz";
 
 const NOT_FOUND_MESSAGE = "자문을 찾을 수 없습니다";
+// AI 자문 도우미 — 자문 대상 분석 종류와 참고로 보여줄 지난 자문 수.
+export const ADVICE_AI_TARGET_TYPE = "advice";
+export const ADVICE_AI_KIND = "adviceBrief";
+const SIMILAR_ADVICE_LIMIT = 3;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const CODE_RETRY_LIMIT = 3;
@@ -164,6 +170,7 @@ export class AdvicesService {
     private readonly prisma: PrismaService,
     private readonly approvals: ApprovalsService,
     private readonly notifications: NotificationService,
+    private readonly aiAnalysis: AiAnalysisService,
   ) {}
 
   async create(req: CreateAdviceRequest): Promise<AdviceMutationResult> {
@@ -196,6 +203,8 @@ export class AdvicesService {
     };
 
     const row = await this.createWithUniqueCode(data);
+    // 담당자가 검토를 시작할 때 쓸 정리 — 백그라운드로 만든다(실패해도 요청은 그대로 접수).
+    void this.triggerBrief(row, viewer.id);
     const notifications = needsApproval
       ? await this.submitApproval(row, viewer.id, ADVICE_APPROVAL_TARGET.REQUEST, req.approvers)
       : [];
@@ -415,6 +424,40 @@ export class AdvicesService {
     const targets = Array.from(new Set(recipientIds.filter((id): id is string => Boolean(id) && id !== actorId)));
     if (targets.length === 0) return [];
     return this.notifications.createMany(targets.map((recipientId) => this.toNotification(row, recipientId, type, actorId)));
+  }
+
+  /** AI 자문 도우미 분석을 백그라운드로 시작한다. 비슷한 지난 자문은 같은 분류의 회신 완료·종결 건에서 찾는다. */
+  private async triggerBrief(row: AdviceBaseRow, triggeredByUserId: string): Promise<void> {
+    const similar = await this.prisma.advice.findMany({
+      where: {
+        tenantId: row.tenantId,
+        id: { not: row.id },
+        deletedAt: null,
+        status: { in: ["answered", "closed"] },
+        ...(row.categories.length > 0 ? { categories: { hasSome: row.categories } } : {}),
+      },
+      orderBy: { answeredAt: "desc" },
+      take: SIMILAR_ADVICE_LIMIT,
+      include: { messages: { where: { kind: "answer", state: "published" }, orderBy: { createdAt: "desc" }, take: 1 } },
+    });
+
+    void this.aiAnalysis.trigger({
+      targetType: ADVICE_AI_TARGET_TYPE,
+      targetId: row.id,
+      kind: ADVICE_AI_KIND,
+      tenantId: row.tenantId,
+      triggeredByUserId,
+      payload: buildAdviceBriefPayload(
+        row,
+        similar.map((advice) => ({
+          code: advice.code,
+          title: advice.title,
+          categories: advice.categories,
+          answer: advice.messages[0]?.body ?? null,
+          answeredAt: advice.answeredAt,
+        })),
+      ),
+    });
   }
 
   private async loadApprovals(adviceId: string): Promise<AdviceApprovals> {
