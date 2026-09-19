@@ -4,6 +4,24 @@ import * as css from "./mockups.css";
 export function MockupsIndex() {
   return (
     <div className={css.indexWrap}>
+      <h2 className={css.indexHero}>송무</h2>
+      <Link to="/mockups/litigation-table" className={css.indexCard}>
+        <h3>A. 사건 조회 — 표형</h3>
+        <p>계약 조회와 같은 표에 사건번호·법원·우리 지위·상대방·심급·소가·다음 기일을 넣었습니다. 상태 탭에 건수 표시.</p>
+      </Link>
+      <Link to="/mockups/litigation-board" className={css.indexCard}>
+        <h3>B. 사건 조회 — 기일 중심 카드형</h3>
+        <p>기일이 가까운 사건이 위로. 카드 하나에 다음 기일·낼 서면·심급 진행·로아이 한 줄까지.</p>
+      </Link>
+      <Link to="/mockups/litigation-hearings" className={css.indexCard}>
+        <h3>기일 — 달력 · 목록</h3>
+        <p>같은 기일을 달력과 목록으로 전환해 봅니다. 달력의 일정을 누르면 사건 정보 팝오버.</p>
+      </Link>
+      <Link to="/mockups/litigation-detail" className={css.indexCard}>
+        <h3>사건 상세</h3>
+        <p>계약 상세와 같은 뼈대 — 요약 줄 + 사건 흐름·기일·서면 + 로아이 정리·외부 선임.</p>
+      </Link>
+
       <h2 className={css.indexHero}>결재 대기함</h2>
       <Link to="/mockups/approval-inbox-a" className={css.indexCard}>
         <h3>A. 처리 큐형</h3>
