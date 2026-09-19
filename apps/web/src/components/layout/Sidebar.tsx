@@ -3,8 +3,9 @@ import { Icon } from "@lawkit/ui";
 import type { IconName } from "@lawkit/ui";
 import { Logo } from "../ui/Logo";
 import { useCommandPalette } from "../search/useCommandPalette";
-import { NAV_SECTIONS } from "./navSections";
+import { getVisibleNavSections } from "./navPermission";
 import type { NavItemTypes } from "./navSections";
+import { useNavPermission } from "./hooks/useNavPermission";
 import { ProfileMenu } from "./ProfileMenu";
 import * as css from "./sidebar.css";
 
@@ -13,6 +14,7 @@ export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const palette = useCommandPalette();
+  const permission = useNavPermission();
 
   return (
     <aside className={css.aside}>
@@ -30,7 +32,7 @@ export function Sidebar() {
       </button>
 
       <nav className={css.nav}>
-        {NAV_SECTIONS.map((section, sectionIdx) => (
+        {getVisibleNavSections(permission).map((section, sectionIdx) => (
           <div key={section.label}>
             <div
               className={

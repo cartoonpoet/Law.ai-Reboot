@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import type { ApprovalLineDto } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+import { StatusEventsService } from "../common/status-events/status-events.service";
 import {
   ApprovalOutcomeRegistry,
   ApprovalOutcomeHandler,
@@ -21,6 +22,7 @@ export class ContractApprovalOutcomeHandler
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: ApprovalOutcomeRegistry,
+    private readonly statusEvents: StatusEventsService,
   ) {}
 
   onModuleInit(): void {
@@ -32,10 +34,31 @@ export class ContractApprovalOutcomeHandler
   }
 
   async onRejected(line: ApprovalLineDto): Promise<void> {
-    await this.prisma.contract.updateMany({
+    const { count } = await this.prisma.contract.updateMany({
       where: { id: line.targetId, status: "signing" },
       data: { status: "reviewDone" },
     });
+    if (count === 0) return;
+    // 통계용 상태 기록 — updateMany 는 바뀐 행을 안 돌려줘 담당자만 따로 읽는다.
+    // 통계를 위해서만 하는 조회이므로 여기서 나는 오류가 결재 반려 처리를 깨지 않게 통째로 감싼다.
+    try {
+      const row = await this.prisma.contract.findUnique({
+        where: { id: line.targetId },
+        select: { tenantId: true, ownerId: true },
+      });
+      if (!row) return;
+      await this.statusEvents.record({
+        tenantId: row.tenantId,
+        targetType: "contract",
+        targetId: line.targetId,
+        fromStatus: "signing",
+        toStatus: "reviewDone",
+        ownerId: row.ownerId,
+        actorId: null,
+      });
+    } catch {
+      // 기록 실패는 삼킨다(StatusEventsService 안에서 이미 로깅한다).
+    }
   }
 
   // 결재 대기함의 "관리번호 · 계약" 표시와 삭제된 계약 구분용. 대기함 라인은 이미 테넌트로 한정돼 있어 id 로만 조회한다.

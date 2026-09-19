@@ -73,7 +73,7 @@ const getBottomNav = () => within(screen.getByRole("navigation", { name: "로아
 
 describe("AiAssistant", () => {
   beforeEach(() => {
-    vi.mocked(useMe).mockReturnValue({ me: ME });
+    vi.mocked(useMe).mockReturnValue({ me: ME, isPending: false, isError: false, refetch: () => {} });
     vi.mocked(chatWithAssistant).mockReset();
     vi.mocked(updateContractStatus).mockReset();
     mockNotifications();
@@ -86,7 +86,7 @@ describe("AiAssistant", () => {
     expect(screen.getByText(/안녕하세요, 김지원 님/)).toBeInTheDocument();
     unmount();
 
-    vi.mocked(useMe).mockReturnValue({ me: null });
+    vi.mocked(useMe).mockReturnValue({ me: null, isPending: false, isError: false, refetch: () => {} });
     renderAssistant();
     await user.click(screen.getByRole("button", { name: "로아이 열기" }));
     expect(screen.getByRole("heading", { name: /^안녕하세요\s*무엇을 도와드릴까요\?$/ })).toBeInTheDocument();

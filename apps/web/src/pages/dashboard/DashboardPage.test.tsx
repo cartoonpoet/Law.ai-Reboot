@@ -10,6 +10,8 @@ import type { DeadlineItem, TodoItem } from "./dashboardTypes";
 vi.mock("./hooks/useDashboard");
 // AI 브리핑 카드는 AiBriefCard.test 에서 따로 검증한다.
 vi.mock("./AiBriefCard", () => ({ AiBriefCard: () => null }));
+// 소요시간 카드는 자체 조회를 하므로 여기서는 보임/안 보임만 확인한다.
+vi.mock("./CycleTimeCard", () => ({ CycleTimeCard: () => <div>계약 단계별 소요시간</div> }));
 
 const navigateMock = vi.fn();
 vi.mock("react-router-dom", async (orig) => {
@@ -48,6 +50,8 @@ const mockDashboard = (overrides: Partial<ReturnType<typeof useDashboard>> = {})
     isPipelineLoading: false,
     deadlines: [DEADLINE],
     isDeadlinesLoading: false,
+    canSeeStats: false,
+    isStatsPermissionLoading: false,
     ...overrides,
   });
 
@@ -101,5 +105,23 @@ describe("DashboardPage", () => {
     renderPage();
     expect(screen.getByText("할 일을 불러오는 중이에요")).toBeInTheDocument();
     expect(screen.getByText("불러오는 중")).toBeInTheDocument();
+  });
+});
+
+describe("DashboardPage 소요시간 카드", () => {
+  beforeEach(() => {
+    navigateMock.mockReset();
+  });
+
+  it("권한이 있으면 소요시간 카드를 보여준다", () => {
+    mockDashboard({ canSeeStats: true });
+    renderPage();
+    expect(screen.getByText("계약 단계별 소요시간")).toBeInTheDocument();
+  });
+
+  it("권한이 없으면 소요시간 카드를 아예 그리지 않는다", () => {
+    mockDashboard({ canSeeStats: false });
+    renderPage();
+    expect(screen.queryByText("계약 단계별 소요시간")).not.toBeInTheDocument();
   });
 });

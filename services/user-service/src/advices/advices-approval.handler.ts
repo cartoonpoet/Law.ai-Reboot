@@ -8,6 +8,7 @@ import {
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationService } from "../notifications/notifications.service";
+import { StatusEventsService } from "../common/status-events/status-events.service";
 import {
   ApprovalOutcomeRegistry,
   type ApprovalOutcomeHandler,
@@ -28,6 +29,40 @@ const getAdviceTargetInfo = async (
 };
 
 /**
+ * 결재로 상태가 바뀐 자문을 통계용으로 기록한다.
+ * updateMany 가 실제로 바꾼 건수(changed)가 0 이면 이 결재로 바뀐 것이 아니므로 아무것도 남기지 않는다 —
+ * 그 사이 다른 경로로 상태가 바뀐 자문에 일어나지 않은 전이를 적지 않기 위함이다.
+ */
+const recordAdviceStatus = async (
+  prisma: PrismaService,
+  statusEvents: StatusEventsService,
+  adviceId: string,
+  fromStatus: string,
+  changed: number,
+): Promise<void> => {
+  if (changed === 0) return;
+  // 통계를 위해서만 하는 조회다 — 여기서 나는 오류가 결재 확정을 깨면 안 되므로 조회까지 통째로 감싼다.
+  try {
+    const row = await prisma.advice.findUnique({
+      where: { id: adviceId },
+      select: { id: true, tenantId: true, ownerId: true, status: true },
+    });
+    if (!row || row.status === fromStatus) return;
+    await statusEvents.record({
+      tenantId: row.tenantId,
+      targetType: "advice",
+      targetId: row.id,
+      fromStatus,
+      toStatus: row.status,
+      ownerId: row.ownerId,
+      actorId: null,
+    });
+  } catch {
+    // 기록 실패는 삼킨다(StatusEventsService 안에서 이미 로깅한다).
+  }
+};
+
+/**
  * 요청 결재 확정 → 자문 상태 역전파.
  * 승인: 담당이 정해져 있으면 바로 검토, 아니면 접수. 반려: 요청 반려(작성자가 결재선을 고쳐 다시 올린다).
  * 상태 조건을 걸어 갱신하므로 그 사이 다른 흐름으로 바뀐 자문은 건드리지 않는다.
@@ -39,6 +74,7 @@ export class AdviceRequestApprovalHandler implements ApprovalOutcomeHandler, OnM
   constructor(
     private readonly prisma: PrismaService,
     private readonly registry: ApprovalOutcomeRegistry,
+    private readonly statusEvents: StatusEventsService,
   ) {}
 
   onModuleInit(): void {
@@ -46,21 +82,29 @@ export class AdviceRequestApprovalHandler implements ApprovalOutcomeHandler, OnM
   }
 
   async onApproved(line: ApprovalLineDto): Promise<void> {
-    await this.prisma.advice.updateMany({
+    const toReviewing = await this.prisma.advice.updateMany({
       where: { id: line.targetId, status: "requestApproval", ownerId: { not: null } },
       data: { status: "reviewing" },
     });
-    await this.prisma.advice.updateMany({
+    const toReceived = await this.prisma.advice.updateMany({
       where: { id: line.targetId, status: "requestApproval", ownerId: null },
       data: { status: "received" },
     });
+    await recordAdviceStatus(
+      this.prisma,
+      this.statusEvents,
+      line.targetId,
+      "requestApproval",
+      toReviewing.count + toReceived.count,
+    );
   }
 
   async onRejected(line: ApprovalLineDto): Promise<void> {
-    await this.prisma.advice.updateMany({
+    const { count } = await this.prisma.advice.updateMany({
       where: { id: line.targetId, status: "requestApproval" },
       data: { status: "requestRejected" },
     });
+    await recordAdviceStatus(this.prisma, this.statusEvents, line.targetId, "requestApproval", count);
   }
 
   getTargetInfo(targetIds: string[]): Promise<Record<string, ApprovalTargetInfo>> {
@@ -80,6 +124,7 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
     private readonly prisma: PrismaService,
     private readonly registry: ApprovalOutcomeRegistry,
     private readonly notifications: NotificationService,
+    private readonly statusEvents: StatusEventsService,
   ) {}
 
   onModuleInit(): void {
@@ -87,7 +132,7 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
   }
 
   async onApproved(line: ApprovalLineDto): Promise<PushNotification[]> {
-    await this.prisma.$transaction([
+    const [, adviceUpdate] = await this.prisma.$transaction([
       this.prisma.adviceMessage.updateMany({
         where: { adviceId: line.targetId, state: "pendingApproval" },
         data: { state: "published" },
@@ -97,6 +142,7 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
         data: { status: "answered", answeredAt: new Date() },
       }),
     ]);
+    await recordAdviceStatus(this.prisma, this.statusEvents, line.targetId, "answerApproval", adviceUpdate.count);
     return this.notifyAnswered(line);
   }
 
@@ -124,7 +170,7 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
   }
 
   async onRejected(line: ApprovalLineDto): Promise<void> {
-    await this.prisma.$transaction([
+    const [, adviceUpdate] = await this.prisma.$transaction([
       this.prisma.adviceMessage.updateMany({
         where: { adviceId: line.targetId, state: "pendingApproval" },
         data: { state: "rejected" },
@@ -134,6 +180,7 @@ export class AdviceAnswerApprovalHandler implements ApprovalOutcomeHandler, OnMo
         data: { status: "reviewing" },
       }),
     ]);
+    await recordAdviceStatus(this.prisma, this.statusEvents, line.targetId, "answerApproval", adviceUpdate.count);
   }
 
   getTargetInfo(targetIds: string[]): Promise<Record<string, ApprovalTargetInfo>> {

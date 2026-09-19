@@ -1,6 +1,7 @@
 // AI 비서가 "지금 보고 있는 화면"으로 쓰는 이름. 사이드바 메뉴 이름과 맞춘다.
 const SCREEN_LABELS: { pattern: RegExp; label: string }[] = [
   { pattern: /^\/$/, label: "대시보드" },
+  { pattern: /^\/stats$/, label: "업무 통계" },
   { pattern: /^\/contract\/list$/, label: "계약 조회" },
   { pattern: /^\/contract\/request$/, label: "계약서 검토 요청" },
   { pattern: /^\/contract\/[^/]+\/edit$/, label: "계약 수정" },

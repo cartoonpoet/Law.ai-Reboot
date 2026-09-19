@@ -47,14 +47,14 @@ const renderAt = (path: string) =>
 describe("SettingsPage (내 정보 설정)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useMe).mockReturnValue({ me: ME });
+    vi.mocked(useMe).mockReturnValue({ me: ME, isPending: false, isError: false, refetch: () => {} });
     vi.mocked(useTenantSwitcher).mockReturnValue({
       memberships: [
         { tenantId: "t1", name: "휴맥스아이티", role: "inHouseCounsel", isActive: true },
         { tenantId: "t2", name: "넥스트랩", role: "outsideCounsel", isActive: false },
       ],
       activeMembership: { tenantId: "t1", name: "휴맥스아이티", role: "inHouseCounsel", isActive: true },
-      isLoading: false,
+      isLoading: false, isPending: false, isError: false, refetch: () => {},
       switchTo: vi.fn(),
       switchingTenantId: null,
       isSwitchError: false,
@@ -123,7 +123,7 @@ describe("SettingsPage (내 정보 설정)", () => {
       expect(screen.queryByRole("button", { name: "사진 삭제" })).not.toBeInTheDocument();
       unmount();
 
-      vi.mocked(useMe).mockReturnValue({ me: { ...ME, avatarUrl: "/users/u1/avatar/a.png" } });
+      vi.mocked(useMe).mockReturnValue({ me: { ...ME, avatarUrl: "/users/u1/avatar/a.png" } , isPending: false, isError: false, refetch: () => {} });
       renderAt("/settings/profile");
       expect(screen.getByRole("img", { name: "손준호 프로필 사진" })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "사진 삭제" }));

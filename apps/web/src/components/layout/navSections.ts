@@ -2,7 +2,10 @@
 export const NAV_SECTIONS = [
   {
     label: "개요",
-    items: [{ id: "home", label: "홈", icon: "home", path: "/" }],
+    items: [
+      { id: "home", label: "홈", icon: "home", path: "/" },
+      { id: "stats", label: "업무 통계", icon: "barChart", path: "/stats" },
+    ],
   },
   {
     label: "계약 관리",

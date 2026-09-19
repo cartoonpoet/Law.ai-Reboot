@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { AiBriefCard } from "./AiBriefCard";
+import { CycleTimeCard } from "./CycleTimeCard";
 import { DeadlinePanel } from "./DeadlinePanel";
 import { useDashboard } from "./hooks/useDashboard";
 import { PipelineStrip } from "./PipelineStrip";
@@ -40,7 +41,10 @@ export const DashboardPage = () => {
           isLoading={dashboard.isTodosLoading}
           onOpen={(todo) => navigate(todo.path)}
         />
-        <DeadlinePanel deadlines={dashboard.deadlines} isLoading={dashboard.isDeadlinesLoading} onOpen={(d) => navigate(d.path)} />
+        <div className={css.rail}>
+          {dashboard.canSeeStats && <CycleTimeCard />}
+          <DeadlinePanel deadlines={dashboard.deadlines} isLoading={dashboard.isDeadlinesLoading} onOpen={(d) => navigate(d.path)} />
+        </div>
       </div>
     </div>
   );

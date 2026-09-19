@@ -18,7 +18,8 @@ const line = (over: Partial<ApprovalLineDto> = {}): ApprovalLineDto => ({
 });
 
 describe("ContractApprovalOutcomeHandler", () => {
-  let prisma: { contract: { updateMany: jest.Mock; findMany: jest.Mock } };
+  let prisma: { contract: { updateMany: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock } };
+  const statusEvents = { record: jest.fn() };
   let registry: ApprovalOutcomeRegistry;
   let handler: ContractApprovalOutcomeHandler;
 
@@ -27,10 +28,12 @@ describe("ContractApprovalOutcomeHandler", () => {
       contract: {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue({ tenantId: "t1", ownerId: "owner" }),
       },
     };
     registry = new ApprovalOutcomeRegistry();
-    handler = new ContractApprovalOutcomeHandler(prisma as never, registry);
+    statusEvents.record.mockClear();
+    handler = new ContractApprovalOutcomeHandler(prisma as never, registry, statusEvents as never);
   });
 
   it("onModuleInit 에서 registry 에 contract 핸들러로 등록된다", () => {

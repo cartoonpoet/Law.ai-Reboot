@@ -91,6 +91,11 @@ export const ADVICE_PATTERNS = {
   RESUBMIT_REQUEST_APPROVAL: "advice.resubmitRequestApproval",
 } as const;
 
+// 업무 통계 — 단계별 소요시간.
+export const STATS_PATTERNS = {
+  CYCLE_TIME: "stats.cycleTime",
+} as const;
+
 export const APPROVAL_PATTERNS = {
   DECIDE: "approval.decide",
   INBOX: "approval.inbox",

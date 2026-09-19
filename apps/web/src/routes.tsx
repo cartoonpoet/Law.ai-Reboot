@@ -8,6 +8,7 @@ import { SignupPage } from "./pages/login/SignupPage";
 import { InviteAcceptPage } from "./pages/login/InviteAcceptPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { MembersPage } from "./pages/members/MembersPage";
+import { StatsPage } from "./pages/stats/StatsPage";
 import { SystemSettingsPage } from "./pages/system/SystemSettingsPage";
 import { ExpiringContractsPage } from "./pages/contract/expiring/ExpiringContractsPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
@@ -30,6 +31,10 @@ import { AdviceDetailPage } from "./pages/advice/detail/AdviceDetailPage";
 import { ApprovalQueueMock } from "./pages/mockups/approvalInbox/ApprovalQueueMock";
 import { ApprovalSplitMock } from "./pages/mockups/approvalInbox/ApprovalSplitMock";
 import { ApprovalGroupedMock } from "./pages/mockups/approvalInbox/ApprovalGroupedMock";
+import { CaseTableMock } from "./pages/mockups/litigation/CaseTableMock";
+import { CaseBoardMock } from "./pages/mockups/litigation/CaseBoardMock";
+import { HearingScheduleMock } from "./pages/mockups/litigation/HearingScheduleMock";
+import { CaseDetailMock } from "./pages/mockups/litigation/CaseDetailMock";
 import { NotFoundPage } from "./components/feedback/NotFoundPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -55,6 +60,10 @@ export function AppRoutes() {
         <Route path="/mockups/approval-inbox-a" element={<ApprovalQueueMock />} />
         <Route path="/mockups/approval-inbox-b" element={<ApprovalSplitMock />} />
         <Route path="/mockups/approval-inbox-c" element={<ApprovalGroupedMock />} />
+        <Route path="/mockups/litigation-table" element={<CaseTableMock />} />
+        <Route path="/mockups/litigation-board" element={<CaseBoardMock />} />
+        <Route path="/mockups/litigation-hearings" element={<HearingScheduleMock />} />
+        <Route path="/mockups/litigation-detail" element={<CaseDetailMock />} />
       </Route>
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<LoginPage />} />
@@ -71,6 +80,7 @@ export function AppRoutes() {
         }
       >
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/stats" element={<StatsPage />} />
         <Route path="/contract/list" element={<ContractListPage />} />
         <Route path="/contract/request" element={<ContractCreatePage />} />
         <Route path="/contract/expiring" element={<ExpiringContractsPage />} />
