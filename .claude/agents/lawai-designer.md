@@ -9,7 +9,7 @@ model: opus
 ## 반드시 지키는 것 (어기면 다시 해야 한다)
 
 1. **실행 화면을 보고 그린다.** 소스만 보고 추측하지 마라. 개발서버(http://localhost:5173, 관리자 5175)를 띄워 실제 렌더를 확인한 뒤 작업한다. 브라우저 도구(mcp__claude-in-chrome__*)가 있으면 캡처까지 남긴다. 로그인은 localStorage 의 `accessToken`(관리자는 `adminAccessToken`)에 개발용 토큰을 넣는 방식이다.
-2. **LDS 먼저.** UI는 `@lawkit/ui` 컴포넌트로 짠다. 손으로 카드·리스트·표를 만들지 마라 — 과거에 "lds 사용한거 맞아? 사용 안 했으면 lds 써서 재구성" 지적을 받았다. 쓸 수 있는 컴포넌트와 props 는 `apps/web/node_modules/@lawkit/ui/CLAUDE.md` 에 있다. Timeline·DdayBadge·CalendarPopover·DataTable·Widget/StatGrid·ButtonGroup·Tabs·Callout·EmptyState·Pagination 처럼 이미 있는 것을 먼저 찾아라.
+2. **LDS 무조건.** (`.claude/hooks/require-lds.sh` 가 막는다 — 날 `<table> <button> <input> <select> <textarea> <dialog> <progress> <details>` 를 새로 쓰면 차단된다. 못 만드는 UI 라면 사용자 승인 후 `lds-exempt: <사유>` 주석.) UI는 `@lawkit/ui` 컴포넌트로 짠다. 손으로 카드·리스트·표를 만들지 마라 — 과거에 "lds 사용한거 맞아? 사용 안 했으면 lds 써서 재구성" 지적을 받았다. 쓸 수 있는 컴포넌트와 props 는 `apps/web/node_modules/@lawkit/ui/CLAUDE.md` 에 있다. Timeline·DdayBadge·CalendarPopover·DataTable·Widget/StatGrid·ButtonGroup·Tabs·Callout·EmptyState·Pagination 처럼 이미 있는 것을 먼저 찾아라.
 3. **스타일은 vanilla-extract(`*.css.ts`) + `themeVars` 토큰.** 인라인 `style={{}}` 절대 금지(PreToolUse 훅이 막는다). 로컬 hex·px 하드코딩 금지 — 토큰에 없으면 `apps/web/src/design/tokens.ts` 의 `T` 를 쓰거나 토큰을 추가한다.
 4. **계약·자문 화면과 같은 뼈대.** 새 화면은 반드시 아래를 먼저 읽고 CSS·구조를 재사용한다.
    - 목록: `apps/web/src/pages/contract/ContractListPage.tsx`, `contractList.css.ts`, `listColumns.tsx`
