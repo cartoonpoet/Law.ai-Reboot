@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { getErrorStatus } from "../../../api/apiError";
 import type { CycleTimeTargetTypes } from "@lawai/contracts";
 import { listTenantMembers } from "../../../api/members";
 import { useNavPermission } from "../../../components/layout/hooks/useNavPermission";
@@ -45,7 +46,10 @@ export const useCycleTimeStats = () => {
     isPermissionLoading: permission.isLoading,
     // 권한을 못 불러온 것과 통계를 못 불러온 것은 화면에서 다르게 안내한다.
     isPermissionError: permission.isError,
+    retryPermission: permission.retry,
     isError: query.isError,
+    // 서버가 막은 경우(화면 판정과 서버 판정이 어긋난 순간) — 다시 시도해도 소용없으니 권한 안내로 보낸다.
+    isForbidden: getErrorStatus(query.error) === 403,
     retry: () => void query.refetch(),
     targetType,
     changeTargetType: setTargetType,

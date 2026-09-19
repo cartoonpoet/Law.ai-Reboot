@@ -34,13 +34,13 @@ export const CycleTimeCard = () => {
     >
       <StatGrid>
         <StatCell
-          label="접수 → 체결 평균"
+          label="접수 → 체결 평균 (최근 6개월)"
           value={summary.isLoading ? LOADING_TEXT : formatDays(summary.avgDays)}
           valueColor={isSlow ? "danger" : "heading"}
         />
         <StatCell
           label="목표일 넘긴 건"
-          value={summary.overdueCount === null ? LOADING_TEXT : `${summary.overdueCount}건`}
+          value={summary.isLoading ? LOADING_TEXT : `${summary.overdueCount ?? 0}건`}
           valueColor={hasOverdue ? "danger" : "heading"}
         />
       </StatGrid>

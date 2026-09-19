@@ -22,13 +22,15 @@ export const StatsBody = ({ view }: StatsBodyProps) => {
         <EmptyState
           icon={<Icon name="alertTriangle" size="lg" />}
           title="권한을 확인하지 못했습니다"
-          description="잠시 후 다시 시도해 주세요. 계속 이러면 화면을 새로고침해 주세요."
+          description="잠시 후 다시 시도해 주세요."
+          action={<Button onClick={view.retryPermission}>다시 시도</Button>}
         />
       </div>
     );
   }
 
-  if (!view.canSee) {
+  // 서버가 막았으면 화면 판정과 무관하게 권한 안내를 보여준다(다시 시도해도 소용없다).
+  if (!view.canSee || view.isForbidden) {
     return (
       <div className={css.emptyWrap}>
         <EmptyState

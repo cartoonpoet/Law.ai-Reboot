@@ -73,7 +73,7 @@ const openPalette = async () => {
 describe("CommandPalette", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useMe).mockReturnValue({ me: null, isPending: false, isError: false });
+    vi.mocked(useMe).mockReturnValue({ me: null, isPending: false, isError: false, refetch: () => {} });
     vi.mocked(useNotifications).mockReturnValue({
       notifications: [],
       unreadCount: 0,

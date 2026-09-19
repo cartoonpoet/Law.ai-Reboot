@@ -19,7 +19,9 @@ const createView = (over: Partial<CycleTimeViewTypes>): CycleTimeViewTypes =>
     stats: null,
     isFetching: false,
     isPermissionError: false,
+    retryPermission: () => {},
     isError: false,
+    isForbidden: false,
     retry: () => {},
     ...over,
   }) as CycleTimeViewTypes;
@@ -40,6 +42,18 @@ describe("StatsBody", () => {
     render(<StatsBody view={createView({ canSee: false, isPermissionError: true })} />);
     expect(screen.getByText("권한을 확인하지 못했습니다")).toBeInTheDocument();
     expect(screen.queryByText("업무 통계는 법무팀만 볼 수 있습니다")).not.toBeInTheDocument();
+  });
+
+  // 서버가 403 을 주면 다시 시도해도 소용없다 — 권한 안내로 보내야 한다.
+  it("서버가 막으면 다시 시도가 아니라 권한 안내를 보여준다", () => {
+    render(<StatsBody view={createView({ isError: true, isForbidden: true })} />);
+    expect(screen.getByText("업무 통계는 법무팀만 볼 수 있습니다")).toBeInTheDocument();
+    expect(screen.queryByText("통계를 불러오지 못했습니다")).not.toBeInTheDocument();
+  });
+
+  it("권한을 못 불러왔을 때도 다시 시도할 수 있다", () => {
+    render(<StatsBody view={createView({ canSee: false, isPermissionError: true })} />);
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
   });
 
   it("통계를 못 불러오면 다시 시도할 수 있게 한다", () => {

@@ -18,6 +18,10 @@ export const RANGE_PRESETS: { value: RangePresetTypes; label: string; months: nu
 
 export const DEFAULT_RANGE_PRESET: RangePresetTypes = "6m";
 
+const getMonths = (preset: RangePresetTypes): number =>
+  RANGE_PRESETS.find((item) => item.value === preset)?.months ??
+  RANGE_PRESETS.find((item) => item.value === DEFAULT_RANGE_PRESET)!.months;
+
 const SEOUL = "Asia/Seoul";
 
 /** 한국 시간 기준 YYYY-MM-DD. sv-SE 로케일이 그 형식을 그대로 준다. */
@@ -31,7 +35,7 @@ const getSeoulParts = (date: Date): { year: number; month: number; day: number }
 
 /** "최근 N개월" = N개월 전 그 달 1일부터 오늘까지(한국 시간 기준, 서버 기본 계산과 같은 방식). */
 export const getPresetRange = (preset: RangePresetTypes, now: Date): RangeTypes => {
-  const months = RANGE_PRESETS.find((item) => item.value === preset)?.months ?? 6;
+  const months = getMonths(preset);
   const today = getSeoulParts(now);
   // 월을 빼면서 연도가 넘어가는 것은 Date 가 알아서 처리한다(UTC 로 만들어도 날짜만 읽으므로 안전).
   const start = new Date(Date.UTC(today.year, today.month - 1 - (months - 1), 1));

@@ -1,6 +1,6 @@
 import type { TenantRole } from "@lawai/contracts";
 
-/** 홈 대시보드의 소요시간 카드를 볼 수 있는 역할 — 법무 업무를 관리하는 사람만. */
+/** 업무 통계(메뉴·홈 카드·화면)를 볼 수 있는 역할 — 법무 업무를 관리하는 사람만. */
 const STATS_ROLES: TenantRole[] = ["inHouseCounsel"];
 
 /**

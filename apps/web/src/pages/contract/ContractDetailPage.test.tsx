@@ -95,6 +95,7 @@ describe("ContractDetailPage", () => {
       me: { id: "u1", email: "u1@test.com", name: "이희규", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "2026-01-01T00:00:00.000Z", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: null },
       isPending: false,
       isError: false,
+      refetch: () => {},
     });
     vi.mocked(commentsApi.listComments).mockResolvedValue([
       {

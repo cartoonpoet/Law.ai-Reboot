@@ -11,5 +11,10 @@ export const ME_QUERY_KEY = ["me"] as const;
  */
 export const useMe = () => {
   const query = useQuery({ queryKey: ME_QUERY_KEY, queryFn: getMe, meta: { errorMode: "silent" } });
-  return { me: query.data ?? null, isPending: query.isPending, isError: query.isError };
+  return {
+    me: query.data ?? null,
+    isPending: query.isPending,
+    isError: query.isError,
+    refetch: () => void query.refetch(),
+  };
 };

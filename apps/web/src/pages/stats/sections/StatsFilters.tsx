@@ -16,7 +16,7 @@ const TARGET_ITEMS = [
 
 const RANGE_OPTIONS = RANGE_PRESETS.map((preset) => ({ value: preset.value, label: preset.label }));
 
-const pickSingle = (value: string | string[]): string => (Array.isArray(value) ? value[0] ?? "" : value);
+const getSingleValue = (value: string | string[]): string => (Array.isArray(value) ? value[0] ?? "" : value);
 
 /** 대상·기간·담당자 필터와, 기간 기준과 현재 기준이 어떻게 다른지 밝히는 한 줄. */
 export const StatsFilters = ({ view }: StatsFiltersProps) => (
@@ -28,19 +28,19 @@ export const StatsFilters = ({ view }: StatsFiltersProps) => (
         value={view.targetType}
         onChange={(value) => view.changeTargetType(String(value) as CycleTimeTargetTypes)}
       />
-      <div className={css.filterSelect}>
+      <div className={css.filterSelect} role="group" aria-label="기간">
         <Dropdown
           options={RANGE_OPTIONS}
           value={view.preset}
-          onChange={(value) => view.changePreset(pickSingle(value) as RangePresetTypes)}
+          onChange={(value) => view.changePreset(getSingleValue(value) as RangePresetTypes)}
         />
       </div>
-      <div className={css.filterSelect}>
+      <div className={css.filterSelect} role="group" aria-label="담당자">
         <Dropdown
           options={view.ownerOptions}
           value={view.ownerId}
           placeholder="담당자 전체"
-          onChange={(value) => view.changeOwnerId(pickSingle(value))}
+          onChange={(value) => view.changeOwnerId(getSingleValue(value))}
         />
       </div>
       <div className={css.filterSpacer} />

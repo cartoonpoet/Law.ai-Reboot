@@ -1,5 +1,5 @@
 import type { TenantRole } from "@lawai/contracts";
-import { canSeeCycleTimeStats } from "../../pages/stats/canSeeCycleTimeStats";
+import { canSeeCycleTimeStats } from "./canSeeCycleTimeStats";
 import { NAV_SECTIONS, type NavItemTypes } from "./navSections";
 
 /** 메뉴를 보여줄지 정하는 권한들 — 서버가 막는 기준과 같게 유지한다. */

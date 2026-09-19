@@ -43,7 +43,7 @@ describe("Sidebar", () => {
     vi.mocked(useTenantSwitcher).mockReturnValue({
       memberships: [membership],
       activeMembership: membership,
-      isLoading: false, isError: false,
+      isLoading: false, isPending: false, isError: false, refetch: () => {},
       switchTo: vi.fn(),
       switchingTenantId: null,
       isSwitchError: false,
@@ -52,6 +52,7 @@ describe("Sidebar", () => {
       me: { id: "u1", email: "a@b.com", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: null },
       isPending: false,
       isError: false,
+      refetch: () => {},
     });
   });
 
@@ -98,11 +99,11 @@ describe("Sidebar", () => {
   });
 
   it("사용자 정보 로딩 전에는 이름 없이 렌더가 깨지지 않는다", () => {
-    vi.mocked(useMe).mockReturnValue({ me: null, isPending: false, isError: false });
+    vi.mocked(useMe).mockReturnValue({ me: null, isPending: false, isError: false, refetch: () => {} });
     vi.mocked(useTenantSwitcher).mockReturnValue({
       memberships: [],
       activeMembership: null,
-      isLoading: true, isError: false,
+      isLoading: true, isPending: true, isError: false, refetch: () => {},
       switchTo: vi.fn(),
       switchingTenantId: null,
       isSwitchError: false,

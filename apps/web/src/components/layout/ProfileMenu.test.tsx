@@ -17,7 +17,7 @@ const mockTenants = (over: Partial<ReturnType<typeof useTenantSwitcher>> = {}) =
   vi.mocked(useTenantSwitcher).mockReturnValue({
     memberships: [m1, m2],
     activeMembership: m1,
-    isLoading: false, isError: false,
+    isLoading: false, isPending: false, isError: false, refetch: () => {},
     switchTo,
     switchingTenantId: null,
     isSwitchError: false,
@@ -53,6 +53,7 @@ describe("ProfileMenu", () => {
       me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: null },
       isPending: false,
       isError: false,
+      refetch: () => {},
     });
   });
 
@@ -82,6 +83,7 @@ describe("ProfileMenu", () => {
       me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: true, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: null },
       isPending: false,
       isError: false,
+      refetch: () => {},
     });
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
@@ -98,6 +100,7 @@ describe("ProfileMenu", () => {
       me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: "/users/u1/avatar/a.png" },
       isPending: false,
       isError: false,
+      refetch: () => {},
     });
     render(
       <MemoryRouter>

@@ -97,7 +97,7 @@ const openSupportTab = async (user: ReturnType<typeof userEvent.setup>) => {
 describe("AI 비서 — 문의", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useMe).mockReturnValue({ me: ME, isPending: false, isError: false });
+    vi.mocked(useMe).mockReturnValue({ me: ME, isPending: false, isError: false, refetch: () => {} });
     mockNotifications();
     vi.mocked(listMySupportThreads).mockResolvedValue({ threads: [], answeredCount: 0 });
     vi.mocked(getSupportThread).mockResolvedValue(THREAD);
