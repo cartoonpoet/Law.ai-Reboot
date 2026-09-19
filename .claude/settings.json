@@ -9,6 +9,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/no-inline-style.sh\"",
             "statusMessage": "인라인 스타일 검사 중"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/require-lds.sh\"",
+            "statusMessage": "LDS 사용 검사 중"
           }
         ]
       },

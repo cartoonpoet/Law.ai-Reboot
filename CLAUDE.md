@@ -98,6 +98,16 @@ DB 스키마를 변경할 때마다 **erdify MCP**를 사용해 **"Law.ai Reboot
 - 이벤트 핸들러는 `handle~` 접두사
 - 중복 함수는 `utils` 폴더에 모아 재사용
 
+### LDS(@lawkit/ui) 사용 (하드 룰 · 훅 강제)
+- **화면은 무조건 LDS 컴포넌트로 구성한다.** 표·버튼·입력·선택·탭·모달·진행바·타임라인 등은 손으로 만들지 말고 `@lawkit/ui` 의 것을 쓴다.
+- 쓸 수 있는 컴포넌트와 정확한 props·템플릿 코드는 **`apps/web/node_modules/@lawkit/ui/CLAUDE.md`** 에 있다. 새 화면을 만들기 전에 거기서 먼저 찾는다.
+- 자주 쓰는 대응: 표 `DataTable` · 버튼 `Button`/`IconButtonGroup` · 입력 `Input`/`NumberInput`/`Checkbox`/`Radio`/`DatePicker` · 선택 `Dropdown`/`TagSelect` · 여러 줄 입력 `Textarea` · 모달 `Modal`/`Drawer`/`FloatingModal` · 진행 `Progress` · 접기 `Collapse` · 탭 `Tabs`/`ButtonTab`/`ButtonGroup` · 빈 상태 `EmptyState` · 이력 `Timeline` · 남은 일수 `DdayBadge` · 일정 상세 `CalendarPopover` · 대시보드 카드 `Widget`/`StatGrid`.
+- **자동 강제**: `apps/web`·`apps/admin` 의 `.tsx/.jsx` 편집/작성 시 `<table> <thead> <tbody> <button> <input> <select> <option> <textarea> <dialog> <progress> <details> <summary>` 를 새로 추가하면 PreToolUse 훅(`.claude/hooks/require-lds.sh`)이 **차단**한다.
+- LDS 로 만들 수 없는 경우(LDS 에 없는 UI, 예: 월 달력 격자)에만 **사용자에게 사유를 먼저 설명하고 승인받은 뒤** 그 줄에 `lds-exempt: <사유>` 주석을 달아 통과시킨다. 승인 없이 우회 금지.
+- LDS 에 없는 컴포넌트가 반복해서 필요하면 LDS 레포(`~/Documents/GitHub/LDS`)에 추가하는 것을 먼저 검토한다.
+
+> ⚠️ 현행 상태: 기존 화면에는 날 태그로 만든 UI 가 남아 있다(사이드바·어시스턴트 채팅·에디터 등, 대부분 LDS 에 대응이 없는 것들). 훅은 **새로 추가되는 것만** 막으므로 기존 코드를 그대로 두는 편집은 통과한다. 다만 그 부분을 새로 고치게 되면 LDS 로 바꾸거나, 바꿀 수 없으면 사용자 승인을 받아 `lds-exempt: <사유>` 주석을 단다.
+
 ### Style (하드 룰 · 훅 강제)
 - 시맨틱 태그 최대한 활용
 - 스타일은 **무조건 vanilla-extract**(`*.css.ts`) 사용, **디자인 토큰(`themeVars`)** 사용
