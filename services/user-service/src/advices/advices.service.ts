@@ -25,6 +25,7 @@ import type {
   TenantContext,
 } from "@lawai/contracts";
 import { PrismaService } from "../prisma/prisma.service";
+import { StatusEventsService } from "../common/status-events/status-events.service";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { NotificationService } from "../notifications/notifications.service";
 import type { CreateNotificationInput } from "../notifications/notifications.service";
@@ -171,7 +172,21 @@ export class AdvicesService {
     private readonly approvals: ApprovalsService,
     private readonly notifications: NotificationService,
     private readonly aiAnalysis: AiAnalysisService,
+    private readonly statusEvents: StatusEventsService,
   ) {}
+
+  // 단계별 소요시간(업무 통계)을 재려고 상태가 바뀐 시각을 남긴다. 실패해도 자문 처리는 그대로 간다.
+  private recordStatus(row: { id: string; tenantId: string; ownerId: string | null; status: string }, fromStatus: string | null, actorId: string | null): void {
+    void this.statusEvents.record({
+      tenantId: row.tenantId,
+      targetType: "advice",
+      targetId: row.id,
+      fromStatus,
+      toStatus: row.status,
+      ownerId: row.ownerId,
+      actorId,
+    });
+  }
 
   async create(req: CreateAdviceRequest): Promise<AdviceMutationResult> {
     const tenantId = resolveTenantId(req.tenantContext);
@@ -205,6 +220,7 @@ export class AdvicesService {
     const row = await this.createWithUniqueCode(data);
     // 담당자가 검토를 시작할 때 쓸 정리 — 백그라운드로 만든다(실패해도 요청은 그대로 접수).
     void this.triggerBrief(row, viewer.id);
+    this.recordStatus(row, null, viewer.id);
     const notifications = needsApproval
       ? await this.submitApproval(row, viewer.id, ADVICE_APPROVAL_TARGET.REQUEST, req.approvers)
       : [];
@@ -281,6 +297,7 @@ export class AdvicesService {
       },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
+    this.recordStatus(row, current.status, viewer.id);
     // 배정받은 담당자에게 알린다(스스로 맡으면 알리지 않는다).
     const notifications = await this.notify(row, [req.ownerId], ADVICE_NOTIFICATION_TYPE.ASSIGNED, viewer.id);
     return { advice: await this.toResponse(row, viewer, approvals), notifications };
@@ -311,6 +328,7 @@ export class AdvicesService {
       },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
+    this.recordStatus(row, current.status, viewer.id);
     const notifications = needsApproval
       ? await this.submitApproval(row, viewer.id, ADVICE_APPROVAL_TARGET.ANSWER, req.approvers ?? [])
       : await this.notifyMessage(row, req.kind, viewer.id);
@@ -340,6 +358,7 @@ export class AdvicesService {
       data: { status: needsApproval ? "requestApproval" : this.getStartStatus(current.ownerId) },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
+    this.recordStatus(row, current.status, viewer.id);
     const notifications = needsApproval
       ? await this.submitApproval(row, viewer.id, ADVICE_APPROVAL_TARGET.REQUEST, req.approvers)
       : [];
@@ -357,6 +376,7 @@ export class AdvicesService {
       data: { status: "closed", closedAt: new Date() },
       include: { messages: { orderBy: { createdAt: "asc" } } },
     });
+    this.recordStatus(row, current.status, viewer.id);
     // 종결은 담당자와 요청자 쪽 모두에게 알린다(종결한 본인 제외).
     const notifications = await this.notify(
       row,

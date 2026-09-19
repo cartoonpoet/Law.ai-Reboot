@@ -8,6 +8,7 @@ import { SignupPage } from "./pages/login/SignupPage";
 import { InviteAcceptPage } from "./pages/login/InviteAcceptPage";
 import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import { MembersPage } from "./pages/members/MembersPage";
+import { StatsPage } from "./pages/stats/StatsPage";
 import { SystemSettingsPage } from "./pages/system/SystemSettingsPage";
 import { ExpiringContractsPage } from "./pages/contract/expiring/ExpiringContractsPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
@@ -79,6 +80,7 @@ export function AppRoutes() {
         }
       >
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/stats" element={<StatsPage />} />
         <Route path="/contract/list" element={<ContractListPage />} />
         <Route path="/contract/request" element={<ContractCreatePage />} />
         <Route path="/contract/expiring" element={<ExpiringContractsPage />} />

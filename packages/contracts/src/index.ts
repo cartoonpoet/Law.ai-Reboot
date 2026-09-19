@@ -16,3 +16,4 @@ export * from "./dto/tenant.dto";
 export * from "./dto/invite.dto";
 export * from "./dto/support.dto";
 export * from "./dto/advice.dto";
+export * from "./dto/stats.dto";

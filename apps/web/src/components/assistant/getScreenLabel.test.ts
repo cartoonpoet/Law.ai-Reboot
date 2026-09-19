@@ -6,6 +6,7 @@ describe("getScreenLabel", () => {
     expect(getScreenLabel("/")).toBe("대시보드");
     expect(getScreenLabel("/contract/list")).toBe("계약 조회");
     expect(getScreenLabel("/approvals/inbox")).toBe("결재 대기함");
+    expect(getScreenLabel("/stats")).toBe("업무 통계");
   });
 
   it("계약 상세와 수정을 구분한다", () => {

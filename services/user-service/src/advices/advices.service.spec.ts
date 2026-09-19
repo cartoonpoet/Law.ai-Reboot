@@ -3,6 +3,7 @@ import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import { AdvicesService } from "./advices.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { StatusEventsService } from "../common/status-events/status-events.service";
 import { ApprovalsService } from "../approvals/approvals.service";
 import { NotificationService } from "../notifications/notifications.service";
 import { AiAnalysisService } from "../ai-analysis/ai-analysis.service";
@@ -115,6 +116,9 @@ describe("AdvicesService (법률자문)", () => {
     historyCount: 0,
   });
 
+  // 통계용 상태 기록 — fire-and-forget 이라 호출 여부만 본다.
+  const statusEventsMock = { record: jest.fn().mockResolvedValue(undefined) };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     prismaMock.userTenant.findFirst.mockImplementation(({ where }: { where: { userId: string } }) =>
@@ -139,6 +143,7 @@ describe("AdvicesService (법률자문)", () => {
         { provide: ApprovalsService, useValue: approvalsMock },
         { provide: NotificationService, useValue: notificationsMock },
         { provide: AiAnalysisService, useValue: aiAnalysisMock },
+        { provide: StatusEventsService, useValue: statusEventsMock },
       ],
     }).compile();
     service = moduleRef.get(AdvicesService);

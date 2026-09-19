@@ -17,7 +17,7 @@ const mockTenants = (over: Partial<ReturnType<typeof useTenantSwitcher>> = {}) =
   vi.mocked(useTenantSwitcher).mockReturnValue({
     memberships: [m1, m2],
     activeMembership: m1,
-    isLoading: false,
+    isLoading: false, isError: false,
     switchTo,
     switchingTenantId: null,
     isSwitchError: false,
@@ -51,6 +51,8 @@ describe("ProfileMenu", () => {
     localStorage.clear();
     vi.mocked(useMe).mockReturnValue({
       me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: null },
+      isPending: false,
+      isError: false,
     });
   });
 
@@ -78,6 +80,8 @@ describe("ProfileMenu", () => {
     mockTenants({ memberships: [m1] });
     vi.mocked(useMe).mockReturnValue({
       me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: true, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: null },
+      isPending: false,
+      isError: false,
     });
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
@@ -92,6 +96,8 @@ describe("ProfileMenu", () => {
     mockTenants({ memberships: [m1] });
     vi.mocked(useMe).mockReturnValue({
       me: { id: "u1", email: "kim@lawai.kr", name: "김지원", isSystemAdmin: false, departmentId: null, departmentName: null, createdAt: "x", emailNotify: true, notifyApproval: true, notifyComment: true, notifyContractExpiry: true, avatarUrl: "/users/u1/avatar/a.png" },
+      isPending: false,
+      isError: false,
     });
     render(
       <MemoryRouter>

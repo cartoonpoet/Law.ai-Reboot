@@ -34,6 +34,8 @@ export const useTenantSwitcher = () => {
     memberships,
     activeMembership,
     isLoading: query.isLoading,
+    // 소속을 못 불러온 것과 아직 불러오는 중인 것은 다르다(권한 판정이 둘을 갈라 쓴다).
+    isError: query.isError,
     switchTo: (tenantId: string) => switchMutation.mutate(tenantId),
     // pending 인 동안 클릭된 행에 스피너를 그리기 위한 대상 id.
     switchingTenantId: switchMutation.isPending ? (switchMutation.variables ?? null) : null,
