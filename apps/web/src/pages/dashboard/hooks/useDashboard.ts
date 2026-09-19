@@ -7,6 +7,7 @@ import { useMe } from "../../../components/layout/hooks/useMe";
 import { useTenantSwitcher } from "../../../components/layout/hooks/useTenantSwitcher";
 import { buildPipeline, PIPELINE_STATUSES } from "../buildPipeline";
 import { buildTodos } from "../buildTodos";
+import { useNavPermission } from "../../../components/layout/hooks/useNavPermission";
 import { getUpcomingDeadlines } from "../getUpcomingDeadlines";
 
 // 할 일·기한을 뽑을 진행 중 계약 — 목록 API 한 페이지 최대치.
@@ -22,6 +23,7 @@ const ASSIGNER_ROLES: TenantRole[] = ["inHouseCounsel", "contractManager"];
 export const useDashboard = () => {
   const { me } = useMe();
   const { activeMembership } = useTenantSwitcher();
+  const navPermission = useNavPermission();
 
   const contractsQuery = useQuery({
     queryKey: ["dashboard", "activeContracts"],
@@ -58,6 +60,10 @@ export const useDashboard = () => {
   const insights = useAiInsights(todos.flatMap((t) => (t.aiTarget ? [t.aiTarget] : [])));
 
   return {
+    // 소요시간 통계는 법무 업무를 관리하는 사람에게만 보인다(사이드바와 같은 판정을 쓴다).
+    canSeeStats: navPermission.canSeeStats,
+    // 권한을 아직 모르는 동안은 카드 자리를 비워 두되, 뒤늦게 나타나 화면이 튀지 않게 호출부가 쓴다.
+    isStatsPermissionLoading: navPermission.isLoading,
     todos,
     insights,
     isTodosLoading: contractsQuery.isLoading || inboxQuery.isLoading || !me,

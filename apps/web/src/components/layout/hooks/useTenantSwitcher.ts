@@ -34,6 +34,12 @@ export const useTenantSwitcher = () => {
     memberships,
     activeMembership,
     isLoading: query.isLoading,
+    // 소속을 못 불러온 것과 아직 불러오는 중인 것은 다르다(권한 판정이 둘을 갈라 쓴다).
+    // isPending 은 "아직 답을 못 받음" 전부를 뜻한다 — 오프라인처럼 요청이 멈춘 동안에도 참이라,
+    // 권한 판정은 isLoading 이 아니라 이 값을 봐야 "권한 없음"으로 잘못 단정하지 않는다.
+    isPending: query.isPending,
+    isError: query.isError,
+    refetch: () => void query.refetch(),
     switchTo: (tenantId: string) => switchMutation.mutate(tenantId),
     // pending 인 동안 클릭된 행에 스피너를 그리기 위한 대상 id.
     switchingTenantId: switchMutation.isPending ? (switchMutation.variables ?? null) : null,

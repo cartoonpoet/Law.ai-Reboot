@@ -385,3 +385,10 @@ export const scheduleBar = styleVariants({
 export const scheduleMain = style({ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 });
 export const scheduleTitle = style({ fontSize: 13, fontWeight: 600, color: c.textHeading });
 export const scheduleBody = style({ fontSize: 12, color: c.textMuted });
+
+/* --- 오른쪽 레일(소요시간 카드 + 기한 임박) --- */
+export const rail = style({ display: "flex", flexDirection: "column", gap: 16 });
+
+/* --- 단계별 소요시간 카드(법무팀에게만) --- */
+// 카드는 LDS Widget/StatGrid 로 만든다. 여기서는 "자세히" 버튼 화살표 크기만 맞춘다.
+export const cycleChevron = style({ width: 12, height: 12 });

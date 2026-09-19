@@ -3,6 +3,7 @@ import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import { ContractsService } from "./contracts.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { StatusEventsService } from "../common/status-events/status-events.service";
 import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
 import { ApprovalsService } from "../approvals/approvals.service";
@@ -146,6 +147,8 @@ describe("ContractsService", () => {
   const aiAnalysisMock = { trigger: jest.fn().mockResolvedValue(undefined) };
   // 계약서 원본 본문 추출 — 기본은 못 읽음(null). 추출 후 백그라운드로 trigger 되므로 검증 전 flush.
   const contractTextMock = { extract: jest.fn().mockResolvedValue(null) };
+  // 통계용 상태 기록 — fire-and-forget 이라 호출 여부만 본다.
+  const statusEventsMock = { record: jest.fn().mockResolvedValue(undefined) };
   const flushAiTrigger = () => new Promise((resolve) => setImmediate(resolve));
 
   beforeEach(async () => {
@@ -161,6 +164,7 @@ describe("ContractsService", () => {
         { provide: ApprovalsService, useValue: approvalsMock },
         { provide: AiAnalysisService, useValue: aiAnalysisMock },
         { provide: ContractTextExtractor, useValue: contractTextMock },
+        { provide: StatusEventsService, useValue: statusEventsMock },
       ],
     }).compile();
     service = moduleRef.get(ContractsService);

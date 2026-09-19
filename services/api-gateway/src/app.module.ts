@@ -20,6 +20,7 @@ import { AiModule } from "./ai/ai.module";
 import { PublicModule } from "./public/public.module";
 import { SupportModule } from "./support/support.module";
 import { AdvicesModule } from "./advices/advices.module";
+import { StatsModule } from "./stats/stats.module";
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AdvicesModule } from "./advices/advices.module";
     PublicModule,
     SupportModule,
     AdvicesModule,
+    StatsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

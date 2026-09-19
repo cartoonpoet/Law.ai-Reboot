@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { ContractSummary } from "@lawai/contracts";
 import { listContracts } from "../../api/contracts";
 import { useSearchQuery } from "../../pages/contract/hooks/useSearchQuery";
-import { NAV_ITEMS } from "../layout/navSections";
+import { useNavPermission } from "../layout/hooks/useNavPermission";
+import { getVisibleNavItems } from "../layout/navPermission";
 
 const CONTRACT_LIMIT = 5;
 // 검색어가 없을 때 바로 가기로 보여줄 메뉴 수.
@@ -53,12 +54,14 @@ export const useCommandPaletteResults = () => {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const { results, isFetching, search } = useSearchQuery("command-palette-contracts", fetchContracts);
+  const permission = useNavPermission();
+  const navItems = getVisibleNavItems(permission);
 
   const keyword = query.trim();
   const contracts = keyword ? results.slice(0, CONTRACT_LIMIT).map(toContractItem) : [];
   const matchedMenus = keyword
-    ? NAV_ITEMS.filter((item) => item.label.includes(keyword))
-    : NAV_ITEMS.slice(0, QUICK_MENU_LIMIT);
+    ? navItems.filter((item) => item.label.includes(keyword))
+    : navItems.slice(0, QUICK_MENU_LIMIT);
   const menus = matchedMenus.map(
     (item): MenuPaletteItem => ({ kind: "menu", key: `menu-${item.id}`, title: item.label, icon: item.icon, path: item.path }),
   );

@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { StatsModule } from "./stats/stats.module";
+import { StatusEventsModule } from "./common/status-events/status-events.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { UsersModule } from "./users/users.module";
 import { CompaniesModule } from "./companies/companies.module";
@@ -21,6 +23,8 @@ import { AdvicesModule } from "./advices/advices.module";
 @Module({
   imports: [
     PrismaModule,
+    StatusEventsModule,
+    StatsModule,
     UsersModule,
     CompaniesModule,
     ContractsModule,

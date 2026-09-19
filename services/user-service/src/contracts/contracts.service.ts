@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { RpcException } from "@nestjs/microservices";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { StatusEventsService } from "../common/status-events/status-events.service";
 import { AuditService } from "./contracts.audit";
 import { R2Client } from "../files/r2.client";
 import { ApprovalsService } from "../approvals/approvals.service";
@@ -271,7 +272,21 @@ export class ContractsService {
     private readonly approvals: ApprovalsService,
     private readonly aiAnalysis: AiAnalysisService,
     private readonly contractText: ContractTextExtractor,
+    private readonly statusEvents: StatusEventsService,
   ) {}
+
+  // 단계별 소요시간(업무 통계)을 재려고 상태가 바뀐 시각을 남긴다. 실패해도 계약 처리는 그대로 간다.
+  private recordStatus(row: { id: string; tenantId: string; ownerId: string | null }, fromStatus: string | null, toStatus: string, actorId: string | null): void {
+    void this.statusEvents.record({
+      tenantId: row.tenantId,
+      targetType: "contract",
+      targetId: row.id,
+      fromStatus,
+      toStatus,
+      ownerId: row.ownerId,
+      actorId,
+    });
+  }
 
   // 계약서 원본 파일에서 본문을 뽑아 넣고 AI 분석을 트리거한다. 파일 다운로드·추출이 요청 응답을 붙잡지 않게
   // 전부 백그라운드(await 하지 않음) — 추출기는 실패해도 null, trigger 는 어떤 경우에도 reject 하지 않는다.
@@ -328,6 +343,15 @@ export class ContractsService {
     const close = stage ? ORIGIN_CLOSE_BY_STAGE[stage] : undefined;
     if (!close || !signed.originContractId) return;
 
+    // 종료 전 상태를 먼저 읽어 둔다 — updateMany 는 바뀐 행을 돌려주지 않아 from 을 알 수 없다.
+    // 통계용 조회라 실패해도 체결 처리를 깨면 안 된다(못 읽으면 기록만 건너뛴다).
+    const origin = await this.prisma.contract
+      .findFirst({
+        where: { id: signed.originContractId, tenantId: signed.tenantId, deletedAt: null },
+        select: { id: true, tenantId: true, ownerId: true, status: true },
+      })
+      .catch(() => null);
+
     const { count } = await this.prisma.contract.updateMany({
       where: {
         id: signed.originContractId,
@@ -343,6 +367,8 @@ export class ContractsService {
       },
     });
     if (count === 0) return;
+
+    if (origin) this.recordStatus(origin, origin.status, "closed", actorId);
 
     await this.audit.record({
       action: "transition",
@@ -531,6 +557,7 @@ export class ContractsService {
         actorId: req.createdById,
         tenantId: row.tenantId,
       });
+      this.recordStatus(row, null, row.status, req.createdById);
       const response = this.toResponse(row);
       // 검토 경로(계약서 원본, role=contract)만 create 시점에 사전 점검(precheck)을 돌린다.
       // 체결 완료 등록(registerAs=signed)은 이 시점엔 실제 서명본이 없을 수 있으므로(위 주석
@@ -1053,6 +1080,7 @@ export class ContractsService {
       tenantId: row.tenantId,
       detail: { kind: "submitApproval", from: "reviewDone", to: "signing" },
     });
+    this.recordStatus(updated, "reviewDone", "signing", req.viewerId ?? null);
     const response = this.toResponse(updated, line);
     // 상신 성공 후 결재자용 브리핑(approvalBriefing)을 백그라운드로 트리거.
     void this.aiAnalysis.trigger({
@@ -1175,6 +1203,7 @@ export class ContractsService {
 
     // audit 는 트랜잭션 커밋 후 best-effort 로 기록한다(AuditService.record 는 실패를
     // 삼키도록 설계돼 있으므로, 감사 기록 실패가 이미 커밋된 체결 처리를 되돌리지 않는다).
+    this.recordStatus(updated, "signing", "signed", req.viewerId);
     await this.audit.record({
       action: "transition",
       targetType: "Contract",
@@ -1448,6 +1477,7 @@ export class ContractsService {
       throw error;
     }
 
+    this.recordStatus(updated, row.status, "closed", req.viewerId);
     await this.audit.record({
       action: "transition",
       targetType: "Contract",
@@ -1534,6 +1564,7 @@ export class ContractsService {
       tenantId: row.tenantId,
       detail: { kind: "finalizeRegistration", from: "unassigned", to: "signed" },
     });
+    this.recordStatus(updated, "unassigned", "signed", req.viewerId);
 
     await this.closeOriginOnSigning(updated, signedAt, req.viewerId);
 
@@ -1627,6 +1658,7 @@ export class ContractsService {
         tenantId: row.tenantId,
         detail: { from: current.status, to: req.status },
       });
+      this.recordStatus(row, current.status, req.status, viewer?.id ?? null);
       // legalReview 진입: 담당자(owner) 배정 전이면 트리거 자체를 건너뛴다(AiAnalysisService 의
       // 자격증명 없음 처리와 동일하게, 호출부에서 미리 걸러 불필요한 skipped 행 생성을 피함).
       if (req.status === "legalReview" && row.ownerId) {

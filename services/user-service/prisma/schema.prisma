@@ -519,6 +519,27 @@ model AuditLog {
   @@schema("shared")
 }
 
+// 상태가 바뀐 시각만 남기는 기록. 단계별 소요시간(업무 통계)을 재려고 만들었다.
+// AuditLog 와 따로 두는 이유: 감사는 Json detail 에 가변 메타를 담아 집계에 쓰기 어렵고,
+// 여기는 from/to 를 컬럼으로 두고 기간별로 긁어 평균·중앙값을 내는 것이 목적이다.
+// AuditLog 선례와 같이 폴리모픽(targetType: "contract"|"advice") + DB FK 없음(앱 레벨 무결성).
+// ownerId 는 그 시점의 담당자 — 담당자별 통계에 쓴다(없으면 null).
+model StatusEvent {
+  id         String   @id @default(uuid())
+  tenantId   String
+  targetType String
+  targetId   String
+  fromStatus String?
+  toStatus   String
+  ownerId    String?
+  actorId    String?
+  at         DateTime @default(now())
+
+  // 집계는 (tenantId, targetType) 으로 좁힌 뒤 대상별 시간순으로 구간을 잰다 — 인덱스 순서를 그대로 맞춘다.
+  @@index([tenantId, targetType, targetId, at])
+  @@schema("shared")
+}
+
 // 폴리모픽 인앱 알림(멘션 알림 등). AuditLog 선례 동일: targetType/targetId 로 대상 지칭, detail 에 가변 메타(contractId·preview 등).
 // DB FK 없음 — 앱 레벨 무결성(cross-schema FK 회피, recipientId/actorId/targetId 는 String 만).
 // readAt 으로 읽음 상태(null=안읽음). 인덱스: 안읽음 카운트([recipientId, readAt]) + 목록 정렬([recipientId, createdAt]).
