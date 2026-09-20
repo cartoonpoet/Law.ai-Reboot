@@ -17,6 +17,8 @@ import { ContractDetailPage } from "./pages/contract/ContractDetailPage";
 import { ContractCreatePage } from "./pages/contract/ContractCreatePage";
 import { ContractEditPage } from "./pages/contract/ContractEditPage";
 import { ApprovalInboxPage } from "./pages/approval/ApprovalInboxPage";
+import { TemplateListPage } from "./pages/documentTemplates/TemplateListPage";
+import { DocumentEditorPage } from "./pages/documentTemplates/DocumentEditorPage";
 import { MockupsIndex } from "./pages/mockups/MockupsIndex";
 import { PreviewModalMock } from "./pages/mockups/PreviewModalMock";
 import { PreviewDrawerMock } from "./pages/mockups/PreviewDrawerMock";
@@ -132,6 +134,8 @@ export function AppRoutes() {
         <Route path="/contract/list" element={<ContractListPage />} />
         <Route path="/contract/request" element={<ContractCreatePage />} />
         <Route path="/contract/expiring" element={<ExpiringContractsPage />} />
+        <Route path="/document-templates" element={<TemplateListPage />} />
+        <Route path="/document-templates/:id" element={<DocumentEditorPage />} />
         <Route path="/members" element={<MembersPage />} />
         <Route path="/system" element={<SystemSettingsPage />} />
         <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />

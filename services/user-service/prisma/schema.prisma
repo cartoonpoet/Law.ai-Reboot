@@ -740,3 +740,52 @@ model AdviceMessage {
   @@index([adviceId, createdAt])
   @@schema("contracts")
 }
+
+// 표준계약서 양식 분류 — 고정 6종(스펙: 카테고리 자유 추가는 이번 범위 아님).
+enum TemplateCategory {
+  nda // 비밀유지
+  service // 용역
+  supply // 물품공급
+  entrust // 업무위탁
+  license // SW·라이선스
+  etc
+
+  @@schema("shared")
+}
+
+// 표준양식(템플릿) — 회사(테넌트)별. 내용 자체는 버전에 있고, 여기는 목록·현재 버전 포인터만.
+model ContractTemplate {
+  id               String            @id @default(uuid())
+  tenantId         String
+  categoryId       TemplateCategory
+  name             String
+  currentVersionNo Int               @default(1)
+  createdById      String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+
+  versions ContractTemplateVersion[]
+
+  @@index([tenantId, categoryId])
+  @@index([tenantId])
+  @@schema("shared")
+}
+
+// 버전은 불변 — 저장할 때마다 새 행을 추가하고 부모의 currentVersionNo 를 올린다.
+// "되돌리기"도 옛 버전 내용을 복사해 새 버전으로 저장하는 것과 같은 동작(특수 케이스 아님).
+model ContractTemplateVersion {
+  id          String   @id @default(uuid())
+  templateId  String
+  versionNo   Int
+  content     Json // Tiptap JSON — 정본
+  clauseCount Int?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  template ContractTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, versionNo])
+  @@index([templateId])
+  @@schema("shared")
+}

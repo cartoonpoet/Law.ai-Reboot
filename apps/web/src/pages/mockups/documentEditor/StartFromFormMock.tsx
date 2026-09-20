@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Avatar, Button, HStack, Icon, Input, ListGroup, ListGroupItem, Modal, VStack } from "@lawkit/ui";
+import type { TemplateCategoryTypes } from "@lawai/contracts";
 import { STANDARD_FORM_CATEGORIES } from "../../../api/standardForms";
 import { useStandardFormsBrowser } from "../../contract/hooks/useStandardFormsBrowser";
 import { DocMockHead } from "./DocMockHead";
@@ -47,7 +48,7 @@ export const StartFromFormMock = () => {
             <div className={css.startFoot}>
               <span className={css.startFootInfo}>
                 고른 양식:{" "}
-                <span className={css.startFootStrong}>{selected ? `${selected.name} ${selected.version}` : "—"}</span>
+                <span className={css.startFootStrong}>{selected ? `${selected.name} v${selected.currentVersionNo}` : "—"}</span>
               </span>
               <div className={css.startFootBtns}>
                 <Button variant="outline" color="secondary" onClick={() => setIsOpen(false)}>
@@ -69,7 +70,7 @@ export const StartFromFormMock = () => {
                     key={item.id}
                     active={categoryId === item.id}
                     onClick={() => setCategoryId(item.id)}
-                    trailing={<span className={modalCss.catCount}>{counts[item.id]}</span>}
+                    trailing={<span className={modalCss.catCount}>{counts?.[item.id as TemplateCategoryTypes] ?? 0}</span>}
                   >
                     {item.label}
                   </ListGroupItem>
@@ -103,11 +104,10 @@ export const StartFromFormMock = () => {
                       <VStack gap="x1">
                         <HStack gap="x2" align="center">
                           <span className={modalCss.docName}>{form.name}</span>
-                          <span className={modalCss.ver}>{form.version}</span>
+                          <span className={modalCss.ver}>v{form.currentVersionNo}</span>
                         </HStack>
-                        <span className={modalCss.tplDesc}>{form.desc}</span>
                         <span className={modalCss.tplMeta}>
-                          개정 {form.revisedAt} · {form.clauses}
+                          {form.createdByName ?? "—"} 작성 · 개정 {form.updatedAt.slice(0, 10)}
                         </span>
                       </VStack>
                     </ListGroupItem>
@@ -133,15 +133,15 @@ export const StartFromFormMock = () => {
               <div>
                 <div className={modalCss.kv}>
                   <span className={modalCss.kvK}>버전</span>
-                  <span className={modalCss.kvV}>{selected?.version ?? "—"} (최신)</span>
+                  <span className={modalCss.kvV}>{selected ? `v${selected.currentVersionNo}` : "—"} (최신)</span>
                 </div>
                 <div className={modalCss.kv}>
-                  <span className={modalCss.kvK}>조항</span>
-                  <span className={modalCss.kvV}>{selected?.clauses ?? "—"}</span>
+                  <span className={modalCss.kvK}>작성자</span>
+                  <span className={modalCss.kvV}>{selected?.createdByName ?? "—"}</span>
                 </div>
                 <div className={modalCss.kv}>
                   <span className={modalCss.kvK}>개정</span>
-                  <span className={modalCss.kvV}>{selected?.revisedAt ?? "—"}</span>
+                  <span className={modalCss.kvV}>{selected?.updatedAt.slice(0, 10) ?? "—"}</span>
                 </div>
                 <div className={modalCss.kv}>
                   <span className={modalCss.kvK}>고친 사람</span>

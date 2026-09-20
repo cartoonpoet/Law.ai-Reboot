@@ -55,11 +55,17 @@ interface RichTextEditorProps {
   renderOverlay?: (editor: Editor) => ReactNode;
 }
 
-/** 표 도구를 켤 때만 쓰는 확장. 모듈 최상단 상수라 렌더마다 새로 만들지 않는다. */
-const TABLE_EXTENSIONS = [TableKit.configure({ table: { resizable: true } })];
+/**
+ * 표 도구를 켤 때만 쓰는 확장. 모듈 최상단 상수라 렌더마다 새로 만들지 않는다.
+ * documentEditor/tiptapContent.ts가 문서 편집기(withTable) 콘텐츠 변환 스키마 기준으로도 재사용한다.
+ */
+export const TABLE_EXTENSIONS = [TableKit.configure({ table: { resizable: true } })];
 
-/** 워드 리본(문서 편집기)에서만 쓰는 확장 — 글꼴·글자크기·줄간격·첨자·그림·페이지 나누기. */
-const FULL_TOOLBAR_EXTENSIONS = [
+/**
+ * 워드 리본(문서 편집기)에서만 쓰는 확장 — 글꼴·글자크기·줄간격·첨자·그림·페이지 나누기.
+ * documentEditor/tiptapContent.ts가 문서 편집기(withFullToolbar) 콘텐츠 변환 스키마 기준으로도 재사용한다.
+ */
+export const FULL_TOOLBAR_EXTENSIONS = [
   FontFamily,
   FontSize,
   ParagraphLineHeight,

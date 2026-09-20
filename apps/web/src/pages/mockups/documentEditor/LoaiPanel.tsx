@@ -1,25 +1,9 @@
-import { Button, ButtonGroup, Icon } from "@lawkit/ui";
-import { sparkle } from "../../../components/ui/sparkle.css";
-import { LoaiDraftTab } from "./LoaiDraftTab";
-import { LoaiRewriteTab } from "./LoaiRewriteTab";
-import { LoaiReviewTab } from "./LoaiReviewTab";
-import * as css from "./documentEditorMock.css";
+import { useState } from "react";
+import type { AiReviewFinding } from "@lawai/contracts";
+import { LoaiPanel as SharedLoaiPanel, type LoaiModeTypes } from "../../../components/documentEditor/LoaiPanel";
+import { buildMockDraft, MOCK_REVIEW_FINDINGS, MOCK_REWRITE_RESULT } from "./documentEditorMockData";
 
-export type LoaiModeTypes = "draft" | "rewrite" | "review";
-
-/** 세 가지 일을 이름과 아이콘 모두로 구분한다 — 새 문서(＋) · 고른 문장(연필) · 문서 전체(돋보기). */
-const TABS = [
-  { value: "draft", label: "새로 쓰기", icon: <Icon name="filePlus" size="sm" /> },
-  { value: "rewrite", label: "문장 고치기", icon: <Icon name="edit" size="sm" /> },
-  { value: "review", label: "전체 검토", icon: <Icon name="search" size="sm" /> },
-];
-
-/** 지금 무엇을 하는 칸인지 한 줄로 알려 준다. */
-const MODE_HINT: Record<LoaiModeTypes, string> = {
-  draft: "제목·전문·조항까지 갖춘 계약서 한 벌을 통째로 만들어 종이에 채워 넣습니다.",
-  rewrite: "종이에서 고른 문장 하나만 다시 씁니다. 다른 곳은 그대로 둡니다.",
-  review: "지금 종이에 적힌 문서 전체를 읽고, 회사에 불리한 조항·빈칸·빠진 조항을 찾습니다.",
-};
+export type { LoaiModeTypes };
 
 interface LoaiPanelProps {
   mode: LoaiModeTypes;
@@ -33,48 +17,35 @@ interface LoaiPanelProps {
   hasDocumentContent: boolean;
 }
 
-/** 편집기 오른쪽에 붙는 로아이 패널 — 초안 생성·문장 다듬기·초안 검토 세 가지를 한곳에서. */
-export const LoaiPanel = ({
-  mode,
-  onModeChange,
-  onClose,
-  selectedText,
-  onDraftCreated,
-  hasDocumentContent,
-}: LoaiPanelProps) => (
-  <aside className={css.panel}>
-    <header className={css.panelHead}>
-      <span className={sparkle}>
-        <Icon name="autoAwesome" size="sm" className={css.panelHeadIcon} />
-      </span>
-      로아이 문서 도우미
-      <span className={css.panelHeadSpacer} />
-      <Button
-        size="small"
-        variant="outline"
-        color="secondary"
-        iconLeft={<Icon name="close" size="sm" />}
-        aria-label="로아이 패널 닫기"
-        onClick={onClose}
-      />
-    </header>
+/**
+ * 시안용 로아이 패널 — 실제 API 대신 가짜 지연·가짜 데이터로 응답한다.
+ * `initialLoaiMode="review"`로 곧장 열리는 시안 라우트를 위해 검토 결과 초기값을 한 번만 미리 채워 둔다
+ * (SharedLoaiPanel은 탭을 "전환"할 때만 onReview를 부르므로, 처음부터 review로 열리는 경우는 직접 시드한다).
+ */
+export const LoaiPanel = (props: LoaiPanelProps) => {
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewFindings, setReviewFindings] = useState<AiReviewFinding[]>(() =>
+    props.mode === "review" ? MOCK_REVIEW_FINDINGS : [],
+  );
 
-    <div className={css.panelTabs}>
-      <ButtonGroup
-        variant="segmented"
-        size="small"
-        items={TABS}
-        value={mode}
-        onChange={(next) => onModeChange(next as LoaiModeTypes)}
-        className={css.panelTabGroup}
-      />
-      <span className={css.panelTabHint}>{MODE_HINT[mode]}</span>
-    </div>
+  const handleReview = () => {
+    setIsReviewing(true);
+    window.setTimeout(() => {
+      setReviewFindings(MOCK_REVIEW_FINDINGS);
+      setIsReviewing(false);
+    }, 700);
+  };
 
-    <div className={css.panelBody}>
-      {mode === "draft" && <LoaiDraftTab onCreated={onDraftCreated} hasExistingContent={hasDocumentContent} />}
-      {mode === "rewrite" && <LoaiRewriteTab selectedText={selectedText} />}
-      {mode === "review" && <LoaiReviewTab />}
-    </div>
-  </aside>
-);
+  return (
+    <SharedLoaiPanel
+      {...props}
+      onGenerate={(request) => new Promise((resolve) => window.setTimeout(() => resolve(buildMockDraft(request)), 700))}
+      onRewrite={() => new Promise((resolve) => window.setTimeout(() => resolve(MOCK_REWRITE_RESULT), 700))}
+      // 시안은 가짜 에디터라 실제 반영할 곳이 없다 — 버튼이 동작하는 모습만 보여준다.
+      onApplyRewrite={() => {}}
+      onReview={handleReview}
+      reviewFindings={reviewFindings}
+      isReviewing={isReviewing}
+    />
+  );
+};
