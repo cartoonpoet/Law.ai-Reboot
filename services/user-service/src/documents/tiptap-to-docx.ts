@@ -70,28 +70,41 @@ const buildRuns = (nodes: TiptapNode[] = []): TextRun[] =>
     .filter((node) => node.type === "text" && typeof node.text === "string")
     .map((node) => new TextRun(buildRunOptions(node)));
 
-const buildParagraph = (node: TiptapNode, listMeta?: { ordered: boolean; level: number }): Paragraph => {
+const buildParagraph = (
+  node: TiptapNode,
+  listMeta?: { ordered: boolean; level: number; reference?: string },
+): Paragraph => {
   const align = ALIGNMENTS[(node.attrs?.textAlign as string) ?? ""] ?? undefined;
   return new Paragraph({
     heading: node.type === "heading" ? HEADING_LEVELS[(node.attrs?.level as number) ?? 1] : undefined,
     alignment: align,
     bullet: listMeta && !listMeta.ordered ? { level: listMeta.level } : undefined,
-    numbering: listMeta?.ordered ? { reference: "template-ordered", level: listMeta.level } : undefined,
+    numbering: listMeta?.ordered && listMeta.reference ? { reference: listMeta.reference, level: listMeta.level } : undefined,
     children: buildRuns(node.content),
   });
 };
 
 // 목록(listItem)은 자기 문단들 + 중첩 목록을 재귀로 펼친다. level 은 중첩 깊이(0부터).
-const buildListItems = (list: TiptapNode, ordered: boolean, level: number): Paragraph[] => {
+// reference 는 이 목록이 속한 "최상위 번호목록 트리"의 numbering reference — 아직 없으면(=이 서브트리에서 처음
+// 만나는 orderedList) allocateReference 로 새로 하나 발급받아 자신과 하위(중첩) orderedList 전체가 공유한다.
+// 서로 다른 최상위 목록(형제 관계)은 buildBlocks 가 매번 reference=undefined 로 새로 호출하므로 서로 섞이지 않는다.
+const buildListItems = (
+  list: TiptapNode,
+  ordered: boolean,
+  level: number,
+  reference: string | undefined,
+  allocateReference: () => string,
+): Paragraph[] => {
+  const resolvedReference = ordered ? (reference ?? allocateReference()) : reference;
   const items: Paragraph[] = [];
   for (const item of list.content ?? []) {
     for (const child of item.content ?? []) {
       if (child.type === "paragraph") {
-        items.push(buildParagraph(child, { ordered, level }));
+        items.push(buildParagraph(child, { ordered, level, reference: resolvedReference }));
       } else if (child.type === "bulletList") {
-        items.push(...buildListItems(child, false, level + 1));
+        items.push(...buildListItems(child, false, level + 1, resolvedReference, allocateReference));
       } else if (child.type === "orderedList") {
-        items.push(...buildListItems(child, true, level + 1));
+        items.push(...buildListItems(child, true, level + 1, resolvedReference, allocateReference));
       }
     }
   }
@@ -114,15 +127,24 @@ const buildTable = (node: TiptapNode): Table =>
     ),
   });
 
-const buildBlocks = (nodes: TiptapNode[]): (Paragraph | Table)[] => {
+// 최상위(buildBlocks 레벨)에서 orderedList 를 만날 때마다 collectReference 로 새 reference 를 보고한다 —
+// 문서 전체의 numbering.config 를 실제 등장한 최상위 번호목록 개수만큼 동적으로 만들기 위해서다.
+const buildBlocks = (nodes: TiptapNode[], collectReference: (reference: string) => void): (Paragraph | Table)[] => {
   const blocks: (Paragraph | Table)[] = [];
+  let orderedListCount = 0;
+  const allocateReference = (): string => {
+    const reference = `ordered-${orderedListCount}`;
+    orderedListCount += 1;
+    collectReference(reference);
+    return reference;
+  };
   for (const node of nodes) {
     if (node.type === "heading" || node.type === "paragraph") {
       blocks.push(buildParagraph(node));
     } else if (node.type === "bulletList") {
-      blocks.push(...buildListItems(node, false, 0));
+      blocks.push(...buildListItems(node, false, 0, undefined, allocateReference));
     } else if (node.type === "orderedList") {
-      blocks.push(...buildListItems(node, true, 0));
+      blocks.push(...buildListItems(node, true, 0, undefined, allocateReference));
     } else if (node.type === "table") {
       blocks.push(buildTable(node));
     } else if (node.type === "horizontalRule") {
@@ -133,25 +155,25 @@ const buildBlocks = (nodes: TiptapNode[]): (Paragraph | Table)[] => {
   return blocks;
 };
 
+const buildNumberingConfig = (reference: string) => ({
+  reference,
+  levels: [0, 1, 2, 3].map((level) => ({
+    level,
+    format: "decimal" as const,
+    text: "%1.",
+    alignment: AlignmentType.START,
+    style: { paragraph: { indent: { left: convertInchesToTwip(0.5 * (level + 1)), hanging: convertInchesToTwip(0.25) } } },
+  })),
+});
+
 /** Tiptap JSON(에디터 정본) → 실제 .docx 바이트. 파일로 저장하지 않는 stateless 변환. */
 export const tiptapJsonToDocx = async (doc: Record<string, unknown>): Promise<Buffer> => {
   const nodes = (doc.content as TiptapNode[] | undefined) ?? [];
+  const orderedListReferences: string[] = [];
+  const blocks = buildBlocks(nodes, (reference) => orderedListReferences.push(reference));
   const document = new Document({
-    numbering: {
-      config: [
-        {
-          reference: "template-ordered",
-          levels: [0, 1, 2, 3].map((level) => ({
-            level,
-            format: "decimal" as const,
-            text: "%1.",
-            alignment: AlignmentType.START,
-            style: { paragraph: { indent: { left: convertInchesToTwip(0.5 * (level + 1)), hanging: convertInchesToTwip(0.25) } } },
-          })),
-        },
-      ],
-    },
-    sections: [{ children: buildBlocks(nodes) }],
+    numbering: { config: orderedListReferences.map(buildNumberingConfig) },
+    sections: [{ children: blocks }],
   });
   return Packer.toBuffer(document);
 };
