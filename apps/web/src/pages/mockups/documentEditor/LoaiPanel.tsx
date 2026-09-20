@@ -27,10 +27,21 @@ interface LoaiPanelProps {
   onClose: () => void;
   /** 지금 본문에서 고른 글 */
   selectedText: string;
+  /** "새로 쓰기"에서 초안 만들기를 누르면 만들어진 본문 HTML */
+  onDraftCreated: (html: string) => void;
+  /** 지금 종이에 쓴 내용이 있는지 — 초안 만들기가 덮어쓰기 전에 한 번 더 묻는 기준 */
+  hasDocumentContent: boolean;
 }
 
 /** 편집기 오른쪽에 붙는 로아이 패널 — 초안 생성·문장 다듬기·초안 검토 세 가지를 한곳에서. */
-export const LoaiPanel = ({ mode, onModeChange, onClose, selectedText }: LoaiPanelProps) => (
+export const LoaiPanel = ({
+  mode,
+  onModeChange,
+  onClose,
+  selectedText,
+  onDraftCreated,
+  hasDocumentContent,
+}: LoaiPanelProps) => (
   <aside className={css.panel}>
     <header className={css.panelHead}>
       <span className={sparkle}>
@@ -61,7 +72,7 @@ export const LoaiPanel = ({ mode, onModeChange, onClose, selectedText }: LoaiPan
     </div>
 
     <div className={css.panelBody}>
-      {mode === "draft" && <LoaiDraftTab />}
+      {mode === "draft" && <LoaiDraftTab onCreated={onDraftCreated} hasExistingContent={hasDocumentContent} />}
       {mode === "rewrite" && <LoaiRewriteTab selectedText={selectedText} />}
       {mode === "review" && <LoaiReviewTab />}
     </div>

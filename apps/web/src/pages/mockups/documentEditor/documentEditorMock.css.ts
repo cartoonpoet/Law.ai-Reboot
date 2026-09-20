@@ -183,6 +183,7 @@ export const docShell = style({ background: BACKGROUND, position: "relative" });
 export const docPage = style({});
 
 globalStyle(`${docShell} ${docPage}`, {
+  position: "relative",
   width: "100%",
   maxWidth: 748,
   minHeight: 900,
@@ -195,6 +196,23 @@ globalStyle(`${docShell} ${docPage}`, {
   fontSize: 14,
   lineHeight: 1.85,
   color: c.textPrimary,
+  counterReset: "pageBreak 1",
+});
+
+/* 종이 첫 쪽 표시 — 위쪽 여백에 얹는 "1페이지" 배지. 이후 쪽은 페이지 나누기 배지가 대신한다. */
+globalStyle(`${docShell} ${docPage}::before`, {
+  content: '"1페이지"',
+  position: "absolute",
+  top: 16,
+  right: 20,
+  padding: "2px 10px",
+  borderRadius: 999,
+  background: BACKGROUND,
+  border: `1px solid ${BORDER}`,
+  color: MUTED,
+  fontSize: 10.5,
+  fontWeight: 700,
+  letterSpacing: "-0.01em",
 });
 
 /* 종이 안 계약서 서식 — 가운데 제목, 조항 제목은 왼쪽 굵게. */
@@ -202,6 +220,44 @@ globalStyle(`${docPage} h1`, { fontSize: 22, textAlign: "center", margin: "0 0 2
 globalStyle(`${docPage} h2`, { fontSize: 14.5, margin: "22px 0 6px" });
 globalStyle(`${docPage} p`, { margin: "0 0 12px", textAlign: "justify" });
 globalStyle(`${docPage} table`, { fontSize: 13 });
+
+/*
+ * 페이지 나누기 블록(문서 편집기 캔버스 전용 강화 스타일) — 실제 워드처럼 종이와 종이 사이가
+ * 회색 틈으로 끊어지고, 그 틈 가운데 다음 쪽 번호 배지가 뜬다. 종이 좌우 패딩 밖까지 번지도록
+ * 음수 마진을 줘서 종이 폭 전체가 끊어진 것처럼 보이게 한다.
+ * (다른 화면의 RichTextEditor — 계약/자문 본문 — 는 RichTextEditor.css.ts 의 얇은 점선 스타일 그대로 쓴다.)
+ */
+globalStyle(`${docShell} ${docPage} div[data-page-break]`, {
+  position: "relative",
+  counterIncrement: "pageBreak",
+  height: 40,
+  margin: "40px -66px",
+  background: BACKGROUND,
+  borderTop: `1px solid ${BORDER}`,
+  borderBottom: `1px solid ${BORDER}`,
+  boxShadow:
+    "inset 0 8px 10px -10px color-mix(in srgb, #000 22%, transparent), inset 0 -8px 10px -10px color-mix(in srgb, #000 22%, transparent)",
+});
+globalStyle(`${docShell} ${docPage} div[data-page-break]::after`, {
+  content: 'counter(pageBreak) "페이지"',
+  position: "absolute",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  padding: "2px 10px",
+  borderRadius: 999,
+  background: SURFACE,
+  border: `1px solid ${BORDER}`,
+  color: MUTED,
+  fontSize: 10.5,
+  fontWeight: 700,
+  letterSpacing: "-0.01em",
+  whiteSpace: "nowrap",
+});
+globalStyle(`${docShell} ${docPage} div[data-page-break].ProseMirror-selectednode::after`, {
+  color: PRIMARY,
+  borderColor: PRIMARY_LINE,
+});
 
 export const docFoot = style({ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 });
 
