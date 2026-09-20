@@ -42,7 +42,7 @@ export function StandardFormsModal({ onClose, onAttach }: StandardFormsModalProp
                 key={c.id}
                 active={categoryId === c.id}
                 onClick={() => setCategoryId(c.id)}
-                trailing={<span className={css.tplMeta}>{counts[c.id]}</span>}
+                trailing={<span className={css.catCount}>{counts[c.id]}</span>}
               >
                 {c.label}
               </ListGroupItem>

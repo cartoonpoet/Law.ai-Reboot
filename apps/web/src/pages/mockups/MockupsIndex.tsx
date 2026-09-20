@@ -4,6 +4,44 @@ import * as css from "./mockups.css";
 export function MockupsIndex() {
   return (
     <div className={css.indexWrap}>
+      <h2 className={css.indexHero}>표준양식 관리 · 문서 편집기</h2>
+      <p className={css.indexSub}>
+        회사 표준 계약서 양식을 웹에서 만들고 고치는 한 흐름입니다. 양식 목록 → 편집기 → 로아이 도우미 → 버전 이력 순으로
+        이어지고, 마지막 화면은 계약 작성에서 그 양식을 골라 쓰는 자리입니다.
+      </p>
+      <Link to="/mockups/document-editor-templates" className={css.indexCard}>
+        <h3>1. 표준양식 관리 — 목록</h3>
+        <p>
+          계약 관리 아래 새 메뉴(법무팀 전용). 분류별로 양식을 모아 보고 현재 버전·수정일·수정자를 한 줄에 놓았습니다.
+          새 양식은 빈 문서로 시작하거나 워드 파일을 올려 만듭니다.
+        </p>
+      </Link>
+      <Link to="/mockups/document-editor-canvas" className={css.indexCard}>
+        <h3>2. 문서 편집기 — 종이 캔버스</h3>
+        <p>
+          지금 쓰는 서식 툴바 오른쪽 끝에 표 넣기와 “로아이 도우미”를 나란히 붙였습니다. 회색 바탕 위 흰 종이가 실제 편집
+          영역이고, 글을 끌어서 고르면 그 자리에 작은 버튼이 뜹니다.
+        </p>
+      </Link>
+      <Link to="/mockups/document-editor-ai" className={css.indexCard}>
+        <h3>3. 로아이 문서 도우미</h3>
+        <p>
+          새로 쓰기(문서 한 벌) · 문장 고치기(고른 문장만) · 전체 검토(문서 전체)로 하는 일을 갈라 놓았습니다. 검토 결과는
+          위험 조항·빈칸·누락 조항으로 나눠 어디를 어떻게 고쳐야 하는지까지 적습니다.
+        </p>
+      </Link>
+      <Link to="/mockups/document-editor-versions" className={css.indexCard}>
+        <h3>4. 버전 이력 · 되돌리기</h3>
+        <p>저장할 때마다 쌓인 v3·v2·v1을 수정일·수정자와 함께 보고, 옛 버전은 새 버전으로 되돌립니다.</p>
+      </Link>
+      <Link to="/mockups/document-editor-forms" className={css.indexCard}>
+        <h3>5. 계약 작성 — 이 양식으로 작성 시작</h3>
+        <p>
+          계약서 검토 요청 화면에서 등록 유형 “표준계약서 계약체결”을 고르면 “표준계약서 양식 보기”가 살아나고,
+          그 버튼으로 이 모달이 열립니다. 다운로드 자리가 “이 양식으로 작성 시작”으로 바뀌어 편집기로 이어집니다.
+        </p>
+      </Link>
+
       <h2 className={css.indexHero}>송무</h2>
       <Link to="/mockups/litigation-table" className={css.indexCard}>
         <h3>A. 사건 조회 — 표형</h3>

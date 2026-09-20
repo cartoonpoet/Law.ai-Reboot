@@ -79,6 +79,14 @@ export const tbtn = style({
       color: themeVars.color.accentPrimaryActive,
       borderColor: `color-mix(in srgb, ${accent} 22%, ${surface})`,
     },
+    /* 실행취소처럼 지금 할 수 없는 도구 — 눌리지 않는 것이 보이게. */
+    "&:disabled": {
+      opacity: 0.38,
+      cursor: "default",
+      background: "transparent",
+      borderColor: "transparent",
+      color: muted,
+    },
     /* 툴팁 — 시안 navy bg. accentDark 토큰 사용(임의 hex 금지). */
     "&[data-tip]:hover::after": {
       content: "attr(data-tip)",
@@ -234,3 +242,101 @@ globalStyle(`${area} blockquote`, {
   color: themeVars.color.textSecondary,
 });
 globalStyle(`${area} hr`, { border: "none", borderTop: `1px solid ${border}`, margin: "12px 0" });
+globalStyle(`${area} sup`, { verticalAlign: "super", fontSize: "0.72em" });
+globalStyle(`${area} sub`, { verticalAlign: "sub", fontSize: "0.72em" });
+
+/* 넣은 그림(로고·인감) — 종이 폭을 넘지 않게. */
+globalStyle(`${area} img`, {
+  display: "block",
+  maxWidth: "100%",
+  height: "auto",
+  margin: "10px 0",
+  borderRadius: themeVars.radius.sm,
+});
+globalStyle(`${area} img.ProseMirror-selectednode`, {
+  outline: `2px solid ${accent}`,
+  outlineOffset: 2,
+});
+
+/* 페이지 나누기 블록 — 점선 + "페이지 나누기" 라벨. 인쇄·워드 변환 때 여기서 쪽이 나뉜다는 표시. */
+globalStyle(`${area} div[data-page-break]`, {
+  position: "relative",
+  height: 0,
+  margin: "22px 0",
+  borderTop: `2px dashed ${border}`,
+});
+globalStyle(`${area} div[data-page-break]::after`, {
+  content: '"페이지 나누기"',
+  position: "absolute",
+  top: -9,
+  left: "50%",
+  transform: "translateX(-50%)",
+  padding: "0 8px",
+  background: surface,
+  color: muted,
+  fontSize: 10.5,
+  fontWeight: 700,
+  letterSpacing: "-.01em",
+  whiteSpace: "nowrap",
+});
+globalStyle(`${area} div[data-page-break].ProseMirror-selectednode::after`, {
+  color: accent,
+});
+
+/* 로아이 버튼 라벨 — 아이콘 + 글자. */
+export const loaiLabel = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  fontSize: 12,
+  fontWeight: 700,
+  color: themeVars.color.accentPrimary,
+});
+
+/* 로아이 버튼 — 서식 도구 바로 옆에 붙지만 옅은 파란 칩으로 도구와 구분된다. */
+export const loaiBtn = style({
+  padding: "0 9px",
+  background: `color-mix(in srgb, ${accent} 8%, ${surface})`,
+  borderColor: `color-mix(in srgb, ${accent} 26%, ${surface})`,
+  selectors: {
+    "&:hover": {
+      background: `color-mix(in srgb, ${accent} 16%, ${surface})`,
+      borderColor: accent,
+    },
+    "&[data-active='true']": {
+      background: accent,
+      borderColor: accent,
+    },
+  },
+});
+
+globalStyle(`${loaiBtn}[data-active='true'] ${loaiLabel}`, { color: themeVars.color.textInverse });
+
+/* 표 — withTable 일 때만 쓰이는 콘텐츠 서식(계약서 표 모양). */
+globalStyle(`${area} table`, {
+  width: "100%",
+  margin: "12px 0",
+  borderCollapse: "collapse",
+  tableLayout: "fixed",
+  overflow: "hidden",
+});
+globalStyle(`${area} th, ${area} td`, {
+  border: `1px solid ${border}`,
+  padding: "7px 9px",
+  verticalAlign: "top",
+  fontSize: 13,
+  position: "relative",
+});
+globalStyle(`${area} th`, {
+  background: surfaceAlt,
+  fontWeight: 700,
+  color: heading,
+  textAlign: "left",
+});
+globalStyle(`${area} .selectedCell:after`, {
+  content: "",
+  position: "absolute",
+  inset: 0,
+  background: `color-mix(in srgb, ${accent} 12%, transparent)`,
+  pointerEvents: "none",
+});

@@ -1,4 +1,5 @@
 import { useEditor, type Editor } from "@tiptap/react";
+import type { Extensions } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Highlight from "@tiptap/extension-highlight";
@@ -23,13 +24,22 @@ interface UseRichTextEditorArgs {
   /** contenteditable(.ProseMirror) 자체에 부여할 클래스 — 콘텐츠 노드/placeholder globalStyle이
    *  이 클래스를 부모 셀렉터로 쓰므로 래퍼가 아닌 편집 요소에 직접 적용해야 한다. */
   areaClass: string;
+  /** 기본 확장에 덧붙일 확장(문서 편집기의 표 등). 넘기지 않으면 지금 동작 그대로. */
+  extraExtensions?: Extensions;
 }
 
 /**
  * RichTextEditor 로직(에디터 인스턴스·확장·붙여넣기 정제·외부 value 동기화)을 분리한 커스텀 훅(SRP).
  * 컴포넌트는 뷰(툴바 마크업·버튼 배선)에 집중한다.
  */
-export const useRichTextEditor = ({ value, onChange, ariaLabel, placeholder, areaClass }: UseRichTextEditorArgs): Editor | null => {
+export const useRichTextEditor = ({
+  value,
+  onChange,
+  ariaLabel,
+  placeholder,
+  areaClass,
+  extraExtensions = [],
+}: UseRichTextEditorArgs): Editor | null => {
   const editor = useEditor({
     extensions: [
       // StarterKit 3.x는 underline·link를 기본 번들 → 별도 설치 확장은 중복 경고가 나므로
@@ -47,9 +57,13 @@ export const useRichTextEditor = ({ value, onChange, ariaLabel, placeholder, are
       TextStyle,
       Color,
       Placeholder.configure({ placeholder: placeholder ?? "" }),
+      ...extraExtensions,
     ],
     content: value,
     immediatelyRender: false,
+    // 툴바의 켜짐 표시(굵게·정렬 등)와 선택 영역에 따라 뜨는 버튼은 매 트랜잭션마다 다시 그려야 맞는다.
+    // tiptap 3은 이 값이 기본 false 라 켜 주지 않으면 툴바가 이전 상태에 머문다.
+    shouldRerenderOnTransaction: true,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: { "aria-label": ariaLabel, class: areaClass },
