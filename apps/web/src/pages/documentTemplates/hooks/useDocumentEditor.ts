@@ -10,9 +10,9 @@ import type { AiReviewFinding } from "@lawai/contracts";
 const RETRY_HINT = "잠시 후 다시 시도해 주세요.";
 
 /** 표준양식 편집기 — 템플릿 조회·저장(새 버전)·버전 이력·되돌리기·AI 3종을 한 훅으로 묶는다. */
-export const useDocumentEditor = (templateId: string, initialHtml?: string) => {
+export const useDocumentEditor = (templateId: string) => {
   const queryClient = useQueryClient();
-  const [content, setContent] = useState<string | null>(initialHtml ?? null);
+  const [content, setContent] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isVersionOpen, setIsVersionOpen] = useState(false);
   const [reviewFindings, setReviewFindings] = useState<AiReviewFinding[]>([]);
@@ -51,11 +51,15 @@ export const useDocumentEditor = (templateId: string, initialHtml?: string) => {
   };
 
   const revert = async (versionNo: number): Promise<void> => {
-    await revertTemplateVersion(templateId, versionNo);
-    await queryClient.invalidateQueries({ queryKey: ["documentTemplate", templateId] });
-    await queryClient.invalidateQueries({ queryKey: ["documentTemplateVersions", templateId] });
-    setContent(null); // 다음 렌더에서 최신 버전으로 다시 채운다
-    setIsVersionOpen(false);
+    try {
+      await revertTemplateVersion(templateId, versionNo);
+      await queryClient.invalidateQueries({ queryKey: ["documentTemplate", templateId] });
+      await queryClient.invalidateQueries({ queryKey: ["documentTemplateVersions", templateId] });
+      setContent(null); // 다음 렌더에서 최신 버전으로 다시 채운다(성공했을 때만 — 실패 시 보이던 내용을 유지)
+      setIsVersionOpen(false);
+    } catch (error) {
+      showToast({ intent: "error", title: "되돌리지 못했어요", description: getErrorMessage(error, RETRY_HINT) });
+    }
   };
 
   const generateDraft = async (request: string): Promise<string> => {

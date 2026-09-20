@@ -25,6 +25,14 @@ export const StandardFormEditorModal = ({ templateId, templateName, onClose, onC
   const query = useQuery({ queryKey: ["documentTemplate", templateId], queryFn: () => getTemplate(templateId) });
   if (query.data && content === null) setContent(tiptapJsonToHtml(query.data.currentVersion.content));
 
+  // 업로드/내보내기(onComplete)가 끝나기 전에는 어떤 경로로도(취소 버튼·ESC·배경 클릭·헤더 닫기 버튼이
+  // 모두 이 onClose 하나로 모인다) 모달이 닫히지 않게 막는다 — 그렇지 않으면 방금 올라간 첨부가
+  // 계약서 폼 저장(PATCH)에 반영되지 않는 경합이 다시 열린다.
+  const handleClose = () => {
+    if (isFinishing) return;
+    onClose();
+  };
+
   const handleComplete = async () => {
     if (content === null) return;
     setIsFinishing(true);
@@ -43,12 +51,14 @@ export const StandardFormEditorModal = ({ templateId, templateName, onClose, onC
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={handleClose}
+      disableBackdropClose={isFinishing}
+      closeOnEscape={!isFinishing}
       size="xlarge"
       title={`${templateName} — 계약서 작성`}
       footer={
         <>
-          <Button variant="outline" color="secondary" onClick={onClose}>
+          <Button variant="outline" color="secondary" disabled={isFinishing} onClick={handleClose}>
             취소
           </Button>
           <Button disabled={content === null || isFinishing} onClick={() => void handleComplete()}>

@@ -79,4 +79,17 @@ describe("DocumentsService — AI 3종", () => {
     aiClient.chat.mockResolvedValue({ content: "JSON 아님" });
     await expect(service.aiReview({ viewerId: userId, tenantContext: ctx, html: "<p>본문</p>" })).rejects.toThrow(RpcException);
   });
+
+  it("aiReview — 너무 긴 HTML은 전체 거부 대신 앞부분만 잘라 AI에 보낸다", async () => {
+    credentials.getDecryptedKeyFor.mockResolvedValue({ model: "gpt-4o", apiKey: "sk-test" });
+    aiClient.chat.mockResolvedValue({ content: JSON.stringify({ findings: [] }) });
+    const longHtml = "<p>가</p>".repeat(30_000); // 120,000자 — 게이트웨이 한도는 통과하지만 그대로 AI에 보내면 과함
+
+    await service.aiReview({ viewerId: userId, tenantContext: ctx, html: longHtml });
+
+    const lastCall = aiClient.chat.mock.calls[aiClient.chat.mock.calls.length - 1][0];
+    const sentContent = lastCall.messages[0].content as string;
+    expect(sentContent.length).toBeLessThan(longHtml.length);
+    expect(sentContent).toContain("이하 생략");
+  });
 });

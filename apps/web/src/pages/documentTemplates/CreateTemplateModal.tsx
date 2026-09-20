@@ -4,14 +4,16 @@ import { Modal, Input, InputGroup, Dropdown, Button } from "@lawkit/ui";
 import type { TemplateCategoryTypes } from "@lawai/contracts";
 import { createTemplate } from "../../api/documentTemplates";
 import { STANDARD_FORM_CATEGORIES } from "../../api/standardForms";
+import { htmlToTiptapJson } from "../../components/documentEditor/tiptapContent";
 import * as css from "./documentTemplates.css";
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 
 interface CreateTemplateModalProps {
   onClose: () => void;
-  // DOCX 업로드로 시작하면 mammoth 로 변환된 초기 HTML(빈 문서면 undefined) — 저장은 편집기 화면에서
-  // HTML→Tiptap JSON 변환 후 이뤄지므로, 여기서는 "빈 문서 뼈대"로만 만들고 편집기 진입 뒤 즉시 첫 저장한다.
+  // DOCX 업로드로 시작하면 mammoth 로 변환된 초기 HTML(빈 문서면 undefined). 여기서 바로
+  // Tiptap JSON으로 변환해 템플릿 생성 요청(v1)에 실어 보낸다 — 그래야 사용자가 편집기에서
+  // 저장 버튼을 누르기 전에도(예: 올리자마자 나가는 경우) 들여온 내용이 유실되지 않는다.
   initialHtml?: string;
 }
 
@@ -28,9 +30,9 @@ export const CreateTemplateModal = ({ onClose, initialHtml }: CreateTemplateModa
     setIsSaving(true);
     setError(null);
     try {
-      const res = await createTemplate({ categoryId, name: name.trim(), content: EMPTY_DOC });
-      // DOCX 업로드로 시작한 경우 들여온 HTML을 편집기 초기값으로 넘긴다(편집기가 JSON 변환 후 첫 저장을 한다).
-      navigate(`/document-templates/${res.template.id}`, { state: initialHtml ? { initialHtml } : undefined });
+      const content = initialHtml ? htmlToTiptapJson(initialHtml) : EMPTY_DOC;
+      const res = await createTemplate({ categoryId, name: name.trim(), content });
+      navigate(`/document-templates/${res.template.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "양식을 만들지 못했습니다");
       setIsSaving(false);

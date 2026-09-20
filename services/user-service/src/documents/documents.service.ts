@@ -21,6 +21,10 @@ import { tiptapJsonToDocx } from "./tiptap-to-docx";
 import { parseDraftHtml, parseReviewJson, parseRewriteText } from "./document-ai-reply";
 
 const MAX_IMPORT_SIZE_BYTES = 20 * 1024 * 1024; // 20MB — 업로드 훨씬 넘는 이상 파일 방지.
+// AI 검토에 실제로 보낼 HTML 최대 길이 — 게이트웨이 AiReviewDto.html은 이미 넉넉히 받아 주지만
+// (150,000자), 그와 별개로 모델 입력 한도·비용을 넘지 않게 여기서 한 번 더 앞부분만 남기고 자른다
+// (contract-text.extractor.ts의 MAX_CONTRACT_TEXT_LENGTH와 같은 패턴).
+const MAX_REVIEW_HTML_LENGTH = 100_000;
 
 /** 문서 편집기 — Tiptap JSON을 진짜 .docx 로 내보내고(stateless), .docx 를 HTML로 들여오고, 로아이 AI 3종을 제공한다. */
 @Injectable()
@@ -135,6 +139,11 @@ export class DocumentsService {
     const credential = await this.credentials.getDecryptedKeyFor(req.viewerId);
     if (!credential) return { findings: [], needsSetup: true };
 
+    const truncatedHtml =
+      html.length > MAX_REVIEW_HTML_LENGTH
+        ? `${html.slice(0, MAX_REVIEW_HTML_LENGTH)}\n…(이하 생략: 본문이 길어 앞부분만 검토)`
+        : html;
+
     const system = [
       "당신은 한국 기업 법무팀의 계약서 검토 도우미입니다.",
       "받은 계약서 HTML에서 회사에 불리한 위험 조항, 채워지지 않은 빈칸([   ] 형태), 표준 계약서에 흔히 있지만 빠진 조항을 찾으세요.",
@@ -148,7 +157,7 @@ export class DocumentsService {
         model: credential.model,
         apiKey: credential.apiKey,
         system,
-        messages: [{ role: "user", content: html }],
+        messages: [{ role: "user", content: truncatedHtml }],
       }));
     } catch (error) {
       throw new RpcException({ status: 502, message: `AI 응답을 받지 못했어요: ${this.getErrorMessage(error)}` });

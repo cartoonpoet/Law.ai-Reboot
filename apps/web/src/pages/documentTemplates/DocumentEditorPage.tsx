@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Button, EmptyState, Icon } from "@lawkit/ui";
 import type { Editor } from "@tiptap/react";
 import { Eyebrow } from "../../components/ui/Eyebrow";
@@ -15,9 +15,7 @@ const countPages = (html: string): number => (html.match(/data-page-break/g)?.le
 
 export const DocumentEditorPage = () => {
   const { id } = useParams<{ id: string }>();
-  const location = useLocation();
-  const initialHtml = (location.state as { initialHtml?: string } | null)?.initialHtml;
-  const editor = useDocumentEditor(id as string, initialHtml);
+  const editor = useDocumentEditor(id as string);
 
   const [loaiMode, setLoaiMode] = useState<LoaiModeTypes | null>(null);
   const [selectedText, setSelectedText] = useState("");

@@ -13,13 +13,15 @@ async function bootstrap() {
   // json 파서를 forRoutes로 걸어도 소용없다 — 그보다 먼저 도는 전역 기본 파서가 100kb 초과
   // 요청을 이미 막아버린다(경로 무관, 인증 가드보다도 먼저 실행됨).
   // 따라서 자동 기본 파서를 끄고(bodyParser: false), 아래에서 순서를 직접 통제한다:
-  //  1) "/documents" 경로에만 30mb json 파서를 먼저 걸어 문서 편집기 DOCX 업로드
-  //     (원본 20MB → base64 약 27MB)를 허용하고,
+  //  1) "/documents"(docx export/import/AI)와 "/document-templates"(표준양식 생성·버전
+  //     저장) 경로에 30mb json 파서를 먼저 걸어 문서 편집기 DOCX 업로드(원본 20MB → base64
+  //     약 27MB, mammoth가 로고·직인 이미지를 base64 data URI로 인라인)를 허용하고,
   //  2) 그 다음 나머지 모든 라우트에는 원래와 동일한 express 기본 제한(100kb)의
   //     json/urlencoded 파서를 건다. body-parser는 이미 파싱된 요청을 건너뛰므로
-  //     (req._body) documents 라우트에서 두 번째 파서가 다시 파싱을 시도하지 않는다.
+  //     (req._body) 위 두 라우트에서 두 번째 파서가 다시 파싱을 시도하지 않는다.
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   app.use("/documents", json({ limit: "30mb" }));
+  app.use("/document-templates", json({ limit: "30mb" }));
   app.use(json());
   app.use(urlencoded({ extended: true }));
   app.use(
