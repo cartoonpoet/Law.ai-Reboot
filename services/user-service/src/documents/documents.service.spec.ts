@@ -7,36 +7,30 @@ import { DocumentsService } from "./documents.service";
 
 describe("DocumentsService", () => {
   let service: DocumentsService;
-  let prisma: PrismaService;
-  let tenantId: string;
-  let userId: string;
-  let ctx: { tenantId: string; isSystemAdmin: boolean };
+  const tenantId = "doc-tenant-1";
+  const userId = "doc-user-1";
+  const ctx = { tenantId, isSystemAdmin: false };
 
-  beforeAll(async () => {
+  const prismaMock = {
+    userTenant: { findFirst: jest.fn() },
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    // userId 는 tenantId 소속, 그 밖의 테넌트는 소속 없음.
+    prismaMock.userTenant.findFirst.mockImplementation(({ where }: { where: { userId: string; tenantId: string } }) =>
+      Promise.resolve(where.userId === userId && where.tenantId === tenantId ? { id: "m-1", role: "general" } : null),
+    );
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         DocumentsService,
-        PrismaService,
+        { provide: PrismaService, useValue: prismaMock },
         { provide: AiCredentialsService, useValue: { getDecryptedKeyFor: jest.fn() } },
         { provide: AiServiceClient, useValue: { chat: jest.fn() } },
       ],
     }).compile();
     service = moduleRef.get(DocumentsService);
-    prisma = moduleRef.get(PrismaService);
-
-    tenantId = `doc-tenant-${Date.now()}`;
-    userId = `doc-user-${Date.now()}`;
-    await prisma.tenant.create({ data: { id: tenantId, name: "테스트회사", plan: "starter", status: "active" } });
-    await prisma.user.create({ data: { id: userId, email: `${userId}@test.com`, name: "테스터", passwordHash: "x" } });
-    await prisma.userTenant.create({ data: { userId, tenantId, role: "general" } });
-    ctx = { tenantId, isSystemAdmin: false };
-  });
-
-  afterAll(async () => {
-    await prisma.userTenant.deleteMany({ where: { tenantId } });
-    await prisma.user.delete({ where: { id: userId } });
-    await prisma.tenant.delete({ where: { id: tenantId } });
-    await prisma.$disconnect();
   });
 
   it("Tiptap JSON을 .docx base64로 내보낸다", async () => {
@@ -72,5 +66,6 @@ describe("DocumentsService", () => {
     await expect(
       service.export({ viewerId: userId, tenantContext: otherCtx, fileName: "x", content: { type: "doc", content: [] } }),
     ).rejects.toThrow(RpcException);
+    expect(prismaMock.userTenant.findFirst).toHaveBeenCalledWith({ where: { userId, tenantId: "no-such-tenant" } });
   });
 });

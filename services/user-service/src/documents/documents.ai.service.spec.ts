@@ -9,39 +9,31 @@ describe("DocumentsService — AI 3종", () => {
   let service: DocumentsService;
   let credentials: { getDecryptedKeyFor: jest.Mock };
   let aiClient: { chat: jest.Mock };
-  let tenantId: string;
-  let userId: string;
-  let ctx: { tenantId: string; isSystemAdmin: boolean };
+  const tenantId = "ai-doc-tenant-1";
+  const userId = "ai-doc-user-1";
+  const ctx = { tenantId, isSystemAdmin: false };
 
-  beforeAll(async () => {
+  const prismaMock = {
+    userTenant: { findFirst: jest.fn() },
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    prismaMock.userTenant.findFirst.mockImplementation(({ where }: { where: { userId: string; tenantId: string } }) =>
+      Promise.resolve(where.userId === userId && where.tenantId === tenantId ? { id: "m-1", role: "general" } : null),
+    );
     credentials = { getDecryptedKeyFor: jest.fn() };
     aiClient = { chat: jest.fn() };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         DocumentsService,
-        PrismaService,
+        { provide: PrismaService, useValue: prismaMock },
         { provide: AiCredentialsService, useValue: credentials },
         { provide: AiServiceClient, useValue: aiClient },
       ],
     }).compile();
     service = moduleRef.get(DocumentsService);
-    const prisma = moduleRef.get(PrismaService);
-
-    tenantId = `ai-doc-tenant-${Date.now()}`;
-    userId = `ai-doc-user-${Date.now()}`;
-    await prisma.tenant.create({ data: { id: tenantId, name: "테스트회사", plan: "starter", status: "active" } });
-    await prisma.user.create({ data: { id: userId, email: `${userId}@test.com`, name: "테스터", passwordHash: "x" } });
-    await prisma.userTenant.create({ data: { userId, tenantId, role: "general" } });
-    ctx = { tenantId, isSystemAdmin: false };
-  });
-
-  afterAll(async () => {
-    const prisma = (service as unknown as { prisma: PrismaService }).prisma;
-    await prisma.userTenant.deleteMany({ where: { tenantId } });
-    await prisma.user.delete({ where: { id: userId } });
-    await prisma.tenant.delete({ where: { id: tenantId } });
-    await prisma.$disconnect();
   });
 
   it("AI 키가 없으면 needsSetup:true를 준다(3종 공통)", async () => {
