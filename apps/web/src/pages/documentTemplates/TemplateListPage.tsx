@@ -16,6 +16,7 @@ export const TemplateListPage = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [uploadedHtml, setUploadedHtml] = useState<string | undefined>(undefined);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handlePickFile = () => fileInputRef.current?.click();
@@ -25,11 +26,14 @@ export const TemplateListPage = () => {
     event.target.value = "";
     if (!file) return;
     setIsUploading(true);
+    setUploadError(null);
     try {
       const base64 = await fileToBase64(file);
       const { html } = await importDocument(base64, file.name);
       setUploadedHtml(html);
       setIsCreateOpen(true);
+    } catch (err) {
+      setUploadError(`워드 파일을 읽지 못했습니다: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
     } finally {
       setIsUploading(false);
     }
@@ -67,6 +71,7 @@ export const TemplateListPage = () => {
           </Button>
         </div>
       </div>
+      {uploadError && <p className={css.errorText}>{uploadError}</p>}
 
       <div className={css.filters}>
         <Input
