@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { Alert, Button, Icon, Textarea } from "@lawkit/ui";
+import { LoaiDraftTab as SharedLoaiDraftTab } from "../../../components/documentEditor/LoaiDraftTab";
 import { buildMockDraft, MOCK_DRAFT_PRESETS } from "./documentEditorMockData";
-import * as css from "./documentEditorMock.css";
 
 interface LoaiDraftTabProps {
   /** 초안 만들기를 누르면 생성된 본문 HTML을 캔버스에 반영한다. */
@@ -10,75 +8,11 @@ interface LoaiDraftTabProps {
   hasExistingContent: boolean;
 }
 
-/** 로아이 ① 초안 생성 — 어떤 계약서를 쓸지 말하면 조항 구조까지 갖춘 초안을 만들어 넣는다. */
-export const LoaiDraftTab = ({ onCreated, hasExistingContent }: LoaiDraftTabProps) => {
-  const [request, setRequest] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isOverwriteAsked, setIsOverwriteAsked] = useState(false);
-
-  const createDraft = () => {
-    setIsOverwriteAsked(false);
-    setIsGenerating(true);
-    window.setTimeout(() => {
-      onCreated(buildMockDraft(request));
-      setIsGenerating(false);
-    }, 700);
-  };
-
-  /** 이미 쓴 내용이 있으면 바로 만들지 않고 덮어쓸지부터 묻는다(패널 안내 문구와 같은 동작). */
-  const handleCreate = () => {
-    if (hasExistingContent) setIsOverwriteAsked(true);
-    else createDraft();
-  };
-
-  const handleCancelOverwrite = () => setIsOverwriteAsked(false);
-
-  return (
-    <>
-      <p className={css.panelLead}>
-        어떤 계약서를 쓸지 한 줄로 알려 주세요. 이미 쓴 내용이 있으면 바꾸기 전에 한 번 더 묻습니다.
-      </p>
-
-      <Textarea
-        rows={4}
-        placeholder="예) 물품공급계약서 초안을 만들어 줘. 우리가 물건을 받는 쪽이고, 검수 기간은 7일이야."
-        value={request}
-        onChange={(event) => setRequest(event.target.value)}
-      />
-
-      <div className={css.panelLabel}>이렇게 물어보면 돼요</div>
-      <div className={css.presetList}>
-        {MOCK_DRAFT_PRESETS.map((preset) => (
-          <div key={preset} className={css.presetItem} onClick={() => setRequest(preset)}>
-            {preset}
-          </div>
-        ))}
-      </div>
-
-      {isOverwriteAsked && (
-        <Alert
-          type="confirm"
-          size="small"
-          actions={[
-            { label: "덮어쓰고 만들기", intent: "primary", onClick: createDraft },
-            { label: "그냥 두기", intent: "secondary", onClick: handleCancelOverwrite },
-          ]}
-        >
-          지금 종이에 쓰여 있는 내용을 지우고 새 초안으로 바꿉니다.
-        </Alert>
-      )}
-
-      <Button
-        iconLeft={<Icon name="autoAwesome" size="sm" />}
-        disabled={request.trim() === "" || isGenerating}
-        onClick={handleCreate}
-      >
-        {isGenerating ? "만드는 중…" : "초안 만들기"}
-      </Button>
-
-      <p className={css.disclaimer}>
-        로아이가 만든 초안은 참고용이에요. 회사에 맞는 조건인지 담당 변호사가 꼭 확인하세요.
-      </p>
-    </>
-  );
-};
+/** 시안용 초안 생성 탭 — 실제 AI 대신 가짜 지연 뒤 가짜 초안을 돌려준다. */
+export const LoaiDraftTab = (props: LoaiDraftTabProps) => (
+  <SharedLoaiDraftTab
+    {...props}
+    presets={MOCK_DRAFT_PRESETS}
+    onGenerate={(request) => new Promise((resolve) => window.setTimeout(() => resolve(buildMockDraft(request)), 700))}
+  />
+);
