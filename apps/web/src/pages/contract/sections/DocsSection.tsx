@@ -37,20 +37,17 @@ export function DocsSection({ contractId, isFileLocked = false }: DocsSectionPro
   // 편집 모드(contractId 있음)는 다른 첨부와 동일하게 즉시 R2 업로드(FileUploadField 와 같은 방식) —
   // 그래야 submit(edit 모드)이 blob 을 보지 않아도(useContractSubmit 참고) id 있는 파일로 반영된다.
   // 신규 작성(contractId 없음)은 blob 을 폼에 보관해 submit 시점에 일괄 업로드한다.
-  const handleTemplateEditorComplete = (file: File) => {
+  // 업로드가 끝날 때까지 기다린 뒤에 resolve해야(await) StandardFormEditorModal이 그 전에 닫히지 않고,
+  // 모달이 닫히기 전에는 계약서 폼 저장이 불가능하므로 첨부가 저장 PATCH에서 누락되는 경합이 생기지 않는다.
+  // 업로드 실패는 여기서 삼키지 않고 그대로 throw해 StandardFormEditorModal의 handleComplete가 잡아 보여준다.
+  const handleTemplateEditorComplete = async (file: File): Promise<void> => {
     if (contractId) {
-      void (async () => {
-        try {
-          const att = await uploadContractFile(contractId, FIELD_TO_ROLE.contractFiles, file);
-          setValue(
-            "contractFiles",
-            [...getValues("contractFiles"), { id: att.id, name: att.name, meta: "표준양식 · DOCX", mimeType: att.mimeType }],
-            { shouldValidate: true },
-          );
-        } catch (err) {
-          window.alert(`${file.name} 업로드 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
-        }
-      })();
+      const att = await uploadContractFile(contractId, FIELD_TO_ROLE.contractFiles, file);
+      setValue(
+        "contractFiles",
+        [...getValues("contractFiles"), { id: att.id, name: att.name, meta: "표준양식 · DOCX", mimeType: att.mimeType }],
+        { shouldValidate: true },
+      );
       return;
     }
     setValue(
