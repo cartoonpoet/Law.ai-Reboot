@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Card, Alert, Button } from "@lawkit/ui";
+import type { TemplateSummaryDto } from "@lawai/contracts";
 import type { ContractRequestForm } from "../request-schema";
-import type { StandardForm } from "../../../api/standardForms";
+import { FIELD_TO_ROLE } from "../fileFieldRole";
+import { uploadContractFile } from "../hooks/uploadContractFile";
 import { CardTitle, ErrText, Field } from "./_shared";
 import { FileUploadField } from "./FileUploadField";
 import { StandardFormsModal } from "./StandardFormsModal";
+import { StandardFormEditorModal } from "./StandardFormEditorModal";
 import * as css from "../contractRequest.css";
 
 interface DocsSectionProps {
@@ -18,26 +21,43 @@ interface DocsSectionProps {
 export function DocsSection({ contractId, isFileLocked = false }: DocsSectionProps = {}) {
   const { getValues, setValue, watch, formState: { errors } } = useFormContext<ContractRequestForm>();
   const [isFormsOpen, setIsFormsOpen] = useState(false);
+  const [startingTemplate, setStartingTemplate] = useState<TemplateSummaryDto | null>(null);
   const registerAs = watch("registerAs");
+  const ctype = watch("ctype");
   const isSigned = registerAs === "signed";
+  const isStandardForm = ctype === "std";
   const documentLockMode = isFileLocked ? "readOnly" : undefined;
   const attachmentLockMode = isFileLocked ? "addOnly" : undefined;
 
-  const handleAttachForm = (form: StandardForm) => {
+  const handleStartFromTemplate = (template: TemplateSummaryDto) => {
+    setStartingTemplate(template);
+    setIsFormsOpen(false);
+  };
+
+  // 편집 모드(contractId 있음)는 다른 첨부와 동일하게 즉시 R2 업로드(FileUploadField 와 같은 방식) —
+  // 그래야 submit(edit 모드)이 blob 을 보지 않아도(useContractSubmit 참고) id 있는 파일로 반영된다.
+  // 신규 작성(contractId 없음)은 blob 을 폼에 보관해 submit 시점에 일괄 업로드한다.
+  const handleTemplateEditorComplete = (file: File) => {
+    if (contractId) {
+      void (async () => {
+        try {
+          const att = await uploadContractFile(contractId, FIELD_TO_ROLE.contractFiles, file);
+          setValue(
+            "contractFiles",
+            [...getValues("contractFiles"), { id: att.id, name: att.name, meta: "표준양식 · DOCX", mimeType: att.mimeType }],
+            { shouldValidate: true },
+          );
+        } catch (err) {
+          window.alert(`${file.name} 업로드 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`);
+        }
+      })();
+      return;
+    }
     setValue(
       "contractFiles",
-      [
-        ...getValues("contractFiles"),
-        {
-          id: null,
-          name: `${form.name} ${form.version}.docx`,
-          meta: "표준양식 · DOCX",
-          mimeType: null,
-        },
-      ],
+      [...getValues("contractFiles"), { id: null, name: file.name, meta: "표준양식 · DOCX", mimeType: file.type, blob: file }],
       { shouldValidate: true },
     );
-    setIsFormsOpen(false);
   };
 
   return (
@@ -94,13 +114,21 @@ export function DocsSection({ contractId, isFileLocked = false }: DocsSectionPro
           </Field>
         </div>
 
-        {!isFileLocked && (
+        {!isFileLocked && isStandardForm && (
           <div className={css.btnRow}>
             <Button type="button" variant="outline" color="secondary" size="small" onClick={() => setIsFormsOpen(true)}>표준계약서 양식 보기</Button>
           </div>
         )}
 
-        {isFormsOpen && <StandardFormsModal onClose={() => setIsFormsOpen(false)} onAttach={handleAttachForm} />}
+        {isFormsOpen && <StandardFormsModal onClose={() => setIsFormsOpen(false)} onStart={handleStartFromTemplate} />}
+        {startingTemplate && (
+          <StandardFormEditorModal
+            templateId={startingTemplate.id}
+            templateName={startingTemplate.name}
+            onClose={() => setStartingTemplate(null)}
+            onComplete={handleTemplateEditorComplete}
+          />
+        )}
       </div>
     </Card>
   );
