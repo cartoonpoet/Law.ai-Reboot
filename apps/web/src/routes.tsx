@@ -72,8 +72,21 @@ export function AppRoutes() {
           path="/mockups/document-editor-canvas"
           element={
             <DocumentEditorMock
-              variant="2. 문서 편집기 — 종이 캔버스"
-              description="지금 쓰는 서식 툴바(굵게·색·목록·정렬·링크) 오른쪽 끝에 표 넣기와 “로아이 도우미”를 나란히 붙였습니다. 아래 종이는 실제로 고쳐지는 편집 영역이고, 글을 끌어서 고르면 그 자리에 작은 버튼이 뜹니다."
+              key="canvas-existing"
+              variant="2. 문서 편집기 — 기존 양식 열어 고치기"
+              description="지금 쓰는 서식 툴바(굵게·색·목록·정렬·링크) 오른쪽 끝에 표 넣기와 “로아이 도우미”를 나란히 붙였습니다. 아래 종이는 실제로 고쳐지는 편집 영역이고, 글을 끌어서 고르면 그 자리에 작은 버튼이 뜹니다. 툴바에서 “페이지 나누기”를 넣은 자리마다 실제 워드처럼 쪽이 나뉘어 보입니다."
+            />
+          }
+        />
+        <Route
+          path="/mockups/document-editor-canvas-new"
+          element={
+            <DocumentEditorMock
+              key="canvas-new"
+              variant="2-1. 문서 편집기 — 빈 문서에서 시작"
+              description="표준양식 관리에서 “빈 문서로 만들기”를 누르면 오는 화면입니다. 종이가 정말 비어 있고 저장 이력도 없습니다. 오른쪽 로아이 “새로 쓰기”에 요청을 적고 “초안 만들기”를 누르면 그 자리에서 조항까지 갖춘 초안이 채워집니다."
+              startBlank
+              initialLoaiMode="draft"
             />
           }
         />
