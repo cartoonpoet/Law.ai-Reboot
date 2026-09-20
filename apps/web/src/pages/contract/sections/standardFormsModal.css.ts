@@ -63,6 +63,9 @@ export const ver = style({ fontSize: 10.5, fontWeight: 600, color: themeVars.col
 export const tplDesc = style({ fontSize: 11.5, color: themeVars.color.textMuted, lineHeight: 1.5 });
 export const tplMeta = style({ fontSize: 11, color: themeVars.color.textMuted });
 
+/** 분류 목록 오른쪽 개수 — 고른 줄은 바탕이 진해지므로 글자색을 그 줄에서 물려받는다. */
+export const catCount = style({ fontSize: 11, color: "currentColor", opacity: 0.72 });
+
 /* 미리보기 메타 */
 export const kv = style({ display: "flex", fontSize: 11.5, padding: "5px 0", borderBottom: `1px dashed ${themeVars.color.neutralBorder}` });
 export const kvK = style({ width: 58, flexShrink: 0, color: themeVars.color.textMuted, fontWeight: 600 });

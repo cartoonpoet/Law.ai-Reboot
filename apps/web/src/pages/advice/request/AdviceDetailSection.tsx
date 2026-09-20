@@ -57,6 +57,8 @@ export const AdviceDetailSection = () => {
                   value={field.value}
                   onChange={field.onChange}
                   placeholder="언제 · 누가 · 무엇을 했고 지금 상황이 어떤지"
+                  withTable
+                  withFullToolbar
                 />
               )}
             />
@@ -76,6 +78,8 @@ export const AdviceDetailSection = () => {
                   value={field.value}
                   onChange={field.onChange}
                   placeholder="검토가 필요한 쟁점과 원하는 답의 형태"
+                  withTable
+                  withFullToolbar
                 />
               )}
             />
