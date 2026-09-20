@@ -2,8 +2,12 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTemplate, createTemplateVersion, listTemplateVersions, revertTemplateVersion } from "../../../api/documentTemplates";
 import { requestAiDraft, requestAiRewrite, requestAiReview } from "../../../api/documents";
+import { getErrorMessage } from "../../../api/apiError";
 import { htmlToTiptapJson, tiptapJsonToHtml } from "../../../components/documentEditor/tiptapContent";
+import { showToast } from "../../../lib/toast/toastStore";
 import type { AiReviewFinding } from "@lawai/contracts";
+
+const RETRY_HINT = "잠시 후 다시 시도해 주세요.";
 
 /** 표준양식 편집기 — 템플릿 조회·저장(새 버전)·버전 이력·되돌리기·AI 3종을 한 훅으로 묶는다. */
 export const useDocumentEditor = (templateId: string, initialHtml?: string) => {
@@ -38,6 +42,9 @@ export const useDocumentEditor = (templateId: string, initialHtml?: string) => {
       await createTemplateVersion(templateId, { content: htmlToTiptapJson(content), clauseCount: null });
       await queryClient.invalidateQueries({ queryKey: ["documentTemplate", templateId] });
       await queryClient.invalidateQueries({ queryKey: ["documentTemplateVersions", templateId] });
+      showToast({ intent: "success", title: "저장했어요" });
+    } catch (error) {
+      showToast({ intent: "error", title: "저장하지 못했어요", description: getErrorMessage(error, RETRY_HINT) });
     } finally {
       setIsSaving(false);
     }
@@ -52,15 +59,25 @@ export const useDocumentEditor = (templateId: string, initialHtml?: string) => {
   };
 
   const generateDraft = async (request: string): Promise<string> => {
-    const res = await requestAiDraft(request);
-    if (res.needsSetup) throw new Error("AI 연동을 먼저 설정해 주세요(시스템 관리 화면).");
-    return res.html;
+    try {
+      const res = await requestAiDraft(request);
+      if (res.needsSetup) throw new Error("AI 연동을 먼저 설정해 주세요(시스템 관리 화면).");
+      return res.html;
+    } catch (error) {
+      showToast({ intent: "error", title: "초안을 만들지 못했어요", description: getErrorMessage(error, RETRY_HINT) });
+      throw error;
+    }
   };
 
   const rewriteSelection = async (selectedText: string, instruction: string): Promise<string> => {
-    const res = await requestAiRewrite(selectedText, instruction);
-    if (res.needsSetup) throw new Error("AI 연동을 먼저 설정해 주세요(시스템 관리 화면).");
-    return res.rewrittenText;
+    try {
+      const res = await requestAiRewrite(selectedText, instruction);
+      if (res.needsSetup) throw new Error("AI 연동을 먼저 설정해 주세요(시스템 관리 화면).");
+      return res.rewrittenText;
+    } catch (error) {
+      showToast({ intent: "error", title: "문장을 고치지 못했어요", description: getErrorMessage(error, RETRY_HINT) });
+      throw error;
+    }
   };
 
   const runReview = async (): Promise<void> => {
@@ -69,6 +86,8 @@ export const useDocumentEditor = (templateId: string, initialHtml?: string) => {
     try {
       const res = await requestAiReview(content);
       setReviewFindings(res.findings);
+    } catch (error) {
+      showToast({ intent: "error", title: "검토하지 못했어요", description: getErrorMessage(error, RETRY_HINT) });
     } finally {
       setIsReviewing(false);
     }

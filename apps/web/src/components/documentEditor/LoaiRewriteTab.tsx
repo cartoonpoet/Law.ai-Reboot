@@ -15,10 +15,12 @@ interface LoaiRewriteTabProps {
   selectedText: string;
   /** 고른 지시문으로 선택 문장을 실제로 다시 쓴다(AI 호출). */
   onRewrite: (instruction: string) => Promise<string>;
+  /** "이 문장으로 바꾸기"를 누르면 고친 문장을 실제 선택 영역에 반영한다. */
+  onApplyRewrite: (rewrittenText: string) => void;
 }
 
 /** 로아이 ② 선택 문장 다듬기 / 조항 쓰기 — 고른 곳만 바꿔 준다. */
-export const LoaiRewriteTab = ({ selectedText, onRewrite }: LoaiRewriteTabProps) => {
+export const LoaiRewriteTab = ({ selectedText, onRewrite, onApplyRewrite }: LoaiRewriteTabProps) => {
   const [actionId, setActionId] = useState(REWRITE_ACTIONS[0].id);
   const [result, setResult] = useState<string | null>(null);
   const [isRewriting, setIsRewriting] = useState(false);
@@ -32,9 +34,17 @@ export const LoaiRewriteTab = ({ selectedText, onRewrite }: LoaiRewriteTabProps)
     setIsRewriting(true);
     try {
       setResult(await onRewrite(action.label));
+    } catch {
+      // 실패 토스트는 onRewrite(useDocumentEditor.rewriteSelection)가 이미 띄웠다 — 여기서는 조용히 멈춘다.
     } finally {
       setIsRewriting(false);
     }
+  };
+
+  const handleApply = () => {
+    if (!result) return;
+    onApplyRewrite(result);
+    setResult(null);
   };
 
   if (!hasSelection) {
@@ -71,7 +81,7 @@ export const LoaiRewriteTab = ({ selectedText, onRewrite }: LoaiRewriteTabProps)
       <div className={css.panelLabel}>로아이가 고친 문장</div>
       <div className={css.resultBox}>{isRewriting ? "고치는 중…" : (result ?? "왼쪽에서 고칠 방법을 골라 주세요.")}</div>
       <div className={css.resultActions}>
-        <Button size="small" iconLeft={<Icon name="check" size="sm" />} disabled={!result || isRewriting}>
+        <Button size="small" iconLeft={<Icon name="check" size="sm" />} disabled={!result || isRewriting} onClick={handleApply}>
           이 문장으로 바꾸기
         </Button>
         <Button

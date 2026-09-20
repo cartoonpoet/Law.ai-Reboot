@@ -43,6 +43,8 @@ interface LoaiPanelProps {
   onGenerate: (request: string) => Promise<string>;
   /** "문장 고치기" 지시문으로 고른 문장을 실제로 다시 쓴다(AI 호출). */
   onRewrite: (instruction: string) => Promise<string>;
+  /** "이 문장으로 바꾸기"를 누르면 고친 문장을 실제 선택 영역에 반영한다. */
+  onApplyRewrite: (rewrittenText: string) => void;
   /** "전체 검토" 탭이 열릴 때 실제 검토를 시작한다(AI 호출). */
   onReview: () => void;
   /** 검토 결과 */
@@ -61,6 +63,7 @@ export const LoaiPanel = ({
   hasDocumentContent,
   onGenerate,
   onRewrite,
+  onApplyRewrite,
   onReview,
   reviewFindings,
   isReviewing,
@@ -111,7 +114,9 @@ export const LoaiPanel = ({
             presets={DRAFT_PRESETS}
           />
         )}
-        {mode === "rewrite" && <LoaiRewriteTab selectedText={selectedText} onRewrite={onRewrite} />}
+        {mode === "rewrite" && (
+          <LoaiRewriteTab selectedText={selectedText} onRewrite={onRewrite} onApplyRewrite={onApplyRewrite} />
+        )}
         {mode === "review" && (
           <LoaiReviewTab onReview={onReview} findings={reviewFindings} isReviewing={isReviewing} />
         )}

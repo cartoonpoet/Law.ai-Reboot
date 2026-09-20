@@ -11,5 +11,7 @@ export const LoaiRewriteTab = (props: LoaiRewriteTabProps) => (
   <SharedLoaiRewriteTab
     {...props}
     onRewrite={() => new Promise((resolve) => window.setTimeout(() => resolve(MOCK_REWRITE_RESULT), 700))}
+    // 시안은 가짜 에디터라 실제 반영할 곳이 없다 — 버튼이 동작하는 모습만 보여준다.
+    onApplyRewrite={() => {}}
   />
 );

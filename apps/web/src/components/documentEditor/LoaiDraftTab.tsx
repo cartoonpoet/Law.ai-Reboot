@@ -24,6 +24,8 @@ export const LoaiDraftTab = ({ onCreated, hasExistingContent, onGenerate, preset
     setIsGenerating(true);
     try {
       onCreated(await onGenerate(request));
+    } catch {
+      // 실패 토스트는 onGenerate(useDocumentEditor.generateDraft)가 이미 띄웠다 — 여기서는 조용히 멈춘다.
     } finally {
       setIsGenerating(false);
     }
