@@ -31,7 +31,7 @@ const RISK_LEVEL_LABEL: Record<AiRiskLevelTypes, string> = {
 function AiResultRiskCard({ risk }: { risk: AiResultRisk }) {
   const level = RISK_LEVEL_TO_CSS[risk.level];
   return (
-    <div className={cx(css.risk, css.riskLevel[level])}>
+    <div className={css.risk}>
       <div className={css.riskHead}>
         <span className={cx(css.rbadge, css.rbadgeLevel[level])}>
           {RISK_LEVEL_LABEL[risk.level]}
