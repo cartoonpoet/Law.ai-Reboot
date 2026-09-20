@@ -362,10 +362,12 @@ export const findingSummary = style({ display: "flex", gap: 6, flexWrap: "wrap" 
 
 export const findingList = style({ display: "flex", flexDirection: "column", gap: 8, margin: 0, padding: 0, listStyle: "none" });
 
+// 위 요약 줄의 색깔 배지가 이미 "위험/빈칸/누락"을 말해 준다 — 낱개 카드까지 막대·배경색으로
+// 다시 칠하지 않는다. 카드는 전부 같은 중립 테두리, 심각도는 findingKind 알약 하나에만 담는다.
 export const findingItem = styleVariants({
-  danger: { borderLeft: `3px solid ${c.accentDanger}`, background: DANGER_SOFT },
-  warning: { borderLeft: `3px solid ${c.accentWarning}`, background: WARNING_SOFT },
-  info: { borderLeft: `3px solid ${c.accentInfo}`, background: INFO_SOFT },
+  danger: { color: c.accentDanger, background: DANGER_SOFT, borderColor: `color-mix(in srgb, ${c.accentDanger} 35%, ${BORDER})` },
+  warning: { color: c.accentWarningActive, background: WARNING_SOFT, borderColor: `color-mix(in srgb, ${c.accentWarning} 35%, ${BORDER})` },
+  info: { color: c.accentInfo, background: INFO_SOFT, borderColor: `color-mix(in srgb, ${c.accentInfo} 35%, ${BORDER})` },
 });
 
 export const findingBox = style({
@@ -373,7 +375,8 @@ export const findingBox = style({
   flexDirection: "column",
   gap: 4,
   padding: "9px 11px",
-  borderRadius: "0 7px 7px 0",
+  border: `1px solid ${BORDER}`,
+  borderRadius: themeVars.radius.md,
 });
 
 export const findingTop = style({ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" });
@@ -383,9 +386,7 @@ export const findingKind = style({
   fontWeight: 700,
   padding: "1px 6px",
   borderRadius: 999,
-  background: SURFACE,
-  color: BODY,
-  border: `1px solid ${BORDER}`,
+  border: "1px solid currentColor",
 });
 
 export const findingWhere = style({ fontSize: 10.5, color: MUTED, fontWeight: 600 });
