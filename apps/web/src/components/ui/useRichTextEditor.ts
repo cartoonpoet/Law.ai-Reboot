@@ -16,6 +16,28 @@ import { cleanPastedHtml } from "./cleanPastedHtml";
  */
 export const ACCENT_COLOR = "#b12a30";
 
+/**
+ * 모든 RichTextEditor 인스턴스에 항상 켜지는 기본 확장 목록(표·워드 리본 확장 등 `extraExtensions`로
+ * 옵션에 따라 붙는 것은 제외 — RichTextEditor.tsx의 TABLE_EXTENSIONS/FULL_TOOLBAR_EXTENSIONS로 남는다).
+ * documentEditor/tiptapContent.ts가 문서 편집기 콘텐츠 HTML⇄JSON 변환 스키마 기준으로도 재사용한다.
+ */
+export const BASE_EDITOR_EXTENSIONS: Extensions = [
+  // StarterKit 3.x는 underline·link를 기본 번들 → 별도 설치 확장은 중복 경고가 나므로
+  // StarterKit 설정으로 link만 시안 동작(새 탭·rel·클릭열림 끔)에 맞춘다. underline은 기본값 사용.
+  StarterKit.configure({
+    heading: { levels: [1, 2, 3] },
+    link: {
+      openOnClick: false,
+      autolink: true,
+      HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" },
+    },
+  }),
+  TextAlign.configure({ types: ["heading", "paragraph"] }),
+  Highlight,
+  TextStyle,
+  Color,
+];
+
 interface UseRichTextEditorArgs {
   value: string;
   onChange: (html: string) => void;
@@ -42,20 +64,7 @@ export const useRichTextEditor = ({
 }: UseRichTextEditorArgs): Editor | null => {
   const editor = useEditor({
     extensions: [
-      // StarterKit 3.x는 underline·link를 기본 번들 → 별도 설치 확장은 중복 경고가 나므로
-      // StarterKit 설정으로 link만 시안 동작(새 탭·rel·클릭열림 끔)에 맞춘다. underline은 기본값 사용.
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        link: {
-          openOnClick: false,
-          autolink: true,
-          HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" },
-        },
-      }),
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Highlight,
-      TextStyle,
-      Color,
+      ...BASE_EDITOR_EXTENSIONS,
       Placeholder.configure({ placeholder: placeholder ?? "" }),
       ...extraExtensions,
     ],

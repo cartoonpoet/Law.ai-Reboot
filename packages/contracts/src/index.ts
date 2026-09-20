@@ -17,3 +17,5 @@ export * from "./dto/invite.dto";
 export * from "./dto/support.dto";
 export * from "./dto/advice.dto";
 export * from "./dto/stats.dto";
+export * from "./dto/documentTemplate.dto";
+export * from "./dto/document.dto";

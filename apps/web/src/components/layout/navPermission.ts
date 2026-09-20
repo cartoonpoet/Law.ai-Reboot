@@ -1,4 +1,5 @@
 import type { TenantRole } from "@lawai/contracts";
+import { canManageDocumentTemplates } from "./canManageDocumentTemplates";
 import { canSeeCycleTimeStats } from "./canSeeCycleTimeStats";
 import { NAV_SECTIONS, type NavItemTypes } from "./navSections";
 
@@ -6,6 +7,8 @@ import { NAV_SECTIONS, type NavItemTypes } from "./navSections";
 export interface NavPermissionTypes {
   /** 업무 통계 — 없으면 API 가 403 을 준다. */
   canSeeStats: boolean;
+  /** 표준양식 관리 — 없으면 API 가 403 을 준다. */
+  canManageDocumentTemplates: boolean;
 }
 
 /**
@@ -14,6 +17,7 @@ export interface NavPermissionTypes {
  */
 const PERMISSION_BY_ITEM_ID: Partial<Record<NavItemTypes["id"], keyof NavPermissionTypes>> = {
   stats: "canSeeStats",
+  "document-templates": "canManageDocumentTemplates",
 };
 
 export interface NavSectionTypes {
@@ -40,4 +44,7 @@ export const getVisibleNavItems = (permission: NavPermissionTypes): NavItemTypes
 export const getNavPermission = (viewer: {
   isSystemAdmin: boolean;
   role: TenantRole | null;
-}): NavPermissionTypes => ({ canSeeStats: canSeeCycleTimeStats(viewer) });
+}): NavPermissionTypes => ({
+  canSeeStats: canSeeCycleTimeStats(viewer),
+  canManageDocumentTemplates: canManageDocumentTemplates(viewer),
+});

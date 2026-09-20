@@ -168,6 +168,9 @@ export const editorSub = style({ fontSize: 12, color: MUTED });
 
 export const editorActions = style({ display: "flex", gap: 8, flexShrink: 0 });
 
+/** 실제 편집기 화면의 로딩/오류 상태(Skeleton·EmptyState) 감싸는 여백. */
+export const pageStatus = style({ padding: "16px 0 8px" });
+
 /** 편집기 + 로아이 패널 2단. 패널이 닫히면 한 단. */
 export const editorLayout = styleVariants({
   solo: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14, alignItems: "start" },

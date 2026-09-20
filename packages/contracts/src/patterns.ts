@@ -181,3 +181,22 @@ export const AI_ANALYSIS_PATTERNS = {
   GET: "aiAnalysis.get",
   RETRY: "aiAnalysis.retry",
 } as const;
+
+// 표준양식(템플릿) — 회사별 계약서 양식 CRUD·버전·되돌리기.
+export const DOCUMENT_TEMPLATE_PATTERNS = {
+  CREATE: "documentTemplate.create",
+  LIST: "documentTemplate.list",
+  GET: "documentTemplate.get",
+  CREATE_VERSION: "documentTemplate.createVersion",
+  LIST_VERSIONS: "documentTemplate.listVersions",
+  REVERT: "documentTemplate.revert",
+} as const;
+
+// 문서 편집기 — Tiptap JSON↔docx 변환, DOCX 들여오기, 로아이 AI 3종.
+export const DOCUMENT_PATTERNS = {
+  EXPORT: "document.export",
+  IMPORT: "document.import",
+  AI_DRAFT: "document.aiDraft",
+  AI_REWRITE: "document.aiRewrite",
+  AI_REVIEW: "document.aiReview",
+} as const;
