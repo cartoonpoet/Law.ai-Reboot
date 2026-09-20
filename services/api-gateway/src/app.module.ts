@@ -22,6 +22,7 @@ import { SupportModule } from "./support/support.module";
 import { AdvicesModule } from "./advices/advices.module";
 import { StatsModule } from "./stats/stats.module";
 import { DocumentTemplatesModule } from "./document-templates/document-templates.module";
+import { DocumentsModule } from "./documents/documents.module";
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { DocumentTemplatesModule } from "./document-templates/document-templates
     AdvicesModule,
     StatsModule,
     DocumentTemplatesModule,
+    DocumentsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

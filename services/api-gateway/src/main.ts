@@ -1,12 +1,15 @@
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { isAllowedOrigin } from "./cors";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // 문서 편집기 DOCX 업로드(원본 20MB → base64 약 27MB)를 express 기본 body 제한(100kb)이 막지 않도록 늘린다.
+  app.useBodyParser("json", { limit: "30mb" });
   app.use(
     helmet({
       // Swagger UI(인라인 스타일/스크립트)가 동작하도록 dev에서는 CSP를 끈다.
