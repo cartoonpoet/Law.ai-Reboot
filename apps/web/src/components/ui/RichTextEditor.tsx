@@ -1,8 +1,19 @@
 import { EditorContent, type Editor } from "@tiptap/react";
-import { useState } from "react";
+import { TableKit } from "@tiptap/extension-table";
+import { FontFamily, FontSize } from "@tiptap/extension-text-style";
+import Superscript from "@tiptap/extension-superscript";
+import Subscript from "@tiptap/extension-subscript";
+import Image from "@tiptap/extension-image";
+import { Icon } from "@lawkit/ui";
+import { useState, type ReactNode } from "react";
 import * as s from "./RichTextEditor.css";
-import { useRichTextEditor, ACCENT_COLOR } from "./useRichTextEditor";
+import { useRichTextEditor } from "./useRichTextEditor";
+import { promptForLink, getIsAccentColorActive, toggleAccentColor } from "./editorCommands";
+import { ParagraphLineHeight } from "./editorExtensions/lineHeightExtension";
+import { PageBreak } from "./editorExtensions/pageBreakNode";
+import { DocumentToolbar } from "./documentToolbar/DocumentToolbar";
 import {
+  IconTable,
   IconHighlight,
   IconBulletList,
   IconOrderedList,
@@ -23,7 +34,40 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   ariaLabel: string;
   placeholder?: string;
+  /** 표 도구(삽입·행/열 추가·삭제)를 툴바에 더한다 — 문서 편집기 전용. 기본은 지금 그대로 꺼짐. */
+  withTable?: boolean;
+  /**
+   * 워드 리본처럼 두 줄짜리 전체 서식 툴바(글꼴·크기·첨자·줄간격·실행취소·찾기바꾸기·그림·페이지 나누기)를 쓴다 —
+   * 문서 편집기 전용. 넘기지 않으면 지금까지의 한 줄 툴바 그대로다.
+   */
+  withFullToolbar?: boolean;
+  /** 넘기면 툴바 맨 오른쪽에 "로아이" 버튼이 붙는다. */
+  onLoaiClick?: () => void;
+  /** 로아이 패널이 열려 있는지 — 버튼을 켜진 상태로 보이게 한다. */
+  isLoaiOpen?: boolean;
+  /** 편집기 바깥 상자에 덧붙일 클래스(문서 편집기의 회색 바탕 등). */
+  wrapClassName?: string;
+  /** 편집 영역(.ProseMirror)에 덧붙일 클래스(A4 종이 등). */
+  areaClassName?: string;
+  /** 하단 바 오른쪽에 덧붙일 내용(저장 시각·글자 수 등). */
+  footerExtra?: ReactNode;
+  /** 편집기 상자 안에 겹쳐 그릴 것(글을 선택했을 때 뜨는 작은 툴바 등). */
+  renderOverlay?: (editor: Editor) => ReactNode;
 }
+
+/** 표 도구를 켤 때만 쓰는 확장. 모듈 최상단 상수라 렌더마다 새로 만들지 않는다. */
+const TABLE_EXTENSIONS = [TableKit.configure({ table: { resizable: true } })];
+
+/** 워드 리본(문서 편집기)에서만 쓰는 확장 — 글꼴·글자크기·줄간격·첨자·그림·페이지 나누기. */
+const FULL_TOOLBAR_EXTENSIONS = [
+  FontFamily,
+  FontSize,
+  ParagraphLineHeight,
+  Superscript,
+  Subscript,
+  Image.configure({ allowBase64: true }),
+  PageBreak,
+];
 
 /** 문단 스타일 셀렉트 옵션 — 본문/제목1~3. active 라벨은 editor 상태에서 파생한다. */
 const BLOCK_STYLES: { label: string; level: 1 | 2 | 3 | null }[] = [
@@ -39,9 +83,32 @@ const getActiveBlockLabel = (editor: Editor): string => {
   return active?.label ?? BLOCK_STYLES[0].label;
 };
 
-export function RichTextEditor({ value, onChange, ariaLabel, placeholder }: RichTextEditorProps) {
+export function RichTextEditor({
+  value,
+  onChange,
+  ariaLabel,
+  placeholder,
+  withTable = false,
+  withFullToolbar = false,
+  onLoaiClick,
+  isLoaiOpen = false,
+  wrapClassName,
+  areaClassName,
+  footerExtra,
+  renderOverlay,
+}: RichTextEditorProps) {
   const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
-  const editor = useRichTextEditor({ value, onChange, ariaLabel, placeholder, areaClass: s.area });
+  const editor = useRichTextEditor({
+    value,
+    onChange,
+    ariaLabel,
+    placeholder,
+    areaClass: areaClassName ? `${s.area} ${areaClassName}` : s.area,
+    extraExtensions: [
+      ...(withTable ? TABLE_EXTENSIONS : []),
+      ...(withFullToolbar ? FULL_TOOLBAR_EXTENSIONS : []),
+    ],
+  });
 
   if (!editor) return null;
 
@@ -51,31 +118,40 @@ export function RichTextEditor({ value, onChange, ariaLabel, placeholder }: Rich
     setIsStyleMenuOpen(false);
   };
 
-  const handleSetLink = () => {
-    const previous = editor.getAttributes("link").href as string | undefined;
-    const input = window.prompt("링크 URL을 입력하세요", previous ?? "https://");
-    if (input === null) return;
-    if (input.trim() === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: input.trim() }).run();
-  };
+  const handleSetLink = () => promptForLink(editor);
 
-  const isColorActive = editor.isActive("textStyle", { color: ACCENT_COLOR });
-  const handleToggleColor = () => {
-    if (isColorActive) editor.chain().focus().unsetColor().run();
-    else editor.chain().focus().setColor(ACCENT_COLOR).run();
-  };
+  const isColorActive = getIsAccentColorActive(editor);
+  const handleToggleColor = () => toggleAccentColor(editor);
 
-  const iconButton = (tip: string, isActive: boolean, onClick: () => void, icon: React.ReactNode) => (
-    <button type="button" className={s.tbtn} data-active={isActive} data-tip={tip} aria-label={tip} onClick={onClick}>
+  const iconButton = (
+    tip: string,
+    isActive: boolean,
+    onClick: () => void,
+    icon: React.ReactNode,
+    extraClass?: string,
+  ) => (
+    <button
+      type="button"
+      className={extraClass ? `${s.tbtn} ${extraClass}` : s.tbtn}
+      data-active={isActive}
+      data-tip={tip}
+      aria-label={tip}
+      onClick={onClick}
+    >
       {icon}
     </button>
   );
 
+  const isInTable = withTable && editor.isActive("table");
+
   return (
-    <div className={s.wrap}>
+    <div className={wrapClassName ? `${s.wrap} ${wrapClassName}` : s.wrap}>
+      {/* 문서 편집기: 워드 리본(두 줄). 그 밖의 화면: 지금까지의 한 줄 툴바 그대로. */}
+      {withFullToolbar && (
+        <DocumentToolbar editor={editor} withTable={withTable} onLoaiClick={onLoaiClick} isLoaiOpen={isLoaiOpen} />
+      )}
+
+      {!withFullToolbar && (
       <div className={s.toolbar}>
         {/* 문단 스타일 셀렉트 */}
         <div className={s.group}>
@@ -164,7 +240,47 @@ export function RichTextEditor({ value, onChange, ariaLabel, placeholder }: Rich
         <div className={s.group}>
           {iconButton("서식 지우기", false, () => editor.chain().focus().unsetAllMarks().clearNodes().run(), <IconClearFormat />)}
         </div>
+
+        {/* 표 — 문서 편집기에서만. 표 안에 커서가 있을 때만 행·열 도구가 더 나온다. */}
+        {withTable && (
+          <>
+            <span className={s.sep} />
+            <div className={s.group}>
+              {iconButton(
+                "표 넣기 (3×3)",
+                editor.isActive("table"),
+                () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+                <IconTable />,
+              )}
+              {isInTable && iconButton("행 추가", false, () => editor.chain().focus().addRowAfter().run(), <span className={s.glyph}>＋행</span>)}
+              {isInTable && iconButton("열 추가", false, () => editor.chain().focus().addColumnAfter().run(), <span className={s.glyph}>＋열</span>)}
+              {isInTable && iconButton("표 지우기", false, () => editor.chain().focus().deleteTable().run(), <span className={s.glyph}>표 삭제</span>)}
+            </div>
+          </>
+        )}
+
+        {/* 로아이 — AI 도우미 패널 열기. 서식 도구 바로 옆에 붙여 툴바의 한 칸으로 보이게 한다. */}
+        {onLoaiClick && (
+          <>
+            <span className={s.sep} />
+            <div className={s.group}>
+              {iconButton(
+                isLoaiOpen ? "로아이 도우미 닫기" : "로아이 도우미 열기",
+                isLoaiOpen,
+                onLoaiClick,
+                <span className={s.loaiLabel}>
+                  <Icon name="autoAwesome" size="sm" className={s.icon} />
+                  로아이 도우미
+                </span>,
+                s.loaiBtn,
+              )}
+            </div>
+          </>
+        )}
       </div>
+      )}
+
+      {renderOverlay?.(editor)}
 
       <EditorContent editor={editor} />
 
@@ -173,6 +289,7 @@ export function RichTextEditor({ value, onChange, ariaLabel, placeholder }: Rich
           <IconPaste />
           Word·HWP 서식 붙여넣기 지원
         </span>
+        {footerExtra}
       </div>
     </div>
   );

@@ -167,3 +167,77 @@ export const IconSend = () => (
     <path d="M22 2l-7 20-4-9-9-4z" />
   </svg>
 );
+
+/* 양쪽 정렬 — 문서 편집기 풀 툴바(워드 리본)의 네 번째 정렬. */
+export const IconAlignJustify = () => (
+  <svg {...ICON_PROPS}>
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
+/* 실행 취소 — 왼쪽으로 도는 화살표. */
+export const IconUndo = () => (
+  <svg {...ICON_PROPS}>
+    <polyline points="9 14 4 9 9 4" />
+    <path d="M4 9h9a7 7 0 0 1 0 14h-3" />
+  </svg>
+);
+
+/* 다시 실행 — 오른쪽으로 도는 화살표. */
+export const IconRedo = () => (
+  <svg {...ICON_PROPS}>
+    <polyline points="15 14 20 9 15 4" />
+    <path d="M20 9h-9a7 7 0 0 0 0 14h3" />
+  </svg>
+);
+
+/* 찾기·바꾸기 — 돋보기. */
+export const IconFind = () => (
+  <svg {...ICON_PROPS}>
+    <circle cx="11" cy="11" r="7" />
+    <line x1="16.5" y1="16.5" x2="21" y2="21" />
+  </svg>
+);
+
+/* 이미지 넣기 — 사진(로고·인감). */
+export const IconImage = () => (
+  <svg {...ICON_PROPS}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <circle cx="8.5" cy="9.5" r="1.5" />
+    <polyline points="21 16 16 11 5 20" />
+  </svg>
+);
+
+/* 페이지 나누기 — 점선 경계 위아래의 종이. */
+export const IconPageBreak = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M6.5 9V4h11v5" />
+    <path d="M6.5 15v5h11v-5" />
+    <line x1="2.5" y1="12" x2="21.5" y2="12" strokeDasharray="3 2.5" />
+  </svg>
+);
+
+/* 줄 간격 — 위아래 화살표 + 글줄. */
+export const IconLineHeight = () => (
+  <svg {...ICON_PROPS}>
+    <polyline points="3 7 5.5 4 8 7" />
+    <polyline points="3 17 5.5 20 8 17" />
+    <line x1="5.5" y1="4" x2="5.5" y2="20" />
+    <line x1="12" y1="6" x2="21" y2="6" />
+    <line x1="12" y1="12" x2="21" y2="12" />
+    <line x1="12" y1="18" x2="21" y2="18" />
+  </svg>
+);
+
+/* 표 — 문서 편집기 툴바의 "표 삽입". 3x3 격자(머리행 구분). */
+export const IconTable = () => (
+  <svg {...ICON_PROPS}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <line x1="3" y1="9" x2="21" y2="9" />
+    <line x1="3" y1="14.5" x2="21" y2="14.5" />
+    <line x1="9" y1="9" x2="9" y2="20" />
+    <line x1="15" y1="9" x2="15" y2="20" />
+  </svg>
+);
