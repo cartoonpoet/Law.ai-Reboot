@@ -1,6 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { RpcException } from "@nestjs/microservices";
 import { PrismaService } from "../prisma/prisma.service";
+import { AiCredentialsService } from "../ai-credentials/ai-credentials.service";
+import { AiServiceClient } from "../ai-credentials/ai-service.client";
 import { DocumentsService } from "./documents.service";
 
 describe("DocumentsService", () => {
@@ -11,7 +13,14 @@ describe("DocumentsService", () => {
   let ctx: { tenantId: string; isSystemAdmin: boolean };
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ providers: [DocumentsService, PrismaService] }).compile();
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        DocumentsService,
+        PrismaService,
+        { provide: AiCredentialsService, useValue: { getDecryptedKeyFor: jest.fn() } },
+        { provide: AiServiceClient, useValue: { chat: jest.fn() } },
+      ],
+    }).compile();
     service = moduleRef.get(DocumentsService);
     prisma = moduleRef.get(PrismaService);
 
