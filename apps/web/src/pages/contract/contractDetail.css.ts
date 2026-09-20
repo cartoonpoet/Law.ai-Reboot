@@ -19,7 +19,6 @@ const SUCCESS = c.accentSuccess;
 const SUCCESS_TINT = `color-mix(in srgb, ${c.accentSuccess} 14%, ${c.neutralSurface})`;
 const DANGER = c.accentDanger;
 const DANGER_TINT = `color-mix(in srgb, ${c.accentDanger} 12%, ${c.neutralSurface})`;
-const WARNING = c.accentWarning;
 const WARNING_DARK = c.accentWarningActive;
 const WARNING_TINT = `color-mix(in srgb, ${c.accentWarning} 16%, ${c.neutralSurface})`;
 const INFO = c.accentInfo;
@@ -360,16 +359,12 @@ export const rbtxt = style({ fontSize: 13, color: BODY, lineHeight: 1.65 });
 /* =========================================================================
  * AI 리스크(mock)
  * ======================================================================= */
+// 위험도는 옆의 rbadge(색+글자)가 이미 말해 준다 — 카드 테두리는 전부 같은 중립색으로 두고,
+// 위험도별로 다르게 칠하는 자리를 배지 하나로만 좁힌다(막대·배경색 이중 표시 금지).
 export const risk = style({
   border: `1px solid ${BORDER}`,
   borderRadius: LAYOUT.cardRadius,
   padding: "12px 14px",
-});
-
-export const riskLevel = styleVariants({
-  high: { borderLeft: `3px solid ${DANGER}` },
-  mid: { borderLeft: `3px solid ${WARNING}` },
-  low: { borderLeft: `3px solid ${BORDER}` },
 });
 
 export const riskHead = style({
