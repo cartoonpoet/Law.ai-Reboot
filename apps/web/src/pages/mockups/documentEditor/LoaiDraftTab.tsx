@@ -1,11 +1,37 @@
 import { useState } from "react";
-import { Button, Icon, Textarea } from "@lawkit/ui";
-import { MOCK_DRAFT_PRESETS } from "./documentEditorMockData";
+import { Alert, Button, Icon, Textarea } from "@lawkit/ui";
+import { buildMockDraft, MOCK_DRAFT_PRESETS } from "./documentEditorMockData";
 import * as css from "./documentEditorMock.css";
 
+interface LoaiDraftTabProps {
+  /** 초안 만들기를 누르면 생성된 본문 HTML을 캔버스에 반영한다. */
+  onCreated: (html: string) => void;
+  /** 지금 종이에 쓴 내용이 있는지 — 있으면 덮어쓰기 전에 한 번 더 묻는다. */
+  hasExistingContent: boolean;
+}
+
 /** 로아이 ① 초안 생성 — 어떤 계약서를 쓸지 말하면 조항 구조까지 갖춘 초안을 만들어 넣는다. */
-export const LoaiDraftTab = () => {
+export const LoaiDraftTab = ({ onCreated, hasExistingContent }: LoaiDraftTabProps) => {
   const [request, setRequest] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isOverwriteAsked, setIsOverwriteAsked] = useState(false);
+
+  const createDraft = () => {
+    setIsOverwriteAsked(false);
+    setIsGenerating(true);
+    window.setTimeout(() => {
+      onCreated(buildMockDraft(request));
+      setIsGenerating(false);
+    }, 700);
+  };
+
+  /** 이미 쓴 내용이 있으면 바로 만들지 않고 덮어쓸지부터 묻는다(패널 안내 문구와 같은 동작). */
+  const handleCreate = () => {
+    if (hasExistingContent) setIsOverwriteAsked(true);
+    else createDraft();
+  };
+
+  const handleCancelOverwrite = () => setIsOverwriteAsked(false);
 
   return (
     <>
@@ -29,8 +55,25 @@ export const LoaiDraftTab = () => {
         ))}
       </div>
 
-      <Button iconLeft={<Icon name="autoAwesome" size="sm" />} disabled={request.trim() === ""}>
-        초안 만들기
+      {isOverwriteAsked && (
+        <Alert
+          type="confirm"
+          size="small"
+          actions={[
+            { label: "덮어쓰고 만들기", intent: "primary", onClick: createDraft },
+            { label: "그냥 두기", intent: "secondary", onClick: handleCancelOverwrite },
+          ]}
+        >
+          지금 종이에 쓰여 있는 내용을 지우고 새 초안으로 바꿉니다.
+        </Alert>
+      )}
+
+      <Button
+        iconLeft={<Icon name="autoAwesome" size="sm" />}
+        disabled={request.trim() === "" || isGenerating}
+        onClick={handleCreate}
+      >
+        {isGenerating ? "만드는 중…" : "초안 만들기"}
       </Button>
 
       <p className={css.disclaimer}>

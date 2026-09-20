@@ -110,6 +110,131 @@ export const MOCK_REWRITE_ACTIONS: { id: string; label: string; hint: string }[]
 export const MOCK_REWRITE_RESULT =
   "“갑”과 “을”은 본 계약에 따라 알게 된 상대방의 비밀정보를 제3자에게 공개하거나 본 계약의 목적 외의 용도로 사용해서는 안 된다. 다만, 법령이나 법원의 명령에 따라 공개하는 경우에는 사전에 상대방에게 알린다.";
 
+/** "빈 문서로 만들기"로 들어갔을 때 캔버스 초기값 — 정말로 비어 있다. */
+export const MOCK_BLANK_HTML = "";
+
+interface MockDraftTemplate {
+  title: string;
+  purpose: string;
+  articleHtml: string;
+}
+
+/** 로아이 "새로 쓰기" 요청 문구에서 계약 종류를 가늠해 그에 맞는 초안 골격을 고른다. */
+const MOCK_DRAFT_TEMPLATES: { match: RegExp; template: MockDraftTemplate }[] = [
+  {
+    match: /비밀유지|NDA/i,
+    template: {
+      title: "비밀유지계약서",
+      purpose: "상호 제공하는 정보의 비밀을 지키기 위하여",
+      articleHtml: `
+<h2>제1조 (목적)</h2>
+<p>본 계약은 “갑”과 “을”이 상호 제공하는 정보의 비밀 유지에 관한 사항을 정하는 것을 목적으로 한다.</p>
+<h2>제2조 (비밀정보의 정의)</h2>
+<p>본 계약에서 “비밀정보”란 일방 당사자가 상대방에게 서면·구두·전자적 방법 등으로 제공한 일체의 정보를 말한다.</p>
+<h2>제3조 (비밀유지 의무)</h2>
+<p>“갑”과 “을”은 비밀정보를 제3자에게 공개하지 아니하며, 본 계약의 목적 외의 용도로 사용하지 아니한다.</p>
+<div data-page-break></div>
+<h2>제4조 (기간)</h2>
+<p>본 계약은 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]부터 효력이 생기며, 비밀유지 의무는 계약 종료 후 [&nbsp;&nbsp;&nbsp;&nbsp;]년간 존속한다.</p>
+<h2>제5조 (손해배상)</h2>
+<p>일방 당사자가 본 계약을 위반하여 상대방에게 손해를 입힌 경우 그 손해를 배상한다.</p>`,
+    },
+  },
+  {
+    match: /용역/,
+    template: {
+      title: "용역계약서",
+      purpose: "용역의 위탁 및 수행에 관한 사항을 정하기 위하여",
+      articleHtml: `
+<h2>제1조 (목적)</h2>
+<p>“갑”은 “을”에게 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;] 용역(이하 “본 용역”)을 위탁하고, “을”은 이를 수행한다.</p>
+<h2>제2조 (용역 기간)</h2>
+<p>본 용역의 수행 기간은 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]부터 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]까지로 한다.</p>
+<h2>제3조 (용역 대가)</h2>
+<p>“갑”은 “을”에게 본 용역의 대가로 금 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]원을 지급한다.</p>
+<div data-page-break></div>
+<h2>제4조 (검수)</h2>
+<p>“갑”은 용역 결과물을 인도받은 날로부터 [&nbsp;&nbsp;&nbsp;&nbsp;]일 이내에 검수하고 그 결과를 “을”에게 통지한다.</p>
+<h2>제5조 (계약 해지)</h2>
+<p>일방 당사자가 본 계약을 위반하고 상당한 기간 내 이를 고치지 아니하면 상대방은 계약을 해지할 수 있다.</p>`,
+    },
+  },
+  {
+    match: /물품|공급/,
+    template: {
+      title: "물품공급계약서",
+      purpose: "물품의 공급 및 대금 지급에 관한 사항을 정하기 위하여",
+      articleHtml: `
+<h2>제1조 (목적)</h2>
+<p>“을”은 “갑”에게 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;] 물품(이하 “본 물품”)을 공급하고, “갑”은 그 대금을 지급한다.</p>
+<h2>제2조 (공급 및 검수)</h2>
+<p>“을”은 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]까지 본 물품을 납품하며, “갑”은 인도일로부터 [&nbsp;&nbsp;&nbsp;&nbsp;]일 이내에 검수한다.</p>
+<h2>제3조 (대금 지급)</h2>
+<p>“갑”은 검수 완료 후 [&nbsp;&nbsp;&nbsp;&nbsp;]일 이내에 대금을 지급한다.</p>
+<div data-page-break></div>
+<h2>제4조 (하자담보책임)</h2>
+<p>본 물품에 하자가 있는 경우 “을”은 “갑”의 청구에 따라 보수·교환 또는 손해배상의 책임을 진다.</p>
+<h2>제5조 (소유권 이전)</h2>
+<p>본 물품의 소유권은 대금 완납 시 “갑”에게 이전된다.</p>`,
+    },
+  },
+  {
+    match: /업무위탁|위탁/,
+    template: {
+      title: "업무위탁계약서",
+      purpose: "업무의 위탁 및 수행에 관한 사항을 정하기 위하여",
+      articleHtml: `
+<h2>제1조 (목적)</h2>
+<p>“갑”은 “을”에게 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;] 업무(이하 “위탁업무”)를 위탁하고, “을”은 이를 수행한다.</p>
+<h2>제2조 (위탁 범위)</h2>
+<p>위탁업무의 구체적인 범위와 방법은 별지 업무분장표에 따른다.</p>
+<h2>제3조 (위탁 대가)</h2>
+<p>“갑”은 “을”에게 위탁업무의 대가로 매월 금 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]원을 지급한다.</p>
+<div data-page-break></div>
+<h2>제4조 (재위탁 금지)</h2>
+<p>“을”은 “갑”의 사전 서면 동의 없이 위탁업무의 전부 또는 일부를 제3자에게 재위탁할 수 없다.</p>
+<h2>제5조 (계약 기간)</h2>
+<p>본 계약의 유효기간은 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]부터 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]까지로 한다.</p>`,
+    },
+  },
+];
+
+const MOCK_DRAFT_DEFAULT: MockDraftTemplate = {
+  title: "계약서",
+  purpose: "아래와 같은 내용을 정하기 위하여",
+  articleHtml: `
+<h2>제1조 (목적)</h2>
+<p>“갑”과 “을”은 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]에 관한 사항을 정하기 위하여 본 계약을 체결한다.</p>
+<h2>제2조 (계약 기간)</h2>
+<p>본 계약은 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]부터 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]까지 효력을 가진다.</p>
+<div data-page-break></div>
+<h2>제3조 (당사자의 의무)</h2>
+<p>“갑”과 “을”은 신의성실의 원칙에 따라 본 계약을 이행한다.</p>
+<h2>제4조 (손해배상)</h2>
+<p>일방 당사자가 본 계약을 위반하여 상대방에게 손해를 입힌 경우 그 손해를 배상한다.</p>`,
+};
+
+/** 사용자가 적은 요청 문구를 본문 HTML에 그대로 넣기 전에 태그로 읽히지 않게 막는다. */
+const escapeHtml = (text: string): string =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/**
+ * 로아이 "새로 쓰기" 결과(가짜) — 요청 문구에 담긴 계약 종류를 골라 그에 맞는 초안 HTML을 만든다.
+ * 실제 구현에서는 AiServiceClient.chat 이 이 자리를 대신한다.
+ */
+export const buildMockDraft = (request: string): string => {
+  const matched = MOCK_DRAFT_TEMPLATES.find((item) => item.match.test(request));
+  const template = matched?.template ?? MOCK_DRAFT_DEFAULT;
+
+  return `
+<h1>${template.title}</h1>
+<p>[&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](이하 “갑”이라 한다)과(와) [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;](이하 “을”이라 한다)은(는) ${template.purpose} 다음과 같이 계약을 체결한다.</p>
+${template.articleHtml}
+<hr>
+<p>본 계약의 성립을 증명하기 위하여 계약서 2통을 만들어 “갑”과 “을”이 서명·날인한 뒤 각 1통씩 보관한다.</p>
+<p><em>“${escapeHtml(request)}” 요청으로 로아이가 만든 초안입니다. 빈칸과 조건을 확인한 뒤 저장하세요.</em></p>`;
+};
+
 /** 편집기 캔버스에 처음 들어가는 내용 — 비밀유지계약서 v3. */
 export const MOCK_NDA_HTML = `
 <h1>비밀유지계약서</h1>
@@ -144,6 +269,7 @@ export const MOCK_NDA_HTML = `
   <li>상대방의 사전 서면 동의 없이 비밀정보를 복제하지 아니한다.</li>
   <li>업무상 알 필요가 있는 임직원에게만 비밀정보를 알리고, 그 임직원에게 본 계약과 같은 의무를 지운다.</li>
 </ul>
+<div data-page-break></div>
 <h2>제5조 (기간)</h2>
 <p>본 계약은 [&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]부터 효력이 생기며, 비밀유지 의무는 <strong>영구히</strong> 존속한다.</p>
 <h2>제6조 (손해배상)</h2>

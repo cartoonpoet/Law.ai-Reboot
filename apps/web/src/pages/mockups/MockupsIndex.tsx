@@ -17,10 +17,18 @@ export function MockupsIndex() {
         </p>
       </Link>
       <Link to="/mockups/document-editor-canvas" className={css.indexCard}>
-        <h3>2. 문서 편집기 — 종이 캔버스</h3>
+        <h3>2. 문서 편집기 — 기존 양식 열어 고치기</h3>
         <p>
           지금 쓰는 서식 툴바 오른쪽 끝에 표 넣기와 “로아이 도우미”를 나란히 붙였습니다. 회색 바탕 위 흰 종이가 실제 편집
-          영역이고, 글을 끌어서 고르면 그 자리에 작은 버튼이 뜹니다.
+          영역이고, 글을 끌어서 고르면 그 자리에 작은 버튼이 뜹니다. 툴바에서 “페이지 나누기”를 넣은 자리마다 실제 워드처럼
+          쪽이 나뉘어 보입니다.
+        </p>
+      </Link>
+      <Link to="/mockups/document-editor-canvas-new" className={css.indexCard}>
+        <h3>2-1. 문서 편집기 — 빈 문서에서 시작</h3>
+        <p>
+          표준양식 관리에서 “빈 문서로 만들기”를 누르면 오는, 정말 비어 있는 캔버스입니다. 로아이 “새로 쓰기”에 요청을
+          적고 “초안 만들기”를 누르면 조항까지 갖춘 초안이 그 자리에서 채워집니다.
         </p>
       </Link>
       <Link to="/mockups/document-editor-ai" className={css.indexCard}>

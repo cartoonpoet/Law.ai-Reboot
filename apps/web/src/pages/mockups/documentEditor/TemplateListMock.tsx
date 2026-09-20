@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   ButtonGroup,
@@ -23,9 +24,12 @@ import * as css from "./documentEditorMock.css";
  * 계약 조회와 같은 리듬(페이지 머리 + 검색 + 분류 탭 + 표)으로, 회사가 쓰는 표준 양식을 한 화면에서 본다.
  */
 export const TemplateListMock = () => {
+  const navigate = useNavigate();
   const [categoryId, setCategoryId] = useState("all");
   const [keyword, setKeyword] = useState("");
   const [page, setPage] = useState(1);
+
+  const handleCreateBlank = () => navigate("/mockups/document-editor-canvas-new");
 
   const word = keyword.trim();
 
@@ -57,7 +61,9 @@ export const TemplateListMock = () => {
         <Button variant="outline" color="secondary" iconLeft={<Icon name="uploadCloud" size="sm" />}>
           워드 파일 올려서 만들기
         </Button>
-        <Button iconLeft={<Icon name="plus" size="sm" />}>빈 문서로 만들기</Button>
+        <Button iconLeft={<Icon name="plus" size="sm" />} onClick={handleCreateBlank}>
+          빈 문서로 만들기
+        </Button>
       </DocMockHead>
 
       <NavPlacementNote />
@@ -93,7 +99,11 @@ export const TemplateListMock = () => {
             icon={<Icon name="fileText" size="lg" />}
             title="이 분류에는 아직 양식이 없어요"
             description="빈 문서로 새로 쓰거나, 쓰던 워드 파일을 올려 표준 양식으로 만들 수 있어요."
-            action={<Button iconLeft={<Icon name="plus" size="sm" />}>빈 문서로 만들기</Button>}
+            action={
+              <Button iconLeft={<Icon name="plus" size="sm" />} onClick={handleCreateBlank}>
+                빈 문서로 만들기
+              </Button>
+            }
           />
         ) : (
           <>
