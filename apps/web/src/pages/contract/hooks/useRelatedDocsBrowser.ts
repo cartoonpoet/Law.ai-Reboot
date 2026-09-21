@@ -1,14 +1,14 @@
 import { useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { listContracts } from "../../../api/contracts";
-import { RELATED_DOC_CATEGORIES, type RelatedDoc, type RelatedDocCategory } from "../../../api/relatedDocs";
+import { RELATED_DOC_CATEGORY_OPTIONS, type RelatedDoc, type RelatedDocCategory } from "../../../api/relatedDocs";
 import { toRelatedDoc } from "../toRelatedDoc";
 
 const DEBOUNCE_MS = 250;
 const STALE_MS = 60 * 1000;
 // 한 번에 보여줄 최대 건수(최근 수정 순). 더 있으면 키워드로 좁힌다.
 export const RELATED_DOC_LIMIT = 30;
-const ALL_CATEGORIES = RELATED_DOC_CATEGORIES.map((c) => c.value);
+const ALL_CATEGORIES = RELATED_DOC_CATEGORY_OPTIONS.map((c) => c.value);
 
 /**
  * 관련문서 찾아보기 모달 로직.

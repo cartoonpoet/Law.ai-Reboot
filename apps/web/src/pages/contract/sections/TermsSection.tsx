@@ -98,7 +98,7 @@ export function TermsSection() {
                   control={control}
                   render={({ field }) => (
                     <Dropdown
-                      options={[...VAT_OPTIONS]}
+                      options={VAT_OPTIONS}
                       value={field.value}
                       onChange={(v) => field.onChange(pickSingle(v))}
                     />
@@ -124,7 +124,7 @@ export function TermsSection() {
                   control={control}
                   render={({ field }) => (
                     <Dropdown
-                      options={[...CURRENCY_OPTIONS]}
+                      options={CURRENCY_OPTIONS}
                       value={field.value}
                       onChange={(v) => field.onChange(pickSingle(v))}
                     />
