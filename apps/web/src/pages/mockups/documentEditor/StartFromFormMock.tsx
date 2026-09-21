@@ -13,7 +13,7 @@ import * as css from "./documentEditorMock.css";
  */
 export const StartFromFormMock = () => {
   const [isOpen, setIsOpen] = useState(true);
-  const { results, counts, categoryId, selected, search, setCategoryId, selectForm } = useStandardFormsBrowser();
+  const { results, counts, categoryId, selected, search, changeCategory, selectForm } = useStandardFormsBrowser();
 
   return (
     <div>
@@ -69,7 +69,7 @@ export const StartFromFormMock = () => {
                   <ListGroupItem
                     key={item.id}
                     active={categoryId === item.id}
-                    onClick={() => setCategoryId(item.id)}
+                    onClick={() => changeCategory(item.id)}
                     trailing={<span className={modalCss.catCount}>{counts?.[item.id as TemplateCategoryTypes] ?? 0}</span>}
                   >
                     {item.label}
