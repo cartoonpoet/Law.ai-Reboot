@@ -5,6 +5,7 @@ import { RichTextEditor } from "../../../components/ui/RichTextEditor";
 import { LoaiPanel, type LoaiModeTypes } from "./LoaiPanel";
 import { SelectionBubble } from "./SelectionBubble";
 import { VersionHistoryModal } from "./VersionHistoryModal";
+import { getEditorPageCount } from "../../../components/ui/editorExtensions/pageLayoutExtension";
 import { MOCK_BLANK_HTML, MOCK_NDA_HTML, MOCK_VERSIONS } from "./documentEditorMockData";
 import * as css from "./documentEditorMock.css";
 
@@ -23,8 +24,6 @@ interface DocumentEditorMockProps {
 }
 
 const LATEST = MOCK_VERSIONS[0];
-
-const countPages = (html: string): number => (html.match(/data-page-break/g)?.length ?? 0) + 1;
 
 /** 종이에 실제로 쓴 글이 있는지 — 빈 문단(<p></p>)만 있으면 빈 문서로 본다. */
 const checkHasBody = (html: string): boolean =>
@@ -107,19 +106,23 @@ export const DocumentEditorMock = ({
           placeholder={startBlank ? "제목부터 적거나, 오른쪽 로아이에게 초안을 만들어 달라고 해 보세요." : undefined}
           withTable
           withFullToolbar
+          withPageLayout
           onLoaiClick={handleToggleLoai}
           isLoaiOpen={loaiMode !== null}
           wrapClassName={css.docShell}
           areaClassName={css.docPage}
-          footerExtra={
-            <span className={css.docFoot}>
-              <span className={css.docFootText}>총 {countPages(content)}페이지</span>
-              <span className={css.docFootText}>
-                {startBlank ? "저장하면 v1로 쌓입니다" : `다음 저장은 v${LATEST.versionNo + 1} 로 쌓입니다`}
+          renderFooterExtra={(editor) => {
+            const pageCount = getEditorPageCount(editor);
+            return (
+              <span className={css.docFoot}>
+                {pageCount !== null && <span className={css.docFootText}>총 {pageCount}페이지</span>}
+                <span className={css.docFootText}>
+                  {startBlank ? "저장하면 v1로 쌓입니다" : `다음 저장은 v${LATEST.versionNo + 1} 로 쌓입니다`}
+                </span>
+                {!startBlank && <span className={css.docFootSaved}>고친 내용 있음</span>}
               </span>
-              {!startBlank && <span className={css.docFootSaved}>고친 내용 있음</span>}
-            </span>
-          }
+            );
+          }}
           renderOverlay={(editor) => {
             const { from, to, empty } = editor.state.selection;
             if (empty) return null;

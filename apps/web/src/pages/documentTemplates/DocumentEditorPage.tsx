@@ -9,9 +9,8 @@ import { SelectionBubble } from "../../components/documentEditor/SelectionBubble
 import { VersionHistoryModal } from "../../components/documentEditor/VersionHistoryModal";
 import { DocumentEditorSkeleton } from "./DocumentEditorSkeleton";
 import { useDocumentEditor } from "./hooks/useDocumentEditor";
+import { getEditorPageCount } from "../../components/ui/editorExtensions/pageLayoutExtension";
 import * as css from "../mockups/documentEditor/documentEditorMock.css";
-
-const countPages = (html: string): number => (html.match(/data-page-break/g)?.length ?? 0) + 1;
 
 export const DocumentEditorPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -78,11 +77,16 @@ export const DocumentEditorPage = () => {
           onChange={editor.setContent}
           withTable
           withFullToolbar
+          withPageLayout
           onLoaiClick={handleToggleLoai}
           isLoaiOpen={loaiMode !== null}
           wrapClassName={css.docShell}
           areaClassName={css.docPage}
-          footerExtra={<span className={css.docFoot}>총 {countPages(editor.content)}페이지</span>}
+          renderFooterExtra={(tiptapEditor) => {
+            const pageCount = getEditorPageCount(tiptapEditor);
+            if (pageCount === null) return null;
+            return <span className={css.docFoot}>총 {pageCount}페이지</span>;
+          }}
           renderOverlay={(tiptapEditor) => {
             liveEditorRef.current = tiptapEditor;
             const { from, to, empty } = tiptapEditor.state.selection;
