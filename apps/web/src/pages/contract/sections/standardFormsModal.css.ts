@@ -5,7 +5,8 @@ import { themeVars } from "@lawkit/ui";
 export const grid3 = style({
   display: "grid",
   gridTemplateColumns: "176px 1fr 286px",
-  height: 384,
+  // 미리보기 칸(양식명 + 문서 + 메타 + 안내 문구)이 잘리지 않는 높이.
+  height: 460,
   border: `1px solid ${themeVars.color.neutralBorder}`,
   borderRadius: 10,
   overflow: "hidden",
@@ -23,6 +24,15 @@ export const colMid = style({ display: "flex", flexDirection: "column", minWidth
 export const colList = style({ flex: 1, minHeight: 0, overflowY: "auto", padding: 8 });
 export const searchBar = style({ padding: "10px 12px", borderBottom: `1px solid ${themeVars.color.neutralBorder}` });
 
+/** 목록 자리의 불러오는 중·없음·실패 — 빈 칸을 두지 않고 가운데에 보여준다. */
+export const listState = style({
+  height: "100%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "16px 12px",
+});
+
 export const colPrev = style({
   display: "flex",
   flexDirection: "column",
@@ -32,6 +42,9 @@ export const colPrev = style({
   overflowY: "auto",
 });
 export const prevName = style({ fontSize: 13.5, fontWeight: 600, letterSpacing: "-0.01em", color: themeVars.color.textHeading, lineHeight: 1.4 });
+
+/** 고른 양식이 없을 때 — 가짜 문서 대신 안내만 가운데에 둔다. */
+export const prevEmpty = style({ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" });
 
 /* 문서 미리보기 — 문서 페이지처럼 보이는 placeholder */
 export const prevPage = style({
@@ -70,6 +83,25 @@ export const catCount = style({ fontSize: 11, color: "currentColor", opacity: 0.
 export const kv = style({ display: "flex", fontSize: 11.5, padding: "5px 0", borderBottom: `1px dashed ${themeVars.color.neutralBorder}` });
 export const kvK = style({ width: 58, flexShrink: 0, color: themeVars.color.textMuted, fontWeight: 600 });
 export const kvV = style({ color: themeVars.color.textHeading, fontWeight: 500 });
+
+/** 미리보기 아래 한 줄 안내 — 시안(StartFromFormMock)의 startHint 와 같은 크기·색. */
+export const prevHint = style({
+  display: "flex",
+  gap: 6,
+  margin: 0,
+  fontSize: 11.5,
+  lineHeight: 1.6,
+  color: themeVars.color.textMuted,
+});
+export const prevHintIcon = style({ width: 14, height: 14, flexShrink: 0, marginTop: 2 });
+
+/** 계약서 작성 편집기가 뜨기 전(불러오는 중·실패) 자리 — 편집기와 비슷한 높이를 미리 잡아 모달이 튀지 않게 한다. */
+export const editorState = style({
+  minHeight: 420,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+});
 
 /* 푸터 */
 export const footRow = style({ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 8 });

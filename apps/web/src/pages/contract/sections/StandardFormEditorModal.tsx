@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Modal, Button } from "@lawkit/ui";
+import { Modal, Button, Spinner } from "@lawkit/ui";
 import { getTemplate } from "../../../api/documentTemplates";
 import { exportDocument, base64ToDocxFile } from "../../../api/documents";
 import { htmlToTiptapJson, tiptapJsonToHtml } from "../../../components/documentEditor/tiptapContent";
 import { RichTextEditor } from "../../../components/ui/RichTextEditor";
 import { ErrText } from "./_shared";
+import { LoadFailed } from "./LoadFailed";
+import * as css from "./standardFormsModal.css";
 
 interface StandardFormEditorModalProps {
   templateId: string;
@@ -68,8 +70,16 @@ export const StandardFormEditorModal = ({ templateId, templateName, onClose, onC
       }
     >
       {error && <ErrText msg={error} />}
-      {query.isLoading && <p>불러오는 중…</p>}
-      {query.isError && <p>양식을 불러오지 못했습니다.</p>}
+      {query.isLoading && (
+        <div className={css.editorState}>
+          <Spinner size="lg" label="양식을 불러오는 중…" />
+        </div>
+      )}
+      {query.isError && (
+        <div className={css.editorState}>
+          <LoadFailed onRetry={() => void query.refetch()} />
+        </div>
+      )}
       {content !== null && <RichTextEditor ariaLabel="계약서 작성" value={content} onChange={setContent} withTable withFullToolbar />}
     </Modal>
   );

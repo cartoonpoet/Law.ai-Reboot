@@ -22,6 +22,8 @@ export const browseCount = style({ fontSize: 12, fontWeight: 600, color: themeVa
 export const docsBody = style({ display: "flex", flexDirection: "column", gap: 16 });
 export const fileList = style({ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 });
 export const btnRow = style({ display: "flex", gap: 10, flexWrap: "wrap" });
+/** 계약서 칸 바로 아래 “표준계약서 양식 보기” 줄 — 업로드 영역과 같은 간격(10)을 둔다. */
+export const fieldActionRow = style({ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 });
 
 /* 계약 규모(대가) 행 */
 export const moneyRow = style({ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 8 });

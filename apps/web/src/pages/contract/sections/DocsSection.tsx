@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { Card, Alert, Button } from "@lawkit/ui";
+import { Card, Alert, Button, Icon } from "@lawkit/ui";
 import type { TemplateSummaryDto } from "@lawai/contracts";
 import type { ContractRequestForm } from "../request-schema";
 import { FIELD_TO_ROLE } from "../fileFieldRole";
@@ -65,7 +65,9 @@ export function DocsSection({ contractId, isFileLocked = false }: DocsSectionPro
             ? "체결 결재가 시작된 계약이라 계약서는 바꿀 수 없습니다. 첨부·참고서류는 추가만 할 수 있습니다."
             : isSigned
               ? "서명·날인이 완료된 최종본을 올려주세요. 서명본 기준으로 AI 리스크 분석이 실행됩니다."
-              : "검토 정확도를 위해 편집 가능한 워드(.docx) 파일 첨부를 권장합니다. 첨부 즉시 AI가 주요 리스크 조항을 사전 점검합니다."}
+              : isStandardForm
+                ? "회사 표준 양식에서 바로 작성할 수 있습니다. 아래 “표준계약서 양식 보기”로 양식을 고르면 문서 편집기가 열리고, 다 쓰면 워드(.docx) 파일이 만들어져 계약서 자리에 붙습니다. 첨부 즉시 AI가 주요 리스크 조항을 사전 점검합니다."
+                : "검토 정확도를 위해 편집 가능한 워드(.docx) 파일 첨부를 권장합니다. 첨부 즉시 AI가 주요 리스크 조항을 사전 점검합니다."}
         </Alert>
 
         {isSigned ? (
@@ -89,6 +91,20 @@ export function DocsSection({ contractId, isFileLocked = false }: DocsSectionPro
               lockMode={documentLockMode}
             />
             <ErrText msg={errors.contractFiles?.message} />
+            {/* 표준양식에서 시작하는 것도 "계약서"를 채우는 방법이므로 계약서 칸 바로 아래에 둔다. */}
+            {!isFileLocked && isStandardForm && (
+              <div className={css.fieldActionRow}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  color="secondary"
+                  iconLeft={<Icon name="fileText" size="sm" />}
+                  onClick={() => setIsFormsOpen(true)}
+                >
+                  표준계약서 양식 보기
+                </Button>
+              </div>
+            )}
           </Field>
         )}
 
@@ -110,12 +126,6 @@ export function DocsSection({ contractId, isFileLocked = false }: DocsSectionPro
             />
           </Field>
         </div>
-
-        {!isFileLocked && isStandardForm && (
-          <div className={css.btnRow}>
-            <Button type="button" variant="outline" color="secondary" size="small" onClick={() => setIsFormsOpen(true)}>표준계약서 양식 보기</Button>
-          </div>
-        )}
 
         {isFormsOpen && <StandardFormsModal onClose={() => setIsFormsOpen(false)} onStart={handleStartFromTemplate} />}
         {startingTemplate && (
