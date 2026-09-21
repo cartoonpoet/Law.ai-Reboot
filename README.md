@@ -4,12 +4,12 @@ pnpm + Turborepo 기반 모노레포. 마이크로 프론트엔드(React 19) + N
 
 ## 구조
 
-- apps/shell (:5175) — 공통 레이아웃/네비게이션 호스트
 - apps/web (:5173) — 일반 사용자용 메인
 - apps/admin (:5174) — 관리자
 - services/api-gateway (:3000) — 유일한 HTTP 진입점
 - services/auth-service (TCP :4001) — 인증(argon2, JWT)
-- services/user-service (TCP :4002) — 사용자
+- services/user-service (TCP :4002) — 계약·자문·결재·파일·문서 등 업무 도메인 전체와 DB(Prisma) 소유
+- services/ai-service (TCP :4003) — AI 모델 호출(무상태). AI 기능을 쓸 때만 필요
 - packages/contracts — FE/BE 공유 타입·메시지 패턴
 - packages/eslint-config, packages/typescript-config — 공유 설정
 
@@ -21,9 +21,14 @@ docker compose up -d                 # PostgreSQL
 cp services/user-service/.env.example services/user-service/.env
 cp services/auth-service/.env.example services/auth-service/.env
 cp services/api-gateway/.env.example services/api-gateway/.env
-pnpm --filter @lawai/user-service prisma migrate dev   # 최초 1회 (Postgres 필요)
+cp services/ai-service/.env.example services/ai-service/.env
+pnpm --filter @lawai/user-service prisma migrate dev   # 최초 1회 (Postgres 필요, 마이그레이션 적용 + client 생성)
 pnpm dev                              # turbo 병렬 기동
 ```
+
+> 주의(미확인): 서비스 코드에 `.env`를 읽는 코드(dotenv, ConfigModule, `--env-file`)가 없다.
+> `nest start --watch`만으로 위 `.env`가 실제 프로세스에 로드되는지는 아직 실행으로 검증하지 않았다.
+> 값이 안 읽히면 셸에서 `export` 하거나 `node --env-file` 로 실행한다. 한 명령 실행 정리는 별도 작업으로 진행 중이다.
 
 ## 인증 플로우
 
