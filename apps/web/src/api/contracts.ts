@@ -2,6 +2,7 @@ import type {
   ContractResponse,
   ContractStatus,
   CreateContractRequest,
+  ListContractsRequest,
   ListContractsResponse,
   StatusCloseReason,
   TerminationReason,
@@ -64,7 +65,7 @@ export interface ListContractsParams {
   statuses?: string;
   expiry?: "d7" | "d30" | "d90" | "d180" | "expired";
   // periodEnd = 만료가 가까운 순(만료 관리). 없으면 최근 수정 순.
-  sort?: "periodEnd";
+  sort?: Extract<ListContractsRequest["sort"], "periodEnd">;
   party?: string;
   categoryId?: string;
   mine?: boolean;

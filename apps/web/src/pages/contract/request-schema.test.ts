@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { CONTRACT_TITLE_MAX } from "@lawai/contracts";
 import { contractRequestSchema, contractRequestDefaults } from "./request-schema";
 
 describe("contractRequestSchema", () => {
@@ -26,6 +27,17 @@ describe("contractRequestSchema", () => {
       purpose: "<p>배경</p>",
     };
     expect(contractRequestSchema.safeParse(ok).success).toBe(true);
+  });
+
+  it("계약명이 서버 최대 길이를 넘으면 name 에러(경계 값은 통과)", () => {
+    const getNameIssues = (name: string) => {
+      const r = contractRequestSchema.safeParse({ ...contractRequestDefaults, name });
+      return r.success ? [] : r.error.issues.filter((i) => i.path[0] === "name");
+    };
+    expect(getNameIssues("가".repeat(CONTRACT_TITLE_MAX))).toHaveLength(0);
+    expect(getNameIssues("가".repeat(CONTRACT_TITLE_MAX + 1))[0]?.message).toBe(
+      `계약명은 ${CONTRACT_TITLE_MAX}자 이하로 입력하세요`,
+    );
   });
 
   it("계약서 미첨부 시 contractFiles 에러", () => {

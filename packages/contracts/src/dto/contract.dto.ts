@@ -2,20 +2,41 @@ import type { TenantContext } from "./tenant.dto";
 import type { Company } from "./company.dto";
 import type { PushNotification } from "./comment.dto";
 
-export type SecurityLevel = "top" | "secure" | "normal";
-export type ReviewType = "normal" | "std";
-export type ContractStatus =
-  | "draft"
-  | "unassigned"
-  | "assigning"
-  | "legalReview"
-  | "requesterReview"
-  | "reviewDone"
-  | "signing"
-  | "signed"
-  | "fulfilling"
-  | "closed";
-export type ApproverType = "draft" | "approve" | "agree" | "refer";
+// 프론트 폼(Zod)·게이트웨이(class-validator)가 함께 쓰는 값 집합의 단일 출처.
+export const SECURITY_LEVELS = ["top", "secure", "normal"] as const;
+export type SecurityLevel = (typeof SECURITY_LEVELS)[number];
+
+export const REVIEW_TYPES = ["normal", "std"] as const;
+export type ReviewType = (typeof REVIEW_TYPES)[number];
+
+export const CONTRACT_STATUSES = [
+  "draft",
+  "unassigned",
+  "assigning",
+  "legalReview",
+  "requesterReview",
+  "reviewDone",
+  "signing",
+  "signed",
+  "fulfilling",
+  "closed",
+] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+
+export const APPROVER_TYPES = ["draft", "approve", "agree", "refer"] as const;
+export type ApproverType = (typeof APPROVER_TYPES)[number];
+
+export const RELATED_DOC_CATEGORIES = ["contract", "advice", "litigation", "legalProject"] as const;
+export type RelatedDocCategory = (typeof RELATED_DOC_CATEGORIES)[number];
+
+export const VAT_TYPES = ["excluded", "included", "none"] as const;
+export type VatType = (typeof VAT_TYPES)[number];
+
+export const REGISTER_AS_VALUES = ["review", "signed"] as const;
+export type RegisterAs = (typeof REGISTER_AS_VALUES)[number];
+
+// 계약명 최대 길이(서버 @MaxLength 와 프론트 폼 검증이 공유).
+export const CONTRACT_TITLE_MAX = 200;
 
 // 감사 로그 액션 종류(서비스/프론트 공유). AuditLog.action 과 일치.
 export type AuditAction =
@@ -47,7 +68,7 @@ export interface EntityRef {
 export interface RelatedDocRef {
   id: string;
   name: string;
-  category: "contract" | "advice" | "litigation" | "legalProject";
+  category: RelatedDocCategory;
   sub: string;
   date: string;
 }
@@ -64,7 +85,7 @@ export interface ApproverSnapshot {
 }
 
 export interface MoneyRow {
-  vat: "excluded" | "included" | "none";
+  vat: VatType;
   amount: number | null;
   currency: string;
 }
@@ -150,7 +171,7 @@ export interface CreateContractRequest {
   schemaVersion: number;
   /** 등록 유형. "signed" 면 검토·결재를 건너뛰고 곧바로 체결 완료(signed)로 생성한다.
    *  미지정/"review" 는 기존 동작과 완전히 동일. */
-  registerAs?: "review" | "signed";
+  registerAs?: RegisterAs;
   /** 실제 서명 완료일(ISO 8601). registerAs="signed" 일 때 필수. */
   signedAt?: string | null;
   /** 갱신·변경·해지 요청의 원 계약 id. 갱신·해지는 필수, 신규는 무시된다. */

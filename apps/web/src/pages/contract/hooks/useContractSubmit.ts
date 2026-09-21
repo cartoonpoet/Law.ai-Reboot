@@ -1,47 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ContractResponse, FileInput } from "@lawai/contracts";
-import {
-  createContract,
-  updateContract,
-  finalizeRegistration,
-  type CreateContractInput,
-  type UpdateContractInput,
-} from "../../../api/contracts";
+import { createContract, updateContract, finalizeRegistration } from "../../../api/contracts";
 import { toCreateRequest } from "../toCreateRequest";
+import { toUpdatePayload } from "../toUpdatePayload";
 import type { ContractRequestForm } from "../request-schema";
 import { uploadContractFile } from "./uploadContractFile";
 import { FIELD_TO_ROLE, type FileFieldName } from "../fileFieldRole";
-
-// 게이트웨이 UpdateContractDto 는 registerAs/signedAt 을 모르는 필드로 취급한다(선언 자체가 없음,
-// 의도적 설계) — 체결 전환은 전용 finalizeRegistration/completeSigning 엔드포인트로만 이뤄지게
-// 하려는 것이다. 만약 일반 PATCH 로 이 두 필드를 세팅할 수 있으면, 결재 게이트 없이 계약을
-// signed 로 바꿔치기하는 두 번째 경로가 생긴다 — 이 기능 전체가 막으려는 바로 그 우회다.
-// 그래서 클라이언트가 이 필드들을 절대 보내지 않아야 한다.
-//
-// 이전엔 `{ ...payload }` 뒤에 `delete copy.registerAs` 로 지웠는데, 그건 타입 관계를
-// 끊어버린다(캐스트로 얼버무림) — CreateContractRequest 에 새 필드가 또 추가되면 tsc 가
-// 아무 말 없이 조용히 PATCH 로 흘려보내고, Task 6 때 실제로 일어났던 "property X should not
-// exist" 400 이 그대로 재발한다. 그래서 여기서는 UpdateContractInput 의 필드를 하나하나
-// 명시해서 만든다 — 새 필드는 여기 안 적으면 자동으로 안 나간다. 컴파일러가 그 자체로 게이트다.
-const toUpdatePayload = (payload: CreateContractInput): UpdateContractInput => ({
-  title: payload.title,
-  securityLevel: payload.securityLevel,
-  reviewType: payload.reviewType,
-  party: payload.party,
-  categoryId: payload.categoryId,
-  requesterId: payload.requesterId,
-  // ownerId 는 의도적으로 제외 — 편집 저장이 실제 법무 담당자를 덮어쓰면 안 된다(배정은 AssignModal 전용).
-  periodStart: payload.periodStart,
-  periodEnd: payload.periodEnd,
-  dueDate: payload.dueDate,
-  schemaVersion: payload.schemaVersion,
-  details: payload.details,
-  counterparties: payload.counterparties,
-  approvers: payload.approvers,
-  files: payload.files,
-  references: payload.references,
-});
 
 interface FormFileEntry {
   id: string | null;

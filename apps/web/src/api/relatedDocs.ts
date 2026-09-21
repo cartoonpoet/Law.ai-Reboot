@@ -1,7 +1,9 @@
 // 관련문서 분류(계약/자문/송무/법무프로젝트).
 // 지금 실제로 저장된 문서는 계약뿐이다 — 자문·송무·법무프로젝트 화면이 생기면 그 검색을 여기에 붙인다.
 
-export type RelatedDocCategory = "contract" | "advice" | "litigation" | "legalProject";
+import { RELATED_DOC_CATEGORIES, type RelatedDocCategory } from "@lawai/contracts";
+
+export type { RelatedDocCategory };
 
 export interface RelatedDoc {
   id: string;
@@ -13,16 +15,16 @@ export interface RelatedDoc {
   date: string;
 }
 
-export const RELATED_DOC_CATEGORIES: { value: RelatedDocCategory; label: string }[] = [
-  { value: "contract", label: "계약" },
-  { value: "advice", label: "자문" },
-  { value: "litigation", label: "송무" },
-  { value: "legalProject", label: "법무프로젝트" },
-];
+const CATEGORY_LABEL: Record<RelatedDocCategory, string> = {
+  contract: "계약",
+  advice: "자문",
+  litigation: "송무",
+  legalProject: "법무프로젝트",
+};
 
-const CATEGORY_LABEL = Object.fromEntries(
-  RELATED_DOC_CATEGORIES.map((c) => [c.value, c.label]),
-) as Record<RelatedDocCategory, string>;
+export const RELATED_DOC_CATEGORY_OPTIONS: { value: RelatedDocCategory; label: string }[] = RELATED_DOC_CATEGORIES.map(
+  (value) => ({ value, label: CATEGORY_LABEL[value] }),
+);
 
 export const categoryLabel = (category: RelatedDocCategory): string => CATEGORY_LABEL[category];
 
