@@ -1,7 +1,7 @@
 import type { MouseEvent } from "react";
 import { Modal, Button, Input, Checkbox, Icon } from "@lawkit/ui";
 import {
-  RELATED_DOC_CATEGORIES,
+  RELATED_DOC_CATEGORY_OPTIONS,
   categoryLabel,
   isRelatedDocCategoryReady,
   type RelatedDoc,
@@ -55,7 +55,7 @@ export function RelatedDocsModal({ selected, onClose, onConfirm }: RelatedDocsMo
         <div className={css.panel}>
           <aside className={css.cats}>
             <p className={css.catsHead}>분류</p>
-            {RELATED_DOC_CATEGORIES.map(({ value, label }) =>
+            {RELATED_DOC_CATEGORY_OPTIONS.map(({ value, label }) =>
               isRelatedDocCategoryReady(value) ? (
                 <div key={value} className={css.cat} onClick={() => toggleCategory(value)}>
                   <Checkbox

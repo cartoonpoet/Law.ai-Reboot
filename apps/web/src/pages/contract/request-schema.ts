@@ -1,5 +1,14 @@
 import { z } from "zod";
-import type { Company } from "@lawai/contracts";
+import {
+  APPROVER_TYPES,
+  CONTRACT_TITLE_MAX,
+  RELATED_DOC_CATEGORIES,
+  REVIEW_TYPES,
+  SECURITY_LEVELS,
+  VAT_TYPES,
+  type Company,
+  type VatType,
+} from "@lawai/contracts";
 import type { DirectoryEntry } from "../../api/directory";
 import type { RelatedDoc } from "../../api/relatedDocs";
 
@@ -13,13 +22,12 @@ export const entityRefSchema = z.object({
 export const relatedDocSchema = z.object({
   id: z.string(),
   name: z.string(),
-  category: z.enum(["contract", "advice", "litigation", "legalProject"]),
+  category: z.enum(RELATED_DOC_CATEGORIES),
   sub: z.string(),
   date: z.string(),
 }) satisfies z.ZodType<RelatedDoc>;
 
 // 결재선 항목 — 기안/결재/합의/참조 + 순서(배열 순서)
-export const APPROVER_TYPES = ["draft", "approve", "agree", "refer"] as const;
 export const approverSchema = z.object({
   // 실제 결재자 userId. 과거 저장분(사용자 미연결 스냅샷) 호환을 위해 nullable.
   userId: z.string().nullable(),
@@ -45,21 +53,23 @@ export const companyRefSchema = z.object({
   createdAt: z.string(),
 }) satisfies z.ZodType<Company>;
 
-export const VAT_OPTIONS = [
-  { value: "excluded", label: "부가가치세(10%) 별도" },
-  { value: "included", label: "부가가치세(10%) 포함" },
-  { value: "none", label: "부가가치세 없음" },
-] as const;
+const VAT_LABELS: Record<VatType, string> = {
+  excluded: "부가가치세(10%) 별도",
+  included: "부가가치세(10%) 포함",
+  none: "부가가치세 없음",
+};
 
-export const CURRENCY_OPTIONS = [
+export const VAT_OPTIONS: { value: VatType; label: string }[] = VAT_TYPES.map((value) => ({ value, label: VAT_LABELS[value] }));
+
+export const CURRENCY_OPTIONS: { value: string; label: string }[] = [
   { value: "KRW", label: "[KRW] 한국" },
   { value: "USD", label: "[USD] 미국" },
   { value: "JPY", label: "[JPY] 일본" },
   { value: "EUR", label: "[EUR] 유럽" },
-] as const;
+];
 
 export const moneyRowSchema = z.object({
-  vat: z.enum(["excluded", "included", "none"]),
+  vat: z.enum(VAT_TYPES),
   amount: z.number().nonnegative().nullable(),
   currency: z.string(),
 });
@@ -87,10 +97,13 @@ export const contractRequestSchema = z.object({
   // ① 계약 개요
   stage: z.enum(["new", "renew", "change", "terminate"]),
   originContract: originContractSchema.nullable(),
-  secure: z.enum(["top", "secure", "normal"]),
-  name: z.string().min(1, "계약명을 입력하세요"),
+  secure: z.enum(SECURITY_LEVELS),
+  name: z
+    .string()
+    .min(1, "계약명을 입력하세요")
+    .max(CONTRACT_TITLE_MAX, `계약명은 ${CONTRACT_TITLE_MAX}자 이하로 입력하세요`),
   requester: z.string().min(1, "검토 요청자를 선택하세요"),
-  ctype: z.enum(["normal", "std"]),
+  ctype: z.enum(REVIEW_TYPES),
   party: z.string().min(1, "계약 당사자를 선택하세요"),
   categoryId: z.string().min(1, "계약 분류를 선택하세요"),
   periodStart: z.string(),

@@ -10,6 +10,13 @@ import {
   MaxLength,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  CONTRACT_STATUSES,
+  CONTRACT_TITLE_MAX,
+  REGISTER_AS_VALUES,
+  REVIEW_TYPES,
+  SECURITY_LEVELS,
+} from "@lawai/contracts";
 import type {
   ApproverSnapshot,
   CcRecipientInput,
@@ -20,36 +27,24 @@ import type {
   SecurityLevel,
   StatusCloseReason,
   TerminationReason,
+  RegisterAs,
   ReviewType,
 } from "@lawai/contracts";
-
-const CONTRACT_STATUSES = [
-  "draft",
-  "unassigned",
-  "assigning",
-  "legalReview",
-  "requesterReview",
-  "reviewDone",
-  "signing",
-  "signed",
-  "fulfilling",
-  "closed",
-] as const;
 
 // @lawai/contracts 의 CreateContractRequest 미러(createdById 제외 — gateway 가 JWT 에서 주입).
 // details/counterparties 는 schemaVersion 이 소유하므로 통과(pass-through)시킨다.
 export class CreateContractDto {
   @ApiProperty({ example: "2026년 SaaS 이용계약" })
   @IsString()
-  @MaxLength(200)
+  @MaxLength(CONTRACT_TITLE_MAX)
   title!: string;
 
-  @ApiProperty({ enum: ["top", "secure", "normal"] })
-  @IsIn(["top", "secure", "normal"])
+  @ApiProperty({ enum: SECURITY_LEVELS })
+  @IsIn(SECURITY_LEVELS)
   securityLevel!: SecurityLevel;
 
-  @ApiProperty({ enum: ["normal", "std"] })
-  @IsIn(["normal", "std"])
+  @ApiProperty({ enum: REVIEW_TYPES })
+  @IsIn(REVIEW_TYPES)
   reviewType!: ReviewType;
 
   @ApiPropertyOptional()
@@ -81,13 +76,13 @@ export class CreateContractDto {
   dueDate?: string | null;
 
   @ApiPropertyOptional({
-    enum: ["review", "signed"],
+    enum: REGISTER_AS_VALUES,
     description:
       "등록 유형. signed 면 검토·결재를 건너뛰고 곧바로 체결 완료로 등록한다(미지정 시 review).",
   })
   @IsOptional()
-  @IsIn(["review", "signed"])
-  registerAs?: "review" | "signed";
+  @IsIn(REGISTER_AS_VALUES)
+  registerAs?: RegisterAs;
 
   @ApiPropertyOptional({ description: "실제 서명 완료일(ISO 8601). registerAs=signed 일 때 필수." })
   @IsOptional() @IsString() @MaxLength(40)
@@ -124,15 +119,15 @@ export class CreateContractDto {
 
 // 필드 수정(부분). 관계는 변경하지 않는다.
 export class UpdateContractDto {
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200)
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(CONTRACT_TITLE_MAX)
   title?: string;
 
-  @ApiPropertyOptional({ enum: ["top", "secure", "normal"] })
-  @IsOptional() @IsIn(["top", "secure", "normal"])
+  @ApiPropertyOptional({ enum: SECURITY_LEVELS })
+  @IsOptional() @IsIn(SECURITY_LEVELS)
   securityLevel?: SecurityLevel;
 
-  @ApiPropertyOptional({ enum: ["normal", "std"] })
-  @IsOptional() @IsIn(["normal", "std"])
+  @ApiPropertyOptional({ enum: REVIEW_TYPES })
+  @IsOptional() @IsIn(REVIEW_TYPES)
   reviewType?: ReviewType;
 
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100)
