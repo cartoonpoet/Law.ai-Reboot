@@ -1,6 +1,10 @@
 import { Module } from "@nestjs/common";
 import { ContractsController } from "./contracts.controller";
 import { ContractsService } from "./contracts.service";
+import { ContractQueryService } from "./contract-query.service";
+import { ContractCommandService } from "./contract-command.service";
+import { ContractLifecycleService } from "./contract-lifecycle.service";
+import { ContractAiTriggers } from "./contract-ai-triggers";
 import { AuditService } from "./contracts.audit";
 import { ContractApprovalOutcomeHandler } from "./contract-approval.handler";
 import { PublicStatsService } from "./public-stats.service";
@@ -18,6 +22,16 @@ import { ContractExpiryNotifier } from "./contract-expiry.notifier";
   // PublicStatsService 는 로그인 화면 공개 통계(검토된 계약 수).
   // ContractExpiryNotifier 는 매일 만료 임박 계약 알림을 만든다(NotificationsModule 사용).
   imports: [FilesModule, ApprovalsModule, AiAnalysisModule, NotificationsModule],
-  providers: [ContractsService, AuditService, ContractApprovalOutcomeHandler, PublicStatsService, ContractExpiryNotifier],
+  providers: [
+    ContractsService,
+    ContractQueryService,
+    ContractCommandService,
+    ContractLifecycleService,
+    ContractAiTriggers,
+    AuditService,
+    ContractApprovalOutcomeHandler,
+    PublicStatsService,
+    ContractExpiryNotifier,
+  ],
 })
 export class ContractsModule {}
