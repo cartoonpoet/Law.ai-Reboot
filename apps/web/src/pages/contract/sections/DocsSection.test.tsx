@@ -67,14 +67,20 @@ function FilesSpy() {
 function Wrap({
   isFileLocked = false,
   ctype,
+  registerAs,
   contractId,
 }: {
   isFileLocked?: boolean;
   ctype?: ContractRequestForm["ctype"];
+  registerAs?: ContractRequestForm["registerAs"];
   contractId?: string;
 }) {
   const methods = useForm<ContractRequestForm>({
-    defaultValues: ctype ? { ...contractRequestDefaults, ctype } : contractRequestDefaults,
+    defaultValues: {
+      ...contractRequestDefaults,
+      ...(ctype ? { ctype } : {}),
+      ...(registerAs ? { registerAs } : {}),
+    },
   });
   return (
     <FormProvider {...methods}>
@@ -102,9 +108,17 @@ describe("DocsSection", () => {
     expect(screen.queryByRole("button", { name: "표준계약서 양식 보기" })).not.toBeInTheDocument();
   });
 
-  it("표준계약서 체결(ctype=std)이면 표준양식 보기 버튼을 보여준다", () => {
+  it("표준계약서 체결(ctype=std)이면 표준양식 보기 버튼을 계약서 칸 안에 보여준다", () => {
     render(<Wrap ctype="std" contractId="ct-1" />);
     expect(screen.getByRole("button", { name: "표준계약서 양식 보기" })).toBeInTheDocument();
+  });
+
+  // 체결 완료 등록(registerAs=signed)은 이미 서명·날인이 끝난 원본을 올리는 화면이라, 표준양식으로
+  // 새로 작성할 일이 없다. ctype=std 라도 버튼을 내보내지 않는 것이 의도된 동작이다.
+  it("체결 완료 등록(registerAs=signed)이면 ctype=std 라도 표준양식 보기 버튼을 숨긴다", () => {
+    render(<Wrap ctype="std" registerAs="signed" contractId="ct-1" />);
+    expect(screen.getByText("최종 서명본")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "표준계약서 양식 보기" })).not.toBeInTheDocument();
   });
 });
 
