@@ -18,8 +18,9 @@ services:
       retries: 10
 
   # DB가 준비되면 user-service Prisma 스키마를 한 번에 반영하는 원샷 컨테이너.
-  # 커밋된 마이그레이션 파일이 없어 로컬 편의용으로 `prisma db push`를 사용한다
-  # (URL의 ?schema=users 에 따라 users 스키마와 테이블을 자동 생성).
+  # 로컬 편의용으로 `prisma db push`를 사용한다. 마이그레이션 파일은
+  # services/user-service/prisma/migrations 에 있고, 운영은 `prisma migrate deploy` 로
+  # 적용한다(docker-entrypoint.sh). db push 는 그 이력을 남기지 않는다.
   db-migrate:
     image: node:20-alpine
     container_name: lawai-db-migrate
