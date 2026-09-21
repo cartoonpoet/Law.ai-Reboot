@@ -1,5 +1,17 @@
 import { style, globalStyle, styleVariants } from "@vanilla-extract/css";
 import { themeVars } from "@lawkit/ui";
+import {
+  pageSplitRule,
+  pageSplitBandRule,
+  pageSplitBadgeRule,
+} from "../../../components/ui/editorExtensions/pageLayout.css";
+import {
+  PAGE_HEIGHT,
+  PAGE_PADDING_X,
+  PAGE_PADDING_Y,
+  PAGE_TAIL_VAR,
+  PAGE_WIDTH,
+} from "../../../components/ui/editorExtensions/pageMetrics";
 
 /* =========================================================================
  * 표준양식 관리 · 문서 편집기 시안 전용 스타일.
@@ -180,18 +192,28 @@ export const editorLayout = styleVariants({
 /* ── 종이처럼 보이는 캔버스 ── */
 
 /** RichTextEditor 바깥 상자 덮어쓰기 — 회색 바탕 위에 종이를 올린다. */
-export const docShell = style({ background: BACKGROUND, position: "relative" });
+export const docShell = style({
+  background: BACKGROUND,
+  position: "relative",
+  // 종이 폭이 A4 로 고정이라 화면이 좁으면(로아이 패널을 연 경우 등) 가로로 밀어 본다.
+  // 폭이 그대로라 패널을 여닫아도 쪽이 다시 나뉘지 않는다.
+  overflowX: "auto",
+});
 
 /** 편집 영역(.ProseMirror) — A4 비율 흰 종이. */
 export const docPage = style({});
 
 globalStyle(`${docShell} ${docPage}`, {
   position: "relative",
-  width: "100%",
-  maxWidth: 748,
-  minHeight: 900,
+  // A4 폭 고정 — 화면 폭에 따라 줄바꿈이 달라지면 같은 문서의 쪽 수가 왔다 갔다 한다.
+  width: PAGE_WIDTH,
+  minHeight: PAGE_HEIGHT,
   margin: "26px auto",
-  padding: "62px 66px",
+  paddingTop: PAGE_PADDING_Y,
+  paddingLeft: PAGE_PADDING_X,
+  paddingRight: PAGE_PADDING_X,
+  // 마지막 장에 남은 높이(--doc-page-tail)를 아래 여백에 더해 마지막 장도 A4 한 장으로 꽉 차 보이게 한다.
+  paddingBottom: `calc(${PAGE_PADDING_Y}px + var(${PAGE_TAIL_VAR}, 0px))`,
   background: SURFACE,
   border: `1px solid ${BORDER}`,
   borderRadius: 3,
@@ -199,7 +221,6 @@ globalStyle(`${docShell} ${docPage}`, {
   fontSize: 14,
   lineHeight: 1.85,
   color: c.textPrimary,
-  counterReset: "pageBreak 1",
 });
 
 /* 종이 첫 쪽 표시 — 위쪽 여백에 얹는 "1페이지" 배지. 이후 쪽은 페이지 나누기 배지가 대신한다. */
@@ -225,38 +246,17 @@ globalStyle(`${docPage} p`, { margin: "0 0 12px", textAlign: "justify" });
 globalStyle(`${docPage} table`, { fontSize: 13 });
 
 /*
- * 페이지 나누기 블록(문서 편집기 캔버스 전용 강화 스타일) — 실제 워드처럼 종이와 종이 사이가
- * 회색 틈으로 끊어지고, 그 틈 가운데 다음 쪽 번호 배지가 뜬다. 종이 좌우 패딩 밖까지 번지도록
- * 음수 마진을 줘서 종이 폭 전체가 끊어진 것처럼 보이게 한다.
+ * 사용자가 넣은 "페이지 나누기" 블록(문서 편집기 캔버스 전용 강화 스타일) — 실제 워드처럼 종이와
+ * 종이 사이가 회색 틈으로 끊어지고, 그 틈 가운데 다음 쪽 번호 배지가 뜬다.
+ * 내용이 넘쳐 자동으로 나뉜 자리(pageLayout 확장의 위젯)와 같은 모양을 쓴다 — 남은 빈칸 높이(--doc-page-fill)와
+ * 쪽 번호(data-page-label)는 pageLayout 확장이 얹어 준다.
  * (다른 화면의 RichTextEditor — 계약/자문 본문 — 는 RichTextEditor.css.ts 의 얇은 점선 스타일 그대로 쓴다.)
  */
-globalStyle(`${docShell} ${docPage} div[data-page-break]`, {
-  position: "relative",
-  counterIncrement: "pageBreak",
-  height: 40,
-  margin: "40px -66px",
-  background: BACKGROUND,
-  borderTop: `1px solid ${BORDER}`,
-  borderBottom: `1px solid ${BORDER}`,
-  boxShadow:
-    "inset 0 8px 10px -10px color-mix(in srgb, #000 22%, transparent), inset 0 -8px 10px -10px color-mix(in srgb, #000 22%, transparent)",
-});
-globalStyle(`${docShell} ${docPage} div[data-page-break]::after`, {
-  content: 'counter(pageBreak) "페이지"',
-  position: "absolute",
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  padding: "2px 10px",
-  borderRadius: 999,
-  background: SURFACE,
-  border: `1px solid ${BORDER}`,
-  color: MUTED,
-  fontSize: 10.5,
-  fontWeight: 700,
-  letterSpacing: "-0.01em",
-  whiteSpace: "nowrap",
-});
+globalStyle(`${docShell} ${docPage} div[data-page-break]`, { ...pageSplitRule });
+globalStyle(`${docShell} ${docPage} div[data-page-break]::before`, { ...pageSplitBandRule });
+/* 쪽 번호가 아직 없는 동안에는 배지를 그리지 않는다(다른 화면용 "페이지 나누기" 라벨도 함께 지운다). */
+globalStyle(`${docShell} ${docPage} div[data-page-break]::after`, { content: "none" });
+globalStyle(`${docShell} ${docPage} div[data-page-break][data-page-label]::after`, { ...pageSplitBadgeRule });
 globalStyle(`${docShell} ${docPage} div[data-page-break].ProseMirror-selectednode::after`, {
   color: PRIMARY,
   borderColor: PRIMARY_LINE,

@@ -11,6 +11,7 @@ import { useRichTextEditor } from "./useRichTextEditor";
 import { promptForLink, getIsAccentColorActive, toggleAccentColor } from "./editorCommands";
 import { ParagraphLineHeight } from "./editorExtensions/lineHeightExtension";
 import { PageBreak } from "./editorExtensions/pageBreakNode";
+import { PageLayout } from "./editorExtensions/pageLayoutExtension";
 import { DocumentToolbar } from "./documentToolbar/DocumentToolbar";
 import {
   IconTable,
@@ -41,6 +42,11 @@ interface RichTextEditorProps {
    * 문서 편집기 전용. 넘기지 않으면 지금까지의 한 줄 툴바 그대로다.
    */
   withFullToolbar?: boolean;
+  /**
+   * 워드처럼 A4 한 장을 넘치면 자동으로 다음 장으로 나뉘어 보이게 한다 — 종이 캔버스(areaClassName)를
+   * 쓰는 문서 편집기 전용. 나눔은 보이기 전용이라 저장되는 내용은 달라지지 않는다.
+   */
+  withPageLayout?: boolean;
   /** 넘기면 툴바 맨 오른쪽에 "로아이" 버튼이 붙는다. */
   onLoaiClick?: () => void;
   /** 로아이 패널이 열려 있는지 — 버튼을 켜진 상태로 보이게 한다. */
@@ -51,6 +57,11 @@ interface RichTextEditorProps {
   areaClassName?: string;
   /** 하단 바 오른쪽에 덧붙일 내용(저장 시각·글자 수 등). */
   footerExtra?: ReactNode;
+  /**
+   * 하단 바 오른쪽에 덧붙일 내용을 살아있는 editor 에서 파생해 그린다 — "총 N페이지"처럼
+   * 편집기 상태가 있어야 하는 값에 쓴다(renderOverlay 와 같은 방식). footerExtra 와 함께 쓰면 둘 다 그린다.
+   */
+  renderFooterExtra?: (editor: Editor) => ReactNode;
   /** 편집기 상자 안에 겹쳐 그릴 것(글을 선택했을 때 뜨는 작은 툴바 등). */
   renderOverlay?: (editor: Editor) => ReactNode;
 }
@@ -75,6 +86,12 @@ export const FULL_TOOLBAR_EXTENSIONS = [
   PageBreak,
 ];
 
+/**
+ * 자동 페이지 나눔(A4 한 장이 넘치면 다음 장으로) — 종이 캔버스를 쓰는 문서 편집기에서만 켠다.
+ * 스키마(노드·마크)를 건드리지 않는 표시 전용 확장이라 저장 스키마(tiptapContent.ts)에는 넣지 않는다.
+ */
+const PAGE_LAYOUT_EXTENSIONS = [PageLayout];
+
 /** 문단 스타일 셀렉트 옵션 — 본문/제목1~3. active 라벨은 editor 상태에서 파생한다. */
 const BLOCK_STYLES: { label: string; level: 1 | 2 | 3 | null }[] = [
   { label: "본문", level: null },
@@ -96,11 +113,13 @@ export function RichTextEditor({
   placeholder,
   withTable = false,
   withFullToolbar = false,
+  withPageLayout = false,
   onLoaiClick,
   isLoaiOpen = false,
   wrapClassName,
   areaClassName,
   footerExtra,
+  renderFooterExtra,
   renderOverlay,
 }: RichTextEditorProps) {
   const [isStyleMenuOpen, setIsStyleMenuOpen] = useState(false);
@@ -113,6 +132,7 @@ export function RichTextEditor({
     extraExtensions: [
       ...(withTable ? TABLE_EXTENSIONS : []),
       ...(withFullToolbar ? FULL_TOOLBAR_EXTENSIONS : []),
+      ...(withPageLayout ? PAGE_LAYOUT_EXTENSIONS : []),
     ],
   });
 
@@ -296,6 +316,7 @@ export function RichTextEditor({
           Word·HWP 서식 붙여넣기 지원
         </span>
         {footerExtra}
+        {renderFooterExtra?.(editor)}
       </div>
     </div>
   );
